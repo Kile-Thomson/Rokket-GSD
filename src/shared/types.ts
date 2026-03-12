@@ -23,7 +23,6 @@ export type WebviewToExtensionMessage =
   | { type: "export_html" }
   | { type: "run_bash"; command: string }
   | { type: "fork_conversation"; entryId: string }
-  | { type: "tool_permission_response"; id: string; allowed: boolean }
   | { type: "extension_ui_response"; id: string; value?: string; confirmed?: boolean; cancelled?: boolean }
   | { type: "copy_text"; text: string }
   | { type: "open_file"; path: string }
@@ -54,6 +53,9 @@ export type ExtensionToWebviewMessage =
   | { type: "error"; message: string }
   | { type: "process_exit"; code: number | null; signal: string | null }
   | { type: "commands"; commands: CommandInfo[] }
+  | { type: "available_models"; models: AvailableModelInfo[] }
+  | { type: "bash_result"; result: BashResult }
+  | { type: "thinking_level_changed"; level: ThinkingLevel }
   | { type: "config"; useCtrlEnterToSend: boolean; cwd?: string; version?: string }
   | { type: "process_status"; status: ProcessStatus };
 
@@ -150,4 +152,48 @@ export interface CommandInfo {
   source: string;
   location?: string;
   path?: string;
+}
+
+export interface AvailableModelInfo {
+  id: string;
+  name?: string;
+  provider: string;
+  reasoning?: boolean;
+  contextWindow?: number;
+}
+
+export interface BashResult {
+  stdout?: string;
+  stderr?: string;
+  output?: string;
+  exitCode?: number;
+  error?: boolean;
+}
+
+// --- RPC response types ---
+
+export interface RpcCommandsResult {
+  commands?: CommandInfo[];
+}
+
+export interface RpcModelsResult {
+  models?: AvailableModelInfo[];
+}
+
+export interface RpcThinkingResult {
+  level?: ThinkingLevel;
+}
+
+export interface RpcExportResult {
+  path?: string;
+}
+
+export interface RpcStateResult {
+  model?: ModelInfo;
+  thinkingLevel?: ThinkingLevel;
+  isStreaming?: boolean;
+  isCompacting?: boolean;
+  autoCompactionEnabled?: boolean;
+  cwd?: string;
+  [key: string]: unknown;
 }
