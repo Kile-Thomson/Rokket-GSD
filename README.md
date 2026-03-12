@@ -57,7 +57,7 @@ npm run build
 npx vsce package --no-dependencies
 
 # 5. Install into VS Code
-code --install-extension rokket-gsd-0.2.0.vsix --force
+code --install-extension rokket-gsd-0.2.1.vsix --force
 
 # 6. Reload VS Code (Ctrl+Shift+P → "Developer: Reload Window")
 ```
@@ -69,9 +69,9 @@ code --install-extension rokket-gsd-0.2.0.vsix --force
 > # macOS:   ~/.vscode/extensions/
 > # Linux:   ~/.vscode/extensions/
 >
-> mkdir -p ~/.vscode/extensions/rokketek.rokket-gsd-0.2.0
-> cd ~/.vscode/extensions/rokketek.rokket-gsd-0.2.0
-> unzip /path/to/rokket-gsd-0.2.0.vsix
+> mkdir -p ~/.vscode/extensions/rokketek.rokket-gsd-0.2.1
+> cd ~/.vscode/extensions/rokketek.rokket-gsd-0.2.1
+> unzip /path/to/rokket-gsd-0.2.1.vsix
 > cp -r extension/* . && rm -rf extension extension.vsixmanifest "[Content_Types].xml"
 > ```
 
