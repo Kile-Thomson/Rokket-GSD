@@ -3,8 +3,29 @@
 // ============================================================
 
 import { marked } from "marked";
+import DOMPurify from "dompurify";
 import type { SessionStats } from "../shared/types";
 import type { AppState, ToolCategory, ToolCallState } from "./state";
+
+// ============================================================
+// URL safety
+// ============================================================
+
+const ALLOWED_URL_SCHEMES = ["http:", "https:", "file:", "mailto:", "vscode:"];
+
+/** Validate a URL has a safe scheme. Returns the URL if safe, empty string if not. */
+export function sanitizeUrl(href: string): string {
+  if (!href) return "";
+  try {
+    const url = new URL(href, "https://placeholder.invalid");
+    if (ALLOWED_URL_SCHEMES.includes(url.protocol)) return href;
+    return "";
+  } catch {
+    // Relative URLs are fine (file paths, anchors)
+    if (href.startsWith("/") || href.startsWith("#") || href.startsWith("./") || href.startsWith("../")) return href;
+    return "";
+  }
+}
 
 // ============================================================
 // Configure marked
@@ -15,7 +36,9 @@ let codeBlockIdCounter = 0;
 const renderer = new marked.Renderer();
 
 renderer.link = ({ href, text }: { href: string; text: string }) => {
-  return `<a href="${escapeAttr(href)}" class="gsd-link" title="${escapeAttr(href)}">${text}</a>`;
+  const safeHref = sanitizeUrl(href);
+  if (!safeHref) return `<span class="gsd-link-blocked" title="Blocked: unsafe URL scheme">${text}</span>`;
+  return `<a href="${escapeAttr(safeHref)}" class="gsd-link" title="${escapeAttr(safeHref)}">${text}</a>`;
 };
 
 renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
@@ -116,12 +139,12 @@ export function truncateArg(s: string, max: number): string {
 export function getToolCategory(name: string): ToolCategory {
   const n = name.toLowerCase();
   if (["read", "write", "edit"].includes(n)) return "file";
-  if (n === "bash" || n === "bg_shell") return "shell";
+  if (n === "bg_shell") return "process";
+  if (n === "bash") return "shell";
   if (n.startsWith("browser_") || n.startsWith("mac_")) return "browser";
   if (["search-the-web", "search_and_read", "fetch_page", "google_search",
        "resolve_library", "get_library_docs"].includes(n)) return "search";
   if (n === "subagent") return "agent";
-  if (["bg_shell"].includes(n)) return "process";
   return "generic";
 }
 
@@ -239,6 +262,14 @@ export function renderMarkdown(text: string): string {
   if (!text) return "";
   try {
     let html = marked.parse(text, { renderer }) as string;
+
+    // Sanitize HTML output — strips script tags, event handlers, dangerous attributes
+    html = DOMPurify.sanitize(html, {
+      ADD_TAGS: ["details", "summary"],
+      ADD_ATTR: ["class", "data-code-id", "data-path", "title"],
+      ALLOW_DATA_ATTR: true,
+    });
+
     // Wrap bare <table> elements in a scrollable container
     html = html.replace(/<table>/g, '<div class="gsd-table-wrapper"><table>');
     html = html.replace(/<\/table>/g, '</table></div>');

@@ -43,6 +43,7 @@ import {
   renderMarkdown,
   isLikelyFilePath,
   scrollToBottom,
+  sanitizeUrl,
 } from "./helpers";
 
 // VS Code API
@@ -729,7 +730,11 @@ document.addEventListener("click", (e: Event) => {
 
   if (target.tagName === "A" && target.getAttribute("href")) {
     e.preventDefault();
-    vscode.postMessage({ type: "open_url", url: target.getAttribute("href")! });
+    const href = target.getAttribute("href")!;
+    const safeUrl = sanitizeUrl(href);
+    if (safeUrl) {
+      vscode.postMessage({ type: "open_url", url: safeUrl });
+    }
     return;
   }
 
