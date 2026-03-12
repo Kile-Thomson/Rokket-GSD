@@ -317,6 +317,30 @@ export class GsdRpcClient extends EventEmitter {
     return await this.request({ type: "fork", entryId });
   }
 
+  async cycleModel(): Promise<unknown> {
+    return await this.request({ type: "cycle_model" });
+  }
+
+  async setAutoCompaction(enabled: boolean): Promise<void> {
+    await this.request({ type: "set_auto_compaction", enabled });
+  }
+
+  async setAutoRetry(enabled: boolean): Promise<void> {
+    await this.request({ type: "set_auto_retry", enabled });
+  }
+
+  async abortRetry(): Promise<void> {
+    await this.request({ type: "abort_retry" });
+  }
+
+  async abortBash(): Promise<void> {
+    await this.request({ type: "abort_bash" });
+  }
+
+  async getLastAssistantText(): Promise<unknown> {
+    return await this.request({ type: "get_last_assistant_text" });
+  }
+
   /**
    * Send an extension_ui_response back to the GSD process.
    */
