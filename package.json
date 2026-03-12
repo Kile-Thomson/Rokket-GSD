@@ -1,0 +1,141 @@
+{
+  "name": "rokket-gsd",
+  "displayName": "Rokket GSD",
+  "description": "AI coding agent by Rokketek — full chat UI, tool execution, model picker, and GSD workflow automation in VS Code",
+  "version": "0.2.0",
+  "publisher": "rokketek",
+  "license": "MIT",
+  "icon": "resources/rokket-icon.png",
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "categories": [
+    "AI",
+    "Chat"
+  ],
+  "keywords": [
+    "gsd",
+    "ai",
+    "agent",
+    "coding"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "GSD",
+      "properties": {
+        "gsd.processWrapper": {
+          "type": "string",
+          "default": "",
+          "description": "Custom executable path to launch the GSD process. Leave empty to use the default 'gsd' command."
+        },
+        "gsd.environmentVariables": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "value": { "type": "string" }
+            },
+            "required": ["name", "value"]
+          },
+          "default": [],
+          "description": "Environment variables to set when launching GSD."
+        },
+        "gsd.useCtrlEnterToSend": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use Ctrl/Cmd+Enter to send prompts instead of Enter. Allows Enter for newlines."
+        },
+        "gsd.preferredLocation": {
+          "type": "string",
+          "enum": ["sidebar", "panel"],
+          "enumDescriptions": ["Sidebar (Right)", "Panel (New Tab)"],
+          "default": "panel",
+          "description": "Where GSD opens by default."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "gsd.open",
+        "title": "Rokket GSD: Open",
+        "icon": {
+          "light": "resources/gsd-logo.svg",
+          "dark": "resources/gsd-logo.svg"
+        }
+      },
+      {
+        "command": "gsd.openInTab",
+        "title": "Rokket GSD: Open in New Tab"
+      },
+      {
+        "command": "gsd.openInSidebar",
+        "title": "Rokket GSD: Open in Side Bar"
+      },
+      {
+        "command": "gsd.newConversation",
+        "title": "Rokket GSD: New Conversation"
+      },
+      {
+        "command": "gsd.focus",
+        "title": "Rokket GSD: Focus Input"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "gsd-sidebar",
+          "title": "Rokket GSD",
+          "icon": "resources/gsd-logo.svg"
+        }
+      ]
+    },
+    "views": {
+      "gsd-sidebar": [
+        {
+          "type": "webview",
+          "id": "gsd.sidebarView",
+          "name": "Rokket GSD"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "gsd.focus",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g"
+      },
+      {
+        "command": "gsd.newConversation",
+        "key": "ctrl+shift+n",
+        "mac": "cmd+shift+n",
+        "when": "gsd.focused"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "npm run build:extension && npm run build:webview",
+    "build:extension": "esbuild src/extension/index.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "build:webview": "esbuild src/webview/index.ts --bundle --outfile=dist/webview/index.js --format=iife --platform=browser --sourcemap --loader:.css=css --define:process.env.NODE_ENV=\\\"production\\\"",
+    "watch": "concurrently \"npm run watch:extension\" \"npm run watch:webview\"",
+    "watch:extension": "esbuild src/extension/index.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
+    "watch:webview": "esbuild src/webview/index.ts --bundle --outfile=dist/webview/index.js --format=iife --platform=browser --sourcemap --loader:.css=css --define:process.env.NODE_ENV=\\\"production\\\" --watch",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.94.0",
+    "concurrently": "^8.2.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.5.0",
+    "@vscode/vsce": "^3.0.0"
+  },
+  "dependencies": {
+    "marked": "^15.0.0"
+  }
+}
