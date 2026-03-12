@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { GsdRpcClient } from "./rpc-client";
 import { listSessions, deleteSession } from "./session-list-service";
+import { downloadAndInstallUpdate, dismissUpdateVersion } from "./update-checker";
 import type {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
@@ -619,6 +620,33 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           break;
         }
 
+        case "set_auto_compaction": {
+          const client = this.rpcClients.get(sessionId);
+          if (client?.isRunning) {
+            try {
+              await client.setAutoCompaction(msg.enabled);
+            } catch (err: any) {
+              this.postToWebview(webview, { type: "error", message: err.message });
+            }
+          }
+          break;
+        }
+
+        case "update_install": {
+          await downloadAndInstallUpdate(msg.downloadUrl, this.context);
+          break;
+        }
+
+        case "update_dismiss": {
+          await dismissUpdateVersion(msg.version, this.context);
+          break;
+        }
+
+        case "update_view_release": {
+          vscode.env.openExternal(vscode.Uri.parse(msg.htmlUrl));
+          break;
+        }
+
         case "extension_ui_response": {
           const client = this.rpcClients.get(sessionId);
           if (client) {
@@ -697,7 +725,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
     client.on("exit", ({ code, signal, detail }: { code: number | null; signal: string | null; detail?: string }) => {
       this.output.appendLine(`[${sessionId}] Process exited: ${detail || `code=${code}, signal=${signal}`}`);
-      this.postToWebview(webview, { type: "process_exit", code, signal });
+      this.postToWebview(webview, { type: "process_exit", code, signal, detail });
       this.postToWebview(webview, { type: "process_status", status: "crashed" } as ExtensionToWebviewMessage);
 
       // Stop stats polling
@@ -716,7 +744,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
     client.on("error", (err: Error) => {
       this.output.appendLine(`[${sessionId}] Process error: ${err.message}`);
-      this.postToWebview(webview, { type: "error", message: `Failed to start GSD: ${err.message}` });
+      this.postToWebview(webview, {
+        type: "process_exit",
+        code: null,
+        signal: null,
+        detail: `Failed to start GSD: ${err.message}`,
+      });
       this.postToWebview(webview, { type: "process_status", status: "crashed" } as ExtensionToWebviewMessage);
     });
 
@@ -745,8 +778,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.startStatsPolling(webview, sessionId);
     } catch (err: any) {
       this.postToWebview(webview, {
-        type: "error",
-        message: `Failed to start GSD: ${err.message}. Make sure 'gsd' is installed and in your PATH.`,
+        type: "process_exit",
+        code: null,
+        signal: null,
+        detail: `Failed to start GSD: ${err.message}. Make sure 'gsd' is installed and in your PATH.`,
       });
       this.postToWebview(webview, { type: "process_status", status: "crashed" } as ExtensionToWebviewMessage);
     }
@@ -837,17 +872,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         const message = event.message as string || "";
         const notifyType = event.notifyType as string || "info";
 
-        switch (notifyType) {
-          case "error":
-            vscode.window.showErrorMessage(`GSD: ${message}`);
-            break;
-          case "warning":
-            vscode.window.showWarningMessage(`GSD: ${message}`);
-            break;
-          default:
-            vscode.window.showInformationMessage(`GSD: ${message}`);
-            break;
-        }
+        // Forward to webview — chat is the primary notification surface
+        this.postToWebview(webview, event as unknown as ExtensionToWebviewMessage);
         break;
       }
 
@@ -882,13 +908,26 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     webview.postMessage(message);
   }
 
-  private broadcastToAll(message: ExtensionToWebviewMessage): void {
+  /**
+   * Public broadcast — used by update checker and health check
+   * to push messages to all webview instances.
+   * Returns true if the message was delivered to at least one webview.
+   */
+  public broadcast(message: ExtensionToWebviewMessage): boolean {
+    return this.broadcastToAll(message);
+  }
+
+  private broadcastToAll(message: ExtensionToWebviewMessage): boolean {
+    let delivered = false;
     if (this.webviewView) {
       this.webviewView.webview.postMessage(message);
+      delivered = true;
     }
     for (const [_, panel] of this.panels) {
       panel.webview.postMessage(message);
+      delivered = true;
     }
+    return delivered;
   }
 
   private getUseCtrlEnter(): boolean {
