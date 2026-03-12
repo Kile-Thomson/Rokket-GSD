@@ -28,7 +28,11 @@ export type WebviewToExtensionMessage =
   | { type: "open_file"; path: string }
   | { type: "open_url"; url: string }
   | { type: "open_diff"; leftPath: string; rightPath: string }
-  | { type: "ready" };
+  | { type: "ready" }
+  | { type: "get_session_list" }
+  | { type: "switch_session"; path: string }
+  | { type: "rename_session"; name: string }
+  | { type: "delete_session"; path: string };
 
 // --- Messages FROM extension TO webview ---
 
@@ -57,7 +61,29 @@ export type ExtensionToWebviewMessage =
   | { type: "bash_result"; result: BashResult }
   | { type: "thinking_level_changed"; level: ThinkingLevel }
   | { type: "config"; useCtrlEnterToSend: boolean; cwd?: string; version?: string }
-  | { type: "process_status"; status: ProcessStatus };
+  | { type: "process_status"; status: ProcessStatus }
+  | { type: "session_list"; sessions: SessionListItem[] }
+  | { type: "session_switched"; state: GsdState; messages: AgentMessage[] }
+  | { type: "session_list_error"; message: string };
+
+// --- Session List Types ---
+
+export interface SessionListItem {
+  /** Absolute path to the session JSONL file */
+  path: string;
+  /** Session UUID */
+  id: string;
+  /** User-defined display name */
+  name?: string;
+  /** First user message text (for preview) */
+  firstMessage: string;
+  /** ISO string — session creation time */
+  created: string;
+  /** ISO string — last activity time */
+  modified: string;
+  /** Total number of message entries */
+  messageCount: number;
+}
 
 // --- Shared Data Types ---
 

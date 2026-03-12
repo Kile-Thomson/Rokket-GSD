@@ -2,16 +2,19 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import { GsdRpcClient } from "./rpc-client";
+import { listSessions, deleteSession } from "./session-list-service";
 import type {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
   SessionStats,
+  SessionListItem,
   RpcCommandsResult,
   RpcModelsResult,
   RpcThinkingResult,
   RpcExportResult,
   RpcStateResult,
   BashResult,
+  AgentMessage,
 } from "../shared/types";
 
 // ============================================================
@@ -513,6 +516,105 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             } catch (err: any) {
               this.postToWebview(webview, { type: "error", message: err.message });
             }
+          }
+          break;
+        }
+
+        case "get_session_list": {
+          const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+          try {
+            const sessions = await listSessions(cwd);
+            const items: SessionListItem[] = sessions.map((s) => ({
+              path: s.path,
+              id: s.id,
+              name: s.name,
+              firstMessage: s.firstMessage,
+              created: s.created.toISOString(),
+              modified: s.modified.toISOString(),
+              messageCount: s.messageCount,
+            }));
+            this.output.appendLine(`[${sessionId}] Listed ${items.length} sessions`);
+            this.postToWebview(webview, { type: "session_list", sessions: items });
+          } catch (err: any) {
+            this.output.appendLine(`[${sessionId}] Session list error: ${err.message}`);
+            this.postToWebview(webview, { type: "session_list_error", message: err.message });
+          }
+          break;
+        }
+
+        case "switch_session": {
+          const client = this.rpcClients.get(sessionId);
+          if (client?.isRunning) {
+            try {
+              const result = await client.switchSession(msg.path) as { cancelled?: boolean } | null;
+              if (result?.cancelled) {
+                this.output.appendLine(`[${sessionId}] Session switch cancelled`);
+                break;
+              }
+              // Get the new state and messages after switch
+              const state = await client.getState() as RpcStateResult;
+              const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
+              this.output.appendLine(`[${sessionId}] Switched session, ${messagesResult?.messages?.length || 0} messages`);
+              const gsdState = {
+                model: state?.model || null,
+                thinkingLevel: (state?.thinkingLevel || "off") as import("../shared/types").ThinkingLevel,
+                isStreaming: state?.isStreaming || false,
+                isCompacting: state?.isCompacting || false,
+                sessionFile: (state?.sessionFile as string) || null,
+                sessionId: (state?.sessionId as string) || null,
+                messageCount: (state?.messageCount as number) || 0,
+                autoCompactionEnabled: state?.autoCompactionEnabled || false,
+              };
+              this.postToWebview(webview, {
+                type: "session_switched",
+                state: gsdState,
+                messages: messagesResult?.messages || [],
+              });
+              // Update status bar
+              if (state?.model) {
+                this.emitStatus({ model: (state.model as any).id || (state.model as any).name });
+              }
+            } catch (err: any) {
+              this.output.appendLine(`[${sessionId}] Session switch error: ${err.message}`);
+              this.postToWebview(webview, { type: "error", message: `Failed to switch session: ${err.message}` });
+            }
+          }
+          break;
+        }
+
+        case "rename_session": {
+          const client = this.rpcClients.get(sessionId);
+          if (client?.isRunning) {
+            try {
+              await client.setSessionName(msg.name);
+              this.output.appendLine(`[${sessionId}] Session renamed to: ${msg.name}`);
+            } catch (err: any) {
+              this.postToWebview(webview, { type: "error", message: `Failed to rename session: ${err.message}` });
+            }
+          }
+          break;
+        }
+
+        case "delete_session": {
+          try {
+            await deleteSession(msg.path);
+            this.output.appendLine(`[${sessionId}] Deleted session: ${msg.path}`);
+            // Refresh the session list
+            const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+            const sessions = await listSessions(cwd);
+            const items: SessionListItem[] = sessions.map((s) => ({
+              path: s.path,
+              id: s.id,
+              name: s.name,
+              firstMessage: s.firstMessage,
+              created: s.created.toISOString(),
+              modified: s.modified.toISOString(),
+              messageCount: s.messageCount,
+            }));
+            this.postToWebview(webview, { type: "session_list", sessions: items });
+          } catch (err: any) {
+            this.output.appendLine(`[${sessionId}] Delete session error: ${err.message}`);
+            this.postToWebview(webview, { type: "error", message: `Failed to delete session: ${err.message}` });
           }
           break;
         }
