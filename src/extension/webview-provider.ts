@@ -802,6 +802,14 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
+    // Log extension errors to the output panel
+    if (eventType === "extension_error") {
+      const extPath = event.extensionPath as string || "unknown";
+      const extEvent = event.event as string || "unknown";
+      const extError = event.error as string || "unknown error";
+      this.output.appendLine(`[${sessionId}] Extension error (${extPath}, ${extEvent}): ${extError}`);
+    }
+
     // Update status bar based on event type
     if (eventType === "agent_start") {
       this.emitStatus({ isStreaming: true });
