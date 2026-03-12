@@ -4,6 +4,21 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Session history panel — browse and resume previous conversations (M002/S01)
+- History button in header toolbar with clock icon
+- Click a previous session to switch — chat loads full conversation history
+- Historical message rendering with tool calls, thinking blocks, and markdown
+- Session list shows name/preview, relative timestamps, and message count
+- Current session highlighted in the list
+- Session directory resolution for workspace-specific session files
+- Search/filter sessions by name and message content (M002/S02)
+- Keyboard navigation in session list (arrow keys, Enter to select, Escape to close)
+- Rename current session from the history panel (pencil icon, inline editing)
+- Delete old sessions with confirmation dialog (trash icon on hover)
+
 ## [0.2.1] - 2026-03-12
 
 ### Changed

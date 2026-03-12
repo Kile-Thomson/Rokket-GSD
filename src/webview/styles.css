@@ -1306,6 +1306,247 @@ html, body {
 }
 
 /* ============================================================
+   Session History Panel
+   ============================================================ */
+
+.gsd-session-history {
+  display: none;
+  position: absolute;
+  top: 40px;
+  right: 12px;
+  width: 360px;
+  max-height: 450px;
+  overflow-y: auto;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+  border-radius: 8px;
+  z-index: 200;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  font-size: 12px;
+}
+
+.gsd-session-history::-webkit-scrollbar {
+  width: 4px;
+}
+
+.gsd-session-history::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background);
+  border-radius: 2px;
+}
+
+.gsd-session-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.15));
+  position: sticky;
+  top: 0;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  z-index: 1;
+}
+
+.gsd-session-history-title {
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.7;
+}
+
+.gsd-session-history-close {
+  border: none;
+  background: none;
+  color: var(--vscode-foreground);
+  opacity: 0.4;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.gsd-session-history-close:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15));
+}
+
+.gsd-session-history-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  justify-content: center;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+}
+
+.gsd-session-history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 24px 16px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+
+.gsd-session-history-empty-icon {
+  font-size: 24px;
+  opacity: 0.5;
+}
+
+.gsd-session-history-search {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.15));
+  position: sticky;
+  top: 36px;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  z-index: 1;
+}
+
+.gsd-session-search-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.3));
+  border-radius: 4px;
+  background: var(--vscode-input-background, rgba(0,0,0,0.2));
+  color: var(--vscode-input-foreground, var(--vscode-foreground));
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.gsd-session-search-input:focus {
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.gsd-session-search-input::placeholder {
+  color: var(--vscode-input-placeholderForeground, rgba(128,128,128,0.6));
+}
+
+.gsd-session-history-list {
+  padding: 4px 0;
+}
+
+.gsd-session-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-bottom: 1px solid rgba(128,128,128,0.06);
+}
+
+.gsd-session-history-item:last-child {
+  border-bottom: none;
+}
+
+.gsd-session-history-item:hover {
+  background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.1));
+}
+
+.gsd-session-history-item.current {
+  background: rgba(55, 148, 255, 0.08);
+}
+
+.gsd-session-history-item.highlighted {
+  background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.1));
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
+}
+
+.gsd-session-history-item.switching {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.gsd-session-history-item-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.gsd-session-current-dot {
+  color: var(--vscode-textLink-foreground, #3794ff);
+  font-size: 8px;
+  flex-shrink: 0;
+}
+
+.gsd-session-history-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.gsd-session-history-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 0;
+}
+
+.gsd-session-history-item.current .gsd-session-history-item-meta {
+  padding-left: 14px;
+}
+
+.gsd-session-history-time {
+  font-size: 10px;
+  opacity: 0.5;
+  white-space: nowrap;
+}
+
+.gsd-session-history-count {
+  font-size: 10px;
+  opacity: 0.4;
+  white-space: nowrap;
+}
+
+.gsd-session-action-btn {
+  border: none;
+  background: none;
+  color: var(--vscode-foreground);
+  opacity: 0;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  transition: opacity 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.gsd-session-history-item:hover .gsd-session-action-btn {
+  opacity: 0.4;
+}
+
+.gsd-session-action-btn:hover {
+  opacity: 1 !important;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15));
+}
+
+.gsd-session-action-btn.delete-btn:hover {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.gsd-session-rename-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--vscode-focusBorder, #007fd4);
+  border-radius: 3px;
+  background: var(--vscode-input-background, rgba(0,0,0,0.2));
+  color: var(--vscode-input-foreground, var(--vscode-foreground));
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+/* ============================================================
    Input Area
    ============================================================ */
 

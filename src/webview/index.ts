@@ -29,6 +29,7 @@ import {
 
 import * as slashMenu from "./slash-menu";
 import * as modelPicker from "./model-picker";
+import * as sessionHistory from "./session-history";
 import * as uiDialogs from "./ui-dialogs";
 import * as renderer from "./renderer";
 
@@ -68,6 +69,10 @@ root.innerHTML = `
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13 1H5L4 2v3h1V2h8v12H5v-3H4v3l1 1h8l1-1V2l-1-1zM1 8l3-3v2h5v2H4v2L1 8z"/></svg>
           <span>Export</span>
         </button>
+        <button class="gsd-action-btn" id="historyBtn" title="Browse previous sessions">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.507 12.324a7 7 0 0 0 .065-8.56A7 7 0 0 0 2 4.393V2H1v3.5l.5.5H5V5H2.811a6.008 6.008 0 1 1-.135 5.77l-.887.462a7 7 0 0 0 11.718 1.092zM8 4h1v4.495L11.255 10l-.51.858L7.5 9.166V4H8z"/></svg>
+          <span>History</span>
+        </button>
         <button class="gsd-action-btn" id="modelPickerBtn" title="Change AI model">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm0-9.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM4.5 8a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg>
           <span>Model</span>
@@ -104,6 +109,7 @@ root.innerHTML = `
 
     <div class="gsd-slash-menu" id="slashMenu"></div>
     <div class="gsd-model-picker" id="modelPicker"></div>
+    <div class="gsd-session-history" id="sessionHistory"></div>
 
     <div class="gsd-input-area">
       <div class="gsd-image-preview" id="imagePreview"></div>
@@ -142,6 +148,7 @@ const promptInput = document.getElementById("promptInput") as HTMLTextAreaElemen
 const sendBtn = document.getElementById("sendBtn")!;
 const sendIcon = document.getElementById("sendIcon")!;
 const newConvoBtn = document.getElementById("newConvoBtn")!;
+const historyBtn = document.getElementById("historyBtn")!;
 const modelPickerBtn = document.getElementById("modelPickerBtn")!;
 const compactBtn = document.getElementById("compactBtn")!;
 const exportBtn = document.getElementById("exportBtn")!;
@@ -149,6 +156,7 @@ const imagePreview = document.getElementById("imagePreview")!;
 const inputHint = document.getElementById("inputHint")!;
 const slashMenuEl = document.getElementById("slashMenu")!;
 const modelPickerEl = document.getElementById("modelPicker")!;
+const sessionHistoryEl = document.getElementById("sessionHistory")!;
 const overlayIndicators = document.getElementById("overlayIndicators")!;
 
 // Header badges
@@ -344,6 +352,9 @@ function sendMessage(): void {
 // ============================================================
 
 promptInput.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (sessionHistory.isVisible()) {
+    if (sessionHistory.handleKeyDown(e)) return;
+  }
   if (slashMenu.isVisible()) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -383,6 +394,19 @@ promptInput.addEventListener("keydown", (e: KeyboardEvent) => {
   }
 });
 
+// Global keyboard handler for overlay panels
+document.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (sessionHistory.isVisible()) {
+    if (sessionHistory.handleKeyDown(e)) return;
+  }
+  if (e.key === "Escape") {
+    if (modelPicker.isVisible()) {
+      modelPicker.hide();
+      return;
+    }
+  }
+});
+
 sendBtn.addEventListener("click", () => {
   if (state.isStreaming) {
     vscode.postMessage({ type: "interrupt" });
@@ -399,6 +423,8 @@ function handleNewConversation(): void {
   state.sessionStats = {};
   renderer.clearMessages();
   welcomeScreen.style.display = "flex";
+  sessionHistory.hide();
+  modelPicker.hide();
   updateAllUI();
 }
 
@@ -703,6 +729,9 @@ window.addEventListener("message", (event) => {
         if (data.model?.contextWindow) {
           state.sessionStats.contextWindow = data.model.contextWindow;
         }
+        if (data.sessionId) {
+          sessionHistory.setCurrentSessionId(data.sessionId);
+        }
         if (state.processStatus !== "crashed") state.processStatus = "running";
         updateAllUI();
       }
@@ -998,8 +1027,172 @@ window.addEventListener("message", (event) => {
       addSystemEntry(message, data.code === 0 ? "info" : "warning");
       break;
     }
+
+    case "session_list": {
+      const data = msg;
+      sessionHistory.updateSessions(data.sessions || []);
+      break;
+    }
+
+    case "session_list_error": {
+      const data = msg;
+      sessionHistory.showError(data.message);
+      break;
+    }
+
+    case "session_switched": {
+      const data = msg;
+
+      // Clear current state
+      state.entries = [];
+      state.currentTurn = null;
+      renderer.resetStreamingState();
+      renderer.clearMessages();
+      state.sessionStats = {};
+
+      // Apply the new state
+      if (data.state) {
+        state.model = data.state.model || null;
+        state.thinkingLevel = data.state.thinkingLevel || "off";
+        state.isStreaming = data.state.isStreaming || false;
+        state.isCompacting = data.state.isCompacting || false;
+        if (state.processStatus !== "crashed") state.processStatus = "running";
+      }
+
+      // Render historical messages
+      if (data.messages && data.messages.length > 0) {
+        renderHistoricalMessages(data.messages);
+      }
+
+      // Update session ID for the history panel
+      if (data.state?.sessionId) {
+        sessionHistory.setCurrentSessionId(data.state.sessionId as string);
+      }
+
+      // Hide history panel
+      sessionHistory.hide();
+
+      // Update all UI
+      updateAllUI();
+      scrollToBottom(messagesContainer);
+      break;
+    }
   }
 });
+
+/**
+ * Render historical messages from a switched session.
+ * Converts the raw AgentMessage array into ChatEntry objects and renders them.
+ *
+ * Strategy: First pass collects tool results keyed by toolCallId. Second pass
+ * builds entries, attaching tool results to their assistant turn's tool calls.
+ */
+function renderHistoricalMessages(messages: import("../shared/types").AgentMessage[]): void {
+  // First pass: index tool results by toolCallId
+  const toolResults = new Map<string, { text: string; isError: boolean }>();
+  for (const msg of messages) {
+    if (msg.role === "toolResult") {
+      const toolCallId = (msg as Record<string, unknown>).toolCallId as string | undefined;
+      if (toolCallId) {
+        toolResults.set(toolCallId, {
+          text: extractMessageText(msg.content),
+          isError: !!(msg as Record<string, unknown>).isError,
+        });
+      }
+    }
+  }
+
+  // Second pass: render user and assistant messages
+  for (const msg of messages) {
+    if (msg.role === "user") {
+      const text = extractMessageText(msg.content);
+      if (!text) continue;
+      const entry: ChatEntry = {
+        id: nextId(),
+        type: "user",
+        text,
+        timestamp: msg.timestamp || Date.now(),
+      };
+      state.entries.push(entry);
+      renderer.renderNewEntry(entry);
+    } else if (msg.role === "assistant") {
+      const segments: import("./state").TurnSegment[] = [];
+      const turnToolCalls = new Map<string, ToolCallState>();
+
+      // Parse content blocks into segments
+      if (Array.isArray(msg.content)) {
+        for (const block of msg.content as Array<Record<string, unknown>>) {
+          if (block.type === "thinking" && block.thinking) {
+            segments.push({ type: "thinking", chunks: [block.thinking as string] });
+          } else if (block.type === "text" && block.text) {
+            const lastSeg = segments.length > 0 ? segments[segments.length - 1] : null;
+            if (lastSeg && lastSeg.type === "text") {
+              lastSeg.chunks.push(block.text as string);
+            } else {
+              segments.push({ type: "text", chunks: [block.text as string] });
+            }
+          } else if (block.type === "tool_use" && block.name) {
+            const toolId = (block.id as string) || nextId();
+            const result = toolResults.get(toolId);
+            const tc: ToolCallState = {
+              id: toolId,
+              name: block.name as string,
+              args: (block.input as Record<string, unknown>) || {},
+              resultText: result?.text || "",
+              isError: result?.isError || false,
+              isRunning: false,
+              startTime: msg.timestamp || Date.now(),
+              endTime: msg.timestamp || Date.now(),
+            };
+            turnToolCalls.set(toolId, tc);
+            segments.push({ type: "tool", toolCallId: toolId });
+          }
+        }
+      } else if (typeof msg.content === "string" && msg.content) {
+        segments.push({ type: "text", chunks: [msg.content] });
+      }
+
+      if (segments.length === 0) continue;
+
+      const turn = {
+        id: nextId(),
+        segments,
+        toolCalls: turnToolCalls,
+        isComplete: true,
+        timestamp: msg.timestamp || Date.now(),
+      };
+      const entry: ChatEntry = {
+        id: nextId(),
+        type: "assistant",
+        turn,
+        timestamp: msg.timestamp || Date.now(),
+      };
+      state.entries.push(entry);
+      renderer.renderNewEntry(entry);
+    }
+    // Skip toolResult (already indexed) and bashExecution
+  }
+
+  // Show messages area, hide welcome
+  if (state.entries.length > 0) {
+    welcomeScreen.style.display = "none";
+  }
+}
+
+/**
+ * Extract text from a message content field (string or content array).
+ */
+function extractMessageText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((block: Record<string, unknown>) => block.type === "text")
+      .map((block: Record<string, unknown>) => block.text as string)
+      .filter(Boolean)
+      .join("\n");
+  }
+  return "";
+}
 
 function addSystemEntry(text: string, kind: "info" | "error" | "warning" = "info"): void {
   const entry: ChatEntry = {
@@ -1034,6 +1227,15 @@ modelPicker.init({
   vscode,
   onUpdateHeaderUI: updateHeaderUI,
   onUpdateFooterUI: updateFooterUI,
+});
+
+sessionHistory.init({
+  panelEl: sessionHistoryEl,
+  historyBtn,
+  vscode,
+  onSessionSwitched: () => {
+    updateAllUI();
+  },
 });
 
 uiDialogs.init({

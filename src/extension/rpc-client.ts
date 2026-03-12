@@ -305,6 +305,14 @@ export class GsdRpcClient extends EventEmitter {
     return await this.request({ type: "bash", command });
   }
 
+  async switchSession(sessionPath: string): Promise<unknown> {
+    return await this.request({ type: "switch_session", sessionPath });
+  }
+
+  async setSessionName(name: string): Promise<void> {
+    await this.request({ type: "set_session_name", name });
+  }
+
   async fork(entryId: string): Promise<unknown> {
     return await this.request({ type: "fork", entryId });
   }
