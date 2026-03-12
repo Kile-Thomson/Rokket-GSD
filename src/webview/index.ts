@@ -945,6 +945,14 @@ window.addEventListener("message", (event) => {
       break;
     }
 
+    case "extension_error": {
+      const data = msg;
+      const extPath = (data as any).extensionPath as string || "unknown";
+      const extError = (data as any).error as string || "unknown error";
+      addSystemEntry(`Command error: ${extError}`, "error");
+      break;
+    }
+
     case "extension_ui_request": {
       const data = msg;
       if (data.method === "notify" && data.message) {
