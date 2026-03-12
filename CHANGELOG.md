@@ -10,10 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Split monolithic webview/index.ts (2,149 lines) into 7 focused modules: state, helpers, slash-menu, model-picker, ui-dialogs, renderer, index (M001/S01)
 - All modules use init(deps) pattern for clean dependency injection
 
+### Removed
+- Empty `tool_permission_response` handler and message type
+- Duplicate `compactContext` RPC method (use `compact` instead)
+
 ### Fixed
 - Added DOMPurify for markdown HTML sanitization
 - Added URL scheme allowlist via `sanitizeUrl()`
 - Fixed bg_shell tool categorization (returns "process" not "shell")
+- Added missing `available_models`, `bash_result`, `thinking_level_changed` to ExtensionToWebviewMessage type union
+- Eliminated all `as any` casts in message handlers (25 total) with proper typed interfaces
 
 ## [0.2.0] - 2026-03-12
 
