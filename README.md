@@ -19,10 +19,22 @@ A VS Code extension that wraps the [GSD (gsd-pi)](https://github.com/badlogic/pi
 ### One-liner (macOS / Linux / Git Bash)
 
 ```bash
+curl -sL https://raw.githubusercontent.com/Kile-Thomson/Rokket-GSD/main/install.sh | bash
+```
+
+Or manually:
+
+```bash
 git clone https://github.com/Kile-Thomson/Rokket-GSD.git /tmp/rokket-gsd && cd /tmp/rokket-gsd && npm install && npm run build && npx vsce package --no-dependencies && code --install-extension *.vsix --force && cd - && rm -rf /tmp/rokket-gsd
 ```
 
 ### Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/Kile-Thomson/Rokket-GSD/main/install.ps1 | iex
+```
+
+Or manually:
 
 ```powershell
 git clone https://github.com/Kile-Thomson/Rokket-GSD.git $env:TEMP\rokket-gsd; cd $env:TEMP\rokket-gsd; npm install; npm run build; npx vsce package --no-dependencies; code --install-extension (Get-ChildItem *.vsix).FullName --force; cd $env:USERPROFILE; Remove-Item -Recurse -Force $env:TEMP\rokket-gsd
@@ -68,6 +80,7 @@ code --install-extension rokket-gsd-0.2.0.vsix --force
 ## Features
 
 ### Chat UI
+- Sequential streaming — text, thinking, and tool calls render in the order they arrive with no re-renders
 - Streaming markdown responses with syntax-highlighted code blocks
 - Tables, blockquotes, headings — all rendered properly
 - Copy button on every code block
@@ -78,6 +91,12 @@ code --install-extension rokket-gsd-0.2.0.vsix --force
 - Collapsible tool output with smart truncation
 - Subagent results rendered as full markdown (tables, code blocks, headings)
 - File paths in output are clickable — opens them in VS Code
+
+### Agent Interaction
+- **Steer while streaming** — send a message while the agent is working to redirect it
+- **Inline UI dialogs** — confirm/select/input prompts rendered directly in the chat flow
+- **Auto-compaction & retry indicators** — overlay banners when context compaction or retry is in progress
+- **Crash recovery** — restart button if the GSD process crashes
 
 ### Model & Thinking
 - **Model picker** — switch AI models grouped by provider, showing context window and capabilities
@@ -100,7 +119,7 @@ code --install-extension rokket-gsd-0.2.0.vsix --force
 - Activity bar icon (rocket) with sidebar panel
 - Open as a sidebar or full editor tab
 - Status bar showing streaming state, model name, and session cost
-- Native VS Code dialogs for agent questions and confirmations
+- Inline chat dialogs for agent questions and confirmations
 - Theme-aware — works with any VS Code color theme
 
 ---
@@ -144,6 +163,8 @@ code --install-extension rokket-gsd-0.2.0.vsix --force
 ```
 
 The extension spawns `gsd --mode rpc` as a child process and communicates via JSON lines over stdin/stdout. The webview renders the chat UI and sends messages to the extension host, which forwards them to GSD and relays events back.
+
+The webview uses a sequential segment-based rendering model — text, thinking, and tool calls are appended as ordered segments within each assistant turn. DOM updates are batched via `requestAnimationFrame` for smooth streaming without layout thrashing.
 
 ---
 
