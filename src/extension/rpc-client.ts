@@ -295,12 +295,6 @@ export class GsdRpcClient extends EventEmitter {
     return await this.request({ type: "cycle_thinking_level" });
   }
 
-  async compactContext(customInstructions?: string): Promise<unknown> {
-    const cmd: Record<string, unknown> = { type: "compact" };
-    if (customInstructions) cmd.customInstructions = customInstructions;
-    return await this.request(cmd);
-  }
-
   async exportHtml(outputPath?: string): Promise<unknown> {
     const cmd: Record<string, unknown> = { type: "export_html" };
     if (outputPath) cmd.outputPath = outputPath;

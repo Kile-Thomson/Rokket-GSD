@@ -2,7 +2,17 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import { GsdRpcClient } from "./rpc-client";
-import type { WebviewToExtensionMessage, ExtensionToWebviewMessage, SessionStats } from "../shared/types";
+import type {
+  WebviewToExtensionMessage,
+  ExtensionToWebviewMessage,
+  SessionStats,
+  RpcCommandsResult,
+  RpcModelsResult,
+  RpcThinkingResult,
+  RpcExportResult,
+  RpcStateResult,
+  BashResult,
+} from "../shared/types";
 
 // ============================================================
 // WebviewProvider — Manages one GSD session in a webview panel or sidebar
@@ -407,8 +417,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           const client = this.rpcClients.get(sessionId);
           if (client?.isRunning) {
             try {
-              const result = await client.getCommands() as any;
-              this.postToWebview(webview, { type: "commands", commands: result?.commands || [] } as ExtensionToWebviewMessage);
+              const result = await client.getCommands() as RpcCommandsResult;
+              this.postToWebview(webview, { type: "commands", commands: result?.commands || [] });
             } catch {}
           }
           break;
@@ -418,7 +428,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           const client = this.rpcClients.get(sessionId);
           if (client?.isRunning) {
             try {
-              const result = await client.getAvailableModels() as any;
+              const result = await client.getAvailableModels() as RpcModelsResult;
               this.postToWebview(webview, { type: "available_models", models: result?.models || [] });
             } catch (err: any) {
               this.output.appendLine(`[${sessionId}] get_available_models error: ${err.message}`);
@@ -431,7 +441,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           const client = this.rpcClients.get(sessionId);
           if (client?.isRunning) {
             try {
-              const result = await client.cycleThinkingLevel() as any;
+              const result = await client.cycleThinkingLevel() as RpcThinkingResult;
               if (result?.level) {
                 this.postToWebview(webview, { type: "thinking_level_changed", level: result.level });
               }
@@ -450,7 +460,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           if (client?.isRunning) {
             try {
               this.postToWebview(webview, { type: "auto_compaction_start", reason: "manual" } as ExtensionToWebviewMessage);
-              await client.compactContext();
+              await client.compact();
               this.postToWebview(webview, { type: "auto_compaction_end", result: {}, aborted: false } as ExtensionToWebviewMessage);
               // Refresh stats
               const stats = await client.getSessionStats() as SessionStats | null;
@@ -469,7 +479,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           const client = this.rpcClients.get(sessionId);
           if (client?.isRunning) {
             try {
-              const result = await client.exportHtml() as any;
+              const result = await client.exportHtml() as RpcExportResult;
               if (result?.path) {
                 const doc = await vscode.workspace.openTextDocument(result.path);
                 await vscode.window.showTextDocument(doc, { preview: true });
@@ -486,7 +496,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           const client = this.rpcClients.get(sessionId);
           if (client?.isRunning) {
             try {
-              const result = await client.executeBash(msg.command) as any;
+              const result = await client.executeBash(msg.command) as BashResult;
               this.postToWebview(webview, { type: "bash_result", result });
             } catch (err: any) {
               this.postToWebview(webview, { type: "error", message: `Bash error: ${err.message}` });
@@ -518,10 +528,6 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               cancelled: msg.cancelled,
             });
           }
-          break;
-        }
-
-        case "tool_permission_response": {
           break;
         }
 
@@ -626,10 +632,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
       // Get initial state
       try {
-        const state = await client.getState() as any;
-        this.postToWebview(webview, { type: "state", data: state } as ExtensionToWebviewMessage);
-        if (state?.model) {
-          this.emitStatus({ model: state.model.id || state.model.name });
+        const rpcState = await client.getState() as RpcStateResult;
+        this.postToWebview(webview, { type: "state", data: rpcState } as ExtensionToWebviewMessage);
+        if (rpcState?.model) {
+          this.emitStatus({ model: rpcState.model.id || rpcState.model.name });
         }
       } catch {}
 
@@ -665,9 +671,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     } else if (eventType === "agent_end") {
       this.emitStatus({ isStreaming: false });
     } else if (eventType === "message_end") {
-      const msg = event.message as any;
-      if (msg?.role === "assistant" && msg?.usage?.cost?.total) {
-        this.emitStatus({ cost: (this.lastStatus.cost || 0) + msg.usage.cost.total });
+      const msg = event.message;
+      const usage = msg?.usage as { cost?: { total?: number } } | undefined;
+      if (msg?.role === "assistant" && usage?.cost?.total) {
+        this.emitStatus({ cost: (this.lastStatus.cost || 0) + usage.cost.total });
       }
     }
 
