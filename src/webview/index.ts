@@ -675,12 +675,13 @@ function updateWelcomeScreen(): void {
 // ============================================================
 
 window.addEventListener("message", (event) => {
-  const msg = event.data as ExtensionToWebviewMessage | Record<string, unknown>;
-  if (!msg || !msg.type) return;
+  const raw = event.data as Record<string, unknown>;
+  if (!raw || !raw.type) return;
+  const msg = raw as ExtensionToWebviewMessage;
 
   switch (msg.type) {
     case "config": {
-      const data = msg as any;
+      const data = msg;
       state.useCtrlEnterToSend = data.useCtrlEnterToSend ?? false;
       if (data.cwd) state.cwd = data.cwd;
       if (data.version) state.version = data.version;
@@ -689,7 +690,7 @@ window.addEventListener("message", (event) => {
     }
 
     case "state": {
-      const data = (msg as any).data as GsdState;
+      const data = msg.data;
       if (data) {
         state.model = data.model || null;
         state.thinkingLevel = data.thinkingLevel || "off";
@@ -709,7 +710,7 @@ window.addEventListener("message", (event) => {
     }
 
     case "session_stats": {
-      const data = (msg as any).data;
+      const data = msg.data;
       if (data) {
         state.sessionStats = {
           ...state.sessionStats,
@@ -722,7 +723,7 @@ window.addEventListener("message", (event) => {
     }
 
     case "process_status": {
-      const data = msg as any;
+      const data = msg;
       state.processStatus = data.status as ProcessStatus;
       updateOverlayIndicators();
       updateWelcomeScreen();
@@ -777,7 +778,7 @@ window.addEventListener("message", (event) => {
 
     case "message_update": {
       if (!state.currentTurn) break;
-      const data = msg as any;
+      const data = msg;
       const delta = data.assistantMessageEvent || data.delta;
 
       if (delta) {
@@ -791,7 +792,7 @@ window.addEventListener("message", (event) => {
     }
 
     case "message_end": {
-      const endData = msg as any;
+      const endData = msg;
       const endMsg = endData.message;
       if (endMsg?.role === "assistant" && endMsg.usage) {
         const u = endMsg.usage;
@@ -822,7 +823,7 @@ window.addEventListener("message", (event) => {
 
     case "tool_execution_start": {
       if (!state.currentTurn) break;
-      const data = msg as any;
+      const data = msg;
       const tc: ToolCallState = {
         id: data.toolCallId,
         name: data.toolName,
@@ -842,7 +843,7 @@ window.addEventListener("message", (event) => {
 
     case "tool_execution_update": {
       if (!state.currentTurn) break;
-      const data = msg as any;
+      const data = msg;
       const tc = state.currentTurn.toolCalls.get(data.toolCallId);
       if (tc && data.partialResult) {
         const text = data.partialResult.content
@@ -858,7 +859,7 @@ window.addEventListener("message", (event) => {
 
     case "tool_execution_end": {
       if (!state.currentTurn) break;
-      const data = msg as any;
+      const data = msg;
       const tc = state.currentTurn.toolCalls.get(data.toolCallId);
       if (tc) {
         tc.isRunning = false;
@@ -893,7 +894,7 @@ window.addEventListener("message", (event) => {
     }
 
     case "auto_retry_start": {
-      const data = msg as any;
+      const data = msg;
       state.isRetrying = true;
       state.retryInfo = {
         attempt: data.attempt,
@@ -905,7 +906,7 @@ window.addEventListener("message", (event) => {
     }
 
     case "auto_retry_end": {
-      const data = msg as any;
+      const data = msg;
       state.isRetrying = false;
       state.retryInfo = undefined;
       updateOverlayIndicators();
@@ -916,7 +917,7 @@ window.addEventListener("message", (event) => {
     }
 
     case "extension_ui_request": {
-      const data = msg as any;
+      const data = msg;
       if (data.method === "setStatus" && data.statusText) {
         // Status text — could update footer
       } else if (data.method === "set_editor_text" && data.text) {
@@ -929,7 +930,7 @@ window.addEventListener("message", (event) => {
     }
 
     case "commands": {
-      const data = msg as any;
+      const data = msg;
       state.commands = data.commands || [];
       state.commandsLoaded = true;
       if (slashMenu.isVisible()) {
@@ -940,7 +941,7 @@ window.addEventListener("message", (event) => {
     }
 
     case "available_models": {
-      const data = msg as any;
+      const data = msg;
       state.availableModels = (data.models || []).map((m: any) => ({
         id: m.id,
         name: m.name || m.id,
@@ -956,7 +957,7 @@ window.addEventListener("message", (event) => {
     }
 
     case "thinking_level_changed": {
-      const data = msg as any;
+      const data = msg;
       state.thinkingLevel = data.level || "off";
       updateHeaderUI();
       updateFooterUI();
@@ -965,7 +966,7 @@ window.addEventListener("message", (event) => {
     }
 
     case "bash_result": {
-      const data = msg as any;
+      const data = msg;
       const result = data.result;
       if (result) {
         const output = result.stdout || result.stderr || result.output || JSON.stringify(result);
@@ -976,13 +977,13 @@ window.addEventListener("message", (event) => {
     }
 
     case "error": {
-      const data = msg as any;
+      const data = msg;
       addSystemEntry(data.message, "error");
       break;
     }
 
     case "process_exit": {
-      const data = msg as any;
+      const data = msg;
       state.isStreaming = false;
       state.isCompacting = false;
       state.isRetrying = false;
