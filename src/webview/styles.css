@@ -1943,6 +1943,149 @@ html, body {
 }
 
 /* ============================================================
+   Update Card
+   ============================================================ */
+
+.gsd-update-card {
+  margin: 8px 4px;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  background: var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.95));
+  overflow: hidden;
+  animation: gsd-update-slide-in 0.3s ease-out;
+}
+
+@keyframes gsd-update-slide-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.gsd-update-card.dismissing {
+  animation: gsd-update-slide-out 0.3s ease-in forwards;
+}
+
+@keyframes gsd-update-slide-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
+}
+
+.gsd-update-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.06));
+}
+
+.gsd-update-icon {
+  font-size: 16px;
+}
+
+.gsd-update-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  flex: 1;
+}
+
+.gsd-update-current {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.5));
+}
+
+.gsd-update-notes {
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.7));
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.gsd-update-notes h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin: 8px 0 4px;
+}
+
+.gsd-update-notes h3:first-child {
+  margin-top: 0;
+}
+
+.gsd-update-notes h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin: 6px 0 3px;
+}
+
+.gsd-update-notes ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+
+.gsd-update-notes li {
+  margin: 2px 0;
+}
+
+.gsd-update-notes code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--vscode-editor-fontFamily, monospace);
+  font-size: 11px;
+}
+
+.gsd-update-notes strong {
+  color: var(--vscode-foreground);
+  font-weight: 600;
+}
+
+.gsd-update-actions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.06));
+}
+
+.gsd-update-btn {
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--vscode-button-border, rgba(255, 255, 255, 0.1));
+  background: transparent;
+  color: var(--vscode-foreground);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.gsd-update-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.gsd-update-btn.primary {
+  background: var(--vscode-button-background, #0078d4);
+  color: var(--vscode-button-foreground, #fff);
+  border-color: transparent;
+  font-weight: 500;
+}
+
+.gsd-update-btn.primary:hover {
+  background: var(--vscode-button-hoverBackground, #1a8cff);
+}
+
+.gsd-update-btn.dismiss {
+  margin-left: auto;
+  opacity: 0.6;
+  border: none;
+}
+
+.gsd-update-btn.dismiss:hover {
+  opacity: 1;
+}
+
+/* ============================================================
    Responsive
    ============================================================ */
 

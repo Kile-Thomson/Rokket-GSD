@@ -32,7 +32,12 @@ export type WebviewToExtensionMessage =
   | { type: "get_session_list" }
   | { type: "switch_session"; path: string }
   | { type: "rename_session"; name: string }
-  | { type: "delete_session"; path: string };
+  | { type: "delete_session"; path: string }
+  | { type: "update_install"; downloadUrl: string }
+  | { type: "update_dismiss"; version: string }
+  | { type: "update_view_release"; htmlUrl: string }
+  | { type: "set_auto_compaction"; enabled: boolean }
+  | { type: "copy_last_response" };
 
 // --- Messages FROM extension TO webview ---
 
@@ -55,7 +60,7 @@ export type ExtensionToWebviewMessage =
   | { type: "auto_retry_end"; success: boolean; attempt: number; finalError?: string }
   | { type: "extension_ui_request"; id: string; method: string; title?: string; message?: string; options?: string[]; placeholder?: string; prefill?: string; timeout?: number; notifyType?: string; statusKey?: string; statusText?: string; widgetKey?: string; widgetLines?: string[]; text?: string }
   | { type: "error"; message: string }
-  | { type: "process_exit"; code: number | null; signal: string | null }
+  | { type: "process_exit"; code: number | null; signal: string | null; detail?: string }
   | { type: "commands"; commands: CommandInfo[] }
   | { type: "available_models"; models: AvailableModelInfo[] }
   | { type: "bash_result"; result: BashResult }
@@ -64,7 +69,8 @@ export type ExtensionToWebviewMessage =
   | { type: "process_status"; status: ProcessStatus }
   | { type: "session_list"; sessions: SessionListItem[] }
   | { type: "session_switched"; state: GsdState; messages: AgentMessage[] }
-  | { type: "session_list_error"; message: string };
+  | { type: "session_list_error"; message: string }
+  | { type: "update_available"; version: string; currentVersion: string; releaseNotes: string; downloadUrl: string; htmlUrl: string };
 
 // --- Session List Types ---
 
