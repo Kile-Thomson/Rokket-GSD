@@ -14,6 +14,8 @@ interface SlashMenuItem {
   description: string;
   insertText: string;
   source?: string;
+  /** When true, selecting this item sends it as a prompt immediately */
+  sendOnSelect?: boolean;
 }
 
 // ============================================================
@@ -36,6 +38,10 @@ let vscode: { postMessage(msg: unknown): void };
 let onAutoResize: () => void;
 let onShowModelPicker: () => void;
 let onNewConversation: () => void;
+let onSendMessage: () => void;
+let onShowHistory: (() => void) | undefined;
+let onCopyLast: (() => void) | undefined;
+let onToggleAutoCompact: (() => void) | undefined;
 
 // ============================================================
 // Public API
@@ -98,14 +104,14 @@ export function selectCurrent(): void {
 function buildItems(): SlashMenuItem[] {
   const items: SlashMenuItem[] = [];
 
-  const gsdSubcommands: Array<{ name: string; desc: string }> = [
-    { name: "gsd", desc: "Contextual wizard — pick the next action" },
-    { name: "gsd next", desc: "Execute the next task" },
-    { name: "gsd auto", desc: "Auto-execute tasks (fresh context per task)" },
-    { name: "gsd stop", desc: "Stop auto-mode" },
-    { name: "gsd status", desc: "Progress dashboard" },
-    { name: "gsd queue", desc: "Queue future milestones" },
-    { name: "gsd discuss", desc: "Discuss without executing" },
+  const gsdSubcommands: Array<{ name: string; desc: string; sendOnSelect?: boolean }> = [
+    { name: "gsd", desc: "Contextual wizard — pick the next action", sendOnSelect: true },
+    { name: "gsd next", desc: "Execute the next task", sendOnSelect: true },
+    { name: "gsd auto", desc: "Auto-execute tasks (fresh context per task)", sendOnSelect: true },
+    { name: "gsd stop", desc: "Stop auto-mode", sendOnSelect: true },
+    { name: "gsd status", desc: "Progress dashboard", sendOnSelect: true },
+    { name: "gsd queue", desc: "Queue future milestones", sendOnSelect: true },
+    { name: "gsd discuss", desc: "Discuss without executing", sendOnSelect: true },
     { name: "gsd prefs", desc: "View or set preferences" },
     { name: "gsd doctor", desc: "Diagnose and fix issues" },
     { name: "gsd migrate", desc: "Migrate project artifacts" },
@@ -118,6 +124,7 @@ function buildItems(): SlashMenuItem[] {
       description: sub.desc,
       insertText: `/${sub.name} `,
       source: "gsd",
+      sendOnSelect: sub.sendOnSelect,
     });
   }
 
@@ -137,6 +144,9 @@ function buildItems(): SlashMenuItem[] {
     { name: "model", description: "Change AI model", insertText: "", source: "webview" },
     { name: "thinking", description: "Cycle thinking level", insertText: "", source: "webview" },
     { name: "new", description: "Start a new conversation", insertText: "", source: "webview" },
+    { name: "history", description: "Browse and switch sessions", insertText: "", source: "webview" },
+    { name: "copy", description: "Copy last assistant message to clipboard", insertText: "", source: "webview" },
+    { name: "auto-compact", description: "Toggle auto-compaction on/off", insertText: "", source: "webview" },
   );
 
   return items;
@@ -194,15 +204,40 @@ function selectCommand(idx: number): void {
         onAutoResize();
         onNewConversation();
         break;
+      case "history":
+        promptInput.value = "";
+        onAutoResize();
+        onShowHistory?.();
+        break;
+      case "copy":
+        promptInput.value = "";
+        onAutoResize();
+        onCopyLast?.();
+        break;
+      case "auto-compact":
+        promptInput.value = "";
+        onAutoResize();
+        onToggleAutoCompact?.();
+        break;
     }
     promptInput.focus();
     return;
   }
 
-  promptInput.value = item.insertText;
-  onAutoResize();
-  promptInput.focus();
-  hide();
+  if (item.sendOnSelect) {
+    // Execute immediately — set the text and trigger send
+    promptInput.value = item.insertText.trimEnd();
+    onAutoResize();
+    hide();
+    onSendMessage();
+    promptInput.focus();
+  } else {
+    // Fill input for further editing (command takes arguments)
+    promptInput.value = item.insertText;
+    onAutoResize();
+    promptInput.focus();
+    hide();
+  }
 }
 
 // ============================================================
@@ -216,6 +251,10 @@ export interface SlashMenuDeps {
   onAutoResize: () => void;
   onShowModelPicker: () => void;
   onNewConversation: () => void;
+  onSendMessage: () => void;
+  onShowHistory?: () => void;
+  onCopyLast?: () => void;
+  onToggleAutoCompact?: () => void;
 }
 
 export function init(deps: SlashMenuDeps): void {
@@ -225,4 +264,8 @@ export function init(deps: SlashMenuDeps): void {
   onAutoResize = deps.onAutoResize;
   onShowModelPicker = deps.onShowModelPicker;
   onNewConversation = deps.onNewConversation;
+  onSendMessage = deps.onSendMessage;
+  onShowHistory = deps.onShowHistory;
+  onCopyLast = deps.onCopyLast;
+  onToggleAutoCompact = deps.onToggleAutoCompact;
 }

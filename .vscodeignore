@@ -3,4 +3,9 @@ src/**
 node_modules/**
 tsconfig.json
 .gitignore
-*.map
+**/*.map
+.gsd/**
+.bg-shell/**
+.github/**
+*.vsix
+nul

@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import { GsdWebviewProvider } from "./webview-provider";
+import { startUpdateChecker } from "./update-checker";
+import { runHealthCheck } from "./health-check";
 
 // ============================================================
 // Extension Entry Point
@@ -85,6 +87,12 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     })
   );
+
+  // Run startup health check (non-blocking)
+  runHealthCheck(output);
+
+  // Check for updates from GitHub Releases
+  startUpdateChecker(context, provider);
 
   output.appendLine("GSD extension activated");
 }

@@ -633,7 +633,7 @@ function updateOverlayIndicators(): void {
 
   if (state.processStatus === "crashed") {
     parts.push(`<div class="gsd-overlay-indicator crashed">
-      ⚠ GSD process crashed
+      ⚠ GSD process not running
       <button id="restartBtn" class="gsd-overlay-btn">Restart</button>
     </div>`);
   }
@@ -659,7 +659,7 @@ function updateWelcomeScreen(): void {
       welcomeProcess.textContent = "Type a message to start";
       break;
     case "crashed":
-      welcomeProcess.textContent = "GSD process crashed — click Restart or send a message";
+      welcomeProcess.textContent = "GSD failed to start — check the error below";
       break;
     case "restarting":
       welcomeProcess.textContent = "Restarting…";
@@ -947,7 +947,11 @@ window.addEventListener("message", (event) => {
 
     case "extension_ui_request": {
       const data = msg;
-      if (data.method === "setStatus" && data.statusText) {
+      if (data.method === "notify" && data.message) {
+        const notifyType = (data as any).notifyType as string || "info";
+        const kind = notifyType === "error" ? "error" : notifyType === "warning" ? "warning" : "info";
+        addSystemEntry(data.message as string, kind);
+      } else if (data.method === "setStatus" && data.statusText) {
         // Status text — could update footer
       } else if (data.method === "set_editor_text" && data.text) {
         promptInput.value = data.text;
@@ -1021,10 +1025,17 @@ window.addEventListener("message", (event) => {
       updateInputUI();
       updateOverlayIndicators();
 
-      const message = data.code === 0
-        ? "GSD process exited. Send a message to restart."
-        : `GSD process exited (code: ${data.code}). Send a message to restart.`;
-      addSystemEntry(message, data.code === 0 ? "info" : "warning");
+      // Build an informative error message including stderr detail
+      const detail = (data as any).detail as string | undefined;
+      let message: string;
+      if (detail) {
+        message = detail;
+      } else if (data.code === 0) {
+        message = "GSD process exited.";
+      } else {
+        message = `GSD process exited (code: ${data.code}).`;
+      }
+      addSystemEntry(message, data.code === 0 ? "info" : "error");
       break;
     }
 
@@ -1037,6 +1048,12 @@ window.addEventListener("message", (event) => {
     case "session_list_error": {
       const data = msg;
       sessionHistory.showError(data.message);
+      break;
+    }
+
+    case "update_available": {
+      const data = msg;
+      showUpdateCard(data.version, data.currentVersion, data.releaseNotes, data.downloadUrl, data.htmlUrl);
       break;
     }
 
@@ -1194,6 +1211,76 @@ function extractMessageText(content: unknown): string {
   return "";
 }
 
+/**
+ * Show an inline update card in the chat with release notes and action buttons.
+ */
+function showUpdateCard(
+  version: string,
+  currentVersion: string,
+  releaseNotes: string,
+  downloadUrl: string,
+  htmlUrl: string
+): void {
+  // Remove any existing update card
+  const existing = document.getElementById("gsd-update-card");
+  if (existing) existing.remove();
+
+  // Simple markdown-to-HTML for release notes (handles headers, lists, bold, links, code)
+  const formatReleaseNotes = (md: string): string => {
+    if (!md.trim()) return "<p>No release notes available.</p>";
+    return escapeHtml(md)
+      .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+      .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^# (.+)$/gm, '<h3>$1</h3>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`(.+?)`/g, '<code>$1</code>')
+      .replace(/^\* (.+)$/gm, '<li>$1</li>')
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`)
+      .replace(/\n{2,}/g, '<br>')
+      .replace(/\n/g, ' ');
+  };
+
+  const card = document.createElement("div");
+  card.id = "gsd-update-card";
+  card.className = "gsd-update-card";
+  card.innerHTML = `
+    <div class="gsd-update-card-header">
+      <span class="gsd-update-icon">🚀</span>
+      <span class="gsd-update-title">Rokket GSD v${escapeHtml(version)} Available</span>
+      <span class="gsd-update-current">You have v${escapeHtml(currentVersion)}</span>
+    </div>
+    <div class="gsd-update-notes">
+      ${formatReleaseNotes(releaseNotes)}
+    </div>
+    <div class="gsd-update-actions">
+      <button class="gsd-update-btn primary" data-action="install">Update Now</button>
+      <button class="gsd-update-btn" data-action="release">View on GitHub</button>
+      <button class="gsd-update-btn dismiss" data-action="dismiss">Dismiss</button>
+    </div>
+  `;
+
+  // Wire up button handlers
+  card.querySelector('[data-action="install"]')?.addEventListener("click", () => {
+    vscode.postMessage({ type: "update_install", downloadUrl } as WebviewToExtensionMessage);
+    card.remove();
+  });
+
+  card.querySelector('[data-action="release"]')?.addEventListener("click", () => {
+    vscode.postMessage({ type: "update_view_release", htmlUrl } as WebviewToExtensionMessage);
+  });
+
+  card.querySelector('[data-action="dismiss"]')?.addEventListener("click", () => {
+    vscode.postMessage({ type: "update_dismiss", version } as WebviewToExtensionMessage);
+    card.classList.add("dismissing");
+    setTimeout(() => card.remove(), 300);
+  });
+
+  // Insert at the top of the messages area, after any welcome screen
+  messagesContainer.insertBefore(card, messagesContainer.firstChild?.nextSibling || null);
+  scrollToBottom(messagesContainer);
+}
+
 function addSystemEntry(text: string, kind: "info" | "error" | "warning" = "info"): void {
   const entry: ChatEntry = {
     id: nextId(),
@@ -1218,6 +1305,37 @@ slashMenu.init({
   onAutoResize: autoResize,
   onShowModelPicker: modelPicker.show,
   onNewConversation: handleNewConversation,
+  onSendMessage: sendMessage,
+  onShowHistory: () => {
+    vscode.postMessage({ type: "get_session_list" });
+    sessionHistory.show();
+  },
+  onCopyLast: () => {
+    // Find the last assistant entry and copy its text
+    for (let i = state.entries.length - 1; i >= 0; i--) {
+      const entry = state.entries[i];
+      if (entry.type === "assistant" && entry.turn) {
+        const textChunks: string[] = [];
+        for (const seg of entry.turn.segments) {
+          if (seg.type === "text") textChunks.push(seg.chunks.join(""));
+        }
+        const text = textChunks.join("\n");
+        if (text) {
+          vscode.postMessage({ type: "copy_text", text });
+          addSystemEntry("Last assistant message copied to clipboard.", "info");
+          return;
+        }
+      }
+    }
+    addSystemEntry("No assistant message to copy.", "warning");
+  },
+  onToggleAutoCompact: () => {
+    const current = state.sessionStats.autoCompactionEnabled;
+    const newValue = !current;
+    vscode.postMessage({ type: "set_auto_compaction", enabled: newValue });
+    state.sessionStats.autoCompactionEnabled = newValue;
+    addSystemEntry(`Auto-compaction ${newValue ? "enabled" : "disabled"}.`, "info");
+  },
 });
 
 modelPicker.init({
