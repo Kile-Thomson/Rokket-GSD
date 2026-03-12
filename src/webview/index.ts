@@ -70,11 +70,18 @@ interface ToolCallState {
   endTime?: number;
 }
 
-/** One assistant turn = text + thinking + tool calls */
+/** A segment in the sequential stream — text, thinking, or tool call */
+type TurnSegment =
+  | { type: "text"; chunks: string[] }
+  | { type: "thinking"; chunks: string[] }
+  | { type: "tool"; toolCallId: string };
+
+/** One assistant turn = ordered sequence of segments */
 interface AssistantTurn {
   id: string;
-  textChunks: string[];
-  thinkingChunks: string[];
+  /** Ordered segments in the sequence they arrived */
+  segments: TurnSegment[];
+  /** Quick lookup for tool calls by ID */
   toolCalls: Map<string, ToolCallState>;
   isComplete: boolean;
   timestamp: number;
@@ -739,6 +746,9 @@ function selectSlashCommand(idx: number): void {
         vscode.postMessage({ type: "new_conversation" });
         state.entries = [];
         state.currentTurn = null;
+        currentTurnElement = null;
+        segmentElements.clear();
+        activeSegmentIndex = -1;
         state.sessionStats = {};
         clearMessages();
         welcomeScreen.style.display = "flex";
@@ -1038,6 +1048,9 @@ newConvoBtn.addEventListener("click", () => {
   vscode.postMessage({ type: "new_conversation" });
   state.entries = [];
   state.currentTurn = null;
+  currentTurnElement = null;
+  segmentElements.clear();
+  activeSegmentIndex = -1;
   state.sessionStats = {};
   clearMessages();
   welcomeScreen.style.display = "flex";
@@ -1162,48 +1175,49 @@ function buildUserHtml(entry: ChatEntry): string {
 function buildTurnHtml(turn: AssistantTurn): string {
   let html = "";
 
-  // Thinking section
-  const thinkingText = turn.thinkingChunks.join("");
-  if (thinkingText) {
-    html += `<details class="gsd-thinking-block">
-      <summary class="gsd-thinking-header">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm-.5-3h1v1h-1v-1zm.5-7a2.5 2.5 0 00-2.5 2.5h1A1.5 1.5 0 018 5a1.5 1.5 0 011.5 1.5c0 .44-.18.84-.46 1.13l-.64.66A2.49 2.49 0 007.5 10h1c0-.52.21-1 .57-1.35l.64-.66A2.49 2.49 0 0010.5 6.5 2.5 2.5 0 008 4z"/></svg>
-        Thinking
-      </summary>
-      <div class="gsd-thinking-content">${escapeHtml(thinkingText)}</div>
-    </details>`;
-  }
-
-  // Text content
-  const text = turn.textChunks.join("");
-  if (text) {
-    html += `<div class="gsd-assistant-text">${renderMarkdown(text)}</div>`;
-  }
-
-  // Tool calls — each wrapped in try/catch so one bad tool doesn't break the whole turn
-  for (const [, tc] of turn.toolCalls) {
-    try {
-      html += buildToolCallHtml(tc);
-    } catch (err) {
-      console.error("Error rendering tool call:", tc.name, err);
-      html += `<div class="gsd-tool-block error collapsed" data-tool-id="${escapeAttr(tc.id)}">
-        <div class="gsd-tool-header">
-          <span class="gsd-tool-icon error">✗</span>
-          <span class="gsd-tool-name">${escapeHtml(tc.name)}</span>
-          <span class="gsd-tool-arg">render error</span>
-        </div>
-      </div>`;
+  // Render segments in order
+  for (const seg of turn.segments) {
+    if (seg.type === "thinking") {
+      const thinkingText = seg.chunks.join("");
+      if (thinkingText) {
+        html += `<details class="gsd-thinking-block">
+          <summary class="gsd-thinking-header">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm-.5-3h1v1h-1v-1zm.5-7a2.5 2.5 0 00-2.5 2.5h1A1.5 1.5 0 018 5a1.5 1.5 0 011.5 1.5c0 .44-.18.84-.46 1.13l-.64.66A2.49 2.49 0 007.5 10h1c0-.52.21-1 .57-1.35l.64-.66A2.49 2.49 0 0010.5 6.5 2.5 2.5 0 008 4z"/></svg>
+            Thinking
+          </summary>
+          <div class="gsd-thinking-content">${escapeHtml(thinkingText)}</div>
+        </details>`;
+      }
+    } else if (seg.type === "text") {
+      const text = seg.chunks.join("");
+      if (text) {
+        html += `<div class="gsd-assistant-text">${renderMarkdown(text)}</div>`;
+      }
+    } else if (seg.type === "tool") {
+      const tc = turn.toolCalls.get(seg.toolCallId);
+      if (tc) {
+        try {
+          html += `<div class="gsd-tool-segment">${buildToolCallHtml(tc)}</div>`;
+        } catch (err) {
+          console.error("Error rendering tool call:", tc.name, err);
+          html += `<div class="gsd-tool-segment"><div class="gsd-tool-block error collapsed" data-tool-id="${escapeAttr(tc.id)}">
+            <div class="gsd-tool-header">
+              <span class="gsd-tool-icon error">✗</span>
+              <span class="gsd-tool-name">${escapeHtml(tc.name)}</span>
+              <span class="gsd-tool-arg">render error</span>
+            </div>
+          </div></div>`;
+        }
+      }
     }
   }
 
-  // Streaming cursor
+  // Streaming cursor — show only when nothing visible is happening
   if (!turn.isComplete) {
-    const hasText = text.length > 0;
+    const hasAnyContent = turn.segments.length > 0;
     const hasRunningTool = Array.from(turn.toolCalls.values()).some((t) => t.isRunning);
-    if (!hasRunningTool && !hasText) {
+    if (!hasRunningTool && !hasAnyContent) {
       html += `<div class="gsd-thinking-dots"><span></span><span></span><span></span></div>`;
-    } else if (!hasRunningTool) {
-      // Add cursor to text
     }
   }
 
@@ -1274,10 +1288,16 @@ function buildSystemHtml(entry: ChatEntry): string {
 }
 
 // ============================================================
-// Streaming render — efficiently update only the current turn
+// Streaming render — incremental, sequential, append-only
 // ============================================================
 
 let currentTurnElement: HTMLElement | null = null;
+/** Maps segment index → its DOM element inside the turn container */
+const segmentElements = new Map<number, HTMLElement>();
+/** Index of the segment currently being appended to */
+let activeSegmentIndex = -1;
+/** rAF handle for throttled text segment updates */
+let pendingTextRender: number | null = null;
 
 function ensureCurrentTurnElement(): HTMLElement {
   if (!currentTurnElement) {
@@ -1291,16 +1311,128 @@ function ensureCurrentTurnElement(): HTMLElement {
   return currentTurnElement;
 }
 
-/** Fast update of only the streaming assistant turn */
-function updateStreamingTurn(): void {
+/**
+ * Append a text or thinking delta to the current turn.
+ * Creates a new segment if the last segment isn't the same type,
+ * otherwise appends to it. Uses rAF to batch DOM updates.
+ */
+function appendToTextSegment(segType: "text" | "thinking", delta: string): void {
   if (!state.currentTurn) return;
-  const el = ensureCurrentTurnElement();
-  el.innerHTML = buildTurnHtml(state.currentTurn);
-  scrollToBottom();
+
+  const turn = state.currentTurn;
+  const segments = turn.segments;
+  let segIdx: number;
+
+  // Reuse the last segment if it's the same type, otherwise create a new one
+  const lastSeg = segments.length > 0 ? segments[segments.length - 1] : null;
+  if (lastSeg && lastSeg.type === segType) {
+    segIdx = segments.length - 1;
+    lastSeg.chunks.push(delta);
+  } else {
+    segIdx = segments.length;
+    segments.push({ type: segType, chunks: [delta] });
+  }
+  activeSegmentIndex = segIdx;
+
+  // Throttle DOM updates to one per animation frame
+  if (pendingTextRender === null) {
+    pendingTextRender = requestAnimationFrame(() => {
+      pendingTextRender = null;
+      renderTextSegment(segIdx);
+      scrollToBottom();
+    });
+  }
+}
+
+/** Render (or re-render) a text/thinking segment's DOM element */
+function renderTextSegment(segIdx: number): void {
+  if (!state.currentTurn) return;
+  const seg = state.currentTurn.segments[segIdx];
+  if (!seg || seg.type === "tool") return;
+
+  const container = ensureCurrentTurnElement();
+  let el = segmentElements.get(segIdx);
+
+  const fullText = seg.chunks.join("");
+
+  if (seg.type === "thinking") {
+    if (!el) {
+      el = document.createElement("details");
+      el.className = "gsd-thinking-block";
+      el.innerHTML = `<summary class="gsd-thinking-header">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm-.5-3h1v1h-1v-1zm.5-7a2.5 2.5 0 00-2.5 2.5h1A1.5 1.5 0 018 5a1.5 1.5 0 011.5 1.5c0 .44-.18.84-.46 1.13l-.64.66A2.49 2.49 0 007.5 10h1c0-.52.21-1 .57-1.35l.64-.66A2.49 2.49 0 0010.5 6.5 2.5 2.5 0 008 4z"/></svg>
+        Thinking
+      </summary>
+      <div class="gsd-thinking-content"></div>`;
+      insertSegmentElement(container, segIdx, el);
+      segmentElements.set(segIdx, el);
+    }
+    const content = el.querySelector(".gsd-thinking-content");
+    if (content) content.textContent = fullText;
+  } else {
+    // text segment
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "gsd-assistant-text";
+      insertSegmentElement(container, segIdx, el);
+      segmentElements.set(segIdx, el);
+    }
+    el.innerHTML = renderMarkdown(fullText);
+  }
+}
+
+/** Insert a segment element at the correct position (maintains order) */
+function insertSegmentElement(container: HTMLElement, segIdx: number, el: HTMLElement): void {
+  el.dataset.segIdx = String(segIdx);
+  // Find the next sibling segment element with a higher index
+  let inserted = false;
+  for (const [idx, existingEl] of segmentElements) {
+    if (idx > segIdx) {
+      container.insertBefore(el, existingEl);
+      inserted = true;
+      break;
+    }
+  }
+  if (!inserted) {
+    container.appendChild(el);
+  }
+}
+
+/** Create and append a tool segment's DOM element */
+function appendToolSegmentElement(tc: ToolCallState, segIdx: number): void {
+  const container = ensureCurrentTurnElement();
+  const el = document.createElement("div");
+  el.className = "gsd-tool-segment";
+  el.dataset.segIdx = String(segIdx);
+  el.dataset.toolId = tc.id;
+  el.innerHTML = buildToolCallHtml(tc);
+  insertSegmentElement(container, segIdx, el);
+  segmentElements.set(segIdx, el);
+}
+
+/** Update only the specific tool call's DOM element */
+function updateToolSegmentElement(toolCallId: string): void {
+  if (!state.currentTurn) return;
+  const tc = state.currentTurn.toolCalls.get(toolCallId);
+  if (!tc) return;
+
+  // Find the segment element for this tool
+  for (const [segIdx, el] of segmentElements) {
+    if (el.dataset.toolId === toolCallId) {
+      el.innerHTML = buildToolCallHtml(tc);
+      return;
+    }
+  }
 }
 
 function finalizeCurrentTurn(): void {
   if (!state.currentTurn) return;
+
+  // Cancel any pending render
+  if (pendingTextRender !== null) {
+    cancelAnimationFrame(pendingTextRender);
+    pendingTextRender = null;
+  }
 
   const turn = state.currentTurn;
   turn.isComplete = true;
@@ -1318,7 +1450,7 @@ function finalizeCurrentTurn(): void {
     timestamp: turn.timestamp,
   });
 
-  // Update the DOM element
+  // Do a final re-render of the complete turn to ensure everything is clean
   if (currentTurnElement) {
     currentTurnElement.classList.remove("streaming");
     currentTurnElement.innerHTML = buildTurnHtml(turn);
@@ -1326,6 +1458,8 @@ function finalizeCurrentTurn(): void {
 
   state.currentTurn = null;
   currentTurnElement = null;
+  segmentElements.clear();
+  activeSegmentIndex = -1;
 }
 
 // ============================================================
@@ -1708,15 +1842,16 @@ window.addEventListener("message", (event) => {
       state.isStreaming = true;
       state.currentTurn = {
         id: nextId(),
-        textChunks: [],
-        thinkingChunks: [],
+        segments: [],
         toolCalls: new Map(),
         isComplete: false,
         timestamp: Date.now(),
       };
       currentTurnElement = null;
+      segmentElements.clear();
+      activeSegmentIndex = -1;
       updateInputUI();
-      updateStreamingTurn();
+      ensureCurrentTurnElement();
       break;
     }
 
@@ -1735,13 +1870,14 @@ window.addEventListener("message", (event) => {
       if (!state.currentTurn) {
         state.currentTurn = {
           id: nextId(),
-          textChunks: [],
-          thinkingChunks: [],
+          segments: [],
           toolCalls: new Map(),
           isComplete: false,
           timestamp: Date.now(),
         };
         currentTurnElement = null;
+        segmentElements.clear();
+        activeSegmentIndex = -1;
       }
       break;
     }
@@ -1762,11 +1898,9 @@ window.addEventListener("message", (event) => {
 
       if (delta) {
         if (delta.type === "text_delta" && delta.delta) {
-          state.currentTurn.textChunks.push(delta.delta);
-          updateStreamingTurn();
+          appendToTextSegment("text", delta.delta);
         } else if (delta.type === "thinking_delta" && delta.delta) {
-          state.currentTurn.thinkingChunks.push(delta.delta);
-          updateStreamingTurn();
+          appendToTextSegment("thinking", delta.delta);
         }
       }
       break;
@@ -1810,7 +1944,7 @@ window.addEventListener("message", (event) => {
     case "tool_execution_start": {
       if (!state.currentTurn) break;
       const data = msg as any;
-      state.currentTurn.toolCalls.set(data.toolCallId, {
+      const tc: ToolCallState = {
         id: data.toolCallId,
         name: data.toolName,
         args: data.args || {},
@@ -1818,8 +1952,15 @@ window.addEventListener("message", (event) => {
         isError: false,
         isRunning: true,
         startTime: Date.now(),
-      });
-      updateStreamingTurn();
+      };
+      state.currentTurn.toolCalls.set(data.toolCallId, tc);
+      // Add a tool segment in sequence
+      const segIdx = state.currentTurn.segments.length;
+      state.currentTurn.segments.push({ type: "tool", toolCallId: data.toolCallId });
+      activeSegmentIndex = segIdx;
+      // Create DOM element for this tool segment
+      appendToolSegmentElement(tc, segIdx);
+      scrollToBottom();
       break;
     }
 
@@ -1833,7 +1974,8 @@ window.addEventListener("message", (event) => {
           .filter(Boolean)
           .join("\n");
         if (text) tc.resultText = text;
-        updateStreamingTurn();
+        updateToolSegmentElement(data.toolCallId);
+        scrollToBottom();
       }
       break;
     }
@@ -1857,7 +1999,8 @@ window.addEventListener("message", (event) => {
           if (text) tc.resultText = text;
         }
       }
-      updateStreamingTurn();
+      updateToolSegmentElement(data.toolCallId);
+      scrollToBottom();
       break;
     }
 
@@ -1969,6 +2112,8 @@ window.addEventListener("message", (event) => {
       state.isRetrying = false;
       state.currentTurn = null;
       currentTurnElement = null;
+      segmentElements.clear();
+      activeSegmentIndex = -1;
       updateInputUI();
       updateOverlayIndicators();
 
