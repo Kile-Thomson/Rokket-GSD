@@ -3,7 +3,6 @@
 // Vanilla DOM for minimal bundle size. Uses marked for markdown.
 // ============================================================
 
-import { marked } from "marked";
 import type {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
@@ -15,6 +14,37 @@ import type {
 } from "../shared/types";
 import "./styles.css";
 
+import {
+  state,
+  nextId,
+  type AppState,
+  type ChatEntry,
+  type AssistantTurn,
+  type TurnSegment,
+  type ToolCallState,
+  type AvailableModel,
+  type ToolCategory,
+} from "./state";
+
+import {
+  escapeHtml,
+  escapeAttr,
+  formatCost,
+  formatTokens,
+  formatContextUsage,
+  shortenPath,
+  formatDuration,
+  truncateArg,
+  getToolCategory,
+  getToolIcon,
+  getToolKeyArg,
+  formatToolResult,
+  buildSubagentOutputHtml,
+  renderMarkdown,
+  isLikelyFilePath,
+  scrollToBottom,
+} from "./helpers";
+
 // VS Code API
 declare function acquireVsCodeApi(): {
   postMessage(msg: unknown): void;
@@ -23,138 +53,6 @@ declare function acquireVsCodeApi(): {
 };
 
 const vscode = acquireVsCodeApi();
-
-// ============================================================
-// Configure marked
-// ============================================================
-
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
-
-// Custom renderer for links — open externally
-const renderer = new marked.Renderer();
-renderer.link = ({ href, text }: { href: string; text: string }) => {
-  return `<a href="${escapeAttr(href)}" class="gsd-link" title="${escapeAttr(href)}">${text}</a>`;
-};
-renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
-  const langLabel = lang || "text";
-  const id = `code-${++codeBlockIdCounter}`;
-  return `<div class="gsd-code-block" data-code-id="${id}">
-    <div class="gsd-code-header">
-      <span class="gsd-code-lang">${escapeHtml(langLabel)}</span>
-      <button class="gsd-copy-btn" data-code-id="${id}">Copy</button>
-    </div>
-    <pre><code class="language-${escapeAttr(langLabel)}">${escapeHtml(text)}</code></pre>
-  </div>`;
-};
-renderer.image = ({ href, title, text }: { href: string; title?: string; text: string }) => {
-  return `<img src="${escapeAttr(href)}" alt="${escapeAttr(text)}" title="${escapeAttr(title || "")}" class="gsd-md-image" />`;
-};
-
-let codeBlockIdCounter = 0;
-
-// ============================================================
-// State
-// ============================================================
-
-interface ToolCallState {
-  id: string;
-  name: string;
-  args: Record<string, unknown>;
-  resultText: string;
-  isError: boolean;
-  isRunning: boolean;
-  startTime: number;
-  endTime?: number;
-}
-
-/** A segment in the sequential stream — text, thinking, or tool call */
-type TurnSegment =
-  | { type: "text"; chunks: string[] }
-  | { type: "thinking"; chunks: string[] }
-  | { type: "tool"; toolCallId: string };
-
-/** One assistant turn = ordered sequence of segments */
-interface AssistantTurn {
-  id: string;
-  /** Ordered segments in the sequence they arrived */
-  segments: TurnSegment[];
-  /** Quick lookup for tool calls by ID */
-  toolCalls: Map<string, ToolCallState>;
-  isComplete: boolean;
-  timestamp: number;
-}
-
-interface ChatEntry {
-  id: string;
-  type: "user" | "assistant" | "system";
-  // For user
-  text?: string;
-  images?: ImageAttachment[];
-  // For assistant — a turn with grouped content
-  turn?: AssistantTurn;
-  // For system
-  systemText?: string;
-  systemKind?: "info" | "error" | "warning";
-  timestamp: number;
-}
-
-interface AppState {
-  entries: ChatEntry[];
-  isStreaming: boolean;
-  isCompacting: boolean;
-  isRetrying: boolean;
-  retryInfo?: { attempt: number; maxAttempts: number; errorMessage: string };
-  model: { id: string; name: string; provider: string; contextWindow?: number } | null;
-  thinkingLevel: string;
-  processStatus: ProcessStatus;
-  images: ImageAttachment[];
-  useCtrlEnterToSend: boolean;
-  cwd: string;
-  version: string;
-  sessionStats: SessionStats;
-  commands: CommandInfo[];
-  commandsLoaded: boolean;
-  availableModels: AvailableModel[];
-  modelsLoaded: boolean;
-  // Track the current in-progress assistant turn
-  currentTurn: AssistantTurn | null;
-}
-
-interface AvailableModel {
-  id: string;
-  name: string;
-  provider: string;
-  reasoning?: boolean;
-  contextWindow?: number;
-}
-
-const state: AppState = {
-  entries: [],
-  isStreaming: false,
-  isCompacting: false,
-  isRetrying: false,
-  model: null,
-  thinkingLevel: "off",
-  processStatus: "stopped",
-  images: [],
-  useCtrlEnterToSend: false,
-  cwd: "",
-  version: "",
-  sessionStats: {},
-  commands: [],
-  commandsLoaded: false,
-  availableModels: [],
-  modelsLoaded: false,
-  currentTurn: null,
-};
-
-let entryIdCounter = 0;
-function nextId(): string {
-  return `e-${++entryIdCounter}`;
-}
 
 // ============================================================
 // DOM Setup
@@ -278,252 +176,6 @@ const footerStats = document.getElementById("footerStats")!;
 const footerRight = document.getElementById("footerRight")!;
 
 // ============================================================
-// Helpers
-// ============================================================
-
-function escapeHtml(text: string): string {
-  if (typeof text !== "string") text = String(text ?? "");
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function escapeAttr(text: string): string {
-  return escapeHtml(text);
-}
-
-function formatCost(cost: number | undefined): string {
-  if (cost == null) return "$0.000";
-  return `$${cost.toFixed(3)}`;
-}
-
-function formatTokens(count: number): string {
-  if (count < 1000) return count.toString();
-  if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
-  if (count < 1000000) return `${Math.round(count / 1000)}k`;
-  if (count < 10000000) return `${(count / 1000000).toFixed(1)}M`;
-  return `${Math.round(count / 1000000)}M`;
-}
-
-function formatContextUsage(stats: SessionStats, model: AppState["model"]): string {
-  const contextWindow = stats.contextWindow || model?.contextWindow || 0;
-  const pct = stats.contextPercent;
-  const auto = stats.autoCompactionEnabled !== false ? " (auto)" : "";
-  if (contextWindow > 0) {
-    const windowStr = formatTokens(contextWindow);
-    if (pct != null) {
-      return `${pct.toFixed(1)}%/${windowStr}${auto}`;
-    }
-    return `?/${windowStr}${auto}`;
-  }
-  if (pct != null) {
-    return `${pct.toFixed(1)}%${auto}`;
-  }
-  return "";
-}
-
-function shortenPath(p: string): string {
-  if (!p) return "";
-  // Show last 2 segments
-  const parts = p.replace(/\\/g, "/").split("/").filter(Boolean);
-  if (parts.length <= 2) return parts.join("/");
-  return "…/" + parts.slice(-2).join("/");
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
-}
-
-/** Tool categorization for icons & color accents */
-type ToolCategory = "file" | "shell" | "browser" | "search" | "agent" | "process" | "generic";
-
-function getToolCategory(name: string): ToolCategory {
-  const n = name.toLowerCase();
-  if (["read", "write", "edit"].includes(n)) return "file";
-  if (n === "bash" || n === "bg_shell") return "shell";
-  if (n.startsWith("browser_") || n.startsWith("mac_")) return "browser";
-  if (["search-the-web", "search_and_read", "fetch_page", "google_search",
-       "resolve_library", "get_library_docs"].includes(n)) return "search";
-  if (n === "subagent") return "agent";
-  if (["bg_shell"].includes(n)) return "process";
-  return "generic";
-}
-
-function getToolIcon(name: string, category: ToolCategory): string {
-  const n = name.toLowerCase();
-  if (n === "read") return "📄";
-  if (n === "write") return "✏️";
-  if (n === "edit") return "✂️";
-  if (n === "bash") return "⌨";
-  if (n === "bg_shell") return "⚙";
-  if (n === "subagent") return "🤖";
-  if (n.startsWith("browser_")) return "🌐";
-  if (n.startsWith("mac_")) return "🖥";
-  if (category === "search") return "🔍";
-  return "⚡";
-}
-
-function getToolKeyArg(name: string, args: Record<string, unknown>): string {
-  const n = name.toLowerCase();
-  if (n === "bash" && args.command) return truncateArg(String(args.command), 80);
-  if ((n === "read" || n === "write" || n === "edit") && args.path) return truncateArg(String(args.path), 80);
-  if (n === "browser_navigate" && args.url) return truncateArg(String(args.url), 60);
-  if (n === "browser_click" && args.selector) return truncateArg(String(args.selector), 60);
-  if (n === "subagent") {
-    const agent = args.agent || (args.chain as any)?.[0]?.agent || (args.tasks as any)?.[0]?.agent || "";
-    const task = args.task || "";
-    if (agent) return truncateArg(`${agent}: ${task}`, 80);
-    if (task) return truncateArg(String(task), 80);
-    return "";
-  }
-  if (n === "bg_shell") {
-    const action = args.action ? String(args.action) : "";
-    const cmd = args.command ? truncateArg(String(args.command), 60) : "";
-    const label = args.label ? String(args.label) : "";
-    if (action === "start" && (label || cmd)) return `start: ${label || cmd}`;
-    if (action && args.id) return `${action}: ${args.id}`;
-    return action || "";
-  }
-  // Generic: show first string arg
-  for (const [k, v] of Object.entries(args)) {
-    if (typeof v === "string" && v.length > 0 && k !== "content" && k !== "oldText" && k !== "newText") {
-      return truncateArg(v, 60);
-    }
-  }
-  return "";
-}
-
-function truncateArg(s: string, max: number): string {
-  const line = s.split("\n")[0];
-  if (line.length <= max) return line;
-  return line.slice(0, max - 1) + "…";
-}
-
-/** Format tool results for display — special handling for known tools */
-function formatToolResult(toolName: string, resultText: string, args: Record<string, unknown>): string {
-  const n = toolName.toLowerCase();
-
-  // ask_user_questions: parse the JSON and show a clean summary
-  if (n === "ask_user_questions") {
-    try {
-      const parsed = JSON.parse(resultText);
-      if (parsed.answers && typeof parsed.answers === "object") {
-        const questions = (args.questions as any[]) || [];
-        const lines: string[] = [];
-        for (const [id, answer] of Object.entries(parsed.answers) as [string, any][]) {
-          const q = questions.find((q: any) => q.id === id);
-          const header = q?.header || id;
-          const selections = answer.answers || [];
-          lines.push(`✓ ${header}: ${selections.join(", ")}`);
-        }
-        return lines.join("\n") || resultText;
-      }
-    } catch {
-      // Not JSON — fall through
-    }
-  }
-
-  return resultText;
-}
-
-/** Check if a tool result has structured details (subagent, bg_shell, etc.) */
-function hasStructuredDetails(toolName: string, resultText: string): boolean {
-  const n = toolName.toLowerCase();
-  return n === "subagent" || n === "bg_shell";
-}
-
-/** Build rich HTML for subagent results instead of plain text */
-function buildSubagentOutputHtml(tc: ToolCallState): string {
-  // Try to parse subagent details from the tool_execution_update/end events
-  // The details come through in the result, but we only get the text content.
-  // Parse the text to extract structure.
-  const text = tc.resultText;
-  const args = tc.args;
-  const mode = args.chain ? "chain" : args.tasks ? "parallel" : "single";
-
-  if (tc.isRunning) {
-    // During execution — show activity
-    const agentName = (args.agent as string) || 
-                      (args.chain as any[])?.[0]?.agent ||
-                      (args.tasks as any[])?.[0]?.agent || "agent";
-    const taskCount = (args.chain as any[])?.length || (args.tasks as any[])?.length || 1;
-    
-    let html = `<div class="gsd-subagent-live">`;
-    html += `<div class="gsd-subagent-status">`;
-    html += `<span class="gsd-tool-spinner"></span>`;
-    
-    if (mode === "chain") {
-      html += ` Chain: ${taskCount} steps`;
-    } else if (mode === "parallel") {
-      html += ` Parallel: ${taskCount} tasks`;
-    } else {
-      html += ` ${escapeHtml(agentName)}`;
-    }
-    html += `</div>`;
-    
-    if (text) {
-      // Show streaming progress text
-      html += `<div class="gsd-subagent-progress">${escapeHtml(text)}</div>`;
-    }
-    html += `</div>`;
-    return html;
-  }
-
-  // Completed — render the final output as markdown for rich formatting
-  if (!text) return `<span class="gsd-tool-output-pending">(no output)</span>`;
-
-  // Render the result text as markdown for tables, code blocks, etc.
-  return `<div class="gsd-subagent-result">${renderMarkdown(text)}</div>`;
-}
-
-function renderMarkdown(text: string): string {
-  if (!text) return "";
-  try {
-    let html = marked.parse(text, { renderer }) as string;
-    // Wrap bare <table> elements in a scrollable container for overflow
-    html = html.replace(/<table>/g, '<div class="gsd-table-wrapper"><table>');
-    html = html.replace(/<\/table>/g, '</table></div>');
-    // Detect file paths in <code> blocks and make them clickable
-    // Matches paths like /foo/bar.ts, C:\foo\bar.ts, src/foo/bar.ts
-    html = html.replace(/<code>([^<]+)<\/code>/g, (_match, content: string) => {
-      const decoded = content.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#039;/g, "'");
-      if (isLikelyFilePath(decoded)) {
-        return `<code class="gsd-file-link" data-path="${escapeAttr(decoded)}">${content}</code>`;
-      }
-      return `<code>${content}</code>`;
-    });
-    return html;
-  } catch {
-    return `<p>${escapeHtml(text)}</p>`;
-  }
-}
-
-/** Heuristic: does this look like a file path? */
-function isLikelyFilePath(s: string): boolean {
-  // Must have an extension or be a recognizable path pattern
-  if (s.includes("\n") || s.length > 200 || s.length < 3) return false;
-  // Windows absolute path
-  if (/^[A-Z]:[\\\/]/.test(s)) return true;
-  // Unix absolute path
-  if (s.startsWith("/") && !s.startsWith("//") && /\.\w+$/.test(s)) return true;
-  // Relative path with extension — must have at least one / or \
-  if (/[\/\\]/.test(s) && /\.\w{1,10}$/.test(s) && !s.includes(" ")) return true;
-  // Common config files
-  if (/^\.?\w[\w.-]*\.\w{1,10}$/.test(s) && !s.includes(" ")) return true;
-  return false;
-}
-
-function scrollToBottom(): void {
-  requestAnimationFrame(() => {
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-  });
-}
-
-// ============================================================
 // Auto-resize textarea
 // ============================================================
 
@@ -612,17 +264,15 @@ let slashMenuIndex = 0;
 interface SlashMenuItem {
   name: string;
   description: string;
-  insertText: string; // what gets inserted into the input
+  insertText: string;
   source?: string;
 }
 
 let filteredItems: SlashMenuItem[] = [];
 
-/** Expand commands into individual menu items, breaking out subcommands */
 function buildSlashItems(): SlashMenuItem[] {
   const items: SlashMenuItem[] = [];
 
-  // GSD subcommands — expand into individual items
   const gsdSubcommands: Array<{ name: string; desc: string }> = [
     { name: "gsd", desc: "Contextual wizard — pick the next action" },
     { name: "gsd next", desc: "Execute the next task" },
@@ -646,7 +296,6 @@ function buildSlashItems(): SlashMenuItem[] {
     });
   }
 
-  // Add other registered commands (skip "gsd" since we expanded it)
   for (const cmd of state.commands) {
     if (cmd.name === "gsd") continue;
     items.push({
@@ -657,7 +306,6 @@ function buildSlashItems(): SlashMenuItem[] {
     });
   }
 
-  // Add built-in webview actions
   items.push(
     { name: "compact", description: "Compact context to reduce token usage", insertText: "", source: "webview" },
     { name: "export", description: "Export conversation as HTML", insertText: "", source: "webview" },
@@ -709,7 +357,6 @@ function renderSlashMenu(): void {
     });
   });
 
-  // Scroll active item into view
   const activeEl = slashMenu.querySelector(".gsd-slash-item.active");
   if (activeEl) activeEl.scrollIntoView({ block: "nearest" });
 }
@@ -718,7 +365,6 @@ function selectSlashCommand(idx: number): void {
   const item = filteredItems[idx];
   if (!item) { hideSlashMenu(); return; }
 
-  // Handle built-in webview actions directly
   if (item.source === "webview") {
     hideSlashMenu();
     switch (item.name) {
@@ -761,7 +407,6 @@ function selectSlashCommand(idx: number): void {
     return;
   }
 
-  // Regular commands — insert into input and let user send
   promptInput.value = item.insertText;
   autoResize();
   promptInput.focus();
@@ -821,7 +466,6 @@ function renderModelPicker(): void {
     return;
   }
 
-  // Group models by provider
   const byProvider = new Map<string, AvailableModel[]>();
   for (const m of models) {
     const list = byProvider.get(m.provider) || [];
@@ -860,7 +504,6 @@ function renderModelPicker(): void {
   modelPicker.style.display = "block";
   modelPicker.innerHTML = html;
 
-  // Event listeners
   modelPicker.querySelector("#modelPickerClose")?.addEventListener("click", hideModelPicker);
   modelPicker.querySelectorAll(".gsd-model-picker-item").forEach((el) => {
     el.addEventListener("click", () => {
@@ -868,7 +511,6 @@ function renderModelPicker(): void {
       const modelId = (el as HTMLElement).dataset.modelId!;
       vscode.postMessage({ type: "set_model", provider, modelId });
       hideModelPicker();
-      // Optimistic update
       if (state.model) {
         state.model.id = modelId;
         state.model.provider = provider;
@@ -880,7 +522,6 @@ function renderModelPicker(): void {
       }
       updateHeaderUI();
       updateFooterUI();
-      // Re-fetch state to confirm
       setTimeout(() => vscode.postMessage({ type: "get_state" }), 500);
     });
   });
@@ -890,7 +531,6 @@ modelPickerBtn.addEventListener("click", toggleModelPicker);
 modelBadge.addEventListener("click", toggleModelPicker);
 modelBadge.style.cursor = "pointer";
 
-// Close picker when clicking outside
 document.addEventListener("click", (e: Event) => {
   if (modelPickerVisible) {
     const target = e.target as HTMLElement;
@@ -904,9 +544,6 @@ document.addEventListener("click", (e: Event) => {
 // Send message
 // ============================================================
 
-// Follow-up queue — messages typed while agent is streaming
-const followUpQueue: string[] = [];
-
 function sendMessage(): void {
   hideSlashMenu();
   hideModelPicker();
@@ -916,7 +553,6 @@ function sendMessage(): void {
   // Handle ! bash shortcut
   if (text.startsWith("!") && !text.startsWith("!!") && text.length > 1 && !state.isStreaming) {
     const bashCmd = text.slice(1).trim();
-    // Add as user entry with bash styling
     state.entries.push({
       id: nextId(),
       type: "user",
@@ -925,18 +561,16 @@ function sendMessage(): void {
     });
     welcomeScreen.style.display = "none";
     renderNewEntry(state.entries[state.entries.length - 1]);
-    scrollToBottom();
+    scrollToBottom(messagesContainer);
 
-    // Run bash directly
     vscode.postMessage({ type: "run_bash", command: bashCmd });
     promptInput.value = "";
     autoResize();
     return;
   }
 
-  // If streaming and not a steer, queue as follow-up
+  // If streaming — steer
   if (state.isStreaming) {
-    // Add user entry
     state.entries.push({
       id: nextId(),
       type: "user",
@@ -946,9 +580,8 @@ function sendMessage(): void {
     });
     welcomeScreen.style.display = "none";
     renderNewEntry(state.entries[state.entries.length - 1]);
-    scrollToBottom();
+    scrollToBottom(messagesContainer);
 
-    // Steer the current run
     vscode.postMessage({
       type: "steer",
       message: text,
@@ -973,7 +606,7 @@ function sendMessage(): void {
     });
     welcomeScreen.style.display = "none";
     renderNewEntry(state.entries[state.entries.length - 1]);
-    scrollToBottom();
+    scrollToBottom(messagesContainer);
   }
 
   const msg: WebviewToExtensionMessage = {
@@ -994,7 +627,6 @@ function sendMessage(): void {
 // ============================================================
 
 promptInput.addEventListener("keydown", (e: KeyboardEvent) => {
-  // Slash menu navigation
   if (slashMenuVisible) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -1057,19 +689,16 @@ newConvoBtn.addEventListener("click", () => {
   updateAllUI();
 });
 
-// Compact context button
 compactBtn.addEventListener("click", () => {
   if (!state.isStreaming) {
     vscode.postMessage({ type: "compact_context" });
   }
 });
 
-// Export HTML button
 exportBtn.addEventListener("click", () => {
   vscode.postMessage({ type: "export_html" });
 });
 
-// Thinking badge — click to cycle
 thinkingBadge.addEventListener("click", () => {
   vscode.postMessage({ type: "cycle_thinking_level" });
 });
@@ -1082,7 +711,6 @@ thinkingBadge.style.cursor = "pointer";
 document.addEventListener("click", (e: Event) => {
   const target = e.target as HTMLElement;
 
-  // Copy button on code blocks
   const copyBtn = target.closest(".gsd-copy-btn") as HTMLElement | null;
   if (copyBtn) {
     const codeBlock = copyBtn.closest(".gsd-code-block");
@@ -1093,21 +721,18 @@ document.addEventListener("click", (e: Event) => {
     return;
   }
 
-  // File path links
   if (target.classList.contains("gsd-file-link")) {
     const path = target.dataset.path;
     if (path) vscode.postMessage({ type: "open_file", path });
     return;
   }
 
-  // URL links
   if (target.tagName === "A" && target.getAttribute("href")) {
     e.preventDefault();
     vscode.postMessage({ type: "open_url", url: target.getAttribute("href")! });
     return;
   }
 
-  // Tool output toggle
   const toolHeader = target.closest(".gsd-tool-header") as HTMLElement | null;
   if (toolHeader) {
     const block = toolHeader.closest(".gsd-tool-block") as HTMLElement | null;
@@ -1117,7 +742,6 @@ document.addEventListener("click", (e: Event) => {
     return;
   }
 
-  // Restart button
   if (target.closest("#restartBtn")) {
     vscode.postMessage({ type: "launch_gsd" });
     return;
@@ -1138,7 +762,6 @@ function clearMessages(): void {
   els.forEach((el) => el.remove());
 }
 
-/** Render a new entry at the bottom of the container */
 function renderNewEntry(entry: ChatEntry): void {
   const el = createEntryElement(entry);
   messagesContainer.appendChild(el);
@@ -1175,7 +798,6 @@ function buildUserHtml(entry: ChatEntry): string {
 function buildTurnHtml(turn: AssistantTurn): string {
   let html = "";
 
-  // Render segments in order
   for (const seg of turn.segments) {
     if (seg.type === "thinking") {
       const thinkingText = seg.chunks.join("");
@@ -1212,7 +834,6 @@ function buildTurnHtml(turn: AssistantTurn): string {
     }
   }
 
-  // Streaming cursor — show only when nothing visible is happening
   if (!turn.isComplete) {
     const hasAnyContent = turn.segments.length > 0;
     const hasRunningTool = Array.from(turn.toolCalls.values()).some((t) => t.isRunning);
@@ -1239,20 +860,15 @@ function buildToolCallHtml(tc: ToolCallState): string {
   const stateClass = tc.isRunning ? "running" : tc.isError ? "error" : "done";
   const isSubagent = tc.name.toLowerCase() === "subagent";
 
-  // Determine if output should be auto-collapsed
-  // Subagent results stay expanded — they contain rich rendered content
   const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
   const shouldCollapse = !tc.isRunning && !isSubagent && lines > 5;
   const collapsedClass = shouldCollapse ? "collapsed" : "";
 
-  // Build output HTML with smart formatting
   let outputHtml = "";
 
   if (isSubagent) {
-    // Subagent gets rich rendering
     outputHtml = `<div class="gsd-tool-output gsd-tool-output-rich">${buildSubagentOutputHtml(tc)}</div>`;
   } else if (tc.resultText) {
-    // Standard tools: format and display as code
     const formattedResult = formatToolResult(tc.name, tc.resultText, tc.args);
     const maxOutputLen = 8000;
     let displayText = formattedResult;
@@ -1292,11 +908,8 @@ function buildSystemHtml(entry: ChatEntry): string {
 // ============================================================
 
 let currentTurnElement: HTMLElement | null = null;
-/** Maps segment index → its DOM element inside the turn container */
 const segmentElements = new Map<number, HTMLElement>();
-/** Index of the segment currently being appended to */
 let activeSegmentIndex = -1;
-/** rAF handle for throttled text segment updates */
 let pendingTextRender: number | null = null;
 
 function ensureCurrentTurnElement(): HTMLElement {
@@ -1311,11 +924,6 @@ function ensureCurrentTurnElement(): HTMLElement {
   return currentTurnElement;
 }
 
-/**
- * Append a text or thinking delta to the current turn.
- * Creates a new segment if the last segment isn't the same type,
- * otherwise appends to it. Uses rAF to batch DOM updates.
- */
 function appendToTextSegment(segType: "text" | "thinking", delta: string): void {
   if (!state.currentTurn) return;
 
@@ -1323,7 +931,6 @@ function appendToTextSegment(segType: "text" | "thinking", delta: string): void 
   const segments = turn.segments;
   let segIdx: number;
 
-  // Reuse the last segment if it's the same type, otherwise create a new one
   const lastSeg = segments.length > 0 ? segments[segments.length - 1] : null;
   if (lastSeg && lastSeg.type === segType) {
     segIdx = segments.length - 1;
@@ -1334,17 +941,15 @@ function appendToTextSegment(segType: "text" | "thinking", delta: string): void 
   }
   activeSegmentIndex = segIdx;
 
-  // Throttle DOM updates to one per animation frame
   if (pendingTextRender === null) {
     pendingTextRender = requestAnimationFrame(() => {
       pendingTextRender = null;
       renderTextSegment(segIdx);
-      scrollToBottom();
+      scrollToBottom(messagesContainer);
     });
   }
 }
 
-/** Render (or re-render) a text/thinking segment's DOM element */
 function renderTextSegment(segIdx: number): void {
   if (!state.currentTurn) return;
   const seg = state.currentTurn.segments[segIdx];
@@ -1370,7 +975,6 @@ function renderTextSegment(segIdx: number): void {
     const content = el.querySelector(".gsd-thinking-content");
     if (content) content.textContent = fullText;
   } else {
-    // text segment
     if (!el) {
       el = document.createElement("div");
       el.className = "gsd-assistant-text";
@@ -1381,10 +985,8 @@ function renderTextSegment(segIdx: number): void {
   }
 }
 
-/** Insert a segment element at the correct position (maintains order) */
 function insertSegmentElement(container: HTMLElement, segIdx: number, el: HTMLElement): void {
   el.dataset.segIdx = String(segIdx);
-  // Find the next sibling segment element with a higher index
   let inserted = false;
   for (const [idx, existingEl] of segmentElements) {
     if (idx > segIdx) {
@@ -1398,7 +1000,6 @@ function insertSegmentElement(container: HTMLElement, segIdx: number, el: HTMLEl
   }
 }
 
-/** Create and append a tool segment's DOM element */
 function appendToolSegmentElement(tc: ToolCallState, segIdx: number): void {
   const container = ensureCurrentTurnElement();
   const el = document.createElement("div");
@@ -1410,13 +1011,11 @@ function appendToolSegmentElement(tc: ToolCallState, segIdx: number): void {
   segmentElements.set(segIdx, el);
 }
 
-/** Update only the specific tool call's DOM element */
 function updateToolSegmentElement(toolCallId: string): void {
   if (!state.currentTurn) return;
   const tc = state.currentTurn.toolCalls.get(toolCallId);
   if (!tc) return;
 
-  // Find the segment element for this tool
   for (const [segIdx, el] of segmentElements) {
     if (el.dataset.toolId === toolCallId) {
       el.innerHTML = buildToolCallHtml(tc);
@@ -1428,7 +1027,6 @@ function updateToolSegmentElement(toolCallId: string): void {
 function finalizeCurrentTurn(): void {
   if (!state.currentTurn) return;
 
-  // Cancel any pending render
   if (pendingTextRender !== null) {
     cancelAnimationFrame(pendingTextRender);
     pendingTextRender = null;
@@ -1437,12 +1035,10 @@ function finalizeCurrentTurn(): void {
   const turn = state.currentTurn;
   turn.isComplete = true;
 
-  // Mark all tool calls as done
   for (const [, tc] of turn.toolCalls) {
     tc.isRunning = false;
   }
 
-  // Add to entries
   state.entries.push({
     id: turn.id,
     type: "assistant",
@@ -1450,7 +1046,6 @@ function finalizeCurrentTurn(): void {
     timestamp: turn.timestamp,
   });
 
-  // Do a final re-render of the complete turn to ensure everything is clean
   if (currentTurnElement) {
     currentTurnElement.classList.remove("streaming");
     currentTurnElement.innerHTML = buildTurnHtml(turn);
@@ -1483,7 +1078,6 @@ function updateHeaderUI(): void {
     modelBadge.style.display = "none";
   }
 
-  // Always show thinking badge so user can click to cycle
   const thinkingLabel = state.thinkingLevel && state.thinkingLevel !== "off" ? state.thinkingLevel : "off";
   thinkingBadge.textContent = `🧠 ${thinkingLabel}`;
   thinkingBadge.title = "Click to cycle thinking level";
@@ -1502,7 +1096,6 @@ function updateHeaderUI(): void {
   if (ctx) {
     contextBadge.textContent = `◐ ${ctx}`;
     contextBadge.style.display = "inline-flex";
-    // Color based on percentage
     const pct = stats.contextPercent ?? 0;
     contextBadge.classList.remove("warn", "crit");
     if (pct > 90) contextBadge.classList.add("crit");
@@ -1516,7 +1109,6 @@ function updateFooterUI(): void {
   footerCwd.textContent = state.cwd || "";
   footerCwd.title = state.cwd;
 
-  // Build stats line matching CLI format: ↑input ↓output RcacheRead WcacheWrite $cost percent%/contextWindow (auto)
   const stats = state.sessionStats;
   const tokens = stats.tokens;
   const parts: string[] = [];
@@ -1535,7 +1127,6 @@ function updateFooterUI(): void {
 
   footerStats.textContent = parts.join(" ");
 
-  // Right side: model + thinking
   let right = "";
   if (state.model) {
     right = state.model.id || state.model.name || "";
@@ -1615,10 +1206,8 @@ function updateWelcomeScreen(): void {
   }
   welcomeScreen.style.display = "flex";
 
-  // Version
   welcomeVersion.textContent = state.version ? `v${state.version}` : "";
 
-  // Status
   switch (state.processStatus) {
     case "starting":
       welcomeProcess.textContent = "Starting GSD…";
@@ -1636,7 +1225,6 @@ function updateWelcomeScreen(): void {
       welcomeProcess.textContent = "Initializing…";
   }
 
-  // Model
   if (state.model && state.processStatus === "running") {
     let modelStr = state.model.id || state.model.name || "";
     if (state.model.provider) modelStr = `${state.model.provider}/${modelStr}`;
@@ -1649,7 +1237,6 @@ function updateWelcomeScreen(): void {
     welcomeModel.style.display = "none";
   }
 
-  // Hints
   if (state.processStatus === "running") {
     const sendKey = state.useCtrlEnterToSend ? "Ctrl+Enter" : "Enter";
     welcomeHints.innerHTML = [
@@ -1672,7 +1259,6 @@ function handleInlineUiRequest(data: any): void {
   const id = data.id;
   const method = data.method;
 
-  // Create an inline element in the messages container (not overlay)
   const wrapper = document.createElement("div");
   wrapper.className = "gsd-entry gsd-entry-ui-request";
   wrapper.dataset.uiId = id;
@@ -1685,7 +1271,7 @@ function handleInlineUiRequest(data: any): void {
         <div class="gsd-ui-title">${escapeHtml(title)}</div>
         ${data.message ? `<div class="gsd-ui-message">${escapeHtml(data.message)}</div>` : ""}
         <div class="gsd-ui-options">
-          ${options.map((opt, i) =>
+          ${options.map((opt: string) =>
             `<button class="gsd-ui-option-btn" data-value="${escapeAttr(opt)}">${escapeHtml(opt)}</button>`
           ).join("")}
         </div>
@@ -1697,7 +1283,6 @@ function handleInlineUiRequest(data: any): void {
       btn.addEventListener("click", () => {
         const value = (btn as HTMLElement).dataset.value!;
         vscode.postMessage({ type: "extension_ui_response", id, value });
-        // Show compact resolved state with question context
         const shortTitle = title.split(":")[0]?.trim() || title;
         disableUiRequest(wrapper, `${shortTitle}: ${value}`);
       });
@@ -1761,14 +1346,13 @@ function handleInlineUiRequest(data: any): void {
   }
 
   messagesContainer.appendChild(wrapper);
-  scrollToBottom();
+  scrollToBottom(messagesContainer);
 }
 
 function disableUiRequest(wrapper: HTMLElement, summary: string): void {
   wrapper.classList.add("resolved");
   const req = wrapper.querySelector(".gsd-ui-request");
   if (req) {
-    // Parse the summary for a cleaner display
     const icon = summary.startsWith("Cancelled") ? "⊘" :
                  summary.startsWith("Confirmed: No") ? "✗" : "✓";
     const cssClass = summary.startsWith("Cancelled") ? "cancelled" :
@@ -1806,7 +1390,6 @@ window.addEventListener("message", (event) => {
         if (data.autoCompactionEnabled != null) {
           state.sessionStats.autoCompactionEnabled = data.autoCompactionEnabled;
         }
-        // Carry context window from model into stats
         if (data.model?.contextWindow) {
           state.sessionStats.contextWindow = data.model.contextWindow;
         }
@@ -1819,7 +1402,6 @@ window.addEventListener("message", (event) => {
     case "session_stats": {
       const data = (msg as any).data;
       if (data) {
-        // Merge into session stats, preserving context fields that may come from get_state
         state.sessionStats = {
           ...state.sessionStats,
           ...data,
@@ -1860,13 +1442,11 @@ window.addEventListener("message", (event) => {
       finalizeCurrentTurn();
       updateInputUI();
       updateOverlayIndicators();
-      // Fetch latest stats
       vscode.postMessage({ type: "get_session_stats" });
       break;
     }
 
     case "turn_start": {
-      // If no current turn, create one (can happen on retry)
       if (!state.currentTurn) {
         state.currentTurn = {
           id: nextId(),
@@ -1883,7 +1463,6 @@ window.addEventListener("message", (event) => {
     }
 
     case "turn_end": {
-      // Don't finalize here — wait for agent_end to group everything
       break;
     }
 
@@ -1907,12 +1486,10 @@ window.addEventListener("message", (event) => {
     }
 
     case "message_end": {
-      // Extract usage data from assistant messages for live stats
       const endData = msg as any;
       const endMsg = endData.message;
       if (endMsg?.role === "assistant" && endMsg.usage) {
         const u = endMsg.usage;
-        // Accumulate tokens
         if (!state.sessionStats.tokens) {
           state.sessionStats.tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
         }
@@ -1922,12 +1499,9 @@ window.addEventListener("message", (event) => {
         t.cacheRead += u.cacheRead || 0;
         t.cacheWrite += u.cacheWrite || 0;
         t.total = t.input + t.output + t.cacheRead + t.cacheWrite;
-        // Accumulate cost
         if (u.cost?.total) {
           state.sessionStats.cost = (state.sessionStats.cost || 0) + u.cost.total;
         }
-        // Estimate context usage from the latest response
-        // Context ≈ input + cacheRead (tokens that were in the context window)
         const contextTokens = (u.input || 0) + (u.cacheRead || 0);
         const contextWindow = state.model?.contextWindow || state.sessionStats.contextWindow || 0;
         if (contextWindow > 0 && contextTokens > 0) {
@@ -1954,13 +1528,11 @@ window.addEventListener("message", (event) => {
         startTime: Date.now(),
       };
       state.currentTurn.toolCalls.set(data.toolCallId, tc);
-      // Add a tool segment in sequence
       const segIdx = state.currentTurn.segments.length;
       state.currentTurn.segments.push({ type: "tool", toolCallId: data.toolCallId });
       activeSegmentIndex = segIdx;
-      // Create DOM element for this tool segment
       appendToolSegmentElement(tc, segIdx);
-      scrollToBottom();
+      scrollToBottom(messagesContainer);
       break;
     }
 
@@ -1975,7 +1547,7 @@ window.addEventListener("message", (event) => {
           .join("\n");
         if (text) tc.resultText = text;
         updateToolSegmentElement(data.toolCallId);
-        scrollToBottom();
+        scrollToBottom(messagesContainer);
       }
       break;
     }
@@ -2000,7 +1572,7 @@ window.addEventListener("message", (event) => {
         }
       }
       updateToolSegmentElement(data.toolCallId);
-      scrollToBottom();
+      scrollToBottom(messagesContainer);
       break;
     }
 
@@ -2136,7 +1708,7 @@ function addSystemEntry(text: string, kind: "info" | "error" | "warning" = "info
   };
   state.entries.push(entry);
   renderNewEntry(entry);
-  scrollToBottom();
+  scrollToBottom(messagesContainer);
 }
 
 // ============================================================
