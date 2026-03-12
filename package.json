@@ -37,10 +37,17 @@
           "items": {
             "type": "object",
             "properties": {
-              "name": { "type": "string" },
-              "value": { "type": "string" }
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
             },
-            "required": ["name", "value"]
+            "required": [
+              "name",
+              "value"
+            ]
           },
           "default": [],
           "description": "Environment variables to set when launching GSD."
@@ -52,8 +59,14 @@
         },
         "gsd.preferredLocation": {
           "type": "string",
-          "enum": ["sidebar", "panel"],
-          "enumDescriptions": ["Sidebar (Right)", "Panel (New Tab)"],
+          "enum": [
+            "sidebar",
+            "panel"
+          ],
+          "enumDescriptions": [
+            "Sidebar (Right)",
+            "Panel (New Tab)"
+          ],
           "default": "panel",
           "description": "Where GSD opens by default."
         }
@@ -128,14 +141,16 @@
     "package": "vsce package"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.94.0",
+    "@vscode/vsce": "^3.0.0",
     "concurrently": "^8.2.0",
     "esbuild": "^0.24.0",
-    "typescript": "^5.5.0",
-    "@vscode/vsce": "^3.0.0"
+    "typescript": "^5.5.0"
   },
   "dependencies": {
+    "dompurify": "^3.3.3",
     "marked": "^15.0.0"
   }
 }
