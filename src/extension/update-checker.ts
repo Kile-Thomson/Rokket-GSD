@@ -327,7 +327,8 @@ function collectJson(
         body: json.body || "",
         assets: (json.assets || []).map((a: any) => ({
           name: a.name,
-          url: a.browser_download_url,
+          // Use API URL for private repo support — browser_download_url returns 404 without cookies
+          url: a.url as string,
         })),
       });
     } catch {
