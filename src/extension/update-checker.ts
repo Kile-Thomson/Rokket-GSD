@@ -133,10 +133,10 @@ export function startUpdateChecker(
 
   cachedProvider = provider;
 
-  // Check shortly after activation (15s delay to avoid startup noise)
+  // Check shortly after activation (3s delay — just enough for webview to be ready)
   const initialTimer = setTimeout(
     () => checkForUpdate(context, currentVersion),
-    15_000
+    3_000
   );
   context.subscriptions.push({ dispose: () => clearTimeout(initialTimer) });
 
