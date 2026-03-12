@@ -1,41 +1,116 @@
-# Rokket GSD — One-line installer for VS Code (Windows PowerShell)
-# Usage: irm https://raw.githubusercontent.com/Kile-Thomson/Rokket-GSD/main/install.ps1 | iex
+# Rokket GSD — Installer for VS Code (Windows PowerShell)
+# Usage:
+#   irm https://raw.githubusercontent.com/Kile-Thomson/Rokket-GSD/main/install.ps1 | iex
+#
+# For private repo access, set GITHUB_TOKEN first:
+#   $env:GITHUB_TOKEN = "ghp_your_token_here"
+#   irm "https://raw.githubusercontent.com/Kile-Thomson/Rokket-GSD/main/install.ps1" | iex
 $ErrorActionPreference = "Stop"
 
 Write-Host "🚀 Installing Rokket GSD for VS Code..." -ForegroundColor Cyan
+Write-Host ""
 
-$installDir = Join-Path $env:TEMP "rokket-gsd-install-$PID"
-
-# Clone
-git clone --depth 1 https://github.com/Kile-Thomson/Rokket-GSD.git $installDir 2>$null
-Set-Location $installDir
-
-# Install and build
-Write-Host "📦 Installing dependencies..." -ForegroundColor Gray
-npm install --no-audit --no-fund 2>$null | Out-Null
-
-Write-Host "🔨 Building..." -ForegroundColor Gray
-npm run build 2>$null | Out-Null
-
-# Package
-Write-Host "📋 Packaging extension..." -ForegroundColor Gray
-npx vsce package --no-dependencies 2>$null | Out-Null
-
-$vsix = Get-ChildItem *.vsix | Select-Object -First 1
-if (-not $vsix) {
-    Write-Host "❌ Build failed — no .vsix file produced" -ForegroundColor Red
-    Remove-Item -Recurse -Force $installDir
+# ---- Pre-flight checks ----
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Host "❌ git is not installed. Please install git first." -ForegroundColor Red
     exit 1
 }
 
-# Install
-Write-Host "⚡ Installing $($vsix.Name) into VS Code..." -ForegroundColor Yellow
-code --install-extension $vsix.FullName --force 2>$null
+if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+    Write-Host "❌ npm is not installed. Please install Node.js 18+ from https://nodejs.org" -ForegroundColor Red
+    exit 1
+}
 
-# Cleanup
+if (-not (Get-Command code -ErrorAction SilentlyContinue)) {
+    Write-Host "❌ VS Code CLI (code) not found in PATH." -ForegroundColor Red
+    Write-Host "   Open VS Code → Ctrl+Shift+P → 'Shell Command: Install code command in PATH'" -ForegroundColor Gray
+    exit 1
+}
+
+# ---- Clone ----
+$installDir = Join-Path $env:TEMP "rokket-gsd-install-$PID"
+
+Write-Host "📥 Cloning repository..." -ForegroundColor Gray
+
+$cloneUrl = "https://github.com/Kile-Thomson/Rokket-GSD.git"
+if ($env:GITHUB_TOKEN) {
+    $cloneUrl = "https://$($env:GITHUB_TOKEN)@github.com/Kile-Thomson/Rokket-GSD.git"
+}
+
+try {
+    $output = git clone --depth 1 $cloneUrl $installDir 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Clone failed" }
+} catch {
+    Write-Host ""
+    Write-Host "❌ Failed to clone the repository." -ForegroundColor Red
+    Write-Host "   If the repo is private, set your GitHub token:" -ForegroundColor Yellow
+    Write-Host '   $env:GITHUB_TOKEN = "ghp_your_token_here"' -ForegroundColor Gray
+    Write-Host "   Then re-run this script." -ForegroundColor Yellow
+    exit 1
+}
+
+Set-Location $installDir
+
+# ---- Build ----
+Write-Host "📦 Installing dependencies..." -ForegroundColor Gray
+$output = npm install --no-audit --no-fund 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ npm install failed:" -ForegroundColor Red
+    Write-Host $output
+    Remove-Item -Recurse -Force $installDir -ErrorAction SilentlyContinue
+    exit 1
+}
+
+Write-Host "🔨 Building..." -ForegroundColor Gray
+$output = npm run build 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Build failed:" -ForegroundColor Red
+    Write-Host $output
+    Remove-Item -Recurse -Force $installDir -ErrorAction SilentlyContinue
+    exit 1
+}
+
+Write-Host "📋 Packaging extension..." -ForegroundColor Gray
+$output = npx @vscode/vsce package --no-dependencies 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ VSIX packaging failed:" -ForegroundColor Red
+    Write-Host $output
+    Remove-Item -Recurse -Force $installDir -ErrorAction SilentlyContinue
+    exit 1
+}
+
+# ---- Install ----
+$vsix = Get-ChildItem *.vsix | Select-Object -First 1
+if (-not $vsix) {
+    Write-Host "❌ No .vsix file produced." -ForegroundColor Red
+    Remove-Item -Recurse -Force $installDir -ErrorAction SilentlyContinue
+    exit 1
+}
+
+Write-Host "⚡ Installing $($vsix.Name) into VS Code..." -ForegroundColor Yellow
+$output = code --install-extension $vsix.FullName --force 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ VS Code extension install failed:" -ForegroundColor Red
+    Write-Host $output
+    Remove-Item -Recurse -Force $installDir -ErrorAction SilentlyContinue
+    exit 1
+}
+
+# ---- Cleanup ----
 Set-Location $env:USERPROFILE
-Remove-Item -Recurse -Force $installDir
+Remove-Item -Recurse -Force $installDir -ErrorAction SilentlyContinue
 
 Write-Host ""
-Write-Host "✅ Rokket GSD installed! Reload VS Code to activate." -ForegroundColor Green
+Write-Host "✅ Rokket GSD installed!" -ForegroundColor Green
+Write-Host ""
+
+# ---- Check GSD dependency ----
+if (-not (Get-Command gsd -ErrorAction SilentlyContinue)) {
+    Write-Host "⚠️  GSD CLI (gsd-pi) is not installed." -ForegroundColor Yellow
+    Write-Host "   Install it with: npm install -g gsd-pi" -ForegroundColor Gray
+    Write-Host "   Then run 'gsd' once in a terminal to set up authentication." -ForegroundColor Gray
+    Write-Host ""
+}
+
+Write-Host "   Reload VS Code to activate the extension." -ForegroundColor Gray
 Write-Host "   Press Ctrl+Shift+P → 'Rokket GSD: Open' to start." -ForegroundColor Gray

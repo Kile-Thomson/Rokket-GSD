@@ -5,6 +5,10 @@
   "version": "0.2.1",
   "publisher": "rokketek",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kile-Thomson/Rokket-GSD"
+  },
   "icon": "resources/rokket-icon.png",
   "engines": {
     "vscode": "^1.94.0"
@@ -56,6 +60,16 @@
           "type": "boolean",
           "default": false,
           "description": "Use Ctrl/Cmd+Enter to send prompts instead of Enter. Allows Enter for newlines."
+        },
+        "gsd.autoUpdate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically check for new versions on GitHub Releases."
+        },
+        "gsd.githubToken": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub personal access token for update checks on private repos. Also reads from ROKKET_GSD_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN env vars."
         },
         "gsd.preferredLocation": {
           "type": "string",
