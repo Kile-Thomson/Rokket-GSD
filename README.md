@@ -1,64 +1,109 @@
-# GSD — Get Stuff Done (VS Code Extension)
+# 🚀 Rokket GSD
 
-GSD V2 integrated into VS Code as a native chat panel, with full feature parity with the Claude Code extension experience.
+A VS Code extension that wraps the [GSD (gsd-pi)](https://github.com/badlogic/pi-mono) AI coding agent into a native chat panel — full tool visualization, model switching, and workflow automation built in.
+
+**Built by [Kile Thomson](https://github.com/Kile-Thomson) under the Rokketek brand.**
+
+---
+
+## Quick Install
+
+### Prerequisites
+
+- [VS Code](https://code.visualstudio.com/) 1.94+
+- [Node.js](https://nodejs.org/) 18+ with npm
+- [Git](https://git-scm.com/)
+- `gsd` CLI installed globally: `npm install -g gsd-pi`
+- A valid API key configured in GSD (e.g. Anthropic, OpenAI)
+
+### One-liner (macOS / Linux / Git Bash)
+
+```bash
+git clone https://github.com/Kile-Thomson/Rokket-GSD.git /tmp/rokket-gsd && cd /tmp/rokket-gsd && npm install && npm run build && npx vsce package --no-dependencies && code --install-extension *.vsix --force && cd - && rm -rf /tmp/rokket-gsd
+```
+
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/Kile-Thomson/Rokket-GSD.git $env:TEMP\rokket-gsd; cd $env:TEMP\rokket-gsd; npm install; npm run build; npx vsce package --no-dependencies; code --install-extension (Get-ChildItem *.vsix).FullName --force; cd $env:USERPROFILE; Remove-Item -Recurse -Force $env:TEMP\rokket-gsd
+```
+
+### Step by step
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/Kile-Thomson/Rokket-GSD.git
+cd Rokket-GSD
+
+# 2. Install dependencies
+npm install
+
+# 3. Build the extension
+npm run build
+
+# 4. Package as VSIX
+npx vsce package --no-dependencies
+
+# 5. Install into VS Code
+code --install-extension rokket-gsd-0.2.0.vsix --force
+
+# 6. Reload VS Code (Ctrl+Shift+P → "Developer: Reload Window")
+```
+
+> **Note:** If `code --install-extension` appears to succeed silently but the extension doesn't appear, manually extract the VSIX:
+> ```bash
+> # Find your VS Code extensions directory
+> # Windows: %USERPROFILE%\.vscode\extensions\
+> # macOS:   ~/.vscode/extensions/
+> # Linux:   ~/.vscode/extensions/
+>
+> mkdir -p ~/.vscode/extensions/rokketek.rokket-gsd-0.2.0
+> cd ~/.vscode/extensions/rokketek.rokket-gsd-0.2.0
+> unzip /path/to/rokket-gsd-0.2.0.vsix
+> cp -r extension/* . && rm -rf extension extension.vsixmanifest "[Content_Types].xml"
+> ```
+
+---
 
 ## Features
 
-- **Full Chat UI** — Streaming markdown responses, code blocks with copy buttons, tool execution visibility
-- **Image Paste/Drop** — Paste images from clipboard or drag & drop into the input area (sent as base64 to the agent)
-- **Copy/Paste** — Native clipboard integration via VS Code API. Select text to copy, click code block copy buttons
-- **Native Dialogs** — GSD's `ask_user_questions`, bash safety prompts, and permission requests surface as VS Code QuickPick, InputBox, and modal dialogs
-- **Sidebar & Tab** — Open GSD in the sidebar or as a full editor tab
-- **Session Management** — New conversation, session persistence, auto-compaction
-- **Theme Integration** — Inherits VS Code's active theme via CSS variables
+### Chat UI
+- Streaming markdown responses with syntax-highlighted code blocks
+- Tables, blockquotes, headings — all rendered properly
+- Copy button on every code block
+- Image paste/drop into the input area
 
-## Architecture
+### Tool Execution
+- Live tool call visualization with category icons and color accents
+- Collapsible tool output with smart truncation
+- Subagent results rendered as full markdown (tables, code blocks, headings)
+- File paths in output are clickable — opens them in VS Code
 
-```
-┌────────────────────┐     postMessage      ┌────────────────────┐
-│   Webview (Chat)   │ ◄──────────────────► │  Extension Host    │
-│   - Input + paste  │                      │  - Dialog mapping  │
-│   - Image drop     │                      │  - File operations │
-│   - Markdown render│                      │  - Clipboard API   │
-│   - Inline dialogs │                      │                    │
-└────────────────────┘                      └────────┬───────────┘
-                                                     │ stdin/stdout
-                                                     │ JSON-RPC
-                                            ┌────────▼───────────┐
-                                            │  gsd --mode rpc    │
-                                            │  (Child Process)   │
-                                            └────────────────────┘
-```
+### Model & Thinking
+- **Model picker** — switch AI models grouped by provider, showing context window and capabilities
+- **Thinking level** — cycle through off/minimal/low/medium/high/xhigh with one click
+- Live token count, cost tracking, and context usage bar in the header
 
-## How It Works
+### Slash Commands
+- Type `/` to see all available commands
+- `/gsd next`, `/gsd auto`, `/gsd status`, `/gsd queue` — all GSD subcommands individually listed
+- `/compact`, `/export`, `/model`, `/thinking`, `/new` — built-in actions
+- Arrow keys to navigate, Enter to select
 
-1. **Extension Host** spawns `gsd --mode rpc` as a child process
-2. Communication happens via JSON lines over stdin/stdout (the pi RPC protocol)
-3. The **Webview** renders the chat UI and handles user input
-4. Messages flow: Webview → Extension Host → GSD RPC → Extension Host → Webview
-5. **Extension UI Requests** (questions, confirmations) from GSD are intercepted and shown as:
-   - `select` → VS Code QuickPick
-   - `confirm` → VS Code modal InformationMessage
-   - `input` → VS Code InputBox
-   - `editor` → Opens a temp document for multi-line editing
-   - `notify` → VS Code notification (info/warning/error)
+### Shortcuts
+- `!command` — run a bash command directly without going through the agent
+- `Enter` to send (or steer while agent is working)
+- `Esc` to stop the agent
+- `Ctrl+Shift+G` — focus the input from anywhere in VS Code
 
-## Installation
+### VS Code Integration
+- Activity bar icon (rocket) with sidebar panel
+- Open as a sidebar or full editor tab
+- Status bar showing streaming state, model name, and session cost
+- Native VS Code dialogs for agent questions and confirmations
+- Theme-aware — works with any VS Code color theme
 
-### From VSIX (local)
-
-```bash
-code --install-extension gsd-vscode-0.1.0.vsix
-```
-
-### Development
-
-```bash
-cd gsd-vscode
-npm install
-npm run watch    # Watch mode (extension + webview)
-# Press F5 in VS Code to launch Extension Development Host
-```
+---
 
 ## Configuration
 
@@ -73,22 +118,72 @@ npm run watch    # Watch mode (extension + webview)
 
 | Command | Shortcut | Description |
 |---------|----------|-------------|
-| GSD: Open | | Opens in preferred location |
-| GSD: Open in New Tab | | Opens as editor tab |
-| GSD: Open in Side Bar | | Opens in sidebar |
-| GSD: New Conversation | `Ctrl+Shift+N` | Starts fresh session |
-| GSD: Focus Input | `Ctrl+Shift+G` | Focuses the input field |
+| Rokket GSD: Open | — | Opens in preferred location |
+| Rokket GSD: Open in New Tab | — | Opens as editor tab |
+| Rokket GSD: Open in Side Bar | — | Opens in sidebar |
+| Rokket GSD: New Conversation | `Ctrl+Shift+N` | Starts fresh session |
+| Rokket GSD: Focus Input | `Ctrl+Shift+G` | Focuses the input field |
 
-## Requirements
+---
 
-- VS Code 1.94+
-- `gsd` CLI installed and in PATH (`npm install -g gsd-pi`)
-- Valid API key configured in GSD
+## Architecture
 
-## RPC Protocol
+```
+┌─────────────────────┐    postMessage     ┌─────────────────────┐
+│   Webview (Chat UI) │ ◄───────────────► │   Extension Host     │
+│   Markdown render   │                   │   Dialog mapping     │
+│   Tool visualization│                   │   File operations    │
+│   Model/thinking UI │                   │   Status bar         │
+└─────────────────────┘                   └──────────┬───────────┘
+                                                     │ stdin/stdout
+                                                     │ JSON-RPC
+                                          ┌──────────▼───────────┐
+                                          │   gsd --mode rpc     │
+                                          │   (Child Process)    │
+                                          └──────────────────────┘
+```
 
-The extension communicates with GSD using the [pi RPC protocol](https://github.com/badlogic/pi-mono). Key message types:
+The extension spawns `gsd --mode rpc` as a child process and communicates via JSON lines over stdin/stdout. The webview renders the chat UI and sends messages to the extension host, which forwards them to GSD and relays events back.
 
-**Outbound (to GSD):** `prompt`, `steer`, `follow_up`, `abort`, `get_state`, `set_model`, `set_thinking_level`, `new_session`, `compact`, `extension_ui_response`
+---
 
-**Inbound (from GSD):** `agent_start/end`, `message_update`, `tool_execution_start/update/end`, `extension_ui_request`, `auto_compaction_start/end`, `auto_retry_start/end`
+## Development
+
+```bash
+git clone https://github.com/Kile-Thomson/Rokket-GSD.git
+cd Rokket-GSD
+npm install
+npm run watch    # Watch mode — rebuilds on file changes
+# Press F5 in VS Code to launch Extension Development Host
+```
+
+### Project Structure
+
+```
+src/
+  extension/
+    index.ts              # Extension entry point, commands, status bar
+    rpc-client.ts         # JSON-RPC client wrapping gsd child process
+    webview-provider.ts   # Webview lifecycle, message routing, HTML generation
+  shared/
+    types.ts              # Shared types between extension and webview
+  webview/
+    index.ts              # Chat UI logic, rendering, slash menu, model picker
+    styles.css            # All styling (VS Code theme-aware)
+resources/
+  gsd-logo.svg            # Activity bar icon (rocket)
+  rokket-icon.png         # Marketplace icon
+```
+
+---
+
+## License
+
+MIT
+
+---
+
+<p align="center">
+  <strong>▲ ROKKETEK</strong><br>
+  <sub>Built by Kile Thomson</sub>
+</p>
