@@ -2,8 +2,8 @@ name: Release VSIX
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -11,9 +11,13 @@ permissions:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    # Skip runs triggered by the bot's own version bump commit
+    if: "!contains(github.event.head_commit.message, 'chore: bump version to')"
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -22,19 +26,70 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Bump patch version
+        id: version
+        run: |
+          # Read current version from package.json
+          CURRENT=$(node -p "require('./package.json').version")
+          
+          # Split into parts
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          
+          # Check if a release already exists for this version
+          EXISTING=$(gh release view "v${CURRENT}" --json tagName 2>/dev/null || echo "")
+          
+          if [ -n "$EXISTING" ]; then
+            # Version already released — bump patch
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+            
+            # Update package.json
+            node -e "
+              const pkg = require('./package.json');
+              pkg.version = '${NEW_VERSION}';
+              require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, '\t') + '\n');
+            "
+            
+            echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+            echo "Bumped version: ${CURRENT} → ${NEW_VERSION}"
+          else
+            # Current version not yet released — use as-is
+            echo "version=${CURRENT}" >> "$GITHUB_OUTPUT"
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+            echo "Using current version: ${CURRENT}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build
         run: npm run build
 
       - name: Package VSIX
         run: npx @vscode/vsce package --no-dependencies
 
-      - name: Get version from tag
-        id: version
-        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+      - name: Commit version bump
+        if: steps.version.outputs.bumped == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+          git push
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: ${{ steps.version.outputs.tag }}
-          files: "*.vsix"
-          generate_release_notes: true
+      - name: Create tag and release
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+          
+          # Create and push tag (on the version bump commit if one was made)
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+          
+          # Create GitHub release with the VSIX
+          gh release create "${TAG}" \
+            --title "${TAG}" \
+            --generate-notes \
+            *.vsix
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
