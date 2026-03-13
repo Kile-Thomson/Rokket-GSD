@@ -41,6 +41,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private healthState: Map<string, ProcessHealthStatus> = new Map();
   private workflowTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
   private autoModeState: Map<string, string | null> = new Map();
+  private restartingSession: Set<string> = new Set();
   private sessionWebviews: Map<string, vscode.Webview> = new Map();
   private output: vscode.OutputChannel;
   private sessionCounter = 0;
@@ -310,6 +311,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     this.sessionWebviews.set(sessionId, webview);
 
     webview.onDidReceiveMessage(async (msg: WebviewToExtensionMessage) => {
+      try {
       this.output.appendLine(`[${sessionId}] Webview -> Extension: ${msg.type}`);
 
       switch (msg.type) {
@@ -344,6 +346,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                     const state = await client.getState();
                     this.postToWebview(webview, { type: "state", data: state } as ExtensionToWebviewMessage);
                     this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
+                    // Re-fetch commands after restart
+                    const cmdResult = await client.getCommands() as RpcCommandsResult;
+                    this.postToWebview(webview, { type: "commands", commands: cmdResult?.commands || [] });
                   } catch {}
                 } else {
                   this.rpcClients.delete(sessionId);
@@ -510,7 +515,29 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             try {
               const result = await client.getCommands() as RpcCommandsResult;
               this.postToWebview(webview, { type: "commands", commands: result?.commands || [] });
-            } catch {}
+            } catch (err: any) {
+              this.output.appendLine(`[${sessionId}] get_commands error: ${err.message}`);
+              // Send empty commands so the webview at least marks commandsLoaded
+              // and doesn't keep retrying on every keystroke
+              this.postToWebview(webview, { type: "commands", commands: [] });
+            }
+          } else {
+            // Process not running yet — queue a retry after a short delay.
+            // This handles the race where the webview requests commands before
+            // the GSD process has fully started.
+            this.output.appendLine(`[${sessionId}] get_commands: client not running, will retry in 2s`);
+            setTimeout(async () => {
+              const retryClient = this.rpcClients.get(sessionId);
+              if (retryClient?.isRunning) {
+                try {
+                  const result = await retryClient.getCommands() as RpcCommandsResult;
+                  this.postToWebview(webview, { type: "commands", commands: result?.commands || [] });
+                } catch (err: any) {
+                  this.output.appendLine(`[${sessionId}] get_commands retry error: ${err.message}`);
+                  this.postToWebview(webview, { type: "commands", commands: [] });
+                }
+              }
+            }, 2000);
           }
           break;
         }
@@ -729,8 +756,13 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "force_restart": {
+          if (this.restartingSession.has(sessionId)) {
+            this.output.appendLine(`[${sessionId}] Force-restart already in progress — ignoring`);
+            break;
+          }
           const client = this.rpcClients.get(sessionId);
           if (client) {
+            this.restartingSession.add(sessionId);
             this.output.appendLine(`[${sessionId}] Force-restarting GSD process`);
             client.forceKill();
             // Clean up existing timers before restart
@@ -743,7 +775,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                 this.output.appendLine(`[${sessionId}] GSD re-launched after force-kill`);
               } catch (err: any) {
                 this.output.appendLine(`[${sessionId}] Force-restart failed: ${err.message}`);
-                this.postToWebview(webview, { type: "error", message: `Force-restart failed: ${err.message}` });
+                this.postToWebview(webview, { type: "error", message: `[GSD-ERR-030] Force-restart failed: ${err.message}` });
+              } finally {
+                this.restartingSession.delete(sessionId);
               }
             }, 1000);
           }
@@ -751,7 +785,14 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "update_install": {
-          await downloadAndInstallUpdate(msg.downloadUrl, this.context);
+          // Security: only allow downloads from GitHub API
+          const dlUrl = String(msg.downloadUrl || "");
+          if (!dlUrl.startsWith("https://api.github.com/") && !dlUrl.startsWith("https://github.com/")) {
+            this.output.appendLine(`[${sessionId}] Blocked update download from untrusted URL: ${dlUrl}`);
+            this.postToWebview(webview, { type: "error", message: "Update blocked: download URL is not from GitHub." });
+            break;
+          }
+          await downloadAndInstallUpdate(dlUrl, this.context);
           break;
         }
 
@@ -761,7 +802,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "update_view_release": {
-          vscode.env.openExternal(vscode.Uri.parse(msg.htmlUrl));
+          const releaseUrl = String(msg.htmlUrl || "");
+          if (/^https?:\/\//i.test(releaseUrl)) {
+            vscode.env.openExternal(vscode.Uri.parse(releaseUrl));
+          }
           break;
         }
 
@@ -772,6 +816,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               type: "extension_ui_response",
               id: msg.id,
               value: msg.value,
+              values: msg.values,
               confirmed: msg.confirmed,
               cancelled: msg.cancelled,
             });
@@ -786,7 +831,19 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
         case "open_file": {
           try {
-            const doc = await vscode.workspace.openTextDocument(msg.path);
+            // Security: only open files within the workspace (resolves symlinks)
+            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (!workspaceRoot) {
+              this.output.appendLine(`[${sessionId}] Blocked open_file: no workspace open`);
+              break;
+            }
+            const realFile = fs.realpathSync(path.resolve(msg.path));
+            const realRoot = fs.realpathSync(path.resolve(workspaceRoot));
+            if (!realFile.startsWith(realRoot + path.sep) && realFile !== realRoot) {
+              this.output.appendLine(`[${sessionId}] Blocked open_file outside workspace: ${realFile}`);
+              break;
+            }
+            const doc = await vscode.workspace.openTextDocument(realFile);
             await vscode.window.showTextDocument(doc);
           } catch (err: any) {
             vscode.window.showErrorMessage(`Failed to open file: ${err.message}`);
@@ -795,20 +852,50 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "open_url": {
-          vscode.env.openExternal(vscode.Uri.parse(msg.url));
+          // Security: only allow http/https URLs
+          const url = String(msg.url || "");
+          if (/^https?:\/\//i.test(url)) {
+            vscode.env.openExternal(vscode.Uri.parse(url));
+          } else {
+            this.output.appendLine(`[${sessionId}] Blocked non-http URL: ${url}`);
+          }
           break;
         }
 
         case "open_diff": {
           try {
-            const left = vscode.Uri.file(msg.leftPath);
-            const right = vscode.Uri.file(msg.rightPath);
+            // Security: only open files within the workspace (resolves symlinks)
+            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (!workspaceRoot) {
+              this.output.appendLine(`[${sessionId}] Blocked open_diff: no workspace open`);
+              break;
+            }
+            const realRoot = fs.realpathSync(path.resolve(workspaceRoot));
+            const realLeft = fs.realpathSync(path.resolve(msg.leftPath));
+            const realRight = fs.realpathSync(path.resolve(msg.rightPath));
+            const rootPrefix = realRoot + path.sep;
+            if (!realLeft.startsWith(rootPrefix) || !realRight.startsWith(rootPrefix)) {
+              this.output.appendLine(`[${sessionId}] Blocked open_diff outside workspace`);
+              break;
+            }
+            const left = vscode.Uri.file(realLeft);
+            const right = vscode.Uri.file(realRight);
             await vscode.commands.executeCommand("vscode.diff", left, right);
           } catch (err: any) {
             vscode.window.showErrorMessage(`Failed to open diff: ${err.message}`);
           }
           break;
         }
+      }
+
+      } catch (err: any) {
+        const errorId = `ERR-${Date.now().toString(36)}`;
+        this.output.appendLine(`[${sessionId}] [${errorId}] Unhandled error in message handler for "${msg.type}": ${err.message}`);
+        this.output.appendLine(`[${sessionId}] [${errorId}] Stack: ${err.stack || "no stack"}`);
+        this.postToWebview(webview, {
+          type: "error",
+          message: `[${errorId}] Internal error processing "${msg.type}". Check Output panel (Rokket GSD) for details.`,
+        });
       }
     });
   }
@@ -893,16 +980,31 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.rpcClients.set(sessionId, client);
       this.output.appendLine(`[${sessionId}] GSD started in ${workingDir}`);
 
-      this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
-
-      // Get initial state
+      // Get initial state — this blocks until the process is actually ready
+      // (extensions loaded, input handler attached). Only then do we announce "running".
       try {
         const rpcState = await client.getState() as RpcStateResult;
+        this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
         this.postToWebview(webview, { type: "state", data: rpcState } as ExtensionToWebviewMessage);
         if (rpcState?.model) {
           this.emitStatus({ model: rpcState.model.id || rpcState.model.name });
         }
-      } catch {}
+      } catch (err: any) {
+        // Process started but isn't responding — still announce running
+        // so the webview can at least try to interact
+        this.output.appendLine(`[${sessionId}] Initial getState failed: ${err.message}`);
+        this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
+      }
+
+      // Eagerly fetch commands now that the process is ready, and push them
+      // to the webview. This avoids the race where the webview requests commands
+      // before extensions have loaded.
+      try {
+        const cmdResult = await client.getCommands() as RpcCommandsResult;
+        this.postToWebview(webview, { type: "commands", commands: cmdResult?.commands || [] });
+      } catch (err: any) {
+        this.output.appendLine(`[${sessionId}] Initial get_commands failed: ${err.message}`);
+      }
 
       // Start stats polling, health monitoring, and workflow state
       this.startStatsPolling(webview, sessionId);
@@ -976,6 +1078,30 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       case "input": {
         // Forward to webview for inline rendering
         this.postToWebview(webview, event as unknown as ExtensionToWebviewMessage);
+
+        // Show a native VS Code notification so the user knows they need to respond,
+        // but only if the webview isn't currently visible. Avoids notification spam
+        // when the user is already looking at the GSD panel.
+        const isWebviewVisible = this.isWebviewVisible(sessionId);
+        if (!isWebviewVisible) {
+          const title = event.title as string || event.message as string || "GSD needs your input";
+          const truncatedTitle = title.length > 80 ? title.slice(0, 77) + "…" : title;
+          vscode.window.showInformationMessage(
+            `🚀 GSD: ${truncatedTitle}`,
+            "Open GSD"
+          ).then((action) => {
+            if (action === "Open GSD") {
+              // Bring the GSD panel/sidebar into view
+              if (this.webviewView) {
+                this.webviewView.show(true);
+              }
+              const panel = this.panels.get(sessionId);
+              if (panel) {
+                panel.reveal();
+              }
+            }
+          });
+        }
         break;
       }
 
@@ -1013,6 +1139,17 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       case "notify": {
         const message = event.message as string || "";
         const notifyType = event.notifyType as string || "info";
+
+        // Suppress noisy startup info about optional tools/keys — not actionable for most users
+        const isStartupNoise = notifyType === "info" && (
+          /No \w+_API_KEY set/i.test(message) ||
+          /\bfree tier\b/i.test(message) ||
+          /\b(MCPorter|Web search)\b.*\b(ready|loaded)\b/i.test(message)
+        );
+        if (isStartupNoise) {
+          this.output.appendLine(`[${sessionId}] [suppressed] ${message}`);
+          break;
+        }
 
         // Forward to webview — chat is the primary notification surface
         this.postToWebview(webview, event as unknown as ExtensionToWebviewMessage);
@@ -1081,6 +1218,19 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     return delivered;
   }
 
+  /**
+   * Check if the webview for a session is currently visible to the user.
+   * Used to avoid spamming native notifications when they're already looking at GSD.
+   */
+  private isWebviewVisible(sessionId: string): boolean {
+    // Check sidebar visibility
+    if (this.webviewView?.visible) return true;
+    // Check panel visibility
+    const panel = this.panels.get(sessionId);
+    if (panel?.visible) return true;
+    return false;
+  }
+
   private getUseCtrlEnter(): boolean {
     return vscode.workspace.getConfiguration("gsd").get<boolean>("useCtrlEnterToSend", false);
   }
@@ -1109,7 +1259,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 <body>
   <div id="root"></div>
   <script nonce="${nonce}">
-    window.GSD_SESSION_ID = "${sessionId}";
+    window.GSD_SESSION_ID = ${JSON.stringify(sessionId)};
   </script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>

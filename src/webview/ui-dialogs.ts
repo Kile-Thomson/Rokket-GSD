@@ -12,6 +12,34 @@ let messagesContainer: HTMLElement;
 let vscode: { postMessage(msg: unknown): void };
 
 // ============================================================
+// Pending dialog tracking
+// ============================================================
+
+/** Map of request ID → wrapper element for dialogs still awaiting user input */
+const pendingDialogs = new Map<string, HTMLElement>();
+
+/**
+ * Expire all pending dialogs — the backend has already auto-resolved them
+ * (via abort signal or timeout). Mark them visually so the user knows
+ * they can no longer interact.
+ */
+export function expireAllPending(reason: string = "Agent moved on"): void {
+  for (const [id, wrapper] of pendingDialogs) {
+    if (!wrapper.classList.contains("resolved")) {
+      disableRequest(wrapper, `Expired: ${reason}`);
+    }
+  }
+  pendingDialogs.clear();
+}
+
+/**
+ * Check if there are any pending (unresolved) dialogs.
+ */
+export function hasPending(): boolean {
+  return pendingDialogs.size > 0;
+}
+
+// ============================================================
 // Public API
 // ============================================================
 
@@ -26,31 +54,13 @@ export function handleRequest(data: any): void {
   if (method === "select") {
     const options: string[] = data.options || [];
     const title = data.title || "Select an option";
-    wrapper.innerHTML = `
-      <div class="gsd-ui-request">
-        <div class="gsd-ui-title">${escapeHtml(title)}</div>
-        ${data.message ? `<div class="gsd-ui-message">${escapeHtml(data.message)}</div>` : ""}
-        <div class="gsd-ui-options">
-          ${options.map((opt: string) =>
-            `<button class="gsd-ui-option-btn" data-value="${escapeAttr(opt)}">${escapeHtml(opt)}</button>`
-          ).join("")}
-        </div>
-        <button class="gsd-ui-cancel-btn">Skip</button>
-      </div>
-    `;
+    const allowMultiple = !!data.allowMultiple;
 
-    wrapper.querySelectorAll(".gsd-ui-option-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const value = (btn as HTMLElement).dataset.value!;
-        vscode.postMessage({ type: "extension_ui_response", id, value });
-        const shortTitle = title.split(":")[0]?.trim() || title;
-        disableRequest(wrapper, `${shortTitle}: ${value}`);
-      });
-    });
-    wrapper.querySelector(".gsd-ui-cancel-btn")!.addEventListener("click", () => {
-      vscode.postMessage({ type: "extension_ui_response", id, cancelled: true });
-      disableRequest(wrapper, "Cancelled");
-    });
+    if (allowMultiple) {
+      buildMultiSelect(wrapper, id, title, data.message, options);
+    } else {
+      buildSingleSelect(wrapper, id, title, data.message, options);
+    }
   } else if (method === "confirm") {
     wrapper.innerHTML = `
       <div class="gsd-ui-request">
@@ -105,8 +115,128 @@ export function handleRequest(data: any): void {
     });
   }
 
+  // Track this dialog as pending
+  pendingDialogs.set(id, wrapper);
+
+  // If the backend specified a timeout, show a countdown and auto-expire.
+  // We expire 2s early to avoid the race where the user clicks at T=29s
+  // but the backend already resolved at T=30s. Better to show "expired"
+  // than to silently eat the user's click.
+  const timeout = data.timeout as number | undefined;
+  if (timeout && timeout > 0) {
+    const safeTimeout = Math.max(timeout - 2000, 1000);
+    startTimeoutCountdown(wrapper, id, safeTimeout);
+  }
+
   messagesContainer.appendChild(wrapper);
-  scrollToBottom(messagesContainer);
+  scrollToBottom(messagesContainer, true);
+}
+
+// ============================================================
+// Single-select — click an option to submit immediately
+// ============================================================
+
+function buildSingleSelect(
+  wrapper: HTMLElement, id: string, title: string, message: string | undefined, options: string[]
+): void {
+  wrapper.innerHTML = `
+    <div class="gsd-ui-request">
+      <div class="gsd-ui-title">${escapeHtml(title)}</div>
+      ${message ? `<div class="gsd-ui-message">${escapeHtml(message)}</div>` : ""}
+      <div class="gsd-ui-options">
+        ${options.map((opt: string) =>
+          `<button class="gsd-ui-option-btn" data-value="${escapeAttr(opt)}">${escapeHtml(opt)}</button>`
+        ).join("")}
+      </div>
+      <button class="gsd-ui-cancel-btn">Skip</button>
+    </div>
+  `;
+
+  wrapper.querySelectorAll(".gsd-ui-option-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const value = (btn as HTMLElement).dataset.value!;
+      vscode.postMessage({ type: "extension_ui_response", id, value });
+      const shortTitle = title.split(":")[0]?.trim() || title;
+      disableRequest(wrapper, `${shortTitle}: ${value}`);
+    });
+  });
+  wrapper.querySelector(".gsd-ui-cancel-btn")!.addEventListener("click", () => {
+    vscode.postMessage({ type: "extension_ui_response", id, cancelled: true });
+    disableRequest(wrapper, "Cancelled");
+  });
+}
+
+// ============================================================
+// Multi-select — toggle options with checkboxes, confirm with button
+// ============================================================
+
+function buildMultiSelect(
+  wrapper: HTMLElement, id: string, title: string, message: string | undefined, options: string[]
+): void {
+  const selected = new Set<string>();
+
+  wrapper.innerHTML = `
+    <div class="gsd-ui-request">
+      <div class="gsd-ui-title">${escapeHtml(title)}</div>
+      <div class="gsd-ui-multi-hint">Click to toggle, then confirm</div>
+      ${message ? `<div class="gsd-ui-message">${escapeHtml(message)}</div>` : ""}
+      <div class="gsd-ui-options gsd-ui-multi-options">
+        ${options.map((opt: string) =>
+          `<button class="gsd-ui-option-btn gsd-ui-multi-option" data-value="${escapeAttr(opt)}">
+            <span class="gsd-ui-checkbox">☐</span>
+            <span class="gsd-ui-option-label">${escapeHtml(opt)}</span>
+          </button>`
+        ).join("")}
+      </div>
+      <div class="gsd-ui-multi-actions">
+        <span class="gsd-ui-multi-count">0 selected</span>
+        <div class="gsd-ui-buttons">
+          <button class="gsd-ui-btn primary gsd-ui-multi-confirm" disabled>Confirm</button>
+          <button class="gsd-ui-btn secondary gsd-ui-multi-cancel">Skip</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const countEl = wrapper.querySelector(".gsd-ui-multi-count")!;
+  const confirmBtn = wrapper.querySelector(".gsd-ui-multi-confirm") as HTMLButtonElement;
+
+  function updateCount(): void {
+    const n = selected.size;
+    countEl.textContent = `${n} selected`;
+    confirmBtn.disabled = n === 0;
+  }
+
+  wrapper.querySelectorAll(".gsd-ui-multi-option").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const value = (btn as HTMLElement).dataset.value!;
+      const checkbox = btn.querySelector(".gsd-ui-checkbox")!;
+      if (selected.has(value)) {
+        selected.delete(value);
+        btn.classList.remove("checked");
+        checkbox.textContent = "☐";
+      } else {
+        selected.add(value);
+        btn.classList.add("checked");
+        checkbox.textContent = "☑";
+      }
+      updateCount();
+    });
+  });
+
+  confirmBtn.addEventListener("click", () => {
+    if (selected.size === 0) return;
+    const values = Array.from(selected);
+    // Send as comma-joined value for backwards compat, plus values array
+    vscode.postMessage({ type: "extension_ui_response", id, value: values.join(", "), values });
+    const shortTitle = title.split(":")[0]?.trim() || title;
+    disableRequest(wrapper, `${shortTitle}: ${values.join(", ")}`);
+  });
+
+  wrapper.querySelector(".gsd-ui-multi-cancel")!.addEventListener("click", () => {
+    vscode.postMessage({ type: "extension_ui_response", id, cancelled: true });
+    disableRequest(wrapper, "Cancelled");
+  });
 }
 
 // ============================================================
@@ -115,14 +245,68 @@ export function handleRequest(data: any): void {
 
 function disableRequest(wrapper: HTMLElement, summary: string): void {
   wrapper.classList.add("resolved");
+
+  // Remove from pending tracking
+  const uiId = wrapper.dataset.uiId;
+  if (uiId) pendingDialogs.delete(uiId);
+
+  // Clear any active timeout countdown
+  const timerId = (wrapper as any).__timeoutTimer;
+  if (timerId) {
+    clearInterval(timerId);
+    (wrapper as any).__timeoutTimer = null;
+  }
+
   const req = wrapper.querySelector(".gsd-ui-request");
   if (req) {
     const icon = summary.startsWith("Cancelled") ? "⊘" :
+                 summary.startsWith("Expired") ? "⏱" :
                  summary.startsWith("Confirmed: No") ? "✗" : "✓";
     const cssClass = summary.startsWith("Cancelled") ? "cancelled" :
+                     summary.startsWith("Expired") ? "expired" :
                      summary.startsWith("Confirmed: No") ? "rejected" : "accepted";
     req.innerHTML = `<div class="gsd-ui-resolved ${cssClass}"><span class="gsd-ui-resolved-icon">${icon}</span> ${escapeHtml(summary)}</div>`;
   }
+}
+
+/**
+ * Show a countdown timer on a dialog that has a backend timeout.
+ * This gives the user visual feedback that they need to act soon.
+ */
+function startTimeoutCountdown(wrapper: HTMLElement, id: string, timeoutMs: number): void {
+  const deadline = Date.now() + timeoutMs;
+
+  // Add a countdown element to the request
+  const req = wrapper.querySelector(".gsd-ui-request");
+  if (!req) return;
+
+  const countdownEl = document.createElement("div");
+  countdownEl.className = "gsd-ui-countdown";
+  req.prepend(countdownEl);
+
+  const updateCountdown = () => {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      clearInterval(timer);
+      (wrapper as any).__timeoutTimer = null;
+      // Don't auto-send a response — the backend already auto-resolved.
+      // Just mark it visually as expired.
+      if (!wrapper.classList.contains("resolved")) {
+        disableRequest(wrapper, "Expired: Timed out");
+      }
+      return;
+    }
+    const secs = Math.ceil(remaining / 1000);
+    countdownEl.textContent = `⏱ ${secs}s`;
+    // Add urgency class when under 10s
+    if (secs <= 10) {
+      countdownEl.classList.add("urgent");
+    }
+  };
+
+  updateCountdown();
+  const timer = setInterval(updateCountdown, 1000);
+  (wrapper as any).__timeoutTimer = timer;
 }
 
 // ============================================================
