@@ -74,6 +74,68 @@ jobs:
           git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
           git push
 
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Find the previous release tag
+          PREV_TAG=$(git tag --sort=-v:refname | grep '^v' | head -2 | tail -1)
+          if [ -z "$PREV_TAG" ]; then
+            PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+          fi
+
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+
+          # Collect commits since last release, categorize by conventional commit type
+          FEATURES=""
+          FIXES=""
+          OTHER=""
+
+          while IFS= read -r line; do
+            # Strip leading whitespace
+            line=$(echo "$line" | sed 's/^[[:space:]]*//')
+            [ -z "$line" ] && continue
+
+            # Extract subject (remove hash prefix if present)
+            subject=$(echo "$line" | sed 's/^[a-f0-9]* //')
+
+            # Skip version bump commits
+            echo "$subject" | grep -qi "^chore: bump version" && continue
+            echo "$subject" | grep -qi "^chore(release)" && continue
+
+            # Categorize
+            if echo "$subject" | grep -qi "^feat"; then
+              clean=$(echo "$subject" | sed 's/^feat[^:]*: //')
+              FEATURES="${FEATURES}- ${clean}\n"
+            elif echo "$subject" | grep -qi "^fix"; then
+              clean=$(echo "$subject" | sed 's/^fix[^:]*: //')
+              FIXES="${FIXES}- ${clean}\n"
+            else
+              clean=$(echo "$subject" | sed 's/^[a-z]*[^:]*: //')
+              OTHER="${OTHER}- ${clean}\n"
+            fi
+          done <<< "$(git log "${PREV_TAG}..HEAD" --pretty=format:"%h %s" --no-merges)"
+
+          # Build release notes
+          NOTES=""
+          if [ -n "$FEATURES" ]; then
+            NOTES="${NOTES}### ✨ New\n${FEATURES}\n"
+          fi
+          if [ -n "$FIXES" ]; then
+            NOTES="${NOTES}### 🐛 Fixes\n${FIXES}\n"
+          fi
+          if [ -n "$OTHER" ]; then
+            NOTES="${NOTES}### 📦 Other\n${OTHER}\n"
+          fi
+
+          if [ -z "$NOTES" ]; then
+            NOTES="Maintenance release — no notable changes."
+          fi
+
+          # Write to file for the release step (avoids shell escaping issues)
+          printf "%b" "$NOTES" > /tmp/release-notes.md
+          echo "notes_file=/tmp/release-notes.md" >> "$GITHUB_OUTPUT"
+
       - name: Create tag and release
         run: |
           VERSION="${{ steps.version.outputs.version }}"
@@ -84,7 +146,7 @@ jobs:
 
           gh release create "${TAG}" \
             --title "${TAG}" \
-            --generate-notes \
+            --notes-file "${{ steps.changelog.outputs.notes_file }}" \
             *.vsix
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
