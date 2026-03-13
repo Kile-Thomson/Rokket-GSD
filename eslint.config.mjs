@@ -17,7 +17,7 @@ export default tseslint.config(
       // Allow unused vars prefixed with _ (common pattern for required but unused params)
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", destructuredArrayIgnorePattern: "^_" },
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", destructuredArrayIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
       ],
     },
   }

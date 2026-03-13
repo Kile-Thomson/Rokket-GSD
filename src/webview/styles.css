@@ -613,6 +613,245 @@ html, body {
 }
 
 /* ============================================================
+   Dashboard
+   ============================================================ */
+
+.gsd-dashboard {
+  margin: 16px 12px;
+  border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+  border-radius: 10px;
+  background: var(--vscode-editor-background);
+  overflow: hidden;
+}
+
+.gsd-dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.15));
+}
+
+.gsd-dashboard-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--vscode-foreground);
+}
+
+.gsd-dashboard-phase {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(128, 128, 128, 0.12);
+  color: var(--vscode-descriptionForeground);
+}
+
+.gsd-dashboard-phase.complete {
+  background: rgba(40, 167, 69, 0.15);
+  color: var(--vscode-testing-iconPassed, #28a745);
+}
+
+.gsd-dashboard-phase.blocked {
+  background: rgba(220, 60, 60, 0.15);
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.gsd-dash-current {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.gsd-dash-current-label {
+  color: var(--vscode-descriptionForeground);
+  margin-right: 6px;
+}
+
+.gsd-dash-current-action {
+  color: var(--vscode-foreground);
+  font-weight: 500;
+}
+
+.gsd-dash-milestone-title {
+  padding: 8px 16px 4px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--vscode-foreground);
+}
+
+/* Progress bars */
+.gsd-dash-progress {
+  padding: 10px 16px;
+}
+
+.gsd-dash-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.gsd-dash-progress-label {
+  width: 56px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  flex-shrink: 0;
+}
+
+.gsd-dash-progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(128, 128, 128, 0.15);
+  overflow: hidden;
+}
+
+.gsd-dash-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--vscode-button-background, #007acc);
+  transition: width 0.3s ease;
+}
+
+.gsd-dash-progress-pct {
+  width: 32px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground);
+  flex-shrink: 0;
+}
+
+.gsd-dash-progress-ratio {
+  width: 32px;
+  text-align: right;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+/* Slice list */
+.gsd-dash-slices {
+  padding: 4px 16px 8px;
+}
+
+.gsd-dash-slice {
+  margin-bottom: 2px;
+}
+
+.gsd-dash-slice-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.gsd-dash-icon {
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.gsd-dash-slice.done .gsd-dash-icon { color: var(--vscode-testing-iconPassed, #28a745); }
+.gsd-dash-slice.active .gsd-dash-icon { color: var(--vscode-button-background, #007acc); }
+.gsd-dash-slice.pending .gsd-dash-icon { color: var(--vscode-descriptionForeground); opacity: 0.5; }
+
+.gsd-dash-slice-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gsd-dash-slice.done .gsd-dash-slice-title { color: var(--vscode-descriptionForeground); opacity: 0.6; }
+.gsd-dash-slice.active .gsd-dash-slice-title { color: var(--vscode-foreground); font-weight: 500; }
+.gsd-dash-slice.pending .gsd-dash-slice-title { color: var(--vscode-descriptionForeground); opacity: 0.7; }
+
+.gsd-dash-risk {
+  font-size: 10px;
+  flex-shrink: 0;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.6;
+}
+
+.gsd-dash-risk.risk-high { color: var(--vscode-errorForeground, #f48771); opacity: 1; }
+.gsd-dash-risk.risk-medium { color: var(--vscode-editorWarning-foreground, #cca700); opacity: 1; }
+
+/* Tasks within active slice */
+.gsd-dash-tasks {
+  padding-left: 26px;
+  margin-bottom: 4px;
+}
+
+.gsd-dash-task {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 11px;
+}
+
+.gsd-dash-task.done { color: var(--vscode-descriptionForeground); opacity: 0.6; }
+.gsd-dash-task.done .gsd-dash-icon { color: var(--vscode-testing-iconPassed, #28a745); }
+.gsd-dash-task.active { color: var(--vscode-foreground); font-weight: 500; }
+.gsd-dash-task.active .gsd-dash-icon { color: var(--vscode-editorWarning-foreground, #cca700); }
+.gsd-dash-task.pending { color: var(--vscode-descriptionForeground); opacity: 0.5; }
+
+/* Footer */
+.gsd-dashboard-footer {
+  padding: 8px 16px 12px;
+  border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.1));
+}
+
+.gsd-dash-hint {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.6;
+}
+
+.gsd-dash-hint code {
+  font-family: var(--vscode-editor-fontFamily);
+  background: rgba(128, 128, 128, 0.12);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* Empty state */
+.gsd-dashboard-empty {
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.gsd-dashboard-empty-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.gsd-dashboard-empty-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  margin-bottom: 4px;
+}
+
+.gsd-dashboard-empty-hint {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.gsd-dashboard-empty-hint code {
+  font-family: var(--vscode-editor-fontFamily);
+  background: rgba(128, 128, 128, 0.12);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* ============================================================
    Entries
    ============================================================ */
 
@@ -2125,8 +2364,8 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border: none;
   border-radius: 8px;
   background: var(--vscode-button-background);
