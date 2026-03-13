@@ -43,6 +43,54 @@ declare function acquireVsCodeApi(): {
 const vscode = acquireVsCodeApi();
 
 // ============================================================
+// Tool Watchdog — Client-side timeout for stuck tools
+// ============================================================
+
+/** Default watchdog timeout: 3 minutes (180s). GSD's bash-safety is 120s,
+ *  so this catches anything that slips through or isn't covered by bash-safety. */
+const TOOL_WATCHDOG_TIMEOUT_MS = 180_000;
+
+/** Map of toolCallId → timer handle for active watchdog timers */
+const toolWatchdogTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function startToolWatchdog(toolCallId: string): void {
+  clearToolWatchdog(toolCallId);
+  const timer = setTimeout(() => {
+    toolWatchdogTimers.delete(toolCallId);
+    handleToolWatchdogTimeout(toolCallId);
+  }, TOOL_WATCHDOG_TIMEOUT_MS);
+  toolWatchdogTimers.set(toolCallId, timer);
+}
+
+function clearToolWatchdog(toolCallId: string): void {
+  const timer = toolWatchdogTimers.get(toolCallId);
+  if (timer) {
+    clearTimeout(timer);
+    toolWatchdogTimers.delete(toolCallId);
+  }
+}
+
+function handleToolWatchdogTimeout(toolCallId: string): void {
+  // Mark the tool as timed out in state
+  const tc = state.currentTurn?.toolCalls.get(toolCallId);
+  if (!tc || !tc.isRunning) return;
+
+  tc.isRunning = false;
+  tc.isError = true;
+  tc.endTime = Date.now();
+  tc.resultText = `⏱ Tool timed out after ${TOOL_WATCHDOG_TIMEOUT_MS / 1000}s (client-side watchdog). The tool may still be running on the server.`;
+
+  // Re-render the tool card with timeout state
+  renderer.updateToolSegmentElement(toolCallId);
+
+  // Show a system message
+  addSystemEntry(
+    `Tool "${tc.name}" timed out after ${TOOL_WATCHDOG_TIMEOUT_MS / 1000}s. You can abort the current operation or force-restart GSD.`,
+    "warning"
+  );
+}
+
+// ============================================================
 // DOM Setup
 // ============================================================
 
@@ -638,8 +686,35 @@ function updateOverlayIndicators(): void {
     </div>`);
   }
 
+  if (state.processHealth === "unresponsive") {
+    parts.push(`<div class="gsd-overlay-indicator unresponsive">
+      ⚠ GSD is unresponsive
+      <button id="forceRestartBtn" class="gsd-overlay-btn danger">Force Restart</button>
+      <button id="forceKillBtn" class="gsd-overlay-btn">Kill Process</button>
+    </div>`);
+  }
+
   overlayIndicators.innerHTML = parts.join("");
   overlayIndicators.style.display = parts.length > 0 ? "flex" : "none";
+
+  // Wire up force buttons (if rendered)
+  const forceRestartBtn = document.getElementById("forceRestartBtn");
+  if (forceRestartBtn) {
+    forceRestartBtn.addEventListener("click", () => {
+      vscode.postMessage({ type: "force_restart" });
+      state.processHealth = "responsive";
+      state.processStatus = "restarting";
+      updateOverlayIndicators();
+    });
+  }
+  const forceKillBtn = document.getElementById("forceKillBtn");
+  if (forceKillBtn) {
+    forceKillBtn.addEventListener("click", () => {
+      vscode.postMessage({ type: "force_kill" });
+      state.processHealth = "responsive";
+      updateOverlayIndicators();
+    });
+  }
 }
 
 function updateWelcomeScreen(): void {
@@ -776,6 +851,12 @@ window.addEventListener("message", (event) => {
 
     case "agent_end": {
       state.isStreaming = false;
+      state.processHealth = "responsive";
+      // Clear all tool watchdog timers
+      for (const [id, timer] of toolWatchdogTimers) {
+        clearTimeout(timer);
+      }
+      toolWatchdogTimers.clear();
       renderer.finalizeCurrentTurn();
       updateInputUI();
       updateOverlayIndicators();
@@ -866,6 +947,8 @@ window.addEventListener("message", (event) => {
       const segIdx = state.currentTurn.segments.length;
       state.currentTurn.segments.push({ type: "tool", toolCallId: data.toolCallId });
       renderer.appendToolSegmentElement(tc, segIdx);
+      // Start watchdog timer for this tool
+      startToolWatchdog(data.toolCallId);
       scrollToBottom(messagesContainer);
       break;
     }
@@ -889,6 +972,8 @@ window.addEventListener("message", (event) => {
     case "tool_execution_end": {
       if (!state.currentTurn) break;
       const data = msg;
+      // Clear watchdog — tool completed normally
+      clearToolWatchdog(data.toolCallId);
       const tc = state.currentTurn.toolCalls.get(data.toolCallId);
       if (tc) {
         tc.isRunning = false;
@@ -1028,7 +1113,13 @@ window.addEventListener("message", (event) => {
       state.isStreaming = false;
       state.isCompacting = false;
       state.isRetrying = false;
+      state.processHealth = "responsive";
       state.currentTurn = null;
+      // Clear all tool watchdog timers
+      for (const [id, timer] of toolWatchdogTimers) {
+        clearTimeout(timer);
+      }
+      toolWatchdogTimers.clear();
       renderer.resetStreamingState();
       updateInputUI();
       updateOverlayIndicators();
@@ -1044,6 +1135,18 @@ window.addEventListener("message", (event) => {
         message = `GSD process exited (code: ${data.code}).`;
       }
       addSystemEntry(message, data.code === 0 ? "info" : "error");
+      break;
+    }
+
+    case "process_health": {
+      const data = msg;
+      state.processHealth = data.status;
+      if (data.status === "unresponsive") {
+        updateOverlayIndicators();
+      } else if (data.status === "recovered") {
+        updateOverlayIndicators();
+        addSystemEntry("GSD process recovered", "info");
+      }
       break;
     }
 
