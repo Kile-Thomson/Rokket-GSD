@@ -174,6 +174,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       clearInterval(timer);
     }
     this.healthTimers.clear();
+    for (const [_, timer] of this.workflowTimers) {
+      clearInterval(timer);
+    }
+    this.workflowTimers.clear();
     for (const [_, client] of this.rpcClients) {
       client.stop();
     }
@@ -197,6 +201,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.healthTimers.delete(sessionId);
     }
     this.healthState.delete(sessionId);
+    const workflowTimer = this.workflowTimers.get(sessionId);
+    if (workflowTimer) {
+      clearInterval(workflowTimer);
+      this.workflowTimers.delete(sessionId);
+    }
+    this.autoModeState.delete(sessionId);
     const client = this.rpcClients.get(sessionId);
     if (client) {
       client.stop();

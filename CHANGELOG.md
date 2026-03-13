@@ -18,8 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Action button SVGs increased from 14×14 to 18×18
 - Responsive breakpoints updated for new sizing
 
-### Previous
-
+### Added (previous)
 - Session history panel — browse and resume previous conversations (M002/S01)
 - History button in header toolbar with clock icon
 - Click a previous session to switch — chat loads full conversation history

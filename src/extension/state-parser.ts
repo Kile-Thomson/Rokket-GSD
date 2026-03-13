@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import type { WorkflowStateRef } from "../shared/types";
 
 // ============================================================
 // GSD STATE.md Parser
@@ -7,12 +8,9 @@ import * as path from "path";
 // ============================================================
 
 export interface GsdWorkflowState {
-  /** Active milestone ID and title, or null */
-  milestone: { id: string; title: string } | null;
-  /** Active slice ID and title, or null */
-  slice: { id: string; title: string } | null;
-  /** Active task ID and title, or null */
-  task: { id: string; title: string } | null;
+  milestone: WorkflowStateRef | null;
+  slice: WorkflowStateRef | null;
+  task: WorkflowStateRef | null;
   /** Current phase */
   phase: string;
   /** Auto-mode status: "auto", "next", "paused", or null (not in auto-mode) */
