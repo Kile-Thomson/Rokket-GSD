@@ -7,6 +7,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [Unreleased]
 
 ### Added
+- Thinking level dropdown picker — click the 🧠 badge to select from available levels (M005/S01)
+- Model-aware thinking: non-reasoning models show disabled "N/A" badge, XHigh only for Opus 4.6
+- Delete current session from history — starts a fresh conversation automatically (M005/S01)
+- Context usage progress bar below header — green/amber/red color zones at 70%/90% thresholds (M005/S02)
+- Visual separator between model/thinking and cost/context badge groups (M005/S02)
+- Tool call shimmer animation on running tools (M005/S02)
+- Smooth entrance animation on all overlay panels (model picker, thinking picker, history)
+- Tool completion border-fade transition (M005/S02)
+
+### Changed
+- Thinking badge now opens a dropdown instead of cycling through levels (M005/S01)
+- Streaming cursor uses smooth pulse animation instead of hard blink (M005/S02)
+- Footer stats use labeled tokens (in/out/cache) with dot separators (M005/S02)
+- Tool spinner uses subtler track color (M005/S02)
+- Cost badge has bolder font-weight (M005/S02)
+
+### Added (M004)
 - GSD workflow state badge in header — shows active milestone/slice/task and phase (M004/S01)
 - Auto-mode indicator (⚡ Auto, ▸ Next, ⏸ Paused) in workflow badge
 - Phase-specific badge colors: blue (active), green (auto/complete), yellow (paused), red (blocked)

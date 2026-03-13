@@ -560,6 +560,7 @@ export class GsdRpcClient extends EventEmitter {
     type: "extension_ui_response";
     id: string;
     value?: string;
+    values?: string[];
     confirmed?: boolean;
     cancelled?: boolean;
   }): void {

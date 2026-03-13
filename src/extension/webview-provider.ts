@@ -772,6 +772,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               type: "extension_ui_response",
               id: msg.id,
               value: msg.value,
+              values: msg.values,
               confirmed: msg.confirmed,
               cancelled: msg.cancelled,
             });

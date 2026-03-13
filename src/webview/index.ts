@@ -30,6 +30,7 @@ import {
 
 import * as slashMenu from "./slash-menu";
 import * as modelPicker from "./model-picker";
+import * as thinkingPicker from "./thinking-picker";
 import * as sessionHistory from "./session-history";
 import * as uiDialogs from "./ui-dialogs";
 import * as renderer from "./renderer";
@@ -107,6 +108,7 @@ root.innerHTML = `
       <div class="gsd-header-info">
         <span class="gsd-model-badge" id="modelBadge" title="Model"></span>
         <span class="gsd-thinking-badge" id="thinkingBadge" title="Thinking level"></span>
+        <span class="gsd-header-sep" id="headerSep1"></span>
         <span class="gsd-cost-badge" id="costBadge" title="Session cost"></span>
         <span class="gsd-context-badge" id="contextBadge" title="Context usage"></span>
       </div>
@@ -134,6 +136,10 @@ root.innerHTML = `
       </div>
     </header>
 
+    <div class="gsd-context-bar-container" id="contextBarContainer">
+      <div class="gsd-context-bar" id="contextBar"></div>
+    </div>
+
     <div class="gsd-overlay-indicators" id="overlayIndicators"></div>
 
     <main class="gsd-messages" id="messagesContainer">
@@ -159,6 +165,7 @@ root.innerHTML = `
 
     <div class="gsd-slash-menu" id="slashMenu"></div>
     <div class="gsd-model-picker" id="modelPicker"></div>
+    <div class="gsd-thinking-picker" id="thinkingPicker"></div>
     <div class="gsd-session-history" id="sessionHistory"></div>
 
     <div class="gsd-input-area">
@@ -206,12 +213,16 @@ const imagePreview = document.getElementById("imagePreview")!;
 const inputHint = document.getElementById("inputHint")!;
 const slashMenuEl = document.getElementById("slashMenu")!;
 const modelPickerEl = document.getElementById("modelPicker")!;
+const thinkingPickerEl = document.getElementById("thinkingPicker")!;
 const sessionHistoryEl = document.getElementById("sessionHistory")!;
+const contextBarContainer = document.getElementById("contextBarContainer")!;
+const contextBar = document.getElementById("contextBar")!;
 const overlayIndicators = document.getElementById("overlayIndicators")!;
 
 // Header badges
 const modelBadge = document.getElementById("modelBadge")!;
 const thinkingBadge = document.getElementById("thinkingBadge")!;
+const headerSep1 = document.getElementById("headerSep1")!;
 const costBadge = document.getElementById("costBadge")!;
 const contextBadge = document.getElementById("contextBadge")!;
 
@@ -450,6 +461,10 @@ document.addEventListener("keydown", (e: KeyboardEvent) => {
     if (sessionHistory.handleKeyDown(e)) return;
   }
   if (e.key === "Escape") {
+    if (thinkingPicker.isVisible()) {
+      thinkingPicker.hide();
+      return;
+    }
     if (modelPicker.isVisible()) {
       modelPicker.hide();
       return;
@@ -490,9 +505,7 @@ exportBtn.addEventListener("click", () => {
   vscode.postMessage({ type: "export_html" });
 });
 
-thinkingBadge.addEventListener("click", () => {
-  vscode.postMessage({ type: "cycle_thinking_level" });
-});
+// Thinking badge click is handled by thinkingPicker.init()
 thinkingBadge.style.cursor = "pointer";
 
 // ============================================================
@@ -571,10 +584,26 @@ function updateHeaderUI(): void {
     modelBadge.style.display = "none";
   }
 
-  const thinkingLabel = state.thinkingLevel && state.thinkingLevel !== "off" ? state.thinkingLevel : "off";
-  thinkingBadge.textContent = `🧠 ${thinkingLabel}`;
-  thinkingBadge.title = "Click to cycle thinking level";
-  thinkingBadge.style.display = "inline-flex";
+  // Thinking badge — model-aware
+  const modelSupportsReasoning = state.model
+    ? state.availableModels.some(
+        (m) => m.id === state.model!.id && m.provider === state.model!.provider && m.reasoning
+      )
+    : false;
+
+  if (state.model && !modelSupportsReasoning && state.modelsLoaded) {
+    // Non-reasoning model — show disabled badge
+    thinkingBadge.textContent = "🧠 N/A";
+    thinkingBadge.title = "Current model does not support extended thinking";
+    thinkingBadge.style.display = "inline-flex";
+    thinkingBadge.classList.add("disabled");
+  } else {
+    const thinkingLabel = state.thinkingLevel && state.thinkingLevel !== "off" ? state.thinkingLevel : "off";
+    thinkingBadge.textContent = `🧠 ${thinkingLabel}`;
+    thinkingBadge.title = "Click to select thinking level";
+    thinkingBadge.style.display = "inline-flex";
+    thinkingBadge.classList.remove("disabled");
+  }
 
   const stats = state.sessionStats;
   const hasCost = stats.cost != null && stats.cost > 0;
@@ -596,6 +625,34 @@ function updateHeaderUI(): void {
   } else {
     contextBadge.style.display = "none";
   }
+
+  // Show separator between model/thinking and cost/context groups
+  const hasLeftBadges = modelBadge.style.display !== "none" || thinkingBadge.style.display !== "none";
+  const hasRightBadges = costBadge.style.display !== "none" || contextBadge.style.display !== "none";
+  headerSep1.style.display = hasLeftBadges && hasRightBadges ? "block" : "none";
+
+  // Context usage bar
+  updateContextBar();
+}
+
+function updateContextBar(): void {
+  const pct = state.sessionStats.contextPercent ?? 0;
+  if (pct <= 0) {
+    contextBarContainer.style.display = "none";
+    return;
+  }
+
+  contextBarContainer.style.display = "block";
+  contextBar.style.width = `${Math.min(pct, 100)}%`;
+
+  contextBar.classList.remove("ok", "warn", "crit");
+  if (pct > 90) {
+    contextBar.classList.add("crit");
+  } else if (pct > 70) {
+    contextBar.classList.add("warn");
+  } else {
+    contextBar.classList.add("ok");
+  }
 }
 
 function updateFooterUI(): void {
@@ -607,18 +664,21 @@ function updateFooterUI(): void {
   const parts: string[] = [];
 
   if (tokens) {
-    if (tokens.input) parts.push(`↑${formatTokens(tokens.input)}`);
-    if (tokens.output) parts.push(`↓${formatTokens(tokens.output)}`);
-    if (tokens.cacheRead) parts.push(`R${formatTokens(tokens.cacheRead)}`);
-    if (tokens.cacheWrite) parts.push(`W${formatTokens(tokens.cacheWrite)}`);
+    const tokenParts: string[] = [];
+    if (tokens.input) tokenParts.push(`in:${formatTokens(tokens.input)}`);
+    if (tokens.output) tokenParts.push(`out:${formatTokens(tokens.output)}`);
+    if (tokens.cacheRead) tokenParts.push(`cache:${formatTokens(tokens.cacheRead)}`);
+    if (tokenParts.length > 0) parts.push(tokenParts.join(" "));
   }
 
-  parts.push(formatCost(stats.cost));
+  if (stats.cost != null && stats.cost > 0) {
+    parts.push(formatCost(stats.cost));
+  }
 
   const ctx = formatContextUsage(stats, state.model);
   if (ctx) parts.push(ctx);
 
-  footerStats.textContent = parts.join(" ");
+  footerStats.textContent = parts.join(" · ");
 
   let right = "";
   if (state.model) {
@@ -884,6 +944,10 @@ window.addEventListener("message", (event) => {
           sessionHistory.setCurrentSessionId(data.sessionId);
         }
         if (state.processStatus !== "crashed") state.processStatus = "running";
+        // Eagerly fetch available models if not loaded yet
+        if (!state.modelsLoaded) {
+          vscode.postMessage({ type: "get_available_models" });
+        }
         updateAllUI();
       }
       break;
@@ -1168,6 +1232,7 @@ window.addEventListener("message", (event) => {
       state.thinkingLevel = data.level || "off";
       updateHeaderUI();
       updateFooterUI();
+      thinkingPicker.refresh();
       addSystemEntry(`Thinking level: ${state.thinkingLevel}`, "info");
       break;
     }
@@ -1539,6 +1604,16 @@ modelPicker.init({
   onUpdateFooterUI: updateFooterUI,
 });
 
+thinkingPicker.init({
+  pickerEl: thinkingPickerEl,
+  thinkingBadge,
+  vscode,
+  onThinkingChanged: () => {
+    updateHeaderUI();
+    updateFooterUI();
+  },
+});
+
 sessionHistory.init({
   panelEl: sessionHistoryEl,
   historyBtn,
@@ -1546,6 +1621,7 @@ sessionHistory.init({
   onSessionSwitched: () => {
     updateAllUI();
   },
+  onNewConversation: handleNewConversation,
 });
 
 uiDialogs.init({
