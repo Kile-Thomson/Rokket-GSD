@@ -851,6 +851,84 @@ html, body {
   border-radius: 3px;
 }
 
+/* Dashboard phase: executing */
+.gsd-dashboard-phase.executing {
+  background: rgba(0, 122, 204, 0.15);
+  color: var(--vscode-button-background, #007acc);
+}
+
+/* Dashboard sections (milestones, cost, blockers, next) */
+.gsd-dash-section {
+  padding: 8px 16px;
+  border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.1));
+}
+
+.gsd-dash-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 6px;
+}
+
+/* Milestone registry list */
+.gsd-dash-milestones {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gsd-dash-milestone {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 2px 0;
+}
+
+.gsd-dash-milestone.done { color: var(--vscode-descriptionForeground); opacity: 0.6; }
+.gsd-dash-milestone.done .gsd-dash-icon { color: var(--vscode-testing-iconPassed, #28a745); }
+.gsd-dash-milestone.active { color: var(--vscode-foreground); font-weight: 500; }
+.gsd-dash-milestone.active .gsd-dash-icon { color: var(--vscode-button-background, #007acc); }
+.gsd-dash-milestone.pending { color: var(--vscode-descriptionForeground); opacity: 0.7; }
+
+/* Cost & usage */
+.gsd-dash-cost-summary {
+  font-size: 12px;
+  color: var(--vscode-foreground);
+  margin-bottom: 4px;
+}
+
+.gsd-dash-cost-value {
+  color: var(--vscode-testing-iconPassed, #28a745);
+  font-weight: 600;
+}
+
+.gsd-dash-cost-detail {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-fontFamily);
+  opacity: 0.7;
+}
+
+/* Blockers */
+.gsd-dash-blockers-title {
+  color: var(--vscode-editorWarning-foreground, #cca700) !important;
+}
+
+.gsd-dash-blocker {
+  font-size: 12px;
+  color: var(--vscode-errorForeground, #f48771);
+  padding: 2px 0;
+}
+
+/* Next action */
+.gsd-dash-next {
+  font-size: 12px;
+  color: var(--vscode-foreground);
+}
+
 /* ============================================================
    Entries
    ============================================================ */

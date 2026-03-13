@@ -271,16 +271,35 @@ export interface DashboardTask {
   estimate?: string;
 }
 
+export interface MilestoneRegistryEntry {
+  id: string;
+  title: string;
+  done: boolean;
+  active: boolean;
+}
+
 export interface DashboardData {
+  hasProject: boolean;
   hasMilestone: boolean;
   milestone: { id: string; title: string } | null;
   slice: { id: string; title: string } | null;
   task: { id: string; title: string } | null;
   phase: string;
   slices: DashboardSlice[];
+  milestoneRegistry: MilestoneRegistryEntry[];
   progress: {
     tasks: { done: number; total: number };
     slices: { done: number; total: number };
+    milestones: { done: number; total: number };
+  };
+  blockers: string[];
+  nextAction: string | null;
+  /** Session cost/usage stats — merged in by the extension at send time */
+  stats?: {
+    cost?: number;
+    tokens?: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
+    toolCalls?: number;
+    userMessages?: number;
   };
 }
 

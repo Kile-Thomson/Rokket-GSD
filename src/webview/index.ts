@@ -1154,7 +1154,7 @@ function renderDashboard(data: DashboardData | null): void {
   const el = document.createElement("div");
   el.className = "gsd-dashboard";
 
-  if (!data || !data.hasMilestone) {
+  if (!data || (!data.hasProject && !data.hasMilestone)) {
     el.innerHTML = `
       <div class="gsd-dashboard-empty">
         <div class="gsd-dashboard-empty-icon">📊</div>
@@ -1185,7 +1185,9 @@ function renderDashboard(data: DashboardData | null): void {
   };
 
   const phaseText = phaseLabels[data.phase] || data.phase;
-  const phaseClass = data.phase === "complete" ? "complete" : data.phase === "blocked" ? "blocked" : "";
+  const phaseClass = data.phase === "complete" ? "complete"
+    : data.phase === "blocked" ? "blocked"
+    : data.phase === "executing" ? "executing" : "";
 
   // Build current action breadcrumb
   const breadcrumb: string[] = [];
@@ -1193,10 +1195,11 @@ function renderDashboard(data: DashboardData | null): void {
   if (data.slice) breadcrumb.push(data.slice.id);
   if (data.task) breadcrumb.push(data.task.id);
 
-  // Progress bars
+  // Progress bar helper
   function progressBar(done: number, total: number, label: string): string {
-    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-    const fillPct = total > 0 ? (done / total) * 100 : 0;
+    if (total === 0) return "";
+    const pct = Math.round((done / total) * 100);
+    const fillPct = (done / total) * 100;
     return `
       <div class="gsd-dash-progress-row">
         <span class="gsd-dash-progress-label">${escapeHtml(label)}</span>
@@ -1209,9 +1212,10 @@ function renderDashboard(data: DashboardData | null): void {
     `;
   }
 
-  // Slice list
+  // Slice list with nested tasks
   function sliceList(slices: DashboardSlice[]): string {
-    return slices.map(s => {
+    if (slices.length === 0) return "";
+    return `<div class="gsd-dash-slices">` + slices.map(s => {
       const icon = s.done ? "✓" : s.active ? "▸" : "○";
       const cls = s.done ? "done" : s.active ? "active" : "pending";
       const riskCls = `risk-${s.risk}`;
@@ -1237,8 +1241,85 @@ function renderDashboard(data: DashboardData | null): void {
           ${tasksHtml}
         </div>
       `;
-    }).join("");
+    }).join("") + `</div>`;
   }
+
+  // Milestone registry
+  function milestoneList(entries: typeof data.milestoneRegistry): string {
+    if (entries.length === 0) return "";
+    return `
+      <div class="gsd-dash-section">
+        <div class="gsd-dash-section-title">Milestones</div>
+        <div class="gsd-dash-milestones">
+          ${entries.map(m => {
+            const icon = m.done ? "✓" : m.active ? "▸" : "○";
+            const cls = m.done ? "done" : m.active ? "active" : "pending";
+            return `<div class="gsd-dash-milestone ${cls}"><span class="gsd-dash-icon">${icon}</span> ${escapeHtml(m.id)}: ${escapeHtml(m.title)}</div>`;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  // Cost & usage section
+  function costSection(stats: typeof data.stats): string {
+    if (!stats) return "";
+    const parts: string[] = [];
+
+    if (stats.cost != null) {
+      parts.push(`<span class="gsd-dash-cost-value">$${stats.cost.toFixed(4)}</span> total`);
+    }
+    if (stats.tokens?.total) {
+      parts.push(`${formatTokenCount(stats.tokens.total)} tokens`);
+    }
+    if (stats.toolCalls) {
+      parts.push(`${stats.toolCalls} tools`);
+    }
+    if (stats.userMessages) {
+      parts.push(`${stats.userMessages} turns`);
+    }
+
+    if (parts.length === 0) return "";
+
+    let tokenDetail = "";
+    if (stats.tokens) {
+      const t = stats.tokens;
+      tokenDetail = `<div class="gsd-dash-cost-detail">in: ${formatTokenCount(t.input)}  out: ${formatTokenCount(t.output)}  cache-r: ${formatTokenCount(t.cacheRead)}  cache-w: ${formatTokenCount(t.cacheWrite)}</div>`;
+    }
+
+    return `
+      <div class="gsd-dash-section">
+        <div class="gsd-dash-section-title">Cost & Usage</div>
+        <div class="gsd-dash-cost-summary">${parts.join("  ·  ")}</div>
+        ${tokenDetail}
+      </div>
+    `;
+  }
+
+  // Blockers section
+  function blockersSection(blockers: string[]): string {
+    if (blockers.length === 0) return "";
+    return `
+      <div class="gsd-dash-section">
+        <div class="gsd-dash-section-title gsd-dash-blockers-title">⚠ Blockers</div>
+        ${blockers.map(b => `<div class="gsd-dash-blocker">${escapeHtml(b)}</div>`).join("")}
+      </div>
+    `;
+  }
+
+  // Next action
+  function nextActionSection(next: string | null): string {
+    if (!next) return "";
+    return `
+      <div class="gsd-dash-section">
+        <div class="gsd-dash-section-title">Next</div>
+        <div class="gsd-dash-next">${escapeHtml(next)}</div>
+      </div>
+    `;
+  }
+
+  // Build the full dashboard
+  const hasActiveWork = data.hasMilestone && data.milestone;
 
   el.innerHTML = `
     <div class="gsd-dashboard-header">
@@ -1246,31 +1327,47 @@ function renderDashboard(data: DashboardData | null): void {
       <span class="gsd-dashboard-phase ${phaseClass}">${escapeHtml(phaseText)}</span>
     </div>
 
-    ${data.task ? `
+    ${(data.task || data.slice) ? `
     <div class="gsd-dash-current">
       <span class="gsd-dash-current-label">Now:</span>
-      <span class="gsd-dash-current-action">${escapeHtml(phaseText)} ${escapeHtml(breadcrumb.join(" › "))}</span>
+      <span class="gsd-dash-current-action">${escapeHtml(phaseText)} ${escapeHtml(breadcrumb.join("/"))}</span>
     </div>
     ` : ""}
 
-    <div class="gsd-dash-milestone-title">${escapeHtml(data.milestone?.id || "")}:  ${escapeHtml(data.milestone?.title || "")}</div>
+    ${hasActiveWork ? `
+      <div class="gsd-dash-milestone-title">${escapeHtml(data.milestone!.id)}: ${escapeHtml(data.milestone!.title)}</div>
 
-    <div class="gsd-dash-progress">
-      ${data.progress.tasks.total > 0 ? progressBar(data.progress.tasks.done, data.progress.tasks.total, "Tasks") : ""}
-      ${progressBar(data.progress.slices.done, data.progress.slices.total, "Slices")}
-    </div>
+      <div class="gsd-dash-progress">
+        ${progressBar(data.progress.tasks.done, data.progress.tasks.total, "Tasks")}
+        ${progressBar(data.progress.slices.done, data.progress.slices.total, "Slices")}
+        ${progressBar(data.progress.milestones.done, data.progress.milestones.total, "Milestones")}
+      </div>
 
-    <div class="gsd-dash-slices">
       ${sliceList(data.slices)}
-    </div>
+    ` : `
+      <div class="gsd-dash-progress">
+        ${progressBar(data.progress.milestones.done, data.progress.milestones.total, "Milestones")}
+      </div>
+    `}
+
+    ${milestoneList(data.milestoneRegistry)}
+    ${blockersSection(data.blockers)}
+    ${costSection(data.stats)}
+    ${nextActionSection(data.nextAction)}
 
     <div class="gsd-dashboard-footer">
-      <span class="gsd-dash-hint">Run <code>/gsd auto</code> to start executing</span>
+      <span class="gsd-dash-hint">${hasActiveWork ? `Run <code>/gsd auto</code> to start executing` : `Run <code>/gsd</code> to start a new milestone`}</span>
     </div>
   `;
 
   messagesContainer.appendChild(el);
   scrollToBottom(messagesContainer, true);
+}
+
+function formatTokenCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
 }
 
 function updateWelcomeScreen(): void {
