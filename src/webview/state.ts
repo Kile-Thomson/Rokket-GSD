@@ -82,6 +82,7 @@ export interface AppState {
   commandsLoaded: boolean;
   availableModels: AvailableModel[];
   modelsLoaded: boolean;
+  modelsRequested: boolean;
   // Track the current in-progress assistant turn
   currentTurn: AssistantTurn | null;
   // Process health state
@@ -112,6 +113,7 @@ export const state: AppState = {
   commandsLoaded: false,
   availableModels: [],
   modelsLoaded: false,
+  modelsRequested: false,
   currentTurn: null,
   processHealth: "responsive",
 };

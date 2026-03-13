@@ -109,7 +109,7 @@ function buildItems(): SlashMenuItem[] {
     { name: "gsd next", desc: "Execute the next task", sendOnSelect: true },
     { name: "gsd auto", desc: "Auto-execute tasks (fresh context per task)", sendOnSelect: true },
     { name: "gsd stop", desc: "Stop auto-mode", sendOnSelect: true },
-    { name: "gsd status", desc: "Progress dashboard", sendOnSelect: true },
+
     { name: "gsd queue", desc: "Queue future milestones", sendOnSelect: true },
     { name: "gsd discuss", desc: "Discuss without executing", sendOnSelect: true },
     { name: "gsd prefs", desc: "View or set preferences" },

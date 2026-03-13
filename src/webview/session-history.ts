@@ -24,6 +24,7 @@ let renamingSessionId: string | null = null;
 let panelEl: HTMLElement;
 let vscode: { postMessage(msg: unknown): void };
 let onSessionSwitched: () => void;
+let onNewConversation: () => void;
 
 // ============================================================
 // Public API
@@ -192,11 +193,18 @@ function cancelRename(): void {
   renderList();
 }
 
-function deleteSession(sessionPath: string, displayName: string): void {
-  // Simple confirm dialog
-  const confirmed = confirm(`Delete session "${displayName}"?\n\nThis cannot be undone.`);
+function deleteSession(sessionPath: string, displayName: string, isCurrent: boolean): void {
+  const message = isCurrent
+    ? `Delete current session "${displayName}"?\n\nThis will start a new conversation. This cannot be undone.`
+    : `Delete session "${displayName}"?\n\nThis cannot be undone.`;
+
+  const confirmed = confirm(message);
   if (confirmed) {
     vscode.postMessage({ type: "delete_session", path: sessionPath });
+    if (isCurrent) {
+      hide();
+      onNewConversation();
+    }
   }
 }
 
@@ -327,10 +335,9 @@ function renderList(): void {
     if (isCurrent && !isRenaming) {
       html += `<button class="gsd-session-action-btn rename-btn" title="Rename session" data-action="rename" data-session-id="${escapeAttr(s.id)}">✎</button>`;
     }
-    if (!isCurrent) {
-      html += `<button class="gsd-session-action-btn delete-btn" title="Delete session" data-action="delete"
-                       data-session-path="${escapeAttr(s.path)}" data-display-name="${escapeAttr(displayName)}">🗑</button>`;
-    }
+    html += `<button class="gsd-session-action-btn delete-btn" title="Delete session" data-action="delete"
+                     data-session-path="${escapeAttr(s.path)}" data-display-name="${escapeAttr(displayName)}"
+                     data-is-current="${isCurrent ? "true" : "false"}">🗑</button>`;
 
     html += `</div></div>`;
   }
@@ -390,7 +397,8 @@ function renderList(): void {
       e.stopPropagation();
       const sessionPath = (btn as HTMLElement).dataset.sessionPath!;
       const displayName = (btn as HTMLElement).dataset.displayName!;
-      deleteSession(sessionPath, displayName);
+      const isCurrent = (btn as HTMLElement).dataset.isCurrent === "true";
+      deleteSession(sessionPath, displayName, isCurrent);
     });
   });
 }
@@ -463,12 +471,14 @@ export interface SessionHistoryDeps {
   historyBtn: HTMLElement;
   vscode: { postMessage(msg: unknown): void };
   onSessionSwitched: () => void;
+  onNewConversation: () => void;
 }
 
 export function init(deps: SessionHistoryDeps): void {
   panelEl = deps.panelEl;
   vscode = deps.vscode;
   onSessionSwitched = deps.onSessionSwitched;
+  onNewConversation = deps.onNewConversation;
 
   // Wire up click handler
   deps.historyBtn.addEventListener("click", toggle);
