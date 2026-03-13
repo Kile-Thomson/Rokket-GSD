@@ -4,6 +4,18 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.11] — 2026-03-13
+
+### Added
+- File attachment support — attach non-image files via paperclip button, drag-and-drop, or paste
+- File chips UI — attached files shown as removable chips with type-specific icons in the input area and sent messages
+- Drag-and-drop file paths from VS Code explorer and OS file manager
+- File access validation — warns when attached files aren't readable
+
+### Fixed
+- **Infinite node process spawning** — VS Code extension host Electron env vars (`NODE_OPTIONS`, `ELECTRON_RUN_AS_NODE`, `VSCODE_*`) were leaking into GSD's subprocess tree, causing child processes (e.g. Next.js dev server CSS workers) to crash-restart in a loop (144+ processes, 6.5GB RAM)
+- Sanitized environment for GSD child process — strips all Electron/VS Code internals before spawning
+
 ## [0.2.10] — 2026-03-13
 
 ### Fixed

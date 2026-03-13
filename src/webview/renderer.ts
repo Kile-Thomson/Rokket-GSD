@@ -187,14 +187,44 @@ function buildTimestampHtml(ts: number): string {
   return `<span class="gsd-timestamp" data-ts="${ts}" title="${escapeAttr(abs)}">${escapeHtml(rel)}</span>`;
 }
 
+function getFileIcon(ext: string): string {
+  const icons: Record<string, string> = {
+    pdf: "📄", doc: "📝", docx: "📝", txt: "📝", md: "📝",
+    xls: "📊", xlsx: "📊", csv: "📊",
+    ppt: "📽️", pptx: "📽️",
+    jpg: "🖼️", jpeg: "🖼️", png: "🖼️", gif: "🖼️", svg: "🖼️", webp: "🖼️",
+    mp4: "🎬", mov: "🎬", avi: "🎬", mkv: "🎬",
+    mp3: "🎵", wav: "🎵", flac: "🎵",
+    zip: "📦", tar: "📦", gz: "📦", rar: "📦", "7z": "📦",
+    js: "⚡", ts: "⚡", jsx: "⚡", tsx: "⚡",
+    py: "🐍", rb: "💎", go: "🔷", rs: "🦀",
+    html: "🌐", css: "🎨", scss: "🎨",
+    json: "📋", yaml: "📋", yml: "📋", toml: "📋", xml: "📋",
+    sh: "⚙️", bash: "⚙️", ps1: "⚙️", cmd: "⚙️", bat: "⚙️",
+    sql: "🗃️", db: "🗃️",
+    env: "🔒", key: "🔒", pem: "🔒",
+  };
+  return icons[ext] || "📎";
+}
+
 function buildUserHtml(entry: ChatEntry): string {
   let html = `<div class="gsd-user-bubble">`;
+  if (entry.files?.length) {
+    html += `<div class="gsd-user-files">${entry.files.map((f) =>
+      `<div class="gsd-file-chip sent" title="${escapeAttr(f.path)}">
+        <span class="gsd-file-chip-icon">${getFileIcon(f.extension)}</span>
+        <span class="gsd-file-chip-name">${escapeHtml(f.name)}</span>
+      </div>`
+    ).join("")}</div>`;
+  }
   if (entry.images?.length) {
     html += `<div class="gsd-user-images">${entry.images.map((img) =>
       `<img src="data:${img.mimeType};base64,${img.data}" class="gsd-user-img" alt="Image" />`
     ).join("")}</div>`;
   }
-  html += escapeHtml(entry.text || "");
+  if (entry.text) {
+    html += escapeHtml(entry.text);
+  }
   html += `</div>`;
   html += buildTimestampHtml(entry.timestamp);
   return html;

@@ -48,6 +48,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private gsdVersion: string | undefined;
   private statusCallback?: (status: StatusBarUpdate) => void;
   private lastStatus: StatusBarUpdate = { isStreaming: false };
+  private tempDir: string | null = null;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -189,6 +190,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     }
     this.panels.clear();
     this.output.dispose();
+    this.cleanupTempFiles();
   }
 
   private cleanupSession(sessionId: string): void {
@@ -215,6 +217,29 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.rpcClients.delete(sessionId);
     }
     this.sessionWebviews.delete(sessionId);
+  }
+
+  // --- Temp file management ---
+
+  private ensureTempDir(): string {
+    if (!this.tempDir) {
+      const os = require("os");
+      this.tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-attach-"));
+      this.output.appendLine(`Temp dir created: ${this.tempDir}`);
+    }
+    return this.tempDir;
+  }
+
+  private cleanupTempFiles(): void {
+    if (this.tempDir) {
+      try {
+        fs.rmSync(this.tempDir, { recursive: true, force: true });
+        this.output.appendLine(`Temp dir cleaned: ${this.tempDir}`);
+      } catch {
+        // Best effort
+      }
+      this.tempDir = null;
+    }
   }
 
   // --- Session stats polling ---
@@ -447,6 +472,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "new_conversation": {
+          this.cleanupTempFiles();
           const client = this.rpcClients.get(sessionId);
           if (client?.isRunning) {
             try {
@@ -821,6 +847,50 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               confirmed: msg.confirmed,
               cancelled: msg.cancelled,
             });
+          }
+          break;
+        }
+
+        case "check_file_access": {
+          const results = await Promise.all(
+            msg.paths.map(async (p: string) => {
+              try {
+                await fs.promises.access(p, fs.constants.R_OK);
+                return { path: p, readable: true };
+              } catch {
+                return { path: p, readable: false };
+              }
+            })
+          );
+          this.postToWebview(webview, { type: "file_access_result", results });
+          break;
+        }
+
+        case "save_temp_file": {
+          try {
+            const dir = this.ensureTempDir();
+            // Sanitize filename — strip path separators
+            const safeName = msg.name.replace(/[/\\]/g, "_");
+            const filePath = path.join(dir, safeName);
+            fs.writeFileSync(filePath, Buffer.from(msg.data, "base64"));
+            this.postToWebview(webview, { type: "temp_file_saved", path: filePath, name: safeName });
+          } catch (err: any) {
+            this.postToWebview(webview, { type: "error", message: `Failed to save file: ${err.message}` });
+          }
+          break;
+        }
+
+        case "attach_files": {
+          const uris = await vscode.window.showOpenDialog({
+            canSelectMany: true,
+            canSelectFiles: true,
+            canSelectFolders: false,
+            openLabel: "Attach to GSD",
+            filters: { "All Files": ["*"] },
+          });
+          if (uris && uris.length > 0) {
+            const paths = uris.map(u => u.fsPath);
+            this.postToWebview(webview, { type: "files_attached", paths });
           }
           break;
         }
