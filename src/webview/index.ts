@@ -8,6 +8,8 @@ import type {
   ExtensionToWebviewMessage,
   ProcessStatus,
   WorkflowState,
+  DashboardData,
+  DashboardSlice,
 } from "../shared/types";
 import "./styles.css";
 
@@ -586,6 +588,23 @@ function sendMessage(): void {
     ? filePaths.map(p => `[Attached file: \`${p}\`]`).join("\n") + "\n"
     : "";
 
+  // Handle /gsd status — show dashboard inline
+  if (text === "/gsd status" && !state.isStreaming) {
+    state.entries.push({
+      id: nextId(),
+      type: "user",
+      text: "/gsd status",
+      timestamp: Date.now(),
+    });
+    welcomeScreen.style.display = "none";
+    renderer.renderNewEntry(state.entries[state.entries.length - 1]);
+    scrollToBottom(messagesContainer, true);
+    promptInput.value = "";
+    autoResize();
+    vscode.postMessage({ type: "get_dashboard" });
+    return;
+  }
+
   // Handle ! bash shortcut
   if (text.startsWith("!") && !text.startsWith("!!") && text.length > 1 && !state.isStreaming) {
     const bashCmd = text.slice(1).trim();
@@ -1121,6 +1140,139 @@ function updateWorkflowBadge(wf: WorkflowState | null): void {
   badge.style.display = "inline-flex";
 }
 
+// ============================================================
+// Dashboard Panel
+// ============================================================
+
+function renderDashboard(data: DashboardData | null): void {
+  welcomeScreen.style.display = "none";
+
+  // Remove any existing dashboard
+  const existing = document.querySelector(".gsd-dashboard");
+  if (existing) existing.remove();
+
+  const el = document.createElement("div");
+  el.className = "gsd-dashboard";
+
+  if (!data || !data.hasMilestone) {
+    el.innerHTML = `
+      <div class="gsd-dashboard-empty">
+        <div class="gsd-dashboard-empty-icon">📊</div>
+        <div class="gsd-dashboard-empty-text">No active GSD project</div>
+        <div class="gsd-dashboard-empty-hint">Run <code>/gsd</code> to start a project in this workspace</div>
+      </div>
+    `;
+    messagesContainer.appendChild(el);
+    scrollToBottom(messagesContainer, true);
+    return;
+  }
+
+  const phaseLabels: Record<string, string> = {
+    "pre-planning": "Pre-planning",
+    "discussing": "Discussing",
+    "researching": "Researching",
+    "planning": "Planning",
+    "executing": "Executing",
+    "verifying": "Verifying",
+    "summarizing": "Summarizing",
+    "advancing": "Advancing",
+    "completing-milestone": "Completing",
+    "replanning-slice": "Replanning",
+    "complete": "Complete",
+    "paused": "Paused",
+    "blocked": "Blocked",
+    "unknown": "",
+  };
+
+  const phaseText = phaseLabels[data.phase] || data.phase;
+  const phaseClass = data.phase === "complete" ? "complete" : data.phase === "blocked" ? "blocked" : "";
+
+  // Build current action breadcrumb
+  const breadcrumb: string[] = [];
+  if (data.milestone) breadcrumb.push(data.milestone.id);
+  if (data.slice) breadcrumb.push(data.slice.id);
+  if (data.task) breadcrumb.push(data.task.id);
+
+  // Progress bars
+  function progressBar(done: number, total: number, label: string): string {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const fillPct = total > 0 ? (done / total) * 100 : 0;
+    return `
+      <div class="gsd-dash-progress-row">
+        <span class="gsd-dash-progress-label">${escapeHtml(label)}</span>
+        <div class="gsd-dash-progress-track">
+          <div class="gsd-dash-progress-fill" style="width: ${fillPct}%"></div>
+        </div>
+        <span class="gsd-dash-progress-pct">${pct}%</span>
+        <span class="gsd-dash-progress-ratio">${done}/${total}</span>
+      </div>
+    `;
+  }
+
+  // Slice list
+  function sliceList(slices: DashboardSlice[]): string {
+    return slices.map(s => {
+      const icon = s.done ? "✓" : s.active ? "▸" : "○";
+      const cls = s.done ? "done" : s.active ? "active" : "pending";
+      const riskCls = `risk-${s.risk}`;
+
+      let tasksHtml = "";
+      if (s.active && s.tasks.length > 0) {
+        tasksHtml = `<div class="gsd-dash-tasks">` +
+          s.tasks.map(t => {
+            const tIcon = t.done ? "✓" : t.active ? "▸" : "·";
+            const tCls = t.done ? "done" : t.active ? "active" : "pending";
+            return `<div class="gsd-dash-task ${tCls}"><span class="gsd-dash-icon">${tIcon}</span> ${escapeHtml(t.id)}: ${escapeHtml(t.title)}</div>`;
+          }).join("") +
+          `</div>`;
+      }
+
+      return `
+        <div class="gsd-dash-slice ${cls}">
+          <div class="gsd-dash-slice-row">
+            <span class="gsd-dash-icon">${icon}</span>
+            <span class="gsd-dash-slice-title">${escapeHtml(s.id)}: ${escapeHtml(s.title)}</span>
+            <span class="gsd-dash-risk ${riskCls}">${escapeHtml(s.risk)}</span>
+          </div>
+          ${tasksHtml}
+        </div>
+      `;
+    }).join("");
+  }
+
+  el.innerHTML = `
+    <div class="gsd-dashboard-header">
+      <div class="gsd-dashboard-title">📊 GSD Dashboard</div>
+      <span class="gsd-dashboard-phase ${phaseClass}">${escapeHtml(phaseText)}</span>
+    </div>
+
+    ${data.task ? `
+    <div class="gsd-dash-current">
+      <span class="gsd-dash-current-label">Now:</span>
+      <span class="gsd-dash-current-action">${escapeHtml(phaseText)} ${escapeHtml(breadcrumb.join(" › "))}</span>
+    </div>
+    ` : ""}
+
+    <div class="gsd-dash-milestone-title">${escapeHtml(data.milestone?.id || "")}:  ${escapeHtml(data.milestone?.title || "")}</div>
+
+    <div class="gsd-dash-progress">
+      ${data.progress.tasks.total > 0 ? progressBar(data.progress.tasks.done, data.progress.tasks.total, "Tasks") : ""}
+      ${progressBar(data.progress.slices.done, data.progress.slices.total, "Slices")}
+    </div>
+
+    <div class="gsd-dash-slices">
+      ${sliceList(data.slices)}
+    </div>
+
+    <div class="gsd-dashboard-footer">
+      <span class="gsd-dash-hint">Run <code>/gsd auto</code> to start executing</span>
+    </div>
+  `;
+
+  messagesContainer.appendChild(el);
+  scrollToBottom(messagesContainer, true);
+}
+
 function updateWelcomeScreen(): void {
   // Only hide welcome for real conversation entries (user messages, assistant turns)
   // System info/warning entries alone shouldn't dismiss it
@@ -1263,6 +1415,11 @@ window.addEventListener("message", (event) => {
 
     case "workflow_state": {
       updateWorkflowBadge(msg.state);
+      break;
+    }
+
+    case "dashboard_data": {
+      renderDashboard(msg.data);
       break;
     }
 
