@@ -42,7 +42,8 @@ export type WebviewToExtensionMessage =
   | { type: "force_restart" }
   | { type: "check_file_access"; paths: string[] }
   | { type: "save_temp_file"; name: string; data: string; mimeType: string }
-  | { type: "attach_files" };
+  | { type: "attach_files" }
+  | { type: "get_dashboard" };
 
 // --- Messages FROM extension TO webview ---
 
@@ -80,7 +81,8 @@ export type ExtensionToWebviewMessage =
   | { type: "workflow_state"; state: WorkflowState | null }
   | { type: "file_access_result"; results: Array<{ path: string; readable: boolean }> }
   | { type: "temp_file_saved"; path: string; name: string }
-  | { type: "files_attached"; paths: string[] };
+  | { type: "files_attached"; paths: string[] }
+  | { type: "dashboard_data"; data: DashboardData | null };
 
 // --- Session List Types ---
 
@@ -247,6 +249,39 @@ export interface RpcStateResult {
   autoCompactionEnabled?: boolean;
   cwd?: string;
   [key: string]: unknown;
+}
+
+// --- Dashboard Data (parsed from .gsd/ project files) ---
+
+export interface DashboardSlice {
+  id: string;
+  title: string;
+  done: boolean;
+  risk: string;
+  active: boolean;
+  tasks: DashboardTask[];
+  taskProgress?: { done: number; total: number };
+}
+
+export interface DashboardTask {
+  id: string;
+  title: string;
+  done: boolean;
+  active: boolean;
+  estimate?: string;
+}
+
+export interface DashboardData {
+  hasMilestone: boolean;
+  milestone: { id: string; title: string } | null;
+  slice: { id: string; title: string } | null;
+  task: { id: string; title: string } | null;
+  phase: string;
+  slices: DashboardSlice[];
+  progress: {
+    tasks: { done: number; total: number };
+    slices: { done: number; total: number };
+  };
 }
 
 // --- Workflow State (parsed from .gsd/STATE.md) ---

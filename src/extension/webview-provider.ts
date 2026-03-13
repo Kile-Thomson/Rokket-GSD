@@ -1,10 +1,12 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
 import { GsdRpcClient } from "./rpc-client";
 import { listSessions, deleteSession } from "./session-list-service";
 import { downloadAndInstallUpdate, dismissUpdateVersion } from "./update-checker";
 import { parseGsdWorkflowState } from "./state-parser";
+import { buildDashboardData } from "./dashboard-parser";
 import type {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
@@ -223,7 +225,6 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
   private ensureTempDir(): string {
     if (!this.tempDir) {
-      const os = require("os");
       this.tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-attach-"));
       this.output.appendLine(`Temp dir created: ${this.tempDir}`);
     }
@@ -506,6 +507,17 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             } catch (err: any) {
               this.postToWebview(webview, { type: "error", message: err.message });
             }
+          }
+          break;
+        }
+
+        case "get_dashboard": {
+          const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+          try {
+            const data = await buildDashboardData(cwd);
+            this.postToWebview(webview, { type: "dashboard_data", data } as ExtensionToWebviewMessage);
+          } catch (_err: unknown) {
+            this.postToWebview(webview, { type: "dashboard_data", data: null } as ExtensionToWebviewMessage);
           }
           break;
         }

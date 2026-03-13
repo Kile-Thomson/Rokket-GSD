@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { spawn } from "child_process";
 import { sanitizeEnvForChildProcess } from "./rpc-client";
 
