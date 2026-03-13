@@ -270,6 +270,16 @@ html, body {
   color: var(--vscode-errorForeground, #f48771);
 }
 
+.gsd-overlay-indicator.unresponsive {
+  background: rgba(220, 150, 30, 0.08);
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.gsd-overlay-btn.danger {
+  background: var(--vscode-errorForeground, #f48771);
+  color: #fff;
+}
+
 .gsd-overlay-spinner {
   width: 11px;
   height: 11px;

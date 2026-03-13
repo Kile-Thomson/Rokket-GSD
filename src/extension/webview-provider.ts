@@ -16,6 +16,7 @@ import type {
   RpcStateResult,
   BashResult,
   AgentMessage,
+  ProcessHealthStatus,
 } from "../shared/types";
 
 // ============================================================
@@ -35,6 +36,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private panels: Map<string, vscode.WebviewPanel> = new Map();
   private rpcClients: Map<string, GsdRpcClient> = new Map();
   private statsTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
+  private healthTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
+  private healthState: Map<string, ProcessHealthStatus> = new Map();
   private sessionWebviews: Map<string, vscode.Webview> = new Map();
   private output: vscode.OutputChannel;
   private sessionCounter = 0;
@@ -164,6 +167,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       clearInterval(timer);
     }
     this.statsTimers.clear();
+    for (const [_, timer] of this.healthTimers) {
+      clearInterval(timer);
+    }
+    this.healthTimers.clear();
     for (const [_, client] of this.rpcClients) {
       client.stop();
     }
@@ -181,6 +188,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       clearInterval(timer);
       this.statsTimers.delete(sessionId);
     }
+    const healthTimer = this.healthTimers.get(sessionId);
+    if (healthTimer) {
+      clearInterval(healthTimer);
+      this.healthTimers.delete(sessionId);
+    }
+    this.healthState.delete(sessionId);
     const client = this.rpcClients.get(sessionId);
     if (client) {
       client.stop();
@@ -215,6 +228,44 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
     // Immediate first poll
     poll();
+  }
+
+  // --- Health Monitoring ---
+
+  private startHealthMonitoring(webview: vscode.Webview, sessionId: string): void {
+    // Clear any existing timer
+    const existing = this.healthTimers.get(sessionId);
+    if (existing) clearInterval(existing);
+
+    this.healthState.set(sessionId, "responsive");
+
+    const check = async () => {
+      const client = this.rpcClients.get(sessionId);
+      if (!client?.isRunning) return;
+
+      // Only health-check while streaming (tool execution in progress)
+      // During idle, the process is just waiting for input — no need to ping
+      const isHealthy = await client.ping(10000);
+      const previousState = this.healthState.get(sessionId) || "responsive";
+
+      if (!isHealthy && previousState === "responsive") {
+        // Process became unresponsive
+        this.healthState.set(sessionId, "unresponsive");
+        this.output.appendLine(`[${sessionId}] Health check: UNRESPONSIVE (ping timed out)`);
+        this.postToWebview(webview, { type: "process_health", status: "unresponsive" } as ExtensionToWebviewMessage);
+      } else if (isHealthy && previousState === "unresponsive") {
+        // Process recovered
+        this.healthState.set(sessionId, "recovered");
+        this.output.appendLine(`[${sessionId}] Health check: recovered`);
+        this.postToWebview(webview, { type: "process_health", status: "recovered" } as ExtensionToWebviewMessage);
+        // Reset to responsive after emitting recovered
+        this.healthState.set(sessionId, "responsive");
+      }
+    };
+
+    // Check every 30 seconds
+    const timer = setInterval(check, 30000);
+    this.healthTimers.set(sessionId, timer);
   }
 
   // --- Message handling ---
@@ -632,6 +683,44 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           break;
         }
 
+        case "force_kill": {
+          const client = this.rpcClients.get(sessionId);
+          if (client) {
+            this.output.appendLine(`[${sessionId}] Force-killing GSD process (PID: ${client.pid})`);
+            client.forceKill();
+          }
+          break;
+        }
+
+        case "force_restart": {
+          const client = this.rpcClients.get(sessionId);
+          if (client) {
+            this.output.appendLine(`[${sessionId}] Force-restarting GSD process`);
+            client.forceKill();
+            // Wait a moment for cleanup, then restart
+            setTimeout(async () => {
+              try {
+                const restarted = await client.restart();
+                if (restarted) {
+                  this.output.appendLine(`[${sessionId}] GSD restarted after force-kill`);
+                  this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
+                  try {
+                    const state = await client.getState();
+                    this.postToWebview(webview, { type: "state", data: state } as ExtensionToWebviewMessage);
+                  } catch {}
+                } else {
+                  this.rpcClients.delete(sessionId);
+                  await this.launchGsd(webview, sessionId);
+                }
+              } catch (err: any) {
+                this.output.appendLine(`[${sessionId}] Force-restart failed: ${err.message}`);
+                this.postToWebview(webview, { type: "error", message: `Force-restart failed: ${err.message}` });
+              }
+            }, 1000);
+          }
+          break;
+        }
+
         case "update_install": {
           await downloadAndInstallUpdate(msg.downloadUrl, this.context);
           break;
@@ -774,8 +863,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
       } catch {}
 
-      // Start stats polling
+      // Start stats polling and health monitoring
       this.startStatsPolling(webview, sessionId);
+      this.startHealthMonitoring(webview, sessionId);
     } catch (err: any) {
       this.postToWebview(webview, {
         type: "process_exit",
