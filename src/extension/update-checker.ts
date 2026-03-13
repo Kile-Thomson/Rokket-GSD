@@ -461,6 +461,7 @@ function downloadFile(url: string, dest: string): Promise<void> {
           }
 
           if (res.statusCode !== 200) {
+            res.resume(); // Drain socket to free resources
             cleanup(new Error(`[GSD-ERR-011] Download failed: HTTP ${res.statusCode}`));
             return;
           }

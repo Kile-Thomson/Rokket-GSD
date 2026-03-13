@@ -118,10 +118,14 @@ export function handleRequest(data: any): void {
   // Track this dialog as pending
   pendingDialogs.set(id, wrapper);
 
-  // If the backend specified a timeout, show a countdown and auto-expire
+  // If the backend specified a timeout, show a countdown and auto-expire.
+  // We expire 2s early to avoid the race where the user clicks at T=29s
+  // but the backend already resolved at T=30s. Better to show "expired"
+  // than to silently eat the user's click.
   const timeout = data.timeout as number | undefined;
   if (timeout && timeout > 0) {
-    startTimeoutCountdown(wrapper, id, timeout);
+    const safeTimeout = Math.max(timeout - 2000, 1000);
+    startTimeoutCountdown(wrapper, id, safeTimeout);
   }
 
   messagesContainer.appendChild(wrapper);

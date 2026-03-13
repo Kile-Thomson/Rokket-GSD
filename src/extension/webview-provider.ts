@@ -346,6 +346,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                     const state = await client.getState();
                     this.postToWebview(webview, { type: "state", data: state } as ExtensionToWebviewMessage);
                     this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
+                    // Re-fetch commands after restart
+                    const cmdResult = await client.getCommands() as RpcCommandsResult;
+                    this.postToWebview(webview, { type: "commands", commands: cmdResult?.commands || [] });
                   } catch {}
                 } else {
                   this.rpcClients.delete(sessionId);
@@ -977,16 +980,31 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.rpcClients.set(sessionId, client);
       this.output.appendLine(`[${sessionId}] GSD started in ${workingDir}`);
 
-      this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
-
-      // Get initial state
+      // Get initial state — this blocks until the process is actually ready
+      // (extensions loaded, input handler attached). Only then do we announce "running".
       try {
         const rpcState = await client.getState() as RpcStateResult;
+        this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
         this.postToWebview(webview, { type: "state", data: rpcState } as ExtensionToWebviewMessage);
         if (rpcState?.model) {
           this.emitStatus({ model: rpcState.model.id || rpcState.model.name });
         }
-      } catch {}
+      } catch (err: any) {
+        // Process started but isn't responding — still announce running
+        // so the webview can at least try to interact
+        this.output.appendLine(`[${sessionId}] Initial getState failed: ${err.message}`);
+        this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
+      }
+
+      // Eagerly fetch commands now that the process is ready, and push them
+      // to the webview. This avoids the race where the webview requests commands
+      // before extensions have loaded.
+      try {
+        const cmdResult = await client.getCommands() as RpcCommandsResult;
+        this.postToWebview(webview, { type: "commands", commands: cmdResult?.commands || [] });
+      } catch (err: any) {
+        this.output.appendLine(`[${sessionId}] Initial get_commands failed: ${err.message}`);
+      }
 
       // Start stats polling, health monitoring, and workflow state
       this.startStatsPolling(webview, sessionId);
@@ -1060,6 +1078,30 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       case "input": {
         // Forward to webview for inline rendering
         this.postToWebview(webview, event as unknown as ExtensionToWebviewMessage);
+
+        // Show a native VS Code notification so the user knows they need to respond,
+        // but only if the webview isn't currently visible. Avoids notification spam
+        // when the user is already looking at the GSD panel.
+        const isWebviewVisible = this.isWebviewVisible(sessionId);
+        if (!isWebviewVisible) {
+          const title = event.title as string || event.message as string || "GSD needs your input";
+          const truncatedTitle = title.length > 80 ? title.slice(0, 77) + "…" : title;
+          vscode.window.showInformationMessage(
+            `🚀 GSD: ${truncatedTitle}`,
+            "Open GSD"
+          ).then((action) => {
+            if (action === "Open GSD") {
+              // Bring the GSD panel/sidebar into view
+              if (this.webviewView) {
+                this.webviewView.show(true);
+              }
+              const panel = this.panels.get(sessionId);
+              if (panel) {
+                panel.reveal();
+              }
+            }
+          });
+        }
         break;
       }
 
@@ -1174,6 +1216,19 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       delivered = true;
     }
     return delivered;
+  }
+
+  /**
+   * Check if the webview for a session is currently visible to the user.
+   * Used to avoid spamming native notifications when they're already looking at GSD.
+   */
+  private isWebviewVisible(sessionId: string): boolean {
+    // Check sidebar visibility
+    if (this.webviewView?.visible) return true;
+    // Check panel visibility
+    const panel = this.panels.get(sessionId);
+    if (panel?.visible) return true;
+    return false;
   }
 
   private getUseCtrlEnter(): boolean {
