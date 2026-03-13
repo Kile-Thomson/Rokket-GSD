@@ -1,8 +1,8 @@
 # GSD State
 
-**Active Milestone:** None
+**Active Milestone:** M007 — UX Polish & Interaction Improvements
 **Active Slice:** None
-**Phase:** idle
+**Phase:** complete
 **Requirements Status:** 0 active · 0 validated · 0 deferred · 0 out of scope
 
 ## Milestone Registry
@@ -21,4 +21,4 @@
 - None
 
 ## Next Action
-All milestones complete. Ready for new work.
+All milestones complete.
