@@ -4,6 +4,7 @@ import * as path from "path";
 import { GsdRpcClient } from "./rpc-client";
 import { listSessions, deleteSession } from "./session-list-service";
 import { downloadAndInstallUpdate, dismissUpdateVersion } from "./update-checker";
+import { parseGsdWorkflowState } from "./state-parser";
 import type {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
@@ -38,6 +39,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private statsTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
   private healthTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
   private healthState: Map<string, ProcessHealthStatus> = new Map();
+  private workflowTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
+  private autoModeState: Map<string, string | null> = new Map();
   private sessionWebviews: Map<string, vscode.Webview> = new Map();
   private output: vscode.OutputChannel;
   private sessionCounter = 0;
@@ -266,6 +269,29 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     // Check every 30 seconds
     const timer = setInterval(check, 30000);
     this.healthTimers.set(sessionId, timer);
+  }
+
+  // --- Workflow state ---
+
+  private async refreshWorkflowState(webview: vscode.Webview, sessionId: string): Promise<void> {
+    const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+    const state = await parseGsdWorkflowState(cwd);
+    if (state) {
+      state.autoMode = this.autoModeState.get(sessionId) || null;
+    }
+    this.postToWebview(webview, { type: "workflow_state", state } as ExtensionToWebviewMessage);
+  }
+
+  private startWorkflowPolling(webview: vscode.Webview, sessionId: string): void {
+    const existing = this.workflowTimers.get(sessionId);
+    if (existing) clearInterval(existing);
+
+    // Initial refresh
+    this.refreshWorkflowState(webview, sessionId);
+
+    // Poll every 30 seconds
+    const timer = setInterval(() => this.refreshWorkflowState(webview, sessionId), 30000);
+    this.workflowTimers.set(sessionId, timer);
   }
 
   // --- Message handling ---
@@ -822,6 +848,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         this.healthTimers.delete(sessionId);
       }
       this.healthState.delete(sessionId);
+      const workflowTimer = this.workflowTimers.get(sessionId);
+      if (workflowTimer) {
+        clearInterval(workflowTimer);
+        this.workflowTimers.delete(sessionId);
+      }
+      this.autoModeState.delete(sessionId);
 
       if (signal !== "SIGTERM" && signal !== "SIGKILL") {
         this.output.appendLine(`[${sessionId}] Unexpected exit — will auto-restart on next prompt`);
@@ -862,9 +894,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
       } catch {}
 
-      // Start stats polling and health monitoring
+      // Start stats polling, health monitoring, and workflow state
       this.startStatsPolling(webview, sessionId);
       this.startHealthMonitoring(webview, sessionId);
+      this.startWorkflowPolling(webview, sessionId);
     } catch (err: any) {
       this.postToWebview(webview, {
         type: "process_exit",
@@ -904,6 +937,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.emitStatus({ isStreaming: true });
     } else if (eventType === "agent_end") {
       this.emitStatus({ isStreaming: false });
+      // Refresh workflow state after each agent turn
+      this.refreshWorkflowState(webview, sessionId);
     } else if (eventType === "message_end") {
       const msg = event.message;
       const usage = msg?.usage as { cost?: { total?: number } } | undefined;
@@ -974,7 +1009,16 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         break;
       }
 
-      case "setStatus":
+      case "setStatus": {
+        // Track auto-mode status for workflow badge
+        if (event.statusKey === "gsd-auto") {
+          const autoMode = event.statusText as string | undefined;
+          this.autoModeState.set(sessionId, autoMode || null);
+          this.refreshWorkflowState(webview, sessionId);
+        }
+        this.postToWebview(webview, event as unknown as ExtensionToWebviewMessage);
+        break;
+      }
       case "setWidget":
       case "set_editor_text": {
         this.postToWebview(webview, event as unknown as ExtensionToWebviewMessage);

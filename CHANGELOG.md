@@ -7,6 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [Unreleased]
 
 ### Added
+- GSD workflow state badge in header — shows active milestone/slice/task and phase (M004/S01)
+- Auto-mode indicator (⚡ Auto, ▸ Next, ⏸ Paused) in workflow badge
+- Phase-specific badge colors: blue (active), green (auto/complete), yellow (paused), red (blocked)
+- STATE.md parser reads workflow state from disk, refreshes on agent turns and every 30s
+
+### Changed
+- Header components ~30% larger: badges (12px font, 28px height), buttons (12px font, 16px icons), brand (18px logo, 15px title)
+- Header min-height increased from 36px to 46px
+- Action button SVGs increased from 14×14 to 18×18
+- Responsive breakpoints updated for new sizing
+
+### Previous
+
 - Session history panel — browse and resume previous conversations (M002/S01)
 - History button in header toolbar with clock icon
 - Click a previous session to switch — chat loads full conversation history
