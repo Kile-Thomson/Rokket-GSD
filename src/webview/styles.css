@@ -3021,6 +3021,109 @@ html, body {
 }
 
 /* ============================================================
+   What's New Card
+   ============================================================ */
+
+.gsd-whats-new {
+  margin: 8px 4px;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  background: var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.95));
+  overflow: hidden;
+  animation: gsd-update-slide-in 0.3s ease-out;
+}
+
+.gsd-whats-new.dismissing {
+  animation: gsd-update-slide-out 0.3s ease-in forwards;
+}
+
+.gsd-whats-new-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.06));
+}
+
+.gsd-whats-new-icon {
+  font-size: 16px;
+}
+
+.gsd-whats-new-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  flex: 1;
+}
+
+.gsd-whats-new-close {
+  background: none;
+  border: none;
+  color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.5));
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.gsd-whats-new-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--vscode-foreground);
+}
+
+.gsd-whats-new-notes {
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.7));
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.gsd-whats-new-notes h3,
+.gsd-whats-new-notes h4 {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.gsd-whats-new-notes h3 {
+  font-size: 13px;
+  margin: 8px 0 4px;
+}
+
+.gsd-whats-new-notes h3:first-child {
+  margin-top: 0;
+}
+
+.gsd-whats-new-notes h4 {
+  font-size: 12px;
+  margin: 6px 0 3px;
+}
+
+.gsd-whats-new-notes ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+
+.gsd-whats-new-notes li {
+  margin: 2px 0;
+}
+
+.gsd-whats-new-notes code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--vscode-editor-fontFamily, monospace);
+  font-size: 11px;
+}
+
+.gsd-whats-new-notes strong {
+  color: var(--vscode-foreground);
+  font-weight: 600;
+}
+
+/* ============================================================
    Toasts
    ============================================================ */
 
