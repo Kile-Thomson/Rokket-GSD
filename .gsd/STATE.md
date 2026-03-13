@@ -1,8 +1,8 @@
 # GSD State
 
-**Active Milestone:** M006 — Testing & Quality
+**Active Milestone:** None
 **Active Slice:** None
-**Phase:** completing-milestone
+**Phase:** idle
 **Requirements Status:** 0 active · 0 validated · 0 deferred · 0 out of scope
 
 ## Milestone Registry
@@ -11,7 +11,7 @@
 - ✅ **M003:** Process Resilience & Hang Protection
 - ✅ **M004:** Header Enhancements
 - ✅ **M005:** UI Interactions & Polish
-- 🔄 **M006:** Testing & Quality
+- ✅ **M006:** Testing & Quality
 - ✅ **M007:** UX Polish & Interaction Improvements
 
 ## Recent Decisions
@@ -21,4 +21,4 @@
 - None
 
 ## Next Action
-All slices complete in M006. Write milestone summary.
+All milestones complete. Ready for new work.
