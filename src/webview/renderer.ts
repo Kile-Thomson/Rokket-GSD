@@ -37,7 +37,7 @@ let welcomeScreen: HTMLElement;
 
 let currentTurnElement: HTMLElement | null = null;
 const segmentElements = new Map<number, HTMLElement>();
-let activeSegmentIndex = -1;
+let _activeSegmentIndex = -1;
 let pendingTextRender: number | null = null;
 
 // ============================================================
@@ -85,7 +85,7 @@ export function appendToTextSegment(segType: "text" | "thinking", delta: string)
     segIdx = segments.length;
     segments.push({ type: segType, chunks: [delta] });
   }
-  activeSegmentIndex = segIdx;
+  _activeSegmentIndex = segIdx;
 
   if (pendingTextRender === null) {
     pendingTextRender = requestAnimationFrame(() => {
@@ -150,14 +150,14 @@ export function finalizeCurrentTurn(): void {
   state.currentTurn = null;
   currentTurnElement = null;
   segmentElements.clear();
-  activeSegmentIndex = -1;
+  _activeSegmentIndex = -1;
 }
 
 /** Reset streaming state — used by new conversation */
 export function resetStreamingState(): void {
   currentTurnElement = null;
   segmentElements.clear();
-  activeSegmentIndex = -1;
+  _activeSegmentIndex = -1;
 }
 
 // ============================================================

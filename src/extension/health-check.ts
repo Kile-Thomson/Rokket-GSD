@@ -263,6 +263,6 @@ function resolveGsdVersion(gsdPath: string): string | null {
       }
       dir = path.dirname(dir);
     }
-  } catch {}
+  } catch { /* ignored */ }
   return null;
 }
