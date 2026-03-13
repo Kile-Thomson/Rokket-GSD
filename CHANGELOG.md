@@ -4,7 +4,7 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.2.8] — 2026-03-13
+## [0.2.9] — 2026-03-13
 
 ### Added
 - Scroll-to-bottom FAB — floating ↓ button appears when scrolled up, click to jump to latest (M007)
