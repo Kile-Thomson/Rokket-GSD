@@ -1900,7 +1900,7 @@ window.addEventListener("message", (event) => {
 
     case "update_available": {
       const data = msg;
-      showUpdateCard(data.version, data.currentVersion, data.releaseNotes, data.downloadUrl, data.htmlUrl);
+      showUpdateCard(data.version, data.currentVersion, data.releaseNotes, data.downloadUrl);
       break;
     }
 
@@ -2075,8 +2075,7 @@ function showUpdateCard(
   version: string,
   currentVersion: string,
   releaseNotes: string,
-  downloadUrl: string,
-  htmlUrl: string
+  downloadUrl: string
 ): void {
   // Remove any existing update card
   const existing = document.getElementById("gsd-update-card");
@@ -2112,7 +2111,6 @@ function showUpdateCard(
     </div>
     <div class="gsd-update-actions">
       <button class="gsd-update-btn primary" data-action="install">Update Now</button>
-      <button class="gsd-update-btn" data-action="release">View on GitHub</button>
       <button class="gsd-update-btn dismiss" data-action="dismiss">Dismiss</button>
     </div>
   `;
@@ -2121,10 +2119,6 @@ function showUpdateCard(
   card.querySelector('[data-action="install"]')?.addEventListener("click", () => {
     vscode.postMessage({ type: "update_install", downloadUrl } as WebviewToExtensionMessage);
     card.remove();
-  });
-
-  card.querySelector('[data-action="release"]')?.addEventListener("click", () => {
-    vscode.postMessage({ type: "update_view_release", htmlUrl } as WebviewToExtensionMessage);
   });
 
   card.querySelector('[data-action="dismiss"]')?.addEventListener("click", () => {
