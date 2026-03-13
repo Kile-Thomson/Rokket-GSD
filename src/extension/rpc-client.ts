@@ -1,4 +1,4 @@
-import { ChildProcess, spawn, execFileSync, spawnSync } from "child_process";
+import { ChildProcess, spawn, spawnSync } from "child_process";
 import { EventEmitter } from "events";
 import * as path from "path";
 import * as fs from "fs";
@@ -64,7 +64,7 @@ function findNodeBinary(): string {
         return firstMatch;
       }
     }
-  } catch {}
+  } catch { /* ignored */ }
 
   // Fallback: assume node is on PATH
   return "node";
@@ -85,7 +85,7 @@ function resolveGsdWindows(): { command: string; args: string[]; useShell: boole
         cmdPath = firstMatch;
       }
     }
-  } catch {}
+  } catch { /* ignored */ }
 
   if (!cmdPath) {
     // Try without .cmd extension
@@ -104,7 +104,7 @@ function resolveGsdWindows(): { command: string; args: string[]; useShell: boole
           }
         }
       }
-    } catch {}
+    } catch { /* ignored */ }
   }
 
   if (cmdPath) {
@@ -143,7 +143,7 @@ function parseWindowsCmdWrapper(cmdPath: string): string | null {
         return fullPath;
       }
     }
-  } catch {}
+  } catch { /* ignored */ }
   return null;
 }
 
@@ -159,7 +159,7 @@ function resolveGsdUnix(): { command: string; args: string[]; useShell: boolean 
         return { command: firstMatch, args: [], useShell: false };
       }
     }
-  } catch {}
+  } catch { /* ignored */ }
 
   // Fallback: hope it's on PATH
   return { command: "gsd", args: [], useShell: false };
@@ -293,7 +293,7 @@ export class GsdRpcClient extends EventEmitter {
       this.emit("exit", { code, signal, detail });
 
       // Reject all pending requests with the enriched error
-      for (const [id, pending] of this.pendingRequests) {
+      for (const [, pending] of this.pendingRequests) {
         pending.reject(new Error(detail));
       }
       this.pendingRequests.clear();
@@ -342,7 +342,7 @@ export class GsdRpcClient extends EventEmitter {
       // Step 1: Try graceful abort via RPC
       try {
         this.send({ type: "abort" });
-      } catch {}
+      } catch { /* ignored */ }
 
       // Step 2: SIGTERM after 1s if still alive
       setTimeout(() => {
@@ -369,7 +369,7 @@ export class GsdRpcClient extends EventEmitter {
           stdio: "ignore",
           windowsHide: true,
         });
-      } catch {}
+      } catch { /* ignored */ }
     } else {
       // Unix: kill the process group (negative PID)
       try {
@@ -378,14 +378,14 @@ export class GsdRpcClient extends EventEmitter {
         // Fallback: kill just the process
         try {
           process.kill(pid, "SIGKILL");
-        } catch {}
+        } catch { /* ignored */ }
       }
     }
 
     // Also try via the ChildProcess handle
     try {
       this.process?.kill("SIGKILL");
-    } catch {}
+    } catch { /* ignored */ }
   }
 
   /**
@@ -615,7 +615,7 @@ export class GsdRpcClient extends EventEmitter {
       try {
         const parsed = JSON.parse(line);
         this.handleMessage(parsed);
-      } catch (err) {
+      } catch {
         this.emit("log", `Failed to parse RPC message: ${line}`);
       }
     }

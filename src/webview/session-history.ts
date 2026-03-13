@@ -23,7 +23,7 @@ let renamingSessionId: string | null = null;
 
 let panelEl: HTMLElement;
 let vscode: { postMessage(msg: unknown): void };
-let onSessionSwitched: () => void;
+let _onSessionSwitched: () => void;
 let onNewConversation: () => void;
 
 // ============================================================
@@ -470,14 +470,14 @@ export interface SessionHistoryDeps {
   panelEl: HTMLElement;
   historyBtn: HTMLElement;
   vscode: { postMessage(msg: unknown): void };
-  onSessionSwitched: () => void;
+  _onSessionSwitched: () => void;
   onNewConversation: () => void;
 }
 
 export function init(deps: SessionHistoryDeps): void {
   panelEl = deps.panelEl;
   vscode = deps.vscode;
-  onSessionSwitched = deps.onSessionSwitched;
+  _onSessionSwitched = deps._onSessionSwitched;
   onNewConversation = deps.onNewConversation;
 
   // Wire up click handler
