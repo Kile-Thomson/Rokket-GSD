@@ -1015,6 +1015,17 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         const message = event.message as string || "";
         const notifyType = event.notifyType as string || "info";
 
+        // Suppress noisy startup info about optional tools/keys — not actionable for most users
+        const isStartupNoise = notifyType === "info" && (
+          /No \w+_API_KEY set/i.test(message) ||
+          /\bfree tier\b/i.test(message) ||
+          /\b(MCPorter|Web search)\b.*\b(ready|loaded)\b/i.test(message)
+        );
+        if (isStartupNoise) {
+          this.output.appendLine(`[${sessionId}] [suppressed] ${message}`);
+          break;
+        }
+
         // Forward to webview — chat is the primary notification surface
         this.postToWebview(webview, event as unknown as ExtensionToWebviewMessage);
         break;

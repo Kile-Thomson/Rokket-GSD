@@ -7,6 +7,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [Unreleased]
 
 ### Added
+- Scroll-to-bottom FAB — floating ↓ button appears when scrolled up, click to jump to latest (M007/S01)
+- Message timestamps — relative time on each message, updates every 30s, absolute on hover (M007/S01)
+- Welcome screen quick actions — clickable chips for Auto, Status, Review (M007/S01)
+- Copy full response button — hover over assistant turn to copy entire response (M007/S02)
+- Toast notification system — brief auto-dismissing feedback for actions (M007/S02)
+- Thinking blocks default collapsed with line count indicator, open during streaming (M007/S02)
+- User message edit/resend — click a sent message to load it into the input (M007/S03)
+- Drag-to-resize input area — pull the handle to make the input taller (M007/S03)
+- Multi-select UI for ask_user_questions — checkbox toggle + confirm (M005 fix)
+
+### Changed
+- Smart auto-scroll — only scrolls to bottom if already near bottom, respects manual scroll position (M007/S01)
+- Thinking level changes show as toasts instead of system messages (M007/S02)
+
+### Added (M005)
 - Thinking level dropdown picker — click the 🧠 badge to select from available levels (M005/S01)
 - Model-aware thinking: non-reasoning models show disabled "N/A" badge, XHigh only for Opus 4.6
 - Delete current session from history — starts a fresh conversation automatically (M005/S01)

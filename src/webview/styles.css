@@ -35,6 +35,7 @@ html, body {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 /* ============================================================
@@ -439,6 +440,48 @@ html, body {
 }
 
 /* ============================================================
+   Scroll-to-bottom FAB
+   ============================================================ */
+
+.gsd-scroll-fab {
+  display: none;
+  position: absolute;
+  bottom: 120px;
+  right: 20px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.25));
+  border-radius: 50%;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  z-index: 50;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, transform 0.2s;
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.gsd-scroll-fab.visible {
+  display: flex;
+  opacity: 0.8;
+  transform: translateY(0);
+}
+
+.gsd-scroll-fab:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15));
+}
+
+.gsd-scroll-fab:active {
+  transform: scale(0.92);
+}
+
+/* ============================================================
    Welcome Screen
    ============================================================ */
 
@@ -518,6 +561,38 @@ html, body {
   margin: 0 3px;
 }
 
+.gsd-welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.gsd-welcome-chip {
+  padding: 5px 14px;
+  border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+  border-radius: 16px;
+  background: transparent;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: var(--vscode-font-family);
+  opacity: 0.55;
+  transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.gsd-welcome-chip:hover {
+  opacity: 0.9;
+  background: rgba(55, 148, 255, 0.08);
+  border-color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.gsd-welcome-chip:active {
+  transform: scale(0.96);
+}
+
 .gsd-welcome-attribution {
   margin-top: 24px;
   opacity: 0.2;
@@ -551,11 +626,34 @@ html, body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ---- Timestamps ---- */
+
+.gsd-timestamp {
+  display: block;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.35;
+  margin-top: 4px;
+  font-family: var(--vscode-editor-fontFamily, monospace);
+  transition: opacity 0.15s;
+  user-select: none;
+}
+
+.gsd-entry:hover .gsd-timestamp {
+  opacity: 0.6;
+}
+
+.gsd-entry-user .gsd-timestamp {
+  width: 100%;
+  text-align: right;
+}
+
 /* ---- User bubble ---- */
 
 .gsd-entry-user {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .gsd-user-bubble {
@@ -568,6 +666,12 @@ html, body {
   white-space: pre-wrap;
   font-size: 13px;
   line-height: 1.5;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.gsd-user-bubble:hover {
+  filter: brightness(1.1);
 }
 
 .gsd-user-images {
@@ -825,6 +929,51 @@ html, body {
   color: var(--vscode-foreground);
 }
 
+/* ---- Turn actions (copy response + timestamp) ---- */
+
+.gsd-turn-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.gsd-entry-assistant:hover .gsd-turn-actions {
+  opacity: 1;
+}
+
+.gsd-copy-response-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  transition: background 0.15s, color 0.15s;
+  font-family: var(--vscode-editor-fontFamily, monospace);
+  opacity: 0.6;
+}
+
+.gsd-copy-response-btn:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15));
+  color: var(--vscode-foreground);
+}
+
+.gsd-copy-response-btn svg {
+  flex-shrink: 0;
+}
+
+.gsd-turn-actions .gsd-timestamp {
+  margin-top: 0;
+}
+
 .gsd-code-block pre {
   margin: 0;
   padding: 12px;
@@ -884,6 +1033,13 @@ html, body {
   line-height: 1.55;
   font-family: var(--vscode-editor-fontFamily, monospace);
   opacity: 0.7;
+}
+
+.gsd-thinking-lines {
+  margin-left: auto;
+  font-size: 10px;
+  opacity: 0.4;
+  font-weight: 400;
 }
 
 /* ============================================================
@@ -1814,6 +1970,30 @@ html, body {
   transition: border-color 0.2s;
 }
 
+.gsd-resize-handle {
+  height: 6px;
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: -4px 0 2px;
+}
+
+.gsd-resize-handle::after {
+  content: "";
+  display: block;
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--vscode-panel-border, rgba(128,128,128,0.2));
+  transition: background 0.15s;
+}
+
+.gsd-resize-handle:hover::after {
+  background: var(--vscode-foreground);
+  opacity: 0.3;
+}
+
 .gsd-input-area.drag-over {
   border-top-color: var(--vscode-focusBorder, #007fd4);
   background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.04));
@@ -2412,6 +2592,44 @@ html, body {
 
 .gsd-update-btn.dismiss:hover {
   opacity: 1;
+}
+
+/* ============================================================
+   Toasts
+   ============================================================ */
+
+.gsd-toast-container {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.gsd-toast {
+  padding: 6px 16px;
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.95));
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.2));
+  color: var(--vscode-foreground);
+  font-size: 12px;
+  font-family: var(--vscode-font-family);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+  pointer-events: auto;
+}
+
+.gsd-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* ============================================================
