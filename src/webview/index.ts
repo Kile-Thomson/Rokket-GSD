@@ -1523,6 +1523,11 @@ window.addEventListener("message", (event) => {
       break;
     }
 
+    case "whats_new": {
+      showWhatsNew(msg.version, msg.notes);
+      break;
+    }
+
     case "agent_start": {
       // Expire any pending UI dialogs from a previous turn — the backend's
       // abort signal has already auto-resolved them, so user interaction
@@ -2128,6 +2133,51 @@ function showUpdateCard(
   });
 
   // Insert at the top of the messages area, after any welcome screen
+  messagesContainer.insertBefore(card, messagesContainer.firstChild?.nextSibling || null);
+  scrollToBottom(messagesContainer);
+}
+
+/**
+ * Show a "What's New" card on first launch after an update.
+ */
+function showWhatsNew(version: string, notes: string): void {
+  const existing = document.getElementById("gsd-whats-new");
+  if (existing) existing.remove();
+
+  const formatNotes = (md: string): string => {
+    if (!md.trim()) return "<p>No details available.</p>";
+    return escapeHtml(md)
+      .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+      .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^# (.+)$/gm, '<h3>$1</h3>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`(.+?)`/g, '<code>$1</code>')
+      .replace(/^\* (.+)$/gm, '<li>$1</li>')
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`)
+      .replace(/\n{2,}/g, '<br>')
+      .replace(/\n/g, ' ');
+  };
+
+  const card = document.createElement("div");
+  card.id = "gsd-whats-new";
+  card.className = "gsd-whats-new";
+  card.innerHTML = `
+    <div class="gsd-whats-new-header">
+      <span class="gsd-whats-new-icon">🚀</span>
+      <span class="gsd-whats-new-title">What's New in v${escapeHtml(version)}</span>
+      <button class="gsd-whats-new-close" title="Dismiss">✕</button>
+    </div>
+    <div class="gsd-whats-new-notes">
+      ${formatNotes(notes)}
+    </div>
+  `;
+
+  card.querySelector(".gsd-whats-new-close")?.addEventListener("click", () => {
+    card.classList.add("dismissing");
+    setTimeout(() => card.remove(), 300);
+  });
+
   messagesContainer.insertBefore(card, messagesContainer.firstChild?.nextSibling || null);
   scrollToBottom(messagesContainer);
 }
