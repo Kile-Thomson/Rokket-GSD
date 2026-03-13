@@ -289,11 +289,11 @@ const TRUSTED_HOSTS = new Set([
   "github-releases.githubusercontent.com",
 ]);
 
-/** Check if a URL is on a trusted host (exact hostname match) */
+/** Check if a URL is on a trusted host (exact hostname match + HTTPS only) */
 function isTrustedHost(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return TRUSTED_HOSTS.has(parsed.hostname);
+    return parsed.protocol === "https:" && TRUSTED_HOSTS.has(parsed.hostname);
   } catch {
     return false;
   }
@@ -303,7 +303,7 @@ function isTrustedHost(url: string): boolean {
 function isGitHubHost(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return parsed.hostname === "github.com" || parsed.hostname === "api.github.com";
+    return parsed.protocol === "https:" && (parsed.hostname === "github.com" || parsed.hostname === "api.github.com");
   } catch {
     return false;
   }
