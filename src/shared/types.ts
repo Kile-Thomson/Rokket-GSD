@@ -73,7 +73,8 @@ export type ExtensionToWebviewMessage =
   | { type: "session_list"; sessions: SessionListItem[] }
   | { type: "session_switched"; state: GsdState; messages: AgentMessage[] }
   | { type: "session_list_error"; message: string }
-  | { type: "update_available"; version: string; currentVersion: string; releaseNotes: string; downloadUrl: string; htmlUrl: string };
+  | { type: "update_available"; version: string; currentVersion: string; releaseNotes: string; downloadUrl: string; htmlUrl: string }
+  | { type: "workflow_state"; state: WorkflowState | null };
 
 // --- Session List Types ---
 
@@ -233,4 +234,19 @@ export interface RpcStateResult {
   autoCompactionEnabled?: boolean;
   cwd?: string;
   [key: string]: unknown;
+}
+
+// --- Workflow State (parsed from .gsd/STATE.md) ---
+
+export interface WorkflowStateRef {
+  id: string;
+  title: string;
+}
+
+export interface WorkflowState {
+  milestone: WorkflowStateRef | null;
+  slice: WorkflowStateRef | null;
+  task: WorkflowStateRef | null;
+  phase: string;
+  autoMode: string | null;
 }
