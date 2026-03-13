@@ -4,6 +4,7 @@
 
 import type {
   ImageAttachment,
+  FileAttachment,
   SessionStats,
   CommandInfo,
   ProcessStatus,
@@ -48,6 +49,7 @@ export interface ChatEntry {
   // For user
   text?: string;
   images?: ImageAttachment[];
+  files?: FileAttachment[];
   // For assistant — a turn with grouped content
   turn?: AssistantTurn;
   // For system
@@ -74,6 +76,7 @@ export interface AppState {
   thinkingLevel: string;
   processStatus: ProcessStatus;
   images: ImageAttachment[];
+  files: FileAttachment[];
   useCtrlEnterToSend: boolean;
   cwd: string;
   version: string;
@@ -105,6 +108,7 @@ export const state: AppState = {
   thinkingLevel: "off",
   processStatus: "stopped",
   images: [],
+  files: [],
   useCtrlEnterToSend: false,
   cwd: "",
   version: "",
