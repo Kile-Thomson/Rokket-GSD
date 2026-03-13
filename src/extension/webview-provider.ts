@@ -43,6 +43,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private healthState: Map<string, ProcessHealthStatus> = new Map();
   private workflowTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
   private autoModeState: Map<string, string | null> = new Map();
+  private promptWatchdogs: Map<string, { timer: ReturnType<typeof setTimeout>; retried: boolean; message: string; images?: Array<{ type: "image"; data: string; mimeType: string }> }> = new Map();
   private restartingSession: Set<string> = new Set();
   private sessionWebviews: Map<string, vscode.Webview> = new Map();
   private output: vscode.OutputChannel;
@@ -183,6 +184,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       clearInterval(timer);
     }
     this.workflowTimers.clear();
+    for (const [_, watchdog] of this.promptWatchdogs) {
+      clearTimeout(watchdog.timer);
+    }
+    this.promptWatchdogs.clear();
     for (const [_, client] of this.rpcClients) {
       client.stop();
     }
@@ -213,12 +218,73 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.workflowTimers.delete(sessionId);
     }
     this.autoModeState.delete(sessionId);
+    this.clearPromptWatchdog(sessionId);
     const client = this.rpcClients.get(sessionId);
     if (client) {
       client.stop();
       this.rpcClients.delete(sessionId);
     }
     this.sessionWebviews.delete(sessionId);
+  }
+
+  /**
+   * Start a watchdog timer after a prompt is acked by pi.
+   * If no agent_start event arrives within the timeout, retry once then error.
+   */
+  private startPromptWatchdog(
+    webview: vscode.Webview,
+    sessionId: string,
+    message: string,
+    images?: Array<{ type: "image"; data: string; mimeType: string }>
+  ): void {
+    this.clearPromptWatchdog(sessionId);
+
+    const WATCHDOG_TIMEOUT_MS = 8000;
+
+    const timer = setTimeout(async () => {
+      const watchdog = this.promptWatchdogs.get(sessionId);
+      if (!watchdog) return;
+
+      const client = this.rpcClients.get(sessionId);
+      if (!client?.isRunning) {
+        this.clearPromptWatchdog(sessionId);
+        return;
+      }
+
+      if (!watchdog.retried) {
+        // First timeout — retry the prompt once
+        this.output.appendLine(`[${sessionId}] Prompt watchdog: no agent_start after ${WATCHDOG_TIMEOUT_MS / 1000}s — retrying prompt`);
+        watchdog.retried = true;
+
+        try {
+          await client.prompt(message, images);
+          // Restart watchdog for the retry
+          watchdog.timer = setTimeout(() => {
+            // Second timeout — give up
+            this.output.appendLine(`[${sessionId}] Prompt watchdog: retry also got no response — notifying user`);
+            this.clearPromptWatchdog(sessionId);
+            this.postToWebview(webview, {
+              type: "error",
+              message: "GSD accepted the command but didn't start processing. Try sending it again.",
+            } as ExtensionToWebviewMessage);
+          }, WATCHDOG_TIMEOUT_MS);
+        } catch (err: any) {
+          this.output.appendLine(`[${sessionId}] Prompt watchdog: retry failed — ${err.message}`);
+          this.clearPromptWatchdog(sessionId);
+          // Don't show error — the prompt() catch block already handles this
+        }
+      }
+    }, WATCHDOG_TIMEOUT_MS);
+
+    this.promptWatchdogs.set(sessionId, { timer, retried: false, message, images });
+  }
+
+  private clearPromptWatchdog(sessionId: string): void {
+    const watchdog = this.promptWatchdogs.get(sessionId);
+    if (watchdog) {
+      clearTimeout(watchdog.timer);
+      this.promptWatchdogs.delete(sessionId);
+    }
   }
 
   // --- Temp file management ---
@@ -400,6 +466,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                 mimeType: img.mimeType,
               }));
               await c.prompt(msg.message, images);
+              this.startPromptWatchdog(webview, sessionId, msg.message, images);
             } catch (err: any) {
               if (err.message?.includes("streaming")) {
                 try {
@@ -1148,6 +1215,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
     // Update status bar based on event type
     if (eventType === "agent_start") {
+      this.clearPromptWatchdog(sessionId);
       this.emitStatus({ isStreaming: true });
     } else if (eventType === "agent_end") {
       this.emitStatus({ isStreaming: false });
