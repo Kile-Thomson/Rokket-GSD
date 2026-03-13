@@ -1,10 +1,169 @@
-import { ChildProcess, spawn } from "child_process";
+import { ChildProcess, spawn, execFileSync, spawnSync } from "child_process";
 import { EventEmitter } from "events";
 import * as path from "path";
+import * as fs from "fs";
 
 // ============================================================
 // RPC Client — Manages GSD child process via JSON-RPC over stdin/stdout
 // ============================================================
+
+/**
+ * Resolve the GSD executable for direct invocation without shell wrappers.
+ *
+ * On Windows, npm installs a `.cmd` wrapper that just calls `node <entry>.js`.
+ * Using `shell: true` to run .cmd files creates an extra cmd.exe process that
+ * breaks signal propagation, triggers Node 22 DEP0190 warnings, and fails
+ * when the path contains spaces (common in `C:\Users\First Last\...`).
+ *
+ * Instead, we parse the .cmd wrapper to find the actual Node.js entry point
+ * and invoke it directly: `node <entry.js> --mode rpc`.
+ *
+ * On Unix, `gsd` is typically a direct symlink to a JS file with a shebang,
+ * so we can run it directly.
+ */
+function resolveGsdPath(hint?: string): { command: string; args: string[]; useShell: boolean } {
+  // If user provided an explicit path, use it directly
+  if (hint && hint !== "gsd") {
+    // If it's a .cmd file, parse it; otherwise assume it's directly executable
+    if (process.platform === "win32" && hint.toLowerCase().endsWith(".cmd")) {
+      const entry = parseWindowsCmdWrapper(hint);
+      if (entry) {
+        const nodePath = findNodeBinary();
+        return { command: nodePath, args: [entry], useShell: false };
+      }
+      // Couldn't parse .cmd — must use shell to execute it
+      return { command: hint, args: [], useShell: true };
+    }
+    return { command: hint, args: [], useShell: false };
+  }
+
+  if (process.platform === "win32") {
+    return resolveGsdWindows();
+  }
+
+  return resolveGsdUnix();
+}
+
+/**
+ * Find the Node.js binary path.
+ * In VS Code extension host, `process.execPath` is Electron, not Node.
+ * We need the actual `node` binary to run GSD's JS entry point.
+ */
+function findNodeBinary(): string {
+  // Try to find node via `where` (Windows) or `which` (Unix)
+  const cmd = process.platform === "win32" ? "where" : "which";
+  try {
+    const result = spawnSync(cmd, ["node"], {
+      encoding: "utf-8",
+      timeout: 5000,
+      windowsHide: true,
+    });
+    if (result.status === 0 && result.stdout) {
+      const firstMatch = result.stdout.trim().split(/\r?\n/)[0];
+      if (firstMatch && fs.existsSync(firstMatch)) {
+        return firstMatch;
+      }
+    }
+  } catch {}
+
+  // Fallback: assume node is on PATH
+  return "node";
+}
+
+function resolveGsdWindows(): { command: string; args: string[]; useShell: boolean } {
+  // Find the .cmd wrapper
+  let cmdPath: string | null = null;
+  try {
+    const result = spawnSync("where", ["gsd.cmd"], {
+      encoding: "utf-8",
+      timeout: 5000,
+      windowsHide: true,
+    });
+    if (result.status === 0 && result.stdout) {
+      const firstMatch = result.stdout.trim().split(/\r?\n/)[0];
+      if (firstMatch && fs.existsSync(firstMatch)) {
+        cmdPath = firstMatch;
+      }
+    }
+  } catch {}
+
+  if (!cmdPath) {
+    // Try without .cmd extension
+    try {
+      const result = spawnSync("where", ["gsd"], {
+        encoding: "utf-8",
+        timeout: 5000,
+        windowsHide: true,
+      });
+      if (result.status === 0 && result.stdout) {
+        const lines = result.stdout.trim().split(/\r?\n/);
+        for (const line of lines) {
+          if (line.toLowerCase().endsWith(".cmd") && fs.existsSync(line)) {
+            cmdPath = line;
+            break;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  if (cmdPath) {
+    // Parse the .cmd to find the actual node entry point
+    const entry = parseWindowsCmdWrapper(cmdPath);
+    if (entry) {
+      const nodePath = findNodeBinary();
+      return { command: nodePath, args: [entry], useShell: false };
+    }
+    // Couldn't parse — fall back to .cmd with shell
+    return { command: cmdPath, args: [], useShell: true };
+  }
+
+  // Last resort: "gsd" with shell
+  return { command: "gsd", args: [], useShell: true };
+}
+
+/**
+ * Parse an npm-generated .cmd wrapper to extract the JS entry point.
+ * npm .cmd wrappers follow a known pattern ending with:
+ *   "%_prog%" "%dp0%\path\to\entry.js" %*
+ */
+function parseWindowsCmdWrapper(cmdPath: string): string | null {
+  try {
+    const content = fs.readFileSync(cmdPath, "utf-8");
+    // Match the pattern: "%_prog%" "path\to\entry.js" %*
+    // or: "%_prog%" "%dp0%\path\to\entry.js" %*
+    const match = content.match(/"%_prog%"\s+"([^"]+)"\s+%\*/);
+    if (match) {
+      let entryPath = match[1];
+      // Replace %dp0% with the directory of the .cmd file
+      const cmdDir = path.dirname(cmdPath);
+      entryPath = entryPath.replace(/%dp0%\\/gi, "").replace(/%dp0%/gi, "");
+      const fullPath = path.resolve(cmdDir, entryPath);
+      if (fs.existsSync(fullPath)) {
+        return fullPath;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function resolveGsdUnix(): { command: string; args: string[]; useShell: boolean } {
+  try {
+    const result = spawnSync("which", ["gsd"], {
+      encoding: "utf-8",
+      timeout: 5000,
+    });
+    if (result.status === 0 && result.stdout) {
+      const firstMatch = result.stdout.trim().split(/\r?\n/)[0];
+      if (firstMatch && fs.existsSync(firstMatch)) {
+        return { command: firstMatch, args: [], useShell: false };
+      }
+    }
+  } catch {}
+
+  // Fallback: hope it's on PATH
+  return { command: "gsd", args: [], useShell: false };
+}
 
 export interface RpcEvent {
   type: string;
@@ -33,9 +192,15 @@ export class GsdRpcClient extends EventEmitter {
     sessionDir?: string;
   } | null = null;
   private _stderrBuffer: string = "";
+  private _pid: number | null = null;
 
   get isRunning(): boolean {
     return this._isRunning;
+  }
+
+  /** PID of the GSD child process, or null if not running. */
+  get pid(): number | null {
+    return this._pid;
   }
 
   /**
@@ -54,8 +219,10 @@ export class GsdRpcClient extends EventEmitter {
     this._lastStartOptions = { ...options };
     this._stderrBuffer = "";
 
-    const gsdPath = options.gsdPath || "gsd";
-    const args = ["--mode", "rpc"];
+    const resolved = resolveGsdPath(options.gsdPath);
+    // Log the resolved spawn command for diagnostics
+    this.emit("log", `[rpc-client] Spawn: ${resolved.command} ${resolved.args.join(" ")} --mode rpc (shell: ${resolved.useShell})\n`);
+    const args = [...resolved.args, "--mode", "rpc"];
 
     if (options.sessionDir) {
       args.push("--session-dir", options.sessionDir);
@@ -69,12 +236,15 @@ export class GsdRpcClient extends EventEmitter {
       FORCE_COLOR: "0",
     };
 
-    this.process = spawn(gsdPath, args, {
+    this.process = spawn(resolved.command, args, {
       cwd: options.cwd,
       env,
       stdio: ["pipe", "pipe", "pipe"],
-      shell: process.platform === "win32",
+      shell: resolved.useShell,
+      windowsHide: true,
     });
+
+    this._pid = this.process.pid ?? null;
 
     this._isRunning = true;
     this.buffer = "";
@@ -98,6 +268,7 @@ export class GsdRpcClient extends EventEmitter {
 
     this.process.on("exit", (code, signal) => {
       this._isRunning = false;
+      this._pid = null;
 
       // Build a more descriptive error message
       const stderrHint = this._stderrBuffer.trim();
@@ -142,30 +313,71 @@ export class GsdRpcClient extends EventEmitter {
 
   /**
    * Stop the GSD process.
+   * Escalation: abort command → SIGTERM → forceKill (process tree kill)
    */
   async stop(): Promise<void> {
     if (!this.process) return;
 
     return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        this.process?.kill("SIGKILL");
-        resolve();
+      // Final escalation: force kill the entire process tree
+      const forceTimeout = setTimeout(() => {
+        this.forceKill();
+        // Give forceKill a moment to work, then resolve regardless
+        setTimeout(resolve, 500);
       }, 5000);
 
       this.process!.on("exit", () => {
-        clearTimeout(timeout);
+        clearTimeout(forceTimeout);
         resolve();
       });
 
-      // Try graceful abort first
+      // Step 1: Try graceful abort via RPC
       try {
         this.send({ type: "abort" });
       } catch {}
 
+      // Step 2: SIGTERM after 1s if still alive
       setTimeout(() => {
-        this.process?.kill("SIGTERM");
+        if (this.process && !this.process.killed) {
+          this.process.kill("SIGTERM");
+        }
       }, 1000);
     });
+  }
+
+  /**
+   * Force-kill the GSD process and its entire process tree.
+   * Use this when the process is unresponsive and graceful stop has failed.
+   * This is the nuclear option — kills everything including grandchild bash processes.
+   */
+  forceKill(): void {
+    const pid = this._pid;
+    if (!pid) return;
+
+    if (process.platform === "win32") {
+      // taskkill /F (force) /T (tree — kills all child processes)
+      try {
+        spawn("taskkill", ["/F", "/T", "/PID", String(pid)], {
+          stdio: "ignore",
+          windowsHide: true,
+        });
+      } catch {}
+    } else {
+      // Unix: kill the process group (negative PID)
+      try {
+        process.kill(-pid, "SIGKILL");
+      } catch {
+        // Fallback: kill just the process
+        try {
+          process.kill(pid, "SIGKILL");
+        } catch {}
+      }
+    }
+
+    // Also try via the ChildProcess handle
+    try {
+      this.process?.kill("SIGKILL");
+    } catch {}
   }
 
   /**
@@ -354,6 +566,21 @@ export class GsdRpcClient extends EventEmitter {
     this.send(response);
   }
 
+  /**
+   * Lightweight health check — sends get_state with a short timeout.
+   * Returns true if the process responds, false if it times out or errors.
+   * Does NOT throw on failure.
+   */
+  async ping(timeoutMs: number = 10000): Promise<boolean> {
+    if (!this._isRunning || !this.process) return false;
+    try {
+      await this.request({ type: "get_state" }, timeoutMs);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   // --- Internal ---
 
   private processBuffer(): void {
@@ -390,8 +617,10 @@ export class GsdRpcClient extends EventEmitter {
         } else {
           pending.reject(new Error(msg.error as string || "Unknown RPC error"));
         }
-        return;
       }
+      // Drop responses without a matching pending request (e.g. late responses
+      // from timed-out pings) — don't forward them as events
+      return;
     }
 
     // Everything else is an event — forward to listeners
