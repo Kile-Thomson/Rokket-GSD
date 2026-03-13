@@ -281,14 +281,29 @@ interface ReleaseInfo {
   assets: Array<{ name: string; url: string }>;
 }
 
-/** Trusted GitHub hostnames for auth header forwarding */
-const GITHUB_HOSTS = new Set(["github.com", "api.github.com"]);
+/** Trusted hostnames for GitHub API, downloads, and CDN redirects */
+const TRUSTED_HOSTS = new Set([
+  "github.com",
+  "api.github.com",
+  "objects.githubusercontent.com",
+  "github-releases.githubusercontent.com",
+]);
 
-/** Check if a URL is on a trusted GitHub host (exact match, not substring) */
+/** Check if a URL is on a trusted host (exact hostname match) */
+function isTrustedHost(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return TRUSTED_HOSTS.has(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** Check if a URL is specifically a GitHub API/web host (for auth forwarding) */
 function isGitHubHost(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return GITHUB_HOSTS.has(parsed.hostname);
+    return parsed.hostname === "github.com" || parsed.hostname === "api.github.com";
   } catch {
     return false;
   }
@@ -313,6 +328,11 @@ function fetchLatestRelease(): Promise<ReleaseInfo | null> {
           const location = res.headers.location;
           res.resume();
           if (location) {
+            // Security: reject redirects to untrusted hosts
+            if (!isTrustedHost(location)) {
+              resolve(null);
+              return;
+            }
             // Preserve auth only for exact GitHub host matches
             const redirectHeaders = isGitHubHost(location)
               ? headers
@@ -412,6 +432,12 @@ function downloadFile(url: string, dest: string): Promise<void> {
     const request = (downloadUrl: string, redirectCount: number = 0) => {
       if (redirectCount > MAX_REDIRECTS) {
         cleanup(new Error("[GSD-ERR-010] Download failed: too many redirects"));
+        return;
+      }
+
+      // Security: only download from trusted hosts
+      if (!isTrustedHost(downloadUrl)) {
+        cleanup(new Error("[GSD-ERR-013] Download blocked: untrusted host"));
         return;
       }
 
