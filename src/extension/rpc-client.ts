@@ -8,6 +8,67 @@ import * as fs from "fs";
 // ============================================================
 
 /**
+ * Strip Electron/VS Code extension host env vars that shouldn't leak into
+ * GSD's process tree. When the extension host spawns GSD, process.env contains
+ * Electron-specific variables (ELECTRON_RUN_AS_NODE, NODE_OPTIONS with --require
+ * hooks, VSCODE_* internals, etc.). If these propagate to grandchild processes
+ * like `next dev`, `lightningcss`, or `tailwindcss` workers, they can cause:
+ *   - Infinite process spawn loops (144+ node processes, OOM)
+ *   - DEP0190 warnings from shell: true + args
+ *   - Worker processes crash-restarting due to unexpected --require hooks
+ *   - Playwright/Chromium launch failures
+ */
+export function sanitizeEnvForChildProcess(env: NodeJS.ProcessEnv): Record<string, string> {
+  const cleaned: Record<string, string> = {};
+
+  // Prefixes/exact keys to strip — these are Electron/VS Code internals
+  // that should never reach user project subprocesses
+  const stripExact = new Set([
+    "ELECTRON_RUN_AS_NODE",
+    "ELECTRON_NO_ASAR",
+    "ELECTRON_ENABLE_LOGGING",
+    "ELECTRON_LOG_FILE",
+    "ELECTRON_FORCE_WINDOW_MENU_BAR",
+    "GOOGLE_API_KEY",          // Electron's internal API key, not the user's
+    "NODE_OPTIONS",            // VS Code injects --require hooks that break child processes
+    "NODE_EXTRA_CA_CERTS",     // Can cause TLS issues in child processes
+    "VSCODE_CWD",
+    "VSCODE_HANDLES_UNCAUGHT_ERRORS",
+    "VSCODE_IPC_HOOK",
+    "VSCODE_NLS_CONFIG",
+    "VSCODE_PID",
+    "VSCODE_CRASH_REPORTER_PROCESS_TYPE",
+    "VSCODE_AMD_ENTRYPOINT",
+    "VSCODE_PIPE_LOGGING",
+    "VSCODE_VERBOSE_LOGGING",
+    "VSCODE_LOG_NATIVE",
+    "VSCODE_LOG_LEVEL",
+    "VSCODE_PORTABLE",
+    "VSCODE_LOG_STACK",
+    "VSCODE_NODE_CACHED_DATA_DIR",
+    "VSCODE_LOGS",
+    "VSCODE_INSPECTOR_OPTIONS",
+    "ORIGINAL_XDG_CURRENT_DESKTOP",  // Set by Electron on Linux
+    "GDK_BACKEND",                   // Set by Electron on Linux
+    "CHROME_DESKTOP",                // Set by Electron
+  ]);
+
+  const stripPrefixes = [
+    "VSCODE_",
+    "ELECTRON_",
+  ];
+
+  for (const [key, value] of Object.entries(env)) {
+    if (value === undefined) continue;
+    if (stripExact.has(key)) continue;
+    if (stripPrefixes.some(prefix => key.startsWith(prefix))) continue;
+    cleaned[key] = value;
+  }
+
+  return cleaned;
+}
+
+/**
  * Resolve the GSD executable for direct invocation without shell wrappers.
  *
  * On Windows, npm installs a `.cmd` wrapper that just calls `node <entry>.js`.
@@ -229,7 +290,7 @@ export class GsdRpcClient extends EventEmitter {
     }
 
     const env = {
-      ...process.env,
+      ...sanitizeEnvForChildProcess(process.env),
       ...(options.env || {}),
       // Force color output off for RPC
       NO_COLOR: "1",

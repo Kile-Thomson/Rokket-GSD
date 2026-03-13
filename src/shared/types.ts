@@ -39,7 +39,10 @@ export type WebviewToExtensionMessage =
   | { type: "set_auto_compaction"; enabled: boolean }
   | { type: "copy_last_response" }
   | { type: "force_kill" }
-  | { type: "force_restart" };
+  | { type: "force_restart" }
+  | { type: "check_file_access"; paths: string[] }
+  | { type: "save_temp_file"; name: string; data: string; mimeType: string }
+  | { type: "attach_files" };
 
 // --- Messages FROM extension TO webview ---
 
@@ -74,7 +77,10 @@ export type ExtensionToWebviewMessage =
   | { type: "session_switched"; state: GsdState; messages: AgentMessage[] }
   | { type: "session_list_error"; message: string }
   | { type: "update_available"; version: string; currentVersion: string; releaseNotes: string; downloadUrl: string; htmlUrl: string }
-  | { type: "workflow_state"; state: WorkflowState | null };
+  | { type: "workflow_state"; state: WorkflowState | null }
+  | { type: "file_access_result"; results: Array<{ path: string; readable: boolean }> }
+  | { type: "temp_file_saved"; path: string; name: string }
+  | { type: "files_attached"; paths: string[] };
 
 // --- Session List Types ---
 
@@ -105,6 +111,13 @@ export interface ImageAttachment {
   type: "image";
   data: string; // base64
   mimeType: string;
+}
+
+export interface FileAttachment {
+  type: "file";
+  path: string;
+  name: string;
+  extension: string;
 }
 
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
