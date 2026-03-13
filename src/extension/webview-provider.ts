@@ -515,6 +515,25 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
           try {
             const data = await buildDashboardData(cwd);
+            // Merge session stats if available
+            if (data) {
+              const client = this.rpcClients.get(sessionId);
+              if (client?.isRunning) {
+                try {
+                  const statsResult = await client.getSessionStats() as Record<string, unknown> | null;
+                  if (statsResult) {
+                    data.stats = {
+                      cost: statsResult.cost as number | undefined,
+                      tokens: statsResult.tokens as { input: number; output: number; cacheRead: number; cacheWrite: number; total: number } | undefined,
+                      toolCalls: statsResult.toolCalls as number | undefined,
+                      userMessages: statsResult.userMessages as number | undefined,
+                    };
+                  }
+                } catch {
+                  // Stats not available — that's fine
+                }
+              }
+            }
             this.postToWebview(webview, { type: "dashboard_data", data } as ExtensionToWebviewMessage);
           } catch (_err: unknown) {
             this.postToWebview(webview, { type: "dashboard_data", data: null } as ExtensionToWebviewMessage);
