@@ -22,7 +22,7 @@ export interface GsdWorkflowState {
  * Format: `**Active Milestone:** M004 — Title` or `**Active Milestone:** (none)`
  * Also handles: `M004 — Title ✓ COMPLETE`
  */
-function parseActiveRef(content: string, label: string): { id: string; title: string } | null {
+export function parseActiveRef(content: string, label: string): { id: string; title: string } | null {
   // Match: **Active <Label>:** <id> — <title> [optional ✓ COMPLETE]
   const re = new RegExp(`\\*\\*Active ${label}:\\*\\*\\s*(.+)`, "i");
   const match = content.match(re);
@@ -50,7 +50,7 @@ function parseActiveRef(content: string, label: string): { id: string; title: st
  * Parse the phase line from STATE.md.
  * Format: `**Phase:** Executing` or `**Phase:** Complete`
  */
-function parsePhase(content: string): string {
+export function parsePhase(content: string): string {
   const match = content.match(/\*\*Phase:\*\*\s*(.+)/i);
   if (!match) return "unknown";
   return match[1].trim().toLowerCase();
