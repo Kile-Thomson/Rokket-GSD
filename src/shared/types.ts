@@ -43,7 +43,8 @@ export type WebviewToExtensionMessage =
   | { type: "check_file_access"; paths: string[] }
   | { type: "save_temp_file"; name: string; data: string; mimeType: string }
   | { type: "attach_files" }
-  | { type: "get_dashboard" };
+  | { type: "get_dashboard" }
+  | { type: "get_changelog" };
 
 // --- Messages FROM extension TO webview ---
 
@@ -71,7 +72,7 @@ export type ExtensionToWebviewMessage =
   | { type: "available_models"; models: AvailableModelInfo[] }
   | { type: "bash_result"; result: BashResult }
   | { type: "thinking_level_changed"; level: ThinkingLevel }
-  | { type: "config"; useCtrlEnterToSend: boolean; cwd?: string; version?: string }
+  | { type: "config"; useCtrlEnterToSend: boolean; cwd?: string; version?: string; extensionVersion?: string }
   | { type: "process_status"; status: ProcessStatus }
   | { type: "process_health"; status: ProcessHealthStatus }
   | { type: "session_list"; sessions: SessionListItem[] }
@@ -83,7 +84,8 @@ export type ExtensionToWebviewMessage =
   | { type: "temp_file_saved"; path: string; name: string }
   | { type: "files_attached"; paths: string[] }
   | { type: "dashboard_data"; data: DashboardData | null }
-  | { type: "whats_new"; version: string; notes: string };
+  | { type: "whats_new"; version: string; notes: string }
+  | { type: "changelog"; entries: Array<{ version: string; notes: string; date: string }> };
 
 // --- Session List Types ---
 
