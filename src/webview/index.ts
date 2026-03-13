@@ -8,6 +8,7 @@ import type {
   ExtensionToWebviewMessage,
   GsdState,
   ProcessStatus,
+  WorkflowState,
 } from "../shared/types";
 import "./styles.css";
 
@@ -102,6 +103,7 @@ root.innerHTML = `
         <span class="gsd-logo">🚀</span>
         <span class="gsd-title">Rokket GSD</span>
       </div>
+      <span class="gsd-workflow-badge" id="workflowBadge" title="GSD workflow state"></span>
       <div class="gsd-header-info">
         <span class="gsd-model-badge" id="modelBadge" title="Model"></span>
         <span class="gsd-thinking-badge" id="thinkingBadge" title="Thinking level"></span>
@@ -110,23 +112,23 @@ root.innerHTML = `
       </div>
       <div class="gsd-header-actions">
         <button class="gsd-action-btn" id="compactBtn" title="Compact context — reduce token usage">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M14 2H8L7 3v3h1V3h6v5h-4l-1 1v2H8v1h2l3-3h1l1-1V3l-1-1zM9 7H3L2 8v5l1 1h6l1-1V8L9 7zm0 6H3V8h6v5z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M14 2H8L7 3v3h1V3h6v5h-4l-1 1v2H8v1h2l3-3h1l1-1V3l-1-1zM9 7H3L2 8v5l1 1h6l1-1V8L9 7zm0 6H3V8h6v5z"/></svg>
           <span>Compact</span>
         </button>
         <button class="gsd-action-btn" id="exportBtn" title="Export conversation as HTML">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13 1H5L4 2v3h1V2h8v12H5v-3H4v3l1 1h8l1-1V2l-1-1zM1 8l3-3v2h5v2H4v2L1 8z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M13 1H5L4 2v3h1V2h8v12H5v-3H4v3l1 1h8l1-1V2l-1-1zM1 8l3-3v2h5v2H4v2L1 8z"/></svg>
           <span>Export</span>
         </button>
         <button class="gsd-action-btn" id="historyBtn" title="Browse previous sessions">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.507 12.324a7 7 0 0 0 .065-8.56A7 7 0 0 0 2 4.393V2H1v3.5l.5.5H5V5H2.811a6.008 6.008 0 1 1-.135 5.77l-.887.462a7 7 0 0 0 11.718 1.092zM8 4h1v4.495L11.255 10l-.51.858L7.5 9.166V4H8z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M13.507 12.324a7 7 0 0 0 .065-8.56A7 7 0 0 0 2 4.393V2H1v3.5l.5.5H5V5H2.811a6.008 6.008 0 1 1-.135 5.77l-.887.462a7 7 0 0 0 11.718 1.092zM8 4h1v4.495L11.255 10l-.51.858L7.5 9.166V4H8z"/></svg>
           <span>History</span>
         </button>
         <button class="gsd-action-btn" id="modelPickerBtn" title="Change AI model">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm0-9.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM4.5 8a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm0-9.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM4.5 8a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg>
           <span>Model</span>
         </button>
         <button class="gsd-action-btn primary" id="newConvoBtn" title="Start a new conversation">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a.5.5 0 01.5.5V7H14a.5.5 0 010 1H8.5v5.5a.5.5 0 01-1 0V8H2a.5.5 0 010-1h5.5V1.5A.5.5 0 018 1z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a.5.5 0 01.5.5V7H14a.5.5 0 010 1H8.5v5.5a.5.5 0 01-1 0V8H2a.5.5 0 010-1h5.5V1.5A.5.5 0 018 1z"/></svg>
           <span>New</span>
         </button>
       </div>
@@ -717,6 +719,80 @@ function updateOverlayIndicators(): void {
   }
 }
 
+function updateWorkflowBadge(wf: WorkflowState | null): void {
+  const badge = document.getElementById("workflowBadge");
+  if (!badge) return;
+
+  if (!wf) {
+    badge.textContent = "Self-directed";
+    badge.className = "gsd-workflow-badge";
+    badge.style.display = "inline-flex";
+    return;
+  }
+
+  const parts: string[] = [];
+
+  // Build breadcrumb: M004 › S02 › T03
+  if (wf.milestone) parts.push(wf.milestone.id);
+  if (wf.slice) parts.push(wf.slice.id);
+  if (wf.task) parts.push(wf.task.id);
+
+  // Phase label
+  const phaseLabels: Record<string, string> = {
+    "pre-planning": "Pre-planning",
+    "discussing": "Discussing",
+    "researching": "Researching",
+    "planning": "Planning",
+    "executing": "Executing",
+    "verifying": "Verifying",
+    "summarizing": "Summarizing",
+    "advancing": "Advancing",
+    "completing-milestone": "Completing",
+    "replanning-slice": "Replanning",
+    "complete": "Complete",
+    "paused": "Paused",
+    "blocked": "Blocked",
+    "unknown": "",
+  };
+  const phaseText = phaseLabels[wf.phase] || wf.phase;
+
+  // Build display text
+  let text = "";
+  if (parts.length > 0) {
+    text = parts.join(" › ");
+    if (phaseText && phaseText !== "Complete") {
+      text += ` · ${phaseText}`;
+    } else if (phaseText === "Complete") {
+      text += " ✓";
+    }
+  } else if (phaseText) {
+    text = phaseText;
+  } else {
+    text = "Self-directed";
+  }
+
+  // Auto-mode prefix
+  if (wf.autoMode === "auto") {
+    text = `⚡ ${text}`;
+  } else if (wf.autoMode === "next") {
+    text = `▸ ${text}`;
+  } else if (wf.autoMode === "paused") {
+    text = `⏸ ${text}`;
+  }
+
+  badge.textContent = text;
+
+  // Phase-based styling
+  let extraClass = "";
+  if (wf.phase === "blocked") extraClass = " blocked";
+  else if (wf.phase === "paused") extraClass = " paused";
+  else if (wf.phase === "complete") extraClass = " complete";
+  else if (wf.autoMode) extraClass = " auto";
+
+  badge.className = `gsd-workflow-badge${extraClass}`;
+  badge.style.display = "inline-flex";
+}
+
 function updateWelcomeScreen(): void {
   if (state.entries.length > 0 || state.currentTurn) {
     welcomeScreen.style.display = "none";
@@ -831,6 +907,11 @@ window.addEventListener("message", (event) => {
       state.processStatus = data.status as ProcessStatus;
       updateOverlayIndicators();
       updateWelcomeScreen();
+      break;
+    }
+
+    case "workflow_state": {
+      updateWorkflowBadge(msg.state);
       break;
     }
 
