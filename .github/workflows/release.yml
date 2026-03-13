@@ -84,56 +84,87 @@ jobs:
           fi
 
           VERSION="${{ steps.version.outputs.version }}"
-          TAG="v${VERSION}"
 
-          # Collect commits since last release, categorize by conventional commit type
-          FEATURES=""
-          FIXES=""
-          OTHER=""
+          # Generate changelog using commit subjects + bodies
+          # Format: subject as bold list item, body lines as sub-details
+          python3 - "$PREV_TAG" "$VERSION" <<'PYEOF'
+import subprocess, sys, re
 
-          while IFS= read -r line; do
-            # Strip leading whitespace
-            line=$(echo "$line" | sed 's/^[[:space:]]*//')
-            [ -z "$line" ] && continue
+prev_tag, version = sys.argv[1], sys.argv[2]
 
-            # Extract subject (remove hash prefix if present)
-            subject=$(echo "$line" | sed 's/^[a-f0-9]* //')
+# Get commits with subject and body separated by a delimiter
+result = subprocess.run(
+    ["git", "log", f"{prev_tag}..HEAD", "--no-merges", "--pretty=format:%s%n%b%n---COMMIT_END---"],
+    capture_output=True, text=True
+)
 
-            # Skip version bump commits
-            echo "$subject" | grep -qi "^chore: bump version" && continue
-            echo "$subject" | grep -qi "^chore(release)" && continue
+features, fixes, changed, other = [], [], [], []
 
-            # Categorize
-            if echo "$subject" | grep -qi "^feat"; then
-              clean=$(echo "$subject" | sed 's/^feat[^:]*: //')
-              FEATURES="${FEATURES}- ${clean}\n"
-            elif echo "$subject" | grep -qi "^fix"; then
-              clean=$(echo "$subject" | sed 's/^fix[^:]*: //')
-              FIXES="${FIXES}- ${clean}\n"
-            else
-              clean=$(echo "$subject" | sed 's/^[a-z]*[^:]*: //')
-              OTHER="${OTHER}- ${clean}\n"
-            fi
-          done <<< "$(git log "${PREV_TAG}..HEAD" --pretty=format:"%h %s" --no-merges)"
+for block in result.stdout.split("---COMMIT_END---"):
+    lines = [l for l in block.strip().splitlines() if l.strip()]
+    if not lines:
+        continue
 
-          # Build release notes
-          NOTES=""
-          if [ -n "$FEATURES" ]; then
-            NOTES="${NOTES}### ✨ New\n${FEATURES}\n"
-          fi
-          if [ -n "$FIXES" ]; then
-            NOTES="${NOTES}### 🐛 Fixes\n${FIXES}\n"
-          fi
-          if [ -n "$OTHER" ]; then
-            NOTES="${NOTES}### 📦 Other\n${OTHER}\n"
-          fi
+    subject = lines[0].strip()
+    body_lines = [l.strip() for l in lines[1:] if l.strip()]
 
-          if [ -z "$NOTES" ]; then
-            NOTES="Maintenance release — no notable changes."
-          fi
+    # Skip version bumps and merge commits
+    if re.match(r"^chore:?\s*bump version", subject, re.I):
+        continue
+    if re.match(r"^chore\(release\)", subject, re.I):
+        continue
+    if subject.startswith("Merge "):
+        continue
 
-          # Write to file for the release step (avoids shell escaping issues)
-          printf "%b" "$NOTES" > /tmp/release-notes.md
+    # Determine category and clean subject
+    if re.match(r"^feat", subject, re.I):
+        clean = re.sub(r"^feat[^:]*:\s*", "", subject)
+        target = features
+    elif re.match(r"^fix", subject, re.I):
+        clean = re.sub(r"^fix[^:]*:\s*", "", subject)
+        target = fixes
+    elif re.match(r"^refactor|^perf|^style", subject, re.I):
+        clean = re.sub(r"^[a-z]+[^:]*:\s*", "", subject)
+        target = changed
+    else:
+        clean = re.sub(r"^[a-z]+[^:]*:\s*", "", subject)
+        target = other
+
+    # Build entry: bold title + body as description
+    entry = f"- **{clean[0].upper() + clean[1:]}**"
+    if body_lines:
+        # Use body as description, joining short lines
+        desc = " ".join(body_lines)
+        # Trim very long descriptions
+        if len(desc) > 200:
+            desc = desc[:197] + "..."
+        entry += f" — {desc}"
+
+    target.append(entry)
+
+# Build release notes
+sections = []
+title = f"## v{version}\n"
+sections.append(title)
+
+if features:
+    sections.append("### Added\n" + "\n".join(features))
+if fixes:
+    sections.append("### Fixed\n" + "\n".join(fixes))
+if changed:
+    sections.append("### Changed\n" + "\n".join(changed))
+if other:
+    sections.append("### Other\n" + "\n".join(other))
+
+if len(sections) == 1:
+    sections.append("Maintenance release — no notable changes.")
+
+notes = "\n\n".join(sections) + "\n"
+
+with open("/tmp/release-notes.md", "w") as f:
+    f.write(notes)
+PYEOF
+
           echo "notes_file=/tmp/release-notes.md" >> "$GITHUB_OUTPUT"
 
       - name: Create tag and release

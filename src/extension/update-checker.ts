@@ -236,6 +236,45 @@ export async function fetchReleaseNotes(version: string): Promise<string | null>
   });
 }
 
+/**
+ * Fetch release notes for the N most recent releases.
+ */
+export async function fetchRecentReleases(count = 10): Promise<Array<{ version: string; notes: string; date: string }>> {
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases?per_page=${count}`;
+
+  return new Promise((resolve) => {
+    const headers = githubHeaders();
+    const req = https.get(url, { headers, timeout: API_TIMEOUT_MS }, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        resolve([]);
+        return;
+      }
+      let data = "";
+      res.on("data", (chunk: Buffer) => { data += chunk.toString(); });
+      res.on("end", () => {
+        try {
+          const releases = JSON.parse(data);
+          resolve(
+            (releases as any[])
+              .filter((r: any) => r.body?.trim())
+              .map((r: any) => ({
+                version: (r.tag_name || "").replace(/^v/, ""),
+                notes: r.body || "",
+                date: r.published_at || r.created_at || "",
+              }))
+          );
+        } catch {
+          resolve([]);
+        }
+      });
+      res.on("error", () => resolve([]));
+    });
+    req.on("error", () => resolve([]));
+    req.on("timeout", () => { req.destroy(); resolve([]); });
+  });
+}
+
 // ─── Internal ─────────────────────────────────────────────────────────────────
 
 function getInstalledVersion(): string | undefined {
