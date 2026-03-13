@@ -60,6 +60,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private resolveGsdVersion(): string | undefined {
     try {
       // Try to find gsd-pi package.json near the gsd binary
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { execSync } = require("child_process");
       const gsdPath = execSync(process.platform === "win32" ? "where gsd" : "which gsd", {
         encoding: "utf8",
@@ -142,7 +143,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   // --- New conversation ---
 
   async newConversation(): Promise<void> {
-    for (const [sessionId, client] of this.rpcClients) {
+    for (const [, client] of this.rpcClients) {
       if (client.isRunning) {
         try {
           await client.newSession();
@@ -332,7 +333,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "prompt": {
-          let client = this.rpcClients.get(sessionId);
+          const client = this.rpcClients.get(sessionId);
 
           if (!client?.isRunning) {
             if (client && !client.isRunning) {
@@ -349,7 +350,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                     // Re-fetch commands after restart
                     const cmdResult = await client.getCommands() as RpcCommandsResult;
                     this.postToWebview(webview, { type: "commands", commands: cmdResult?.commands || [] });
-                  } catch {}
+                  } catch { /* ignored */ }
                 } else {
                   this.rpcClients.delete(sessionId);
                   await this.launchGsd(webview, sessionId);
@@ -440,7 +441,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           if (client) {
             try {
               await client.abort();
-            } catch {}
+            } catch { /* ignored */ }
           }
           break;
         }
@@ -504,7 +505,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               if (stats) {
                 this.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
               }
-            } catch {}
+            } catch { /* ignored */ }
           }
           break;
         }
