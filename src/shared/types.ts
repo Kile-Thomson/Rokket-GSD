@@ -82,7 +82,8 @@ export type ExtensionToWebviewMessage =
   | { type: "file_access_result"; results: Array<{ path: string; readable: boolean }> }
   | { type: "temp_file_saved"; path: string; name: string }
   | { type: "files_attached"; paths: string[] }
-  | { type: "dashboard_data"; data: DashboardData | null };
+  | { type: "dashboard_data"; data: DashboardData | null }
+  | { type: "whats_new"; version: string; notes: string };
 
 // --- Session List Types ---
 

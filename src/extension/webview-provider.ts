@@ -4,7 +4,7 @@ import * as path from "path";
 import * as os from "os";
 import { GsdRpcClient } from "./rpc-client";
 import { listSessions, deleteSession } from "./session-list-service";
-import { downloadAndInstallUpdate, dismissUpdateVersion } from "./update-checker";
+import { downloadAndInstallUpdate, dismissUpdateVersion, fetchReleaseNotes } from "./update-checker";
 import { parseGsdWorkflowState } from "./state-parser";
 import { buildDashboardData } from "./dashboard-parser";
 import type {
@@ -287,6 +287,38 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  // --- What's New on first launch after update ---
+
+  private static readonly LAST_VERSION_KEY = "gsd.lastSeenVersion";
+
+  private async checkWhatsNew(webview: vscode.Webview): Promise<void> {
+    const ext = vscode.extensions.getExtension("rokketek.rokket-gsd");
+    const currentVersion = ext?.packageJSON?.version;
+    if (!currentVersion) return;
+
+    const lastVersion = this.context.globalState.get<string>(GsdWebviewProvider.LAST_VERSION_KEY);
+
+    // Always update stored version
+    await this.context.globalState.update(GsdWebviewProvider.LAST_VERSION_KEY, currentVersion);
+
+    // First install or same version — skip
+    if (!lastVersion || lastVersion === currentVersion) return;
+
+    // Version changed — fetch release notes
+    try {
+      const notes = await fetchReleaseNotes(currentVersion);
+      if (notes) {
+        this.postToWebview(webview, {
+          type: "whats_new",
+          version: currentVersion,
+          notes,
+        } as ExtensionToWebviewMessage);
+      }
+    } catch {
+      // Best-effort — don't block launch
+    }
+  }
+
   // --- Temp file management ---
 
   private ensureTempDir(): string {
@@ -416,6 +448,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             cwd,
             version: this.gsdVersion,
           });
+
+          // Check if this is a first launch after an update — show "What's New"
+          this.checkWhatsNew(webview);
           break;
         }
 
