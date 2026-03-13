@@ -266,8 +266,7 @@ export function renderMarkdown(text: string): string {
     // Sanitize HTML output — strips script tags, event handlers, dangerous attributes
     html = DOMPurify.sanitize(html, {
       ADD_TAGS: ["details", "summary"],
-      ADD_ATTR: ["class", "data-code-id", "data-path", "title"],
-      ALLOW_DATA_ATTR: true,
+      ADD_ATTR: ["class", "data-code-id", "data-path", "data-idx", "data-value", "data-action", "title"],
     });
 
     // Wrap bare <table> elements in a scrollable container

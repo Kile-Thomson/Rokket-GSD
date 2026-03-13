@@ -640,19 +640,6 @@ document.addEventListener("click", (e: Event) => {
     return;
   }
 
-  // User message edit — click bubble to copy text to input
-  const userBubble = target.closest(".gsd-user-bubble") as HTMLElement | null;
-  if (userBubble && !state.isStreaming) {
-    const text = userBubble.textContent?.trim() || "";
-    if (text) {
-      promptInput.value = text;
-      promptInput.focus();
-      autoResize();
-      toasts.show("Message loaded — edit and send");
-    }
-    return;
-  }
-
   if (target.classList.contains("gsd-file-link")) {
     const path = target.dataset.path;
     if (path) vscode.postMessage({ type: "open_file", path });
@@ -1048,6 +1035,8 @@ window.addEventListener("message", (event) => {
   const raw = event.data as Record<string, unknown>;
   if (!raw || !raw.type) return;
   const msg = raw as ExtensionToWebviewMessage;
+
+  try {
 
   switch (msg.type) {
     case "config": {
@@ -1484,6 +1473,16 @@ window.addEventListener("message", (event) => {
       scrollToBottom(messagesContainer, true);
       break;
     }
+  }
+
+  } catch (err: any) {
+    // Global error boundary — surface crashes visibly instead of silent failure
+    const errorId = `ERR-${Date.now().toString(36)}`;
+    console.error(`[GSD ${errorId}] Message handler error for "${msg.type}":`, err);
+    addSystemEntry(
+      `Internal error processing "${msg.type}" (${errorId}). Check browser console for details. Please report this error code.`,
+      "error"
+    );
   }
 });
 

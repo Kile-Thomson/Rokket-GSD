@@ -255,6 +255,14 @@ export class GsdRpcClient extends EventEmitter {
       this.processBuffer();
     });
 
+    // Handle stream errors (broken pipe, etc.) — without this they become unhandled errors
+    this.process.stdout?.on("error", (err) => {
+      this.emit("log", `[rpc-client] stdout error: ${err.message}\n`);
+    });
+    this.process.stderr?.on("error", (err) => {
+      this.emit("log", `[rpc-client] stderr error: ${err.message}\n`);
+    });
+
     // Forward stderr as log events and buffer for diagnostics
     this.process.stderr?.on("data", (chunk: Buffer) => {
       const text = chunk.toString("utf8");
@@ -385,7 +393,7 @@ export class GsdRpcClient extends EventEmitter {
    */
   send(command: Record<string, unknown>): void {
     if (!this.process?.stdin?.writable) {
-      throw new Error("GSD process is not running");
+      throw new Error("[GSD-ERR-021] GSD process is not running — cannot send command");
     }
 
     const line = JSON.stringify(command) + "\n";
@@ -431,12 +439,17 @@ export class GsdRpcClient extends EventEmitter {
 
       if (effectiveTimeout > 0) {
         timeoutHandle = setTimeout(() => {
-          this.pendingRequests.delete(id);
-          reject(new Error(`Request timed out after ${effectiveTimeout / 1000}s: ${command.type}`));
+          cleanup();
+          reject(new Error(`[GSD-ERR-020] Request timed out after ${effectiveTimeout / 1000}s: ${command.type}`));
         }, effectiveTimeout);
       }
 
-      this.send(commandWithId);
+      try {
+        this.send(commandWithId);
+      } catch (err) {
+        cleanup();
+        reject(err);
+      }
     });
   }
 

@@ -9,9 +9,11 @@ import { runHealthCheck } from "./health-check";
 
 let provider: GsdWebviewProvider;
 let statusBarItem: vscode.StatusBarItem;
+let outputChannel: vscode.OutputChannel;
 
 export function activate(context: vscode.ExtensionContext): void {
-  const output = vscode.window.createOutputChannel("GSD");
+  outputChannel = vscode.window.createOutputChannel("GSD");
+  const output = outputChannel;
   output.appendLine("GSD extension activating...");
 
   provider = new GsdWebviewProvider(context.extensionUri, context);
@@ -100,4 +102,5 @@ export function activate(context: vscode.ExtensionContext): void {
 export function deactivate(): void {
   provider?.dispose();
   statusBarItem?.dispose();
+  outputChannel?.dispose();
 }

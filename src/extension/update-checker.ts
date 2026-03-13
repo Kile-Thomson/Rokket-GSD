@@ -241,7 +241,7 @@ async function checkForUpdate(
       if (!delivered) {
         showNativeUpdateNotification(
           latestVersion, currentVersion, vsixAsset.url, release.htmlUrl, context
-        );
+        ).catch(() => {}); // Best-effort — don't let notification errors propagate
       }
     }
   } catch {
@@ -281,43 +281,63 @@ interface ReleaseInfo {
   assets: Array<{ name: string; url: string }>;
 }
 
+/** Timeout for API calls: 30 seconds */
+const API_TIMEOUT_MS = 30_000;
+
 function fetchLatestRelease(): Promise<ReleaseInfo | null> {
   return new Promise((resolve) => {
     const headers = githubHeaders();
 
-    https
-      .get(RELEASES_API, { headers }, (res) => {
+    const req = https
+      .get(RELEASES_API, { headers, timeout: API_TIMEOUT_MS }, (res) => {
         if (res.statusCode === 404 || res.statusCode === 403) {
+          res.resume();
           resolve(null);
           return;
         }
 
         if (res.statusCode === 301 || res.statusCode === 302) {
           const location = res.headers.location;
+          res.resume();
           if (location) {
             // Preserve auth for same-host redirects
             const redirectHeaders = location.includes("github.com")
               ? headers
               : { "User-Agent": "Rokket-GSD-VSCode" };
-            https
-              .get(location, { headers: redirectHeaders }, (rr) => collectJson(rr, resolve))
-              .on("error", () => resolve(null));
+            const rReq = https
+              .get(location, { headers: redirectHeaders, timeout: API_TIMEOUT_MS }, (rr) => collectJson(rr, resolve));
+            rReq.on("error", () => resolve(null));
+            rReq.on("timeout", () => { rReq.destroy(); resolve(null); });
             return;
           }
         }
 
         collectJson(res, resolve);
-      })
-      .on("error", () => resolve(null));
+      });
+
+    req.on("error", () => resolve(null));
+    req.on("timeout", () => { req.destroy(); resolve(null); });
   });
 }
+
+/** Max response size for JSON API calls (1MB) */
+const MAX_JSON_RESPONSE_BYTES = 1024 * 1024;
 
 function collectJson(
   res: import("http").IncomingMessage,
   resolve: (value: ReleaseInfo | null) => void
 ): void {
   let data = "";
-  res.on("data", (chunk: Buffer) => { data += chunk.toString(); });
+  let totalBytes = 0;
+  res.on("data", (chunk: Buffer) => {
+    totalBytes += chunk.length;
+    if (totalBytes > MAX_JSON_RESPONSE_BYTES) {
+      res.destroy();
+      resolve(null);
+      return;
+    }
+    data += chunk.toString();
+  });
   res.on("end", () => {
     try {
       const json = JSON.parse(data);
@@ -338,6 +358,11 @@ function collectJson(
   res.on("error", () => resolve(null));
 }
 
+/** Max redirects during download */
+const MAX_REDIRECTS = 5;
+/** Download timeout: 2 minutes */
+const DOWNLOAD_TIMEOUT_MS = 120_000;
+
 /**
  * Download a file, following redirects.
  * Adds GitHub auth for github.com URLs, strips it for CDN redirects.
@@ -345,8 +370,24 @@ function collectJson(
 function downloadFile(url: string, dest: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(dest);
+    let settled = false;
 
-    const request = (downloadUrl: string) => {
+    const cleanup = (err?: Error) => {
+      if (settled) return;
+      settled = true;
+      file.destroy();
+      try { fs.unlinkSync(dest); } catch {}
+      if (err) reject(err);
+    };
+
+    file.on("error", (err) => cleanup(err));
+
+    const request = (downloadUrl: string, redirectCount: number = 0) => {
+      if (redirectCount > MAX_REDIRECTS) {
+        cleanup(new Error("[GSD-ERR-010] Download failed: too many redirects"));
+        return;
+      }
+
       const headers: Record<string, string> = {
         "User-Agent": "Rokket-GSD-VSCode",
       };
@@ -358,28 +399,34 @@ function downloadFile(url: string, dest: string): Promise<void> {
         headers["Accept"] = "application/octet-stream";
       }
 
-      https
-        .get(downloadUrl, { headers }, (res) => {
+      const req = https
+        .get(downloadUrl, { headers, timeout: DOWNLOAD_TIMEOUT_MS }, (res) => {
           if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) {
-            request(res.headers.location);
+            res.resume(); // Drain the response
+            request(res.headers.location, redirectCount + 1);
             return;
           }
 
           if (res.statusCode !== 200) {
-            file.close();
-            try { fs.unlinkSync(dest); } catch {}
-            reject(new Error(`Download failed: HTTP ${res.statusCode}`));
+            cleanup(new Error(`[GSD-ERR-011] Download failed: HTTP ${res.statusCode}`));
             return;
           }
 
+          res.on("error", (err) => cleanup(err));
           res.pipe(file);
-          file.on("finish", () => { file.close(); resolve(); });
-        })
-        .on("error", (err) => {
-          file.close();
-          try { fs.unlinkSync(dest); } catch {}
-          reject(err);
+          file.on("finish", () => {
+            if (settled) return;
+            settled = true;
+            file.close();
+            resolve();
+          });
         });
+
+      req.on("error", (err) => cleanup(err));
+      req.on("timeout", () => {
+        req.destroy();
+        cleanup(new Error("[GSD-ERR-012] Download timed out"));
+      });
     };
 
     request(url);

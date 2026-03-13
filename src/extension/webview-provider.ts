@@ -41,6 +41,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private healthState: Map<string, ProcessHealthStatus> = new Map();
   private workflowTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
   private autoModeState: Map<string, string | null> = new Map();
+  private restartingSession: Set<string> = new Set();
   private sessionWebviews: Map<string, vscode.Webview> = new Map();
   private output: vscode.OutputChannel;
   private sessionCounter = 0;
@@ -310,6 +311,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     this.sessionWebviews.set(sessionId, webview);
 
     webview.onDidReceiveMessage(async (msg: WebviewToExtensionMessage) => {
+      try {
       this.output.appendLine(`[${sessionId}] Webview -> Extension: ${msg.type}`);
 
       switch (msg.type) {
@@ -729,8 +731,13 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "force_restart": {
+          if (this.restartingSession.has(sessionId)) {
+            this.output.appendLine(`[${sessionId}] Force-restart already in progress — ignoring`);
+            break;
+          }
           const client = this.rpcClients.get(sessionId);
           if (client) {
+            this.restartingSession.add(sessionId);
             this.output.appendLine(`[${sessionId}] Force-restarting GSD process`);
             client.forceKill();
             // Clean up existing timers before restart
@@ -743,7 +750,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                 this.output.appendLine(`[${sessionId}] GSD re-launched after force-kill`);
               } catch (err: any) {
                 this.output.appendLine(`[${sessionId}] Force-restart failed: ${err.message}`);
-                this.postToWebview(webview, { type: "error", message: `Force-restart failed: ${err.message}` });
+                this.postToWebview(webview, { type: "error", message: `[GSD-ERR-030] Force-restart failed: ${err.message}` });
+              } finally {
+                this.restartingSession.delete(sessionId);
               }
             }, 1000);
           }
@@ -751,7 +760,14 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "update_install": {
-          await downloadAndInstallUpdate(msg.downloadUrl, this.context);
+          // Security: only allow downloads from GitHub API
+          const dlUrl = String(msg.downloadUrl || "");
+          if (!dlUrl.startsWith("https://api.github.com/") && !dlUrl.startsWith("https://github.com/")) {
+            this.output.appendLine(`[${sessionId}] Blocked update download from untrusted URL: ${dlUrl}`);
+            this.postToWebview(webview, { type: "error", message: "Update blocked: download URL is not from GitHub." });
+            break;
+          }
+          await downloadAndInstallUpdate(dlUrl, this.context);
           break;
         }
 
@@ -761,7 +777,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "update_view_release": {
-          vscode.env.openExternal(vscode.Uri.parse(msg.htmlUrl));
+          const releaseUrl = String(msg.htmlUrl || "");
+          if (/^https?:\/\//i.test(releaseUrl)) {
+            vscode.env.openExternal(vscode.Uri.parse(releaseUrl));
+          }
           break;
         }
 
@@ -787,7 +806,14 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
         case "open_file": {
           try {
-            const doc = await vscode.workspace.openTextDocument(msg.path);
+            // Security: only open files within the workspace
+            const filePath = path.resolve(msg.path);
+            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (workspaceRoot && !filePath.startsWith(path.resolve(workspaceRoot) + path.sep) && filePath !== path.resolve(workspaceRoot)) {
+              this.output.appendLine(`[${sessionId}] Blocked open_file outside workspace: ${filePath}`);
+              break;
+            }
+            const doc = await vscode.workspace.openTextDocument(filePath);
             await vscode.window.showTextDocument(doc);
           } catch (err: any) {
             vscode.window.showErrorMessage(`Failed to open file: ${err.message}`);
@@ -796,20 +822,47 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "open_url": {
-          vscode.env.openExternal(vscode.Uri.parse(msg.url));
+          // Security: only allow http/https URLs
+          const url = String(msg.url || "");
+          if (/^https?:\/\//i.test(url)) {
+            vscode.env.openExternal(vscode.Uri.parse(url));
+          } else {
+            this.output.appendLine(`[${sessionId}] Blocked non-http URL: ${url}`);
+          }
           break;
         }
 
         case "open_diff": {
           try {
-            const left = vscode.Uri.file(msg.leftPath);
-            const right = vscode.Uri.file(msg.rightPath);
+            // Security: only open files within the workspace
+            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            const leftResolved = path.resolve(msg.leftPath);
+            const rightResolved = path.resolve(msg.rightPath);
+            if (workspaceRoot) {
+              const root = path.resolve(workspaceRoot) + path.sep;
+              if (!leftResolved.startsWith(root) || !rightResolved.startsWith(root)) {
+                this.output.appendLine(`[${sessionId}] Blocked open_diff outside workspace`);
+                break;
+              }
+            }
+            const left = vscode.Uri.file(leftResolved);
+            const right = vscode.Uri.file(rightResolved);
             await vscode.commands.executeCommand("vscode.diff", left, right);
           } catch (err: any) {
             vscode.window.showErrorMessage(`Failed to open diff: ${err.message}`);
           }
           break;
         }
+      }
+
+      } catch (err: any) {
+        const errorId = `ERR-${Date.now().toString(36)}`;
+        this.output.appendLine(`[${sessionId}] [${errorId}] Unhandled error in message handler for "${msg.type}": ${err.message}`);
+        this.output.appendLine(`[${sessionId}] [${errorId}] Stack: ${err.stack || "no stack"}`);
+        this.postToWebview(webview, {
+          type: "error",
+          message: `[${errorId}] Internal error processing "${msg.type}". Check Output panel (Rokket GSD) for details.`,
+        });
       }
     });
   }
@@ -1121,7 +1174,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 <body>
   <div id="root"></div>
   <script nonce="${nonce}">
-    window.GSD_SESSION_ID = "${sessionId}";
+    window.GSD_SESSION_ID = ${JSON.stringify(sessionId)};
   </script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>

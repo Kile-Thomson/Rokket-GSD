@@ -88,7 +88,7 @@ export function handleRequest(data: any): void {
   }
 
   messagesContainer.appendChild(wrapper);
-  scrollToBottom(messagesContainer);
+  scrollToBottom(messagesContainer, true);
 }
 
 // ============================================================

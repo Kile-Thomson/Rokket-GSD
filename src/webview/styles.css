@@ -666,12 +666,6 @@ html, body {
   white-space: pre-wrap;
   font-size: 13px;
   line-height: 1.5;
-  cursor: pointer;
-  transition: filter 0.15s;
-}
-
-.gsd-user-bubble:hover {
-  filter: brightness(1.1);
 }
 
 .gsd-user-images {

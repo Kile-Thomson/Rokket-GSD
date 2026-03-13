@@ -4,6 +4,31 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.8] — 2026-03-13
+
+### Fixed
+- UI dialogs (question popups) now force-scroll into view when rendered
+- Removed `/gsd status` from slash menu — requires TUI widget support the extension doesn't have
+- Removed click-to-edit on user message bubbles — removed pointer cursor and hover brightness effect
+
+### Security
+- Path traversal: `deleteSession` now validates paths are inside the sessions directory
+- Command injection: health check uses `execFileSync` with args array instead of shell interpolation
+- URL validation: `open_url` restricted to http/https schemes only
+- Path validation: `open_file` and `open_diff` restricted to workspace directory
+- Download validation: update installer only accepts GitHub URLs
+- DOMPurify: removed blanket `ALLOW_DATA_ATTR: true`, explicit attribute allowlist instead
+- Session ID injection: uses `JSON.stringify()` instead of string interpolation in HTML template
+
+### Changed
+- Error boundaries: both webview and extension message handlers wrapped in try/catch with unique error IDs
+- Error codes: key errors tagged with `[GSD-ERR-XXX]` prefix for user reporting
+- Stream error handlers added to stdout/stderr to prevent unhandled error crashes
+- RPC request leak fixed: `send()` failures inside `request()` now clean up pending entries
+- Force-restart race condition fixed: concurrent restarts on same session prevented via mutex
+- Update checker: 30s API timeout, 2min download timeout, 5-redirect limit, 1MB response cap
+- Output channel properly disposed on extension deactivation
+
 ## [Unreleased]
 
 ### Added
