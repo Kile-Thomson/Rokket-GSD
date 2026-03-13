@@ -68,7 +68,7 @@ html, body {
 
 .gsd-title {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
@@ -76,7 +76,7 @@ html, body {
 .gsd-workflow-badge {
   display: none;
   align-items: center;
-  font-size: 11px;
+  font-size: 13px;
   padding: 3px 10px;
   border-radius: 4px;
   white-space: nowrap;
@@ -85,7 +85,7 @@ html, body {
   letter-spacing: 0.2px;
   background: rgba(80, 160, 220, 0.1);
   color: rgba(120, 180, 240, 0.85);
-  min-height: 26px;
+  min-height: 28px;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 280px;
@@ -127,7 +127,7 @@ html, body {
 .gsd-context-badge {
   display: none;
   align-items: center;
-  font-size: 12px;
+  font-size: 13px;
   padding: 3px 10px;
   border-radius: 4px;
   white-space: nowrap;
@@ -233,7 +233,7 @@ html, body {
   background: transparent;
   color: var(--vscode-foreground);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-family: var(--vscode-font-family);
   font-weight: 500;
   opacity: 0.6;
@@ -243,8 +243,8 @@ html, body {
 }
 
 .gsd-action-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 }
 
