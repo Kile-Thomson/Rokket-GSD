@@ -521,7 +521,7 @@ html, body {
 .gsd-welcome-version {
   font-weight: 400;
   font-size: 11px;
-  opacity: 0.45;
+  opacity: 0.6;
   font-family: var(--vscode-editor-fontFamily, monospace);
 }
 
