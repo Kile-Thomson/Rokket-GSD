@@ -588,8 +588,8 @@ function sendMessage(): void {
     ? filePaths.map(p => `[Attached file: \`${p}\`]`).join("\n") + "\n"
     : "";
 
-  // Handle /gsd status — show dashboard inline
-  if (text === "/gsd status" && !state.isStreaming) {
+  // Handle /gsd status — show dashboard inline (no streaming guard — this is local UI only)
+  if (text === "/gsd status") {
     state.entries.push({
       id: nextId(),
       type: "user",
@@ -606,7 +606,7 @@ function sendMessage(): void {
   }
 
   // Handle ! bash shortcut
-  if (text.startsWith("!") && !text.startsWith("!!") && text.length > 1 && !state.isStreaming) {
+  if (text.startsWith("!") && !text.startsWith("!!") && text.length > 1) {
     const bashCmd = text.slice(1).trim();
     state.entries.push({
       id: nextId(),
@@ -1402,6 +1402,9 @@ window.addEventListener("message", (event) => {
       // When the process becomes "running" (fresh start or after crash/restart),
       // reset command cache so the slash menu re-fetches from the new process.
       if (data.status === "running" && prevStatus !== "running") {
+        // Reset streaming state — if we're freshly running, we can't be streaming
+        state.isStreaming = false;
+        state.isCompacting = false;
         state.commandsLoaded = false;
         state.commands = [];
         // Eagerly fetch commands so they're ready when the user types /
