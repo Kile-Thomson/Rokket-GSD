@@ -26,6 +26,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Process resilience: spawn hardening, forceKill, health monitoring, tool watchdog, force-restart UI (M003)
 
 ### Fixed
+- UI dialogs no longer auto-reject/expire silently — pending dialogs tracked, expired visually with ⏱ icon when backend moves on
+- Dialog timeout race condition fixed — countdown uses `timeout - 2s` safety margin so user clicks aren't swallowed at the boundary
+- Dialogs arriving while GSD panel is hidden now trigger a native VS Code notification with "Open GSD" button
+- Dialogs expire automatically on agent_start, agent_end, and process_exit events
+- `/gsd` slash commands now work reliably — process_status: "running" sent only after getState() confirms readiness
+- Commands proactively pushed by extension after startup and restart (no longer relies on webview requesting them)
+- `commandsLoaded` and `commands` state properly reset on process crash/restart/exit
+- `get_commands` handler retries after 2s if client not running, sends empty array on failure
 - UI dialogs (question popups) now force-scroll into view when rendered
 - Removed `/gsd status` from slash menu — requires TUI widget support the extension doesn't have
 - Removed click-to-edit on user message bubbles — removed pointer cursor and hover brightness effect
