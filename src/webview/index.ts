@@ -179,8 +179,12 @@ root.innerHTML = `
 
     <div class="gsd-input-area">
       <div class="gsd-resize-handle" id="resizeHandle" title="Drag to resize"></div>
+      <div class="gsd-file-chips" id="fileChips"></div>
       <div class="gsd-image-preview" id="imagePreview"></div>
       <div class="gsd-input-row">
+        <button class="gsd-attach-btn" id="attachBtn" title="Attach files">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M10.404 2.318a2.5 2.5 0 0 0-3.536 0L3.343 5.843a4 4 0 1 0 5.657 5.657l3.525-3.525-.707-.707-3.525 3.525a3 3 0 1 1-4.243-4.243l3.525-3.525a1.5 1.5 0 0 1 2.122 2.121L6.172 8.672a.5.5 0 0 1-.708-.708l3.025-3.025-.707-.707-3.025 3.025a1.5 1.5 0 0 0 2.122 2.121l3.525-3.525a2.5 2.5 0 0 0 0-3.535z"/></svg>
+        </button>
         <div class="gsd-input-wrapper">
           <textarea id="promptInput" class="gsd-input" placeholder="Message GSD..." rows="1"></textarea>
         </div>
@@ -214,6 +218,7 @@ const welcomeHints = document.getElementById("welcomeHints")!;
 const promptInput = document.getElementById("promptInput") as HTMLTextAreaElement;
 const sendBtn = document.getElementById("sendBtn")!;
 const sendIcon = document.getElementById("sendIcon")!;
+const attachBtn = document.getElementById("attachBtn")!;
 const newConvoBtn = document.getElementById("newConvoBtn")!;
 const historyBtn = document.getElementById("historyBtn")!;
 const modelPickerBtn = document.getElementById("modelPickerBtn")!;
@@ -348,29 +353,47 @@ welcomeActions.addEventListener("click", (e: Event) => {
 
 function handleFiles(files: FileList | File[]): void {
   for (const file of Array.from(files)) {
-    if (!file.type.startsWith("image/")) continue;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = (reader.result as string).split(",")[1];
-      state.images.push({ type: "image", data: base64, mimeType: file.type });
-      renderImagePreviews();
-    };
-    reader.readAsDataURL(file);
+    if (file.type.startsWith("image/")) {
+      // Images → inline preview + base64 attachment
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1];
+        state.images.push({ type: "image", data: base64, mimeType: file.type });
+        renderImagePreviews();
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // Non-image files (PDFs, docs, etc.) → save to temp, insert path
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1];
+        vscode.postMessage({
+          type: "save_temp_file",
+          name: file.name,
+          data: base64,
+          mimeType: file.type,
+        });
+      };
+      reader.readAsDataURL(file);
+    }
   }
 }
 
 document.addEventListener("paste", (e: ClipboardEvent) => {
   const items = e.clipboardData?.items;
   if (!items) return;
-  let hasImage = false;
+  let handled = false;
   for (let i = 0; i < items.length; i++) {
-    if (items[i].type.startsWith("image/")) {
-      hasImage = true;
-      const file = items[i].getAsFile();
-      if (file) handleFiles([file]);
+    const item = items[i];
+    if (item.kind === "file") {
+      const file = item.getAsFile();
+      if (file) {
+        handleFiles([file]);
+        handled = true;
+      }
     }
   }
-  if (hasImage) e.preventDefault();
+  if (handled) e.preventDefault();
 });
 
 const inputArea = root.querySelector(".gsd-input-area")!;
@@ -384,8 +407,128 @@ inputArea.addEventListener("drop", (e: Event) => {
   e.preventDefault();
   inputArea.classList.remove("drag-over");
   const dt = (e as DragEvent).dataTransfer;
-  if (dt?.files.length) handleFiles(dt.files);
+  if (!dt) return;
+
+  // Check for file URIs (VS Code explorer drops, OS file manager drops)
+  const uriList = dt.getData("text/uri-list");
+  if (uriList) {
+    const paths = parseDroppedUris(uriList);
+    if (paths.length > 0) {
+      insertDroppedPaths(paths);
+      return;
+    }
+  }
+
+  // Check for plain text paths (some sources use text/plain)
+  const plainText = dt.getData("text/plain");
+  if (plainText && !dt.files.length) {
+    // Heuristic: looks like file path(s) — absolute paths or backslash paths
+    const lines = plainText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const looksLikePaths = lines.every(l =>
+      /^[A-Z]:\\/.test(l) || l.startsWith("/") || l.startsWith("~")
+    );
+    if (looksLikePaths) {
+      insertDroppedPaths(lines);
+      return;
+    }
+  }
+
+  // Fall through to image handling
+  if (dt.files.length) handleFiles(dt.files);
 });
+
+/** Parse file:// URIs from a text/uri-list drop payload into local paths */
+function parseDroppedUris(uriList: string): string[] {
+  const paths: string[] = [];
+  for (const line of uriList.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    if (trimmed.startsWith("file://")) {
+      try {
+        // file:///C:/foo or file:///home/user/foo
+        const url = new URL(trimmed);
+        let fsPath = decodeURIComponent(url.pathname);
+        // On Windows, pathname is /C:/foo — strip leading slash
+        if (/^\/[A-Za-z]:\//.test(fsPath)) {
+          fsPath = fsPath.slice(1);
+        }
+        paths.push(fsPath);
+      } catch {
+        // Malformed URI — skip
+      }
+    }
+  }
+  return paths;
+}
+
+/** Add file paths as file attachment chips */
+function addFileAttachments(paths: string[], autoSend = false): void {
+  for (const p of paths) {
+    const normalized = p.replace(/\\/g, "/");
+    const parts = normalized.split("/");
+    const name = parts[parts.length - 1] || p;
+    const extMatch = name.match(/\.([^.]+)$/);
+    const extension = extMatch ? extMatch[1].toLowerCase() : "";
+    // Avoid duplicates
+    if (!state.files.some(f => f.path === p)) {
+      state.files.push({ type: "file", path: p, name, extension });
+    }
+  }
+  renderFileChips();
+
+  // Check read access
+  vscode.postMessage({ type: "check_file_access", paths });
+
+  if (autoSend) {
+    sendMessage();
+  }
+}
+
+function getFileIcon(ext: string): string {
+  const icons: Record<string, string> = {
+    pdf: "📄", doc: "📝", docx: "📝", txt: "📝", md: "📝",
+    xls: "📊", xlsx: "📊", csv: "📊",
+    ppt: "📽️", pptx: "📽️",
+    jpg: "🖼️", jpeg: "🖼️", png: "🖼️", gif: "🖼️", svg: "🖼️", webp: "🖼️",
+    mp4: "🎬", mov: "🎬", avi: "🎬", mkv: "🎬",
+    mp3: "🎵", wav: "🎵", flac: "🎵",
+    zip: "📦", tar: "📦", gz: "📦", rar: "📦", "7z": "📦",
+    js: "⚡", ts: "⚡", jsx: "⚡", tsx: "⚡",
+    py: "🐍", rb: "💎", go: "🔷", rs: "🦀",
+    html: "🌐", css: "🎨", scss: "🎨",
+    json: "📋", yaml: "📋", yml: "📋", toml: "📋", xml: "📋",
+    sh: "⚙️", bash: "⚙️", ps1: "⚙️", cmd: "⚙️", bat: "⚙️",
+    sql: "🗃️", db: "🗃️",
+    env: "🔒", key: "🔒", pem: "🔒",
+  };
+  return icons[ext] || "📎";
+}
+
+function renderFileChips(): void {
+  const container = document.getElementById("fileChips")!;
+  if (state.files.length === 0) {
+    container.style.display = "none";
+    container.innerHTML = "";
+    return;
+  }
+  container.style.display = "flex";
+  container.innerHTML = state.files.map((f, i) => `
+    <div class="gsd-file-chip" title="${escapeHtml(f.path)}">
+      <span class="gsd-file-chip-icon">${getFileIcon(f.extension)}</span>
+      <span class="gsd-file-chip-name">${escapeHtml(f.name)}</span>
+      <button class="gsd-file-chip-remove" data-idx="${i}">×</button>
+    </div>
+  `).join("");
+
+  container.querySelectorAll(".gsd-file-chip-remove").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const idx = parseInt((btn as HTMLElement).dataset.idx!);
+      state.files.splice(idx, 1);
+      renderFileChips();
+    });
+  });
+}
 
 function renderImagePreviews(): void {
   if (state.images.length === 0) {
@@ -435,7 +578,13 @@ function sendMessage(): void {
   slashMenu.hide();
   modelPicker.hide();
   const text = promptInput.value.trim();
-  if (!text && state.images.length === 0) return;
+  if (!text && state.images.length === 0 && state.files.length === 0) return;
+
+  // Build file paths prefix for the message sent to the agent
+  const filePaths = state.files.map(f => f.path);
+  const filePrefix = filePaths.length > 0
+    ? filePaths.map(p => `[Attached file: \`${p}\`]`).join("\n") + "\n"
+    : "";
 
   // Handle ! bash shortcut
   if (text.startsWith("!") && !text.startsWith("!!") && text.length > 1 && !state.isStreaming) {
@@ -483,12 +632,13 @@ function sendMessage(): void {
   }
 
   // Normal send
-  if (text || state.images.length > 0) {
+  if (text || state.images.length > 0 || state.files.length > 0) {
     state.entries.push({
       id: nextId(),
       type: "user",
-      text,
+      text: text || undefined,
       images: state.images.length > 0 ? [...state.images] : undefined,
+      files: state.files.length > 0 ? [...state.files] : undefined,
       timestamp: Date.now(),
     });
     welcomeScreen.style.display = "none";
@@ -496,16 +646,19 @@ function sendMessage(): void {
     scrollToBottom(messagesContainer, true);
   }
 
+  const fullMessage = filePrefix + text;
   const msg: WebviewToExtensionMessage = {
     type: "prompt",
-    message: text,
+    message: fullMessage,
     images: state.images.length > 0 ? [...state.images] : undefined,
   };
   vscode.postMessage(msg);
 
   promptInput.value = "";
   state.images = [];
+  state.files = [];
   renderImagePreviews();
+  renderFileChips();
   autoResize();
 }
 
@@ -606,6 +759,10 @@ compactBtn.addEventListener("click", () => {
 exportBtn.addEventListener("click", () => {
   vscode.postMessage({ type: "export_html" });
   toasts.show("Exporting conversation…");
+});
+
+attachBtn.addEventListener("click", () => {
+  vscode.postMessage({ type: "attach_files" });
 });
 
 // Thinking badge click is handled by thinkingPicker.init()
@@ -1454,6 +1611,33 @@ window.addEventListener("message", (event) => {
     case "session_list_error": {
       const data = msg;
       sessionHistory.showError(data.message);
+      break;
+    }
+
+    case "file_access_result": {
+      const data = msg;
+      const denied = data.results.filter((r: { path: string; readable: boolean }) => !r.readable);
+      if (denied.length > 0) {
+        const names = denied.map((r: { path: string }) => {
+          const parts = r.path.replace(/\\/g, "/").split("/");
+          return parts[parts.length - 1] || r.path;
+        });
+        toasts.show(`⚠ No read access: ${names.join(", ")}`, 4000);
+      }
+      break;
+    }
+
+    case "temp_file_saved": {
+      const data = msg;
+      addFileAttachments([data.path], true);
+      break;
+    }
+
+    case "files_attached": {
+      const data = msg;
+      if (data.paths.length > 0) {
+        addFileAttachments(data.paths, true);
+      }
       break;
     }
 
