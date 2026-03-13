@@ -26,17 +26,29 @@ export interface DashboardTask {
   estimate?: string;
 }
 
+export interface MilestoneRegistryEntry {
+  id: string;
+  title: string;
+  done: boolean;
+  active: boolean;
+}
+
 export interface DashboardData {
+  hasProject: boolean;
   hasMilestone: boolean;
   milestone: { id: string; title: string } | null;
   slice: { id: string; title: string } | null;
   task: { id: string; title: string } | null;
   phase: string;
   slices: DashboardSlice[];
+  milestoneRegistry: MilestoneRegistryEntry[];
   progress: {
     tasks: { done: number; total: number };
     slices: { done: number; total: number };
+    milestones: { done: number; total: number };
   };
+  blockers: string[];
+  nextAction: string | null;
 }
 
 /**
@@ -70,6 +82,85 @@ function parsePlanTasks(content: string): Array<{ id: string; title: string; don
 }
 
 /**
+ * Parse milestone registry from STATE.md.
+ * Lines like: `- ✅ **M001:** Title` or `- **M002:** Title` or `- ⬜ **M003:** Title`
+ */
+function parseMilestoneRegistry(content: string): MilestoneRegistryEntry[] {
+  const entries: MilestoneRegistryEntry[] = [];
+  const lines = content.split("\n");
+  let inRegistry = false;
+
+  for (const line of lines) {
+    if (line.match(/##\s*Milestone\s*Registry/i)) {
+      inRegistry = true;
+      continue;
+    }
+    if (inRegistry && line.startsWith("##")) break;
+    if (!inRegistry) continue;
+
+    // Match: - ✅ **M001:** Title  OR  - **M001:** Title  OR  - ⬜ **M001:** Title
+    const m = line.match(/^-\s*(✅|⬜)?\s*\*\*(\w+):\*\*\s*(.+)/);
+    if (m) {
+      entries.push({
+        id: m[2],
+        title: m[3].trim(),
+        done: m[1] === "✅",
+        active: false, // set below
+      });
+    }
+  }
+
+  return entries;
+}
+
+/**
+ * Parse blockers from STATE.md.
+ */
+function parseBlockers(content: string): string[] {
+  const blockers: string[] = [];
+  const lines = content.split("\n");
+  let inBlockers = false;
+
+  for (const line of lines) {
+    if (line.match(/##\s*Blockers/i)) {
+      inBlockers = true;
+      continue;
+    }
+    if (inBlockers && line.startsWith("##")) break;
+    if (!inBlockers) continue;
+
+    const trimmed = line.replace(/^-\s*/, "").trim();
+    if (trimmed && trimmed.toLowerCase() !== "none") {
+      blockers.push(trimmed);
+    }
+  }
+
+  return blockers;
+}
+
+/**
+ * Parse "Next Action" from STATE.md.
+ */
+function parseNextAction(content: string): string | null {
+  const lines = content.split("\n");
+  let inNext = false;
+
+  for (const line of lines) {
+    if (line.match(/##\s*Next\s*Action/i)) {
+      inNext = true;
+      continue;
+    }
+    if (inNext && line.startsWith("##")) break;
+    if (!inNext) continue;
+
+    const trimmed = line.trim();
+    if (trimmed) return trimmed;
+  }
+
+  return null;
+}
+
+/**
  * Find a file matching a pattern in a directory.
  */
 function findFile(dir: string, suffix: string): string | null {
@@ -89,8 +180,48 @@ export async function buildDashboardData(cwd: string): Promise<DashboardData | n
   const gsdDir = path.join(cwd, ".gsd");
   if (!fs.existsSync(gsdDir)) return null;
 
+  // Read STATE.md raw content for registry/blockers/next
+  const statePath = path.join(gsdDir, "STATE.md");
+  let stateContent = "";
+  try {
+    stateContent = await fs.promises.readFile(statePath, "utf-8");
+  } catch {
+    // No STATE.md
+  }
+
   const wfState = await parseGsdWorkflowState(cwd);
-  if (!wfState?.milestone) return null;
+  const milestoneRegistry = parseMilestoneRegistry(stateContent);
+  const blockers = parseBlockers(stateContent);
+  const nextAction = parseNextAction(stateContent);
+
+  // Mark active milestone in registry
+  if (wfState?.milestone) {
+    for (const entry of milestoneRegistry) {
+      entry.active = entry.id === wfState.milestone.id;
+    }
+  }
+
+  // If no active milestone, still return project-level data
+  if (!wfState?.milestone) {
+    const doneMilestones = milestoneRegistry.filter(m => m.done).length;
+    return {
+      hasProject: milestoneRegistry.length > 0 || stateContent.length > 0,
+      hasMilestone: false,
+      milestone: null,
+      slice: null,
+      task: null,
+      phase: wfState?.phase || "complete",
+      slices: [],
+      milestoneRegistry,
+      progress: {
+        tasks: { done: 0, total: 0 },
+        slices: { done: 0, total: 0 },
+        milestones: { done: doneMilestones, total: milestoneRegistry.length },
+      },
+      blockers,
+      nextAction,
+    };
+  }
 
   const mid = wfState.milestone.id;
   const milestoneDir = path.join(gsdDir, "milestones", mid);
@@ -140,17 +271,23 @@ export async function buildDashboardData(cwd: string): Promise<DashboardData | n
   const activeSlice = slices.find(s => s.active);
   const tasksDone = activeSlice?.taskProgress?.done ?? 0;
   const tasksTotal = activeSlice?.taskProgress?.total ?? 0;
+  const doneMilestones = milestoneRegistry.filter(m => m.done).length;
 
   return {
+    hasProject: true,
     hasMilestone: true,
     milestone: wfState.milestone,
     slice: wfState.slice,
     task: wfState.task,
     phase: wfState.phase,
     slices,
+    milestoneRegistry,
     progress: {
       tasks: { done: tasksDone, total: tasksTotal },
       slices: { done: doneSlices, total: slices.length },
+      milestones: { done: doneMilestones, total: milestoneRegistry.length },
     },
+    blockers,
+    nextAction,
   };
 }
