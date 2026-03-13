@@ -289,9 +289,9 @@ export function renderMarkdown(text: string): string {
 /** Heuristic: does this look like a file path? */
 export function isLikelyFilePath(s: string): boolean {
   if (s.includes("\n") || s.length > 200 || s.length < 3) return false;
-  if (/^[A-Z]:[\\\/]/.test(s)) return true;
+  if (/^[A-Z]:[\\/]/.test(s)) return true;
   if (s.startsWith("/") && !s.startsWith("//") && /\.\w+$/.test(s)) return true;
-  if (/[\/\\]/.test(s) && /\.\w{1,10}$/.test(s) && !s.includes(" ")) return true;
+  if (/[/\\]/.test(s) && /\.\w{1,10}$/.test(s) && !s.includes(" ")) return true;
   if (/^\.?\w[\w.-]*\.\w{1,10}$/.test(s) && !s.includes(" ")) return true;
   return false;
 }

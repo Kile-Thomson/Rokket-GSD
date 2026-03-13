@@ -6,7 +6,6 @@
 import type {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
-  GsdState,
   ProcessStatus,
   WorkflowState,
 } from "../shared/types";
@@ -298,8 +297,6 @@ document.addEventListener("mouseup", () => {
 // Scroll-to-bottom FAB
 // ============================================================
 
-let userScrolledUp = false;
-
 function isNearBottom(threshold = 100): boolean {
   const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
   return scrollHeight - scrollTop - clientHeight < threshold;
@@ -307,7 +304,6 @@ function isNearBottom(threshold = 100): boolean {
 
 function updateScrollFab(): void {
   const near = isNearBottom(100);
-  userScrolledUp = !near;
   scrollFab.classList.toggle("visible", !near);
 }
 
@@ -671,7 +667,7 @@ document.addEventListener("click", (e: Event) => {
   }
 });
 
-document.addEventListener("copy", (e: ClipboardEvent) => {
+document.addEventListener("copy", (_e: ClipboardEvent) => {
   const selection = window.getSelection()?.toString();
   if (selection) vscode.postMessage({ type: "copy_text", text: selection });
 });
@@ -932,7 +928,7 @@ function updateWorkflowBadge(wf: WorkflowState | null): void {
   const phaseText = phaseLabels[wf.phase] || wf.phase;
 
   // Build display text
-  let text = "";
+  let text: string;
   if (parts.length > 0) {
     text = parts.join(" › ");
     if (phaseText && phaseText !== "Complete") {
@@ -1138,7 +1134,7 @@ window.addEventListener("message", (event) => {
       state.isStreaming = false;
       state.processHealth = "responsive";
       // Clear all tool watchdog timers
-      for (const [id, timer] of toolWatchdogTimers) {
+      for (const [, timer] of toolWatchdogTimers) {
         clearTimeout(timer);
       }
       toolWatchdogTimers.clear();
@@ -1323,7 +1319,6 @@ window.addEventListener("message", (event) => {
 
     case "extension_error": {
       const data = msg;
-      const extPath = (data as any).extensionPath as string || "unknown";
       const extError = (data as any).error as string || "unknown error";
       addSystemEntry(`Command error: ${extError}`, "error");
       break;
@@ -1409,7 +1404,7 @@ window.addEventListener("message", (event) => {
       state.processHealth = "responsive";
       state.currentTurn = null;
       // Clear all tool watchdog timers
-      for (const [id, timer] of toolWatchdogTimers) {
+      for (const [, timer] of toolWatchdogTimers) {
         clearTimeout(timer);
       }
       toolWatchdogTimers.clear();

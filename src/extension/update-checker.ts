@@ -186,7 +186,7 @@ export async function downloadAndInstallUpdate(
       } finally {
         // Delay cleanup — VS Code may still be reading the file
         setTimeout(() => {
-          try { fs.unlinkSync(tmpPath); } catch {}
+          try { fs.unlinkSync(tmpPath); } catch { /* ignored */ }
         }, 5000);
       }
     }
@@ -409,7 +409,7 @@ function downloadFile(url: string, dest: string): Promise<void> {
       if (settled) return;
       settled = true;
       file.destroy();
-      try { fs.unlinkSync(dest); } catch {}
+      try { fs.unlinkSync(dest); } catch { /* ignored */ }
       if (err) reject(err);
     };
 
@@ -421,7 +421,7 @@ function downloadFile(url: string, dest: string): Promise<void> {
       settled = true;
       file.close((closeErr) => {
         if (closeErr) {
-          try { fs.unlinkSync(dest); } catch {}
+          try { fs.unlinkSync(dest); } catch { /* ignored */ }
           reject(closeErr);
           return;
         }

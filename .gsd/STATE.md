@@ -1,8 +1,8 @@
 # GSD State
 
 **Active Milestone:** M006 — Testing & Quality
-**Active Slice:** S02 — ESLint + CI pipeline
-**Phase:** planning
+**Active Slice:** None
+**Phase:** completing-milestone
 **Requirements Status:** 0 active · 0 validated · 0 deferred · 0 out of scope
 
 ## Milestone Registry
@@ -21,4 +21,4 @@
 - None
 
 ## Next Action
-Plan slice S02 (ESLint + CI pipeline).
+All slices complete in M006. Write milestone summary.
