@@ -31,6 +31,8 @@ function resolveGsdPath(hint?: string): { command: string; args: string[]; useSh
         const nodePath = findNodeBinary();
         return { command: nodePath, args: [entry], useShell: false };
       }
+      // Couldn't parse .cmd — must use shell to execute it
+      return { command: hint, args: [], useShell: true };
     }
     return { command: hint, args: [], useShell: false };
   }
@@ -615,8 +617,10 @@ export class GsdRpcClient extends EventEmitter {
         } else {
           pending.reject(new Error(msg.error as string || "Unknown RPC error"));
         }
-        return;
       }
+      // Drop responses without a matching pending request (e.g. late responses
+      // from timed-out pings) — don't forward them as events
+      return;
     }
 
     // Everything else is an event — forward to listeners

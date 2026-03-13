@@ -316,6 +316,11 @@ html, body {
   background: rgba(128,128,128,0.15);
 }
 
+.gsd-overlay-btn.danger:hover {
+  background: color-mix(in srgb, var(--vscode-errorForeground, #f48771) 85%, #000);
+  color: #fff;
+}
+
 /* ============================================================
    Messages Container
    ============================================================ */

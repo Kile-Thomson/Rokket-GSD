@@ -697,21 +697,14 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           if (client) {
             this.output.appendLine(`[${sessionId}] Force-restarting GSD process`);
             client.forceKill();
-            // Wait a moment for cleanup, then restart
+            // Clean up existing timers before restart
+            this.cleanupSession(sessionId);
+            // Wait a moment for cleanup, then re-launch from scratch
             setTimeout(async () => {
               try {
-                const restarted = await client.restart();
-                if (restarted) {
-                  this.output.appendLine(`[${sessionId}] GSD restarted after force-kill`);
-                  this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
-                  try {
-                    const state = await client.getState();
-                    this.postToWebview(webview, { type: "state", data: state } as ExtensionToWebviewMessage);
-                  } catch {}
-                } else {
-                  this.rpcClients.delete(sessionId);
-                  await this.launchGsd(webview, sessionId);
-                }
+                this.rpcClients.delete(sessionId);
+                await this.launchGsd(webview, sessionId);
+                this.output.appendLine(`[${sessionId}] GSD re-launched after force-kill`);
               } catch (err: any) {
                 this.output.appendLine(`[${sessionId}] Force-restart failed: ${err.message}`);
                 this.postToWebview(webview, { type: "error", message: `Force-restart failed: ${err.message}` });
@@ -817,12 +810,18 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.postToWebview(webview, { type: "process_exit", code, signal, detail });
       this.postToWebview(webview, { type: "process_status", status: "crashed" } as ExtensionToWebviewMessage);
 
-      // Stop stats polling
+      // Stop stats polling and health monitoring
       const timer = this.statsTimers.get(sessionId);
       if (timer) {
         clearInterval(timer);
         this.statsTimers.delete(sessionId);
       }
+      const healthTimer = this.healthTimers.get(sessionId);
+      if (healthTimer) {
+        clearInterval(healthTimer);
+        this.healthTimers.delete(sessionId);
+      }
+      this.healthState.delete(sessionId);
 
       if (signal !== "SIGTERM" && signal !== "SIGKILL") {
         this.output.appendLine(`[${sessionId}] Unexpected exit — will auto-restart on next prompt`);
