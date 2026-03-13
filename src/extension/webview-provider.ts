@@ -301,10 +301,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     // Always update stored version
     await this.context.globalState.update(GsdWebviewProvider.LAST_VERSION_KEY, currentVersion);
 
-    // First install or same version — skip
-    if (!lastVersion || lastVersion === currentVersion) return;
+    // Same version — skip
+    if (lastVersion === currentVersion) return;
 
-    // Version changed — fetch release notes
+    // Version changed (or first launch with this feature) — fetch release notes
     try {
       const notes = await fetchReleaseNotes(currentVersion);
       if (notes) {
@@ -450,7 +450,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           });
 
           // Check if this is a first launch after an update — show "What's New"
-          this.checkWhatsNew(webview);
+          this.checkWhatsNew(webview).catch(() => {});
           break;
         }
 
