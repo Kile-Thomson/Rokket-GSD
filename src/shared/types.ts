@@ -23,7 +23,7 @@ export type WebviewToExtensionMessage =
   | { type: "export_html" }
   | { type: "run_bash"; command: string }
   | { type: "fork_conversation"; entryId: string }
-  | { type: "extension_ui_response"; id: string; value?: string; confirmed?: boolean; cancelled?: boolean }
+  | { type: "extension_ui_response"; id: string; value?: string; values?: string[]; confirmed?: boolean; cancelled?: boolean }
   | { type: "copy_text"; text: string }
   | { type: "open_file"; path: string }
   | { type: "open_url"; url: string }
@@ -60,7 +60,7 @@ export type ExtensionToWebviewMessage =
   | { type: "auto_compaction_end"; result: unknown; aborted: boolean }
   | { type: "auto_retry_start"; attempt: number; maxAttempts: number; delayMs: number; errorMessage: string }
   | { type: "auto_retry_end"; success: boolean; attempt: number; finalError?: string }
-  | { type: "extension_ui_request"; id: string; method: string; title?: string; message?: string; options?: string[]; placeholder?: string; prefill?: string; timeout?: number; notifyType?: string; statusKey?: string; statusText?: string; widgetKey?: string; widgetLines?: string[]; text?: string }
+  | { type: "extension_ui_request"; id: string; method: string; title?: string; message?: string; options?: string[]; allowMultiple?: boolean; placeholder?: string; prefill?: string; timeout?: number; notifyType?: string; statusKey?: string; statusText?: string; widgetKey?: string; widgetLines?: string[]; text?: string }
   | { type: "error"; message: string }
   | { type: "process_exit"; code: number | null; signal: string | null; detail?: string }
   | { type: "commands"; commands: CommandInfo[] }

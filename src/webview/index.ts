@@ -24,14 +24,17 @@ import {
   formatCost,
   formatTokens,
   formatContextUsage,
+  formatRelativeTime,
   scrollToBottom,
   sanitizeUrl,
 } from "./helpers";
 
 import * as slashMenu from "./slash-menu";
 import * as modelPicker from "./model-picker";
+import * as thinkingPicker from "./thinking-picker";
 import * as sessionHistory from "./session-history";
 import * as uiDialogs from "./ui-dialogs";
+import * as toasts from "./toasts";
 import * as renderer from "./renderer";
 
 // VS Code API
@@ -107,6 +110,7 @@ root.innerHTML = `
       <div class="gsd-header-info">
         <span class="gsd-model-badge" id="modelBadge" title="Model"></span>
         <span class="gsd-thinking-badge" id="thinkingBadge" title="Thinking level"></span>
+        <span class="gsd-header-sep" id="headerSep1"></span>
         <span class="gsd-cost-badge" id="costBadge" title="Session cost"></span>
         <span class="gsd-context-badge" id="contextBadge" title="Context usage"></span>
       </div>
@@ -134,6 +138,10 @@ root.innerHTML = `
       </div>
     </header>
 
+    <div class="gsd-context-bar-container" id="contextBarContainer">
+      <div class="gsd-context-bar" id="contextBar"></div>
+    </div>
+
     <div class="gsd-overlay-indicators" id="overlayIndicators"></div>
 
     <main class="gsd-messages" id="messagesContainer">
@@ -151,17 +159,27 @@ root.innerHTML = `
         <div class="gsd-welcome-sub" id="welcomeProcess">Initializing...</div>
         <div class="gsd-welcome-model" id="welcomeModel"></div>
         <div class="gsd-welcome-hints" id="welcomeHints"></div>
+        <div class="gsd-welcome-actions" id="welcomeActions">
+          <button class="gsd-welcome-chip" data-prompt="/gsd auto">▶ Auto</button>
+          <button class="gsd-welcome-chip" data-prompt="/gsd status">📊 Status</button>
+          <button class="gsd-welcome-chip" data-prompt="Review this project and tell me what you see.">🔍 Review</button>
+        </div>
         <div class="gsd-welcome-attribution">
           <span class="gsd-rokketek-mark">▲ ROKKETEK</span>
         </div>
       </div>
     </main>
 
+    <button class="gsd-scroll-fab" id="scrollFab" title="Scroll to bottom">↓</button>
+
+    <div class="gsd-toast-container" id="toastContainer"></div>
     <div class="gsd-slash-menu" id="slashMenu"></div>
     <div class="gsd-model-picker" id="modelPicker"></div>
+    <div class="gsd-thinking-picker" id="thinkingPicker"></div>
     <div class="gsd-session-history" id="sessionHistory"></div>
 
     <div class="gsd-input-area">
+      <div class="gsd-resize-handle" id="resizeHandle" title="Drag to resize"></div>
       <div class="gsd-image-preview" id="imagePreview"></div>
       <div class="gsd-input-row">
         <div class="gsd-input-wrapper">
@@ -206,12 +224,18 @@ const imagePreview = document.getElementById("imagePreview")!;
 const inputHint = document.getElementById("inputHint")!;
 const slashMenuEl = document.getElementById("slashMenu")!;
 const modelPickerEl = document.getElementById("modelPicker")!;
+const thinkingPickerEl = document.getElementById("thinkingPicker")!;
 const sessionHistoryEl = document.getElementById("sessionHistory")!;
+const contextBarContainer = document.getElementById("contextBarContainer")!;
+const contextBar = document.getElementById("contextBar")!;
 const overlayIndicators = document.getElementById("overlayIndicators")!;
+const scrollFab = document.getElementById("scrollFab")!;
+const welcomeActions = document.getElementById("welcomeActions")!;
 
 // Header badges
 const modelBadge = document.getElementById("modelBadge")!;
 const thinkingBadge = document.getElementById("thinkingBadge")!;
+const headerSep1 = document.getElementById("headerSep1")!;
 const costBadge = document.getElementById("costBadge")!;
 const contextBadge = document.getElementById("contextBadge")!;
 
@@ -224,11 +248,103 @@ const footerRight = document.getElementById("footerRight")!;
 // Auto-resize textarea
 // ============================================================
 
+let manualMinHeight = 0;
+
 function autoResize(): void {
+  // Reset manual min height when input is empty (after send)
+  if (!promptInput.value) manualMinHeight = 0;
   promptInput.style.height = "auto";
-  promptInput.style.height = Math.min(promptInput.scrollHeight, 200) + "px";
+  const contentHeight = promptInput.scrollHeight;
+  const minH = Math.max(manualMinHeight, 36);
+  promptInput.style.height = Math.min(Math.max(contentHeight, minH), 400) + "px";
 }
 promptInput.addEventListener("input", autoResize);
+
+// ============================================================
+// Drag-to-resize input
+// ============================================================
+
+const resizeHandle = document.getElementById("resizeHandle")!;
+let resizeDragging = false;
+let resizeStartY = 0;
+let resizeStartHeight = 0;
+
+resizeHandle.addEventListener("mousedown", (e: MouseEvent) => {
+  e.preventDefault();
+  resizeDragging = true;
+  resizeStartY = e.clientY;
+  resizeStartHeight = promptInput.offsetHeight;
+  document.body.style.cursor = "ns-resize";
+  document.body.style.userSelect = "none";
+});
+
+document.addEventListener("mousemove", (e: MouseEvent) => {
+  if (!resizeDragging) return;
+  // Dragging up = larger input (startY > clientY = positive delta)
+  const delta = resizeStartY - e.clientY;
+  const newHeight = Math.max(36, Math.min(resizeStartHeight + delta, 400));
+  promptInput.style.height = newHeight + "px";
+});
+
+document.addEventListener("mouseup", () => {
+  if (!resizeDragging) return;
+  resizeDragging = false;
+  manualMinHeight = promptInput.offsetHeight;
+  document.body.style.cursor = "";
+  document.body.style.userSelect = "";
+});
+
+// ============================================================
+// Scroll-to-bottom FAB
+// ============================================================
+
+let userScrolledUp = false;
+
+function isNearBottom(threshold = 100): boolean {
+  const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
+  return scrollHeight - scrollTop - clientHeight < threshold;
+}
+
+function updateScrollFab(): void {
+  const near = isNearBottom(100);
+  userScrolledUp = !near;
+  scrollFab.classList.toggle("visible", !near);
+}
+
+messagesContainer.addEventListener("scroll", updateScrollFab, { passive: true });
+
+scrollFab.addEventListener("click", () => {
+  messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: "smooth" });
+});
+
+// ============================================================
+// Timestamps
+// ============================================================
+
+function refreshTimestamps(): void {
+  const els = messagesContainer.querySelectorAll<HTMLElement>(".gsd-timestamp");
+  for (const el of els) {
+    const ts = parseInt(el.dataset.ts || "0", 10);
+    if (ts) el.textContent = formatRelativeTime(ts);
+  }
+}
+
+// Refresh timestamps every 30s
+setInterval(refreshTimestamps, 30_000);
+
+// ============================================================
+// Welcome quick actions
+// ============================================================
+
+welcomeActions.addEventListener("click", (e: Event) => {
+  const chip = (e.target as HTMLElement).closest(".gsd-welcome-chip") as HTMLElement | null;
+  if (!chip) return;
+  const prompt = chip.dataset.prompt;
+  if (!prompt) return;
+  promptInput.value = prompt;
+  autoResize();
+  sendMessage();
+});
 
 // ============================================================
 // Image paste & drop
@@ -336,7 +452,7 @@ function sendMessage(): void {
     });
     welcomeScreen.style.display = "none";
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
-    scrollToBottom(messagesContainer);
+    scrollToBottom(messagesContainer, true);
 
     vscode.postMessage({ type: "run_bash", command: bashCmd });
     promptInput.value = "";
@@ -355,7 +471,7 @@ function sendMessage(): void {
     });
     welcomeScreen.style.display = "none";
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
-    scrollToBottom(messagesContainer);
+    scrollToBottom(messagesContainer, true);
 
     vscode.postMessage({
       type: "steer",
@@ -381,7 +497,7 @@ function sendMessage(): void {
     });
     welcomeScreen.style.display = "none";
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
-    scrollToBottom(messagesContainer);
+    scrollToBottom(messagesContainer, true);
   }
 
   const msg: WebviewToExtensionMessage = {
@@ -450,6 +566,10 @@ document.addEventListener("keydown", (e: KeyboardEvent) => {
     if (sessionHistory.handleKeyDown(e)) return;
   }
   if (e.key === "Escape") {
+    if (thinkingPicker.isVisible()) {
+      thinkingPicker.hide();
+      return;
+    }
     if (modelPicker.isVisible()) {
       modelPicker.hide();
       return;
@@ -483,16 +603,16 @@ newConvoBtn.addEventListener("click", handleNewConversation);
 compactBtn.addEventListener("click", () => {
   if (!state.isStreaming) {
     vscode.postMessage({ type: "compact_context" });
+    toasts.show("Compacting context…");
   }
 });
 
 exportBtn.addEventListener("click", () => {
   vscode.postMessage({ type: "export_html" });
+  toasts.show("Exporting conversation…");
 });
 
-thinkingBadge.addEventListener("click", () => {
-  vscode.postMessage({ type: "cycle_thinking_level" });
-});
+// Thinking badge click is handled by thinkingPicker.init()
 thinkingBadge.style.cursor = "pointer";
 
 // ============================================================
@@ -509,6 +629,14 @@ document.addEventListener("click", (e: Event) => {
     vscode.postMessage({ type: "copy_text", text: code });
     copyBtn.textContent = "✓ Copied";
     setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
+    return;
+  }
+
+  const copyResponseBtn = target.closest(".gsd-copy-response-btn") as HTMLElement | null;
+  if (copyResponseBtn) {
+    const text = copyResponseBtn.dataset.copyText || "";
+    vscode.postMessage({ type: "copy_text", text });
+    toasts.show("Response copied");
     return;
   }
 
@@ -571,10 +699,26 @@ function updateHeaderUI(): void {
     modelBadge.style.display = "none";
   }
 
-  const thinkingLabel = state.thinkingLevel && state.thinkingLevel !== "off" ? state.thinkingLevel : "off";
-  thinkingBadge.textContent = `🧠 ${thinkingLabel}`;
-  thinkingBadge.title = "Click to cycle thinking level";
-  thinkingBadge.style.display = "inline-flex";
+  // Thinking badge — model-aware
+  const modelSupportsReasoning = state.model
+    ? state.availableModels.some(
+        (m) => m.id === state.model!.id && m.provider === state.model!.provider && m.reasoning
+      )
+    : false;
+
+  if (state.model && !modelSupportsReasoning && state.modelsLoaded) {
+    // Non-reasoning model — show disabled badge
+    thinkingBadge.textContent = "🧠 N/A";
+    thinkingBadge.title = "Current model does not support extended thinking";
+    thinkingBadge.style.display = "inline-flex";
+    thinkingBadge.classList.add("disabled");
+  } else {
+    const thinkingLabel = state.thinkingLevel && state.thinkingLevel !== "off" ? state.thinkingLevel : "off";
+    thinkingBadge.textContent = `🧠 ${thinkingLabel}`;
+    thinkingBadge.title = "Click to select thinking level";
+    thinkingBadge.style.display = "inline-flex";
+    thinkingBadge.classList.remove("disabled");
+  }
 
   const stats = state.sessionStats;
   const hasCost = stats.cost != null && stats.cost > 0;
@@ -596,6 +740,34 @@ function updateHeaderUI(): void {
   } else {
     contextBadge.style.display = "none";
   }
+
+  // Show separator between model/thinking and cost/context groups
+  const hasLeftBadges = modelBadge.style.display !== "none" || thinkingBadge.style.display !== "none";
+  const hasRightBadges = costBadge.style.display !== "none" || contextBadge.style.display !== "none";
+  headerSep1.style.display = hasLeftBadges && hasRightBadges ? "block" : "none";
+
+  // Context usage bar
+  updateContextBar();
+}
+
+function updateContextBar(): void {
+  const pct = state.sessionStats.contextPercent ?? 0;
+  if (pct <= 0) {
+    contextBarContainer.style.display = "none";
+    return;
+  }
+
+  contextBarContainer.style.display = "block";
+  contextBar.style.width = `${Math.min(pct, 100)}%`;
+
+  contextBar.classList.remove("ok", "warn", "crit");
+  if (pct > 90) {
+    contextBar.classList.add("crit");
+  } else if (pct > 70) {
+    contextBar.classList.add("warn");
+  } else {
+    contextBar.classList.add("ok");
+  }
 }
 
 function updateFooterUI(): void {
@@ -607,18 +779,21 @@ function updateFooterUI(): void {
   const parts: string[] = [];
 
   if (tokens) {
-    if (tokens.input) parts.push(`↑${formatTokens(tokens.input)}`);
-    if (tokens.output) parts.push(`↓${formatTokens(tokens.output)}`);
-    if (tokens.cacheRead) parts.push(`R${formatTokens(tokens.cacheRead)}`);
-    if (tokens.cacheWrite) parts.push(`W${formatTokens(tokens.cacheWrite)}`);
+    const tokenParts: string[] = [];
+    if (tokens.input) tokenParts.push(`in:${formatTokens(tokens.input)}`);
+    if (tokens.output) tokenParts.push(`out:${formatTokens(tokens.output)}`);
+    if (tokens.cacheRead) tokenParts.push(`cache:${formatTokens(tokens.cacheRead)}`);
+    if (tokenParts.length > 0) parts.push(tokenParts.join(" "));
   }
 
-  parts.push(formatCost(stats.cost));
+  if (stats.cost != null && stats.cost > 0) {
+    parts.push(formatCost(stats.cost));
+  }
 
   const ctx = formatContextUsage(stats, state.model);
   if (ctx) parts.push(ctx);
 
-  footerStats.textContent = parts.join(" ");
+  footerStats.textContent = parts.join(" · ");
 
   let right = "";
   if (state.model) {
@@ -794,7 +969,12 @@ function updateWorkflowBadge(wf: WorkflowState | null): void {
 }
 
 function updateWelcomeScreen(): void {
-  if (state.entries.length > 0 || state.currentTurn) {
+  // Only hide welcome for real conversation entries (user messages, assistant turns)
+  // System info/warning entries alone shouldn't dismiss it
+  const hasConversation = state.currentTurn || state.entries.some(
+    e => e.type === "user" || e.type === "assistant"
+  );
+  if (hasConversation) {
     welcomeScreen.style.display = "none";
     return;
   }
@@ -856,6 +1036,8 @@ window.addEventListener("message", (event) => {
   if (!raw || !raw.type) return;
   const msg = raw as ExtensionToWebviewMessage;
 
+  try {
+
   switch (msg.type) {
     case "config": {
       const data = msg;
@@ -884,6 +1066,11 @@ window.addEventListener("message", (event) => {
           sessionHistory.setCurrentSessionId(data.sessionId);
         }
         if (state.processStatus !== "crashed") state.processStatus = "running";
+        // Eagerly fetch available models if not loaded yet (debounce)
+        if (!state.modelsLoaded && !state.modelsRequested) {
+          state.modelsRequested = true;
+          vscode.postMessage({ type: "get_available_models" });
+        }
         updateAllUI();
       }
       break;
@@ -904,7 +1091,18 @@ window.addEventListener("message", (event) => {
 
     case "process_status": {
       const data = msg;
+      const prevStatus = state.processStatus;
       state.processStatus = data.status as ProcessStatus;
+
+      // When the process becomes "running" (fresh start or after crash/restart),
+      // reset command cache so the slash menu re-fetches from the new process.
+      if (data.status === "running" && prevStatus !== "running") {
+        state.commandsLoaded = false;
+        state.commands = [];
+        // Eagerly fetch commands so they're ready when the user types /
+        vscode.postMessage({ type: "get_commands" });
+      }
+
       updateOverlayIndicators();
       updateWelcomeScreen();
       break;
@@ -916,6 +1114,12 @@ window.addEventListener("message", (event) => {
     }
 
     case "agent_start": {
+      // Expire any pending UI dialogs from a previous turn — the backend's
+      // abort signal has already auto-resolved them, so user interaction
+      // would go nowhere.
+      if (uiDialogs.hasPending()) {
+        uiDialogs.expireAllPending("New turn started");
+      }
       state.isStreaming = true;
       state.currentTurn = {
         id: nextId(),
@@ -938,6 +1142,12 @@ window.addEventListener("message", (event) => {
         clearTimeout(timer);
       }
       toolWatchdogTimers.clear();
+      // Expire any pending UI dialogs — the backend's abort signal fires
+      // on agent_end, auto-resolving all pending dialogs to defaults.
+      // Mark them so the user sees they're no longer interactive.
+      if (uiDialogs.hasPending()) {
+        uiDialogs.expireAllPending("Agent finished");
+      }
       renderer.finalizeCurrentTurn();
       updateInputUI();
       updateOverlayIndicators();
@@ -1157,6 +1367,7 @@ window.addEventListener("message", (event) => {
         contextWindow: m.contextWindow,
       }));
       state.modelsLoaded = true;
+      state.modelsRequested = false;
       if (modelPicker.isVisible()) {
         modelPicker.render();
       }
@@ -1168,7 +1379,8 @@ window.addEventListener("message", (event) => {
       state.thinkingLevel = data.level || "off";
       updateHeaderUI();
       updateFooterUI();
-      addSystemEntry(`Thinking level: ${state.thinkingLevel}`, "info");
+      thinkingPicker.refresh();
+      toasts.show(`Thinking: ${state.thinkingLevel}`);
       break;
     }
 
@@ -1201,6 +1413,13 @@ window.addEventListener("message", (event) => {
         clearTimeout(timer);
       }
       toolWatchdogTimers.clear();
+      // Expire any pending dialogs — the process is gone
+      if (uiDialogs.hasPending()) {
+        uiDialogs.expireAllPending("Process exited");
+      }
+      // Reset command cache — the process that provided them is dead
+      state.commandsLoaded = false;
+      state.commands = [];
       renderer.resetStreamingState();
       updateInputUI();
       updateOverlayIndicators();
@@ -1283,9 +1502,19 @@ window.addEventListener("message", (event) => {
 
       // Update all UI
       updateAllUI();
-      scrollToBottom(messagesContainer);
+      scrollToBottom(messagesContainer, true);
       break;
     }
+  }
+
+  } catch (err: any) {
+    // Global error boundary — surface crashes visibly instead of silent failure
+    const errorId = `GSD-ERR-${Date.now().toString(36).toUpperCase()}`;
+    console.error(`[${errorId}] Message handler error for "${msg.type}":`, err);
+    addSystemEntry(
+      `Internal error processing "${msg.type}" (${errorId}). Check browser console for details. Please report this error code.`,
+      "error"
+    );
   }
 });
 
@@ -1539,6 +1768,16 @@ modelPicker.init({
   onUpdateFooterUI: updateFooterUI,
 });
 
+thinkingPicker.init({
+  pickerEl: thinkingPickerEl,
+  thinkingBadge,
+  vscode,
+  onThinkingChanged: () => {
+    updateHeaderUI();
+    updateFooterUI();
+  },
+});
+
 sessionHistory.init({
   panelEl: sessionHistoryEl,
   historyBtn,
@@ -1546,12 +1785,15 @@ sessionHistory.init({
   onSessionSwitched: () => {
     updateAllUI();
   },
+  onNewConversation: handleNewConversation,
 });
 
 uiDialogs.init({
   messagesContainer,
   vscode,
 });
+
+toasts.init(document.getElementById("toastContainer")!);
 
 renderer.init({
   messagesContainer,
