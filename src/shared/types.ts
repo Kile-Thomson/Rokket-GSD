@@ -37,7 +37,9 @@ export type WebviewToExtensionMessage =
   | { type: "update_dismiss"; version: string }
   | { type: "update_view_release"; htmlUrl: string }
   | { type: "set_auto_compaction"; enabled: boolean }
-  | { type: "copy_last_response" };
+  | { type: "copy_last_response" }
+  | { type: "force_kill" }
+  | { type: "force_restart" };
 
 // --- Messages FROM extension TO webview ---
 
@@ -67,6 +69,7 @@ export type ExtensionToWebviewMessage =
   | { type: "thinking_level_changed"; level: ThinkingLevel }
   | { type: "config"; useCtrlEnterToSend: boolean; cwd?: string; version?: string }
   | { type: "process_status"; status: ProcessStatus }
+  | { type: "process_health"; status: ProcessHealthStatus }
   | { type: "session_list"; sessions: SessionListItem[] }
   | { type: "session_switched"; state: GsdState; messages: AgentMessage[] }
   | { type: "session_list_error"; message: string }
@@ -94,6 +97,8 @@ export interface SessionListItem {
 // --- Shared Data Types ---
 
 export type ProcessStatus = "starting" | "running" | "crashed" | "restarting" | "stopped";
+
+export type ProcessHealthStatus = "responsive" | "unresponsive" | "recovered";
 
 export interface ImageAttachment {
   type: "image";
