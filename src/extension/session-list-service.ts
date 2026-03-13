@@ -221,8 +221,22 @@ export async function listSessions(cwd: string): Promise<SessionInfo[]> {
 
 /**
  * Delete a session file.
+ * Validates the path is inside the expected sessions directory and is a .jsonl file.
  * @param sessionPath Absolute path to the session JSONL file
  */
 export async function deleteSession(sessionPath: string): Promise<void> {
-  await fs.promises.unlink(sessionPath);
+  // Security: validate the path is inside the sessions directory
+  const sessionsRoot = path.join(os.homedir(), CONFIG_DIR, SESSIONS_SUBDIR);
+  const resolved = path.resolve(sessionPath);
+  const normalizedRoot = path.resolve(sessionsRoot);
+
+  if (!resolved.startsWith(normalizedRoot + path.sep) && resolved !== normalizedRoot) {
+    throw new Error(`[GSD-ERR-001] Refusing to delete file outside sessions directory: ${resolved}`);
+  }
+
+  if (!resolved.endsWith(".jsonl")) {
+    throw new Error(`[GSD-ERR-002] Refusing to delete non-session file: ${resolved}`);
+  }
+
+  await fs.promises.unlink(resolved);
 }

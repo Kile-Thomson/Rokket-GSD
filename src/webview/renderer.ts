@@ -13,6 +13,7 @@ import {
   escapeHtml,
   escapeAttr,
   formatDuration,
+  formatRelativeTime,
   formatTokens,
   getToolCategory,
   getToolIcon,
@@ -179,6 +180,13 @@ function createEntryElement(entry: ChatEntry): HTMLElement {
   return el;
 }
 
+function buildTimestampHtml(ts: number): string {
+  if (!ts) return "";
+  const abs = new Date(ts).toLocaleString();
+  const rel = formatRelativeTime(ts);
+  return `<span class="gsd-timestamp" data-ts="${ts}" title="${escapeAttr(abs)}">${escapeHtml(rel)}</span>`;
+}
+
 function buildUserHtml(entry: ChatEntry): string {
   let html = `<div class="gsd-user-bubble">`;
   if (entry.images?.length) {
@@ -188,6 +196,7 @@ function buildUserHtml(entry: ChatEntry): string {
   }
   html += escapeHtml(entry.text || "");
   html += `</div>`;
+  html += buildTimestampHtml(entry.timestamp);
   return html;
 }
 
@@ -198,10 +207,12 @@ function buildTurnHtml(turn: AssistantTurn): string {
     if (seg.type === "thinking") {
       const thinkingText = seg.chunks.join("");
       if (thinkingText) {
+        const lineCount = thinkingText.split("\n").length;
         html += `<details class="gsd-thinking-block">
           <summary class="gsd-thinking-header">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm-.5-3h1v1h-1v-1zm.5-7a2.5 2.5 0 00-2.5 2.5h1A1.5 1.5 0 018 5a1.5 1.5 0 011.5 1.5c0 .44-.18.84-.46 1.13l-.64.66A2.49 2.49 0 007.5 10h1c0-.52.21-1 .57-1.35l.64-.66A2.49 2.49 0 0010.5 6.5 2.5 2.5 0 008 4z"/></svg>
-            Thinking
+            <span class="gsd-thinking-label">Thinking</span>
+            <span class="gsd-thinking-lines">${lineCount} line${lineCount !== 1 ? "s" : ""}</span>
           </summary>
           <div class="gsd-thinking-content">${escapeHtml(thinkingText)}</div>
         </details>`;
@@ -235,6 +246,27 @@ function buildTurnHtml(turn: AssistantTurn): string {
     const hasRunningTool = Array.from(turn.toolCalls.values()).some((t) => t.isRunning);
     if (!hasRunningTool && !hasAnyContent) {
       html += `<div class="gsd-thinking-dots"><span></span><span></span><span></span></div>`;
+    }
+  }
+
+  if (turn.isComplete) {
+    // Collect text content for the copy button
+    const textContent = turn.segments
+      .filter(s => s.type === "text")
+      .map(s => s.chunks.join(""))
+      .join("\n\n");
+    if (textContent) {
+      html += `<div class="gsd-turn-actions">`;
+      html += `<button class="gsd-copy-response-btn" data-copy-text="${escapeAttr(textContent)}" title="Copy response">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 4h8v8H4V4zm1 1v6h6V5H5zm-3-3h8v1H3v7H2V2h8z"/></svg>
+        Copy
+      </button>`;
+      if (turn.timestamp) {
+        html += buildTimestampHtml(turn.timestamp);
+      }
+      html += `</div>`;
+    } else if (turn.timestamp) {
+      html += buildTimestampHtml(turn.timestamp);
     }
   }
 
@@ -317,9 +349,11 @@ function renderTextSegment(segIdx: number): void {
     if (!el) {
       el = document.createElement("details");
       el.className = "gsd-thinking-block";
+      el.setAttribute("open", ""); // Open while streaming
       el.innerHTML = `<summary class="gsd-thinking-header">
         <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm-.5-3h1v1h-1v-1zm.5-7a2.5 2.5 0 00-2.5 2.5h1A1.5 1.5 0 018 5a1.5 1.5 0 011.5 1.5c0 .44-.18.84-.46 1.13l-.64.66A2.49 2.49 0 007.5 10h1c0-.52.21-1 .57-1.35l.64-.66A2.49 2.49 0 0010.5 6.5 2.5 2.5 0 008 4z"/></svg>
-        Thinking
+        <span class="gsd-thinking-label">Thinking</span>
+        <span class="gsd-thinking-lines"></span>
       </summary>
       <div class="gsd-thinking-content"></div>`;
       insertSegmentElement(container, segIdx, el);
@@ -327,6 +361,10 @@ function renderTextSegment(segIdx: number): void {
     }
     const content = el.querySelector(".gsd-thinking-content");
     if (content) content.textContent = fullText;
+    // Update line count indicator
+    const lineCount = fullText.split("\n").length;
+    const linesEl = el.querySelector(".gsd-thinking-lines");
+    if (linesEl) linesEl.textContent = `${lineCount} line${lineCount !== 1 ? "s" : ""}`;
   } else {
     if (!el) {
       el = document.createElement("div");

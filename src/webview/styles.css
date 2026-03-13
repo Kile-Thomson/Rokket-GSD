@@ -35,6 +35,7 @@ html, body {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 /* ============================================================
@@ -160,9 +161,18 @@ html, body {
   background: rgba(160, 100, 255, 0.22);
 }
 
+.gsd-header-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--vscode-panel-border, rgba(128,128,128,0.2));
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
 .gsd-cost-badge {
   background: rgba(80, 180, 80, 0.1);
   color: rgba(120, 200, 120, 0.85);
+  font-weight: 600;
 }
 
 .gsd-context-badge {
@@ -266,10 +276,48 @@ html, body {
   .gsd-action-btn span { display: none; }
   .gsd-action-btn { padding: 5px 6px; }
   .gsd-workflow-badge { max-width: 140px; }
+  .gsd-header-sep { display: none !important; }
 }
 
 @media (max-width: 350px) {
   .gsd-workflow-badge { display: none !important; }
+}
+
+/* ============================================================
+   Context Usage Bar
+   ============================================================ */
+
+.gsd-context-bar-container {
+  display: none;
+  height: 3px;
+  background: rgba(128,128,128,0.08);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.gsd-context-bar {
+  height: 100%;
+  width: 0%;
+  transition: width 0.6s ease-out, background 0.4s ease;
+  border-radius: 0 2px 2px 0;
+}
+
+.gsd-context-bar.ok {
+  background: rgba(80, 180, 80, 0.5);
+}
+
+.gsd-context-bar.warn {
+  background: rgba(220, 170, 40, 0.65);
+}
+
+.gsd-context-bar.crit {
+  background: rgba(220, 70, 60, 0.7);
+  animation: contextPulse 2s ease-in-out infinite;
+}
+
+@keyframes contextPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
 
 /* ============================================================
@@ -392,6 +440,48 @@ html, body {
 }
 
 /* ============================================================
+   Scroll-to-bottom FAB
+   ============================================================ */
+
+.gsd-scroll-fab {
+  display: none;
+  position: absolute;
+  bottom: 120px;
+  right: 20px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.25));
+  border-radius: 50%;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  z-index: 50;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, transform 0.2s;
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.gsd-scroll-fab.visible {
+  display: flex;
+  opacity: 0.8;
+  transform: translateY(0);
+}
+
+.gsd-scroll-fab:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15));
+}
+
+.gsd-scroll-fab:active {
+  transform: scale(0.92);
+}
+
+/* ============================================================
    Welcome Screen
    ============================================================ */
 
@@ -471,6 +561,38 @@ html, body {
   margin: 0 3px;
 }
 
+.gsd-welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.gsd-welcome-chip {
+  padding: 5px 14px;
+  border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+  border-radius: 16px;
+  background: transparent;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: var(--vscode-font-family);
+  opacity: 0.55;
+  transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.gsd-welcome-chip:hover {
+  opacity: 0.9;
+  background: rgba(55, 148, 255, 0.08);
+  border-color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.gsd-welcome-chip:active {
+  transform: scale(0.96);
+}
+
 .gsd-welcome-attribution {
   margin-top: 24px;
   opacity: 0.2;
@@ -504,11 +626,34 @@ html, body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ---- Timestamps ---- */
+
+.gsd-timestamp {
+  display: block;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.35;
+  margin-top: 4px;
+  font-family: var(--vscode-editor-fontFamily, monospace);
+  transition: opacity 0.15s;
+  user-select: none;
+}
+
+.gsd-entry:hover .gsd-timestamp {
+  opacity: 0.6;
+}
+
+.gsd-entry-user .gsd-timestamp {
+  width: 100%;
+  text-align: right;
+}
+
 /* ---- User bubble ---- */
 
 .gsd-entry-user {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .gsd-user-bubble {
@@ -546,14 +691,16 @@ html, body {
 /* Streaming cursor */
 .gsd-entry-assistant.streaming .gsd-assistant-text > *:last-child::after {
   content: "▊";
-  animation: blink 0.8s step-end infinite;
-  opacity: 0.4;
+  animation: cursorPulse 1.2s ease-in-out infinite;
+  opacity: 0.5;
   margin-left: 1px;
   font-size: 0.85em;
+  color: var(--vscode-textLink-foreground, #3794ff);
 }
 
-@keyframes blink {
-  50% { opacity: 0; }
+@keyframes cursorPulse {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.55; }
 }
 
 /* ---- Assistant text ---- */
@@ -776,6 +923,51 @@ html, body {
   color: var(--vscode-foreground);
 }
 
+/* ---- Turn actions (copy response + timestamp) ---- */
+
+.gsd-turn-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.gsd-entry-assistant:hover .gsd-turn-actions {
+  opacity: 1;
+}
+
+.gsd-copy-response-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  transition: background 0.15s, color 0.15s;
+  font-family: var(--vscode-editor-fontFamily, monospace);
+  opacity: 0.6;
+}
+
+.gsd-copy-response-btn:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15));
+  color: var(--vscode-foreground);
+}
+
+.gsd-copy-response-btn svg {
+  flex-shrink: 0;
+}
+
+.gsd-turn-actions .gsd-timestamp {
+  margin-top: 0;
+}
+
 .gsd-code-block pre {
   margin: 0;
   padding: 12px;
@@ -837,6 +1029,13 @@ html, body {
   opacity: 0.7;
 }
 
+.gsd-thinking-lines {
+  margin-left: auto;
+  font-size: 10px;
+  opacity: 0.4;
+  font-weight: 400;
+}
+
 /* ============================================================
    Thinking Dots (animated)
    ============================================================ */
@@ -886,6 +1085,28 @@ html, body {
 .gsd-tool-block.running {
   border-color: rgba(55, 148, 255, 0.4);
   box-shadow: 0 0 0 1px rgba(55, 148, 255, 0.08);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(55, 148, 255, 0.03) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: toolShimmer 2s ease-in-out infinite;
+}
+
+@keyframes toolShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.gsd-tool-block.done {
+  animation: toolComplete 0.3s ease-out;
+}
+
+@keyframes toolComplete {
+  from { border-color: rgba(55, 148, 255, 0.4); }
+  to { border-color: var(--vscode-panel-border, rgba(128,128,128,0.15)); }
 }
 
 .gsd-tool-block.error {
@@ -912,10 +1133,10 @@ html, body {
 .gsd-tool-spinner {
   width: 11px;
   height: 11px;
-  border: 1.5px solid var(--vscode-textLink-foreground, #3794ff);
-  border-top-color: transparent;
+  border: 1.5px solid rgba(55, 148, 255, 0.3);
+  border-top-color: var(--vscode-textLink-foreground, #3794ff);
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+  animation: spin 0.8s linear infinite;
   flex-shrink: 0;
 }
 
@@ -1226,6 +1447,7 @@ html, body {
   z-index: 200;
   box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   font-size: 12px;
+  animation: gsd-picker-in 0.15s ease-out;
 }
 
 .gsd-model-picker::-webkit-scrollbar {
@@ -1366,6 +1588,129 @@ html, body {
 }
 
 /* ============================================================
+   Thinking Picker
+   ============================================================ */
+
+.gsd-thinking-picker {
+  display: none;
+  position: absolute;
+  top: 40px;
+  left: 0;
+  width: 240px;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+  border-radius: 8px;
+  z-index: 200;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  font-size: 12px;
+  overflow: hidden;
+  animation: gsd-picker-in 0.15s ease-out;
+}
+
+@keyframes gsd-picker-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.gsd-thinking-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.15));
+}
+
+.gsd-thinking-picker-title {
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.7;
+}
+
+.gsd-thinking-picker-close {
+  border: none;
+  background: none;
+  color: var(--vscode-foreground);
+  opacity: 0.4;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.gsd-thinking-picker-close:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15));
+}
+
+.gsd-thinking-picker-list {
+  padding: 4px 0;
+}
+
+.gsd-thinking-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+  gap: 8px;
+}
+
+.gsd-thinking-picker-item:hover {
+  background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.1));
+}
+
+.gsd-thinking-picker-item.active {
+  background: rgba(160, 100, 255, 0.08);
+}
+
+.gsd-thinking-picker-item-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gsd-thinking-picker-dot {
+  color: rgba(180, 140, 255, 0.9);
+  font-size: 8px;
+  flex-shrink: 0;
+  width: 10px;
+  text-align: center;
+}
+
+.gsd-thinking-picker-dot-spacer {
+  width: 10px;
+  flex-shrink: 0;
+}
+
+.gsd-thinking-picker-label {
+  font-family: var(--vscode-editor-fontFamily, monospace);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.gsd-thinking-picker-desc {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.6;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Disabled state for non-reasoning models */
+.gsd-thinking-badge.disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.gsd-thinking-badge.disabled:hover {
+  background: rgba(160, 100, 255, 0.12);
+}
+
+/* ============================================================
    Session History Panel
    ============================================================ */
 
@@ -1383,6 +1728,7 @@ html, body {
   z-index: 200;
   box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   font-size: 12px;
+  animation: gsd-picker-in 0.15s ease-out;
 }
 
 .gsd-session-history::-webkit-scrollbar {
@@ -1616,6 +1962,30 @@ html, body {
   border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
   background: var(--vscode-sideBar-background, var(--vscode-editor-background));
   transition: border-color 0.2s;
+}
+
+.gsd-resize-handle {
+  height: 6px;
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: -4px 0 2px;
+}
+
+.gsd-resize-handle::after {
+  content: "";
+  display: block;
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--vscode-panel-border, rgba(128,128,128,0.2));
+  transition: background 0.15s;
+}
+
+.gsd-resize-handle:hover::after {
+  background: var(--vscode-foreground);
+  opacity: 0.3;
 }
 
 .gsd-input-area.drag-over {
@@ -1880,6 +2250,79 @@ html, body {
   opacity: 0.8;
 }
 
+/* Multi-select variant */
+.gsd-ui-multi-hint {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.5;
+  margin-bottom: 8px;
+  font-family: var(--vscode-editor-fontFamily, monospace);
+}
+
+.gsd-ui-multi-options .gsd-ui-multi-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.2));
+  border-radius: 6px;
+  background: transparent;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+  transition: background 0.12s, border-color 0.12s;
+  width: 100%;
+}
+
+.gsd-ui-multi-option:hover {
+  background: rgba(55, 148, 255, 0.06);
+  border-color: rgba(55, 148, 255, 0.3);
+}
+
+.gsd-ui-multi-option.checked {
+  background: rgba(55, 148, 255, 0.1);
+  border-color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.gsd-ui-checkbox {
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: opacity 0.12s;
+}
+
+.gsd-ui-multi-option.checked .gsd-ui-checkbox {
+  opacity: 1;
+  color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.gsd-ui-option-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.gsd-ui-multi-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  gap: 8px;
+}
+
+.gsd-ui-multi-count {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-fontFamily, monospace);
+  opacity: 0.6;
+}
+
+.gsd-ui-multi-confirm:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .gsd-ui-input {
   width: 100%;
   padding: 8px 12px;
@@ -1963,10 +2406,34 @@ html, body {
   color: var(--vscode-errorForeground, #f48771);
 }
 
+.gsd-ui-resolved.expired .gsd-ui-resolved-icon {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
 .gsd-entry-ui-request.resolved .gsd-ui-request {
   border-style: dashed;
   opacity: 0.45;
   padding: 6px 10px;
+}
+
+/* Timeout countdown badge */
+.gsd-ui-countdown {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 6px;
+  font-family: var(--vscode-editor-fontFamily, monospace);
+  opacity: 0.7;
+}
+
+.gsd-ui-countdown.urgent {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+  opacity: 1;
+  animation: gsd-countdown-pulse 1s ease-in-out infinite;
+}
+
+@keyframes gsd-countdown-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* ============================================================
@@ -2143,6 +2610,44 @@ html, body {
 
 .gsd-update-btn.dismiss:hover {
   opacity: 1;
+}
+
+/* ============================================================
+   Toasts
+   ============================================================ */
+
+.gsd-toast-container {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.gsd-toast {
+  padding: 6px 16px;
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.95));
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.2));
+  color: var(--vscode-foreground);
+  font-size: 12px;
+  font-family: var(--vscode-font-family);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+  pointer-events: auto;
+}
+
+.gsd-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* ============================================================
