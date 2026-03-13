@@ -4,7 +4,7 @@ import * as path from "path";
 import * as os from "os";
 import { GsdRpcClient } from "./rpc-client";
 import { listSessions, deleteSession } from "./session-list-service";
-import { downloadAndInstallUpdate, dismissUpdateVersion, fetchReleaseNotes } from "./update-checker";
+import { downloadAndInstallUpdate, dismissUpdateVersion, fetchReleaseNotes, fetchRecentReleases } from "./update-checker";
 import { parseGsdWorkflowState } from "./state-parser";
 import { buildDashboardData } from "./dashboard-parser";
 import type {
@@ -442,11 +442,13 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       switch (msg.type) {
         case "ready": {
           const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+          const extVersion = vscode.extensions.getExtension("rokketek.rokket-gsd")?.packageJSON?.version;
           this.postToWebview(webview, {
             type: "config",
             useCtrlEnterToSend: this.getUseCtrlEnter(),
             cwd,
             version: this.gsdVersion,
+            extensionVersion: extVersion,
           });
 
           // Check if this is a first launch after an update — show "What's New"
@@ -639,6 +641,19 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             this.postToWebview(webview, { type: "dashboard_data", data } as ExtensionToWebviewMessage);
           } catch (_err: unknown) {
             this.postToWebview(webview, { type: "dashboard_data", data: null } as ExtensionToWebviewMessage);
+          }
+          break;
+        }
+
+        case "get_changelog": {
+          this.output.appendLine(`[${sessionId}] Fetching changelog...`);
+          try {
+            const entries = await fetchRecentReleases(15);
+            this.output.appendLine(`[${sessionId}] Changelog fetched: ${entries.length} entries`);
+            this.postToWebview(webview, { type: "changelog", entries } as ExtensionToWebviewMessage);
+          } catch (err: any) {
+            this.output.appendLine(`[${sessionId}] Changelog fetch error: ${err?.message}`);
+            this.postToWebview(webview, { type: "changelog", entries: [] } as ExtensionToWebviewMessage);
           }
           break;
         }

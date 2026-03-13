@@ -106,6 +106,7 @@ root.innerHTML = `
       <div class="gsd-header-brand">
         <span class="gsd-logo">🚀</span>
         <span class="gsd-title">Rokket GSD</span>
+        <span class="gsd-header-version" id="headerVersion" title="View changelog"></span>
       </div>
       <span class="gsd-workflow-badge" id="workflowBadge" title="GSD workflow state"></span>
       <div class="gsd-header-info">
@@ -239,6 +240,7 @@ const scrollFab = document.getElementById("scrollFab")!;
 const welcomeActions = document.getElementById("welcomeActions")!;
 
 // Header badges
+const headerVersion = document.getElementById("headerVersion")!;
 const modelBadge = document.getElementById("modelBadge")!;
 const thinkingBadge = document.getElementById("thinkingBadge")!;
 const headerSep1 = document.getElementById("headerSep1")!;
@@ -742,6 +744,16 @@ document.addEventListener("keydown", (e: KeyboardEvent) => {
       modelPicker.hide();
       return;
     }
+  }
+});
+
+headerVersion.addEventListener("click", () => {
+  const existing = document.getElementById("gsd-changelog");
+  if (existing) {
+    existing.classList.add("dismissing");
+    setTimeout(() => existing.remove(), 300);
+  } else {
+    vscode.postMessage({ type: "get_changelog" } as WebviewToExtensionMessage);
   }
 });
 
@@ -1446,6 +1458,11 @@ window.addEventListener("message", (event) => {
       state.useCtrlEnterToSend = data.useCtrlEnterToSend ?? false;
       if (data.cwd) state.cwd = data.cwd;
       if (data.version) state.version = data.version;
+      if (data.extensionVersion) {
+        state.extensionVersion = data.extensionVersion;
+        const headerVer = document.getElementById("headerVersion");
+        if (headerVer) headerVer.textContent = `v${data.extensionVersion}`;
+      }
       updateAllUI();
       break;
     }
@@ -1525,6 +1542,11 @@ window.addEventListener("message", (event) => {
 
     case "whats_new": {
       showWhatsNew(msg.version, msg.notes);
+      break;
+    }
+
+    case "changelog": {
+      showChangelog(msg.entries);
       break;
     }
 
@@ -2180,6 +2202,73 @@ function showWhatsNew(version: string, notes: string): void {
 
   messagesContainer.insertBefore(card, messagesContainer.firstChild?.nextSibling || null);
   scrollToBottom(messagesContainer);
+}
+
+/**
+ * Show a full changelog panel inline in the chat.
+ */
+function showChangelog(entries: Array<{ version: string; notes: string; date: string }>): void {
+  const existing = document.getElementById("gsd-changelog");
+  if (existing) existing.remove();
+
+  const formatNotes = (md: string): string => {
+    if (!md.trim()) return "";
+    return escapeHtml(md)
+      .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+      .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^# (.+)$/gm, '<h3>$1</h3>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`(.+?)`/g, '<code>$1</code>')
+      .replace(/^\* (.+)$/gm, '<li>$1</li>')
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`)
+      .replace(/\n{2,}/g, '<br>')
+      .replace(/\n/g, ' ');
+  };
+
+  const formatDate = (iso: string): string => {
+    if (!iso) return "";
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    } catch {
+      return "";
+    }
+  };
+
+  const entriesHtml = entries.length > 0
+    ? entries.map((e, i) => `
+      <div class="gsd-changelog-entry${i === 0 ? " latest" : ""}">
+        <div class="gsd-changelog-entry-header">
+          <span class="gsd-changelog-version">v${escapeHtml(e.version)}</span>
+          ${i === 0 ? '<span class="gsd-changelog-latest-badge">latest</span>' : ""}
+          <span class="gsd-changelog-date">${formatDate(e.date)}</span>
+        </div>
+        <div class="gsd-changelog-entry-notes">${formatNotes(e.notes)}</div>
+      </div>
+    `).join("")
+    : '<div class="gsd-changelog-empty">No changelog entries found.</div>';
+
+  const card = document.createElement("div");
+  card.id = "gsd-changelog";
+  card.className = "gsd-changelog";
+  card.innerHTML = `
+    <div class="gsd-changelog-header">
+      <span class="gsd-changelog-title">📋 Changelog</span>
+      <button class="gsd-changelog-close" title="Close">✕</button>
+    </div>
+    <div class="gsd-changelog-entries">
+      ${entriesHtml}
+    </div>
+  `;
+
+  card.querySelector(".gsd-changelog-close")?.addEventListener("click", () => {
+    card.classList.add("dismissing");
+    setTimeout(() => card.remove(), 300);
+  });
+
+  messagesContainer.appendChild(card);
+  scrollToBottom(messagesContainer, true);
 }
 
 function addSystemEntry(text: string, kind: "info" | "error" | "warning" = "info"): void {
