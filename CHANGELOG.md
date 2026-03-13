@@ -4,6 +4,11 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.10] — 2026-03-13
+
+### Fixed
+- Auto-update download blocked with GSD-ERR-013 "untrusted host" — GitHub redirects VSIX downloads to S3 CDN which wasn't in the trusted hosts allowlist
+
 ## [0.2.9] — 2026-03-13
 
 ### Added

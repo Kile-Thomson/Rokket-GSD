@@ -281,19 +281,25 @@ interface ReleaseInfo {
   assets: Array<{ name: string; url: string }>;
 }
 
-/** Trusted hostnames for GitHub API, downloads, and CDN redirects */
+/** Trusted exact hostnames for GitHub API and web */
 const TRUSTED_HOSTS = new Set([
   "github.com",
   "api.github.com",
-  "objects.githubusercontent.com",
-  "github-releases.githubusercontent.com",
 ]);
 
-/** Check if a URL is on a trusted host (exact hostname match + HTTPS only) */
+/** Trusted hostname suffix patterns for GitHub CDN/storage redirects */
+const TRUSTED_SUFFIXES = [
+  ".githubusercontent.com",
+  ".s3.amazonaws.com",
+];
+
+/** Check if a URL is on a trusted host (exact match or suffix match, HTTPS only) */
 function isTrustedHost(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "https:" && TRUSTED_HOSTS.has(parsed.hostname);
+    if (parsed.protocol !== "https:") return false;
+    if (TRUSTED_HOSTS.has(parsed.hostname)) return true;
+    return TRUSTED_SUFFIXES.some(suffix => parsed.hostname.endsWith(suffix));
   } catch {
     return false;
   }
