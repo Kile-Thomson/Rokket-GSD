@@ -203,6 +203,39 @@ export async function dismissUpdateVersion(
   await context.globalState.update(DISMISSED_VERSION_KEY, version);
 }
 
+/**
+ * Fetch release notes for a specific version tag from GitHub.
+ * Returns the body text or null if not found.
+ */
+export async function fetchReleaseNotes(version: string): Promise<string | null> {
+  const tag = version.startsWith("v") ? version : `v${version}`;
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/tags/${tag}`;
+
+  return new Promise((resolve) => {
+    const headers = githubHeaders();
+    const req = https.get(url, { headers, timeout: API_TIMEOUT_MS }, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        resolve(null);
+        return;
+      }
+      let data = "";
+      res.on("data", (chunk: Buffer) => { data += chunk.toString(); });
+      res.on("end", () => {
+        try {
+          const json = JSON.parse(data);
+          resolve(json.body || null);
+        } catch {
+          resolve(null);
+        }
+      });
+      res.on("error", () => resolve(null));
+    });
+    req.on("error", () => resolve(null));
+    req.on("timeout", () => { req.destroy(); resolve(null); });
+  });
+}
+
 // ─── Internal ─────────────────────────────────────────────────────────────────
 
 function getInstalledVersion(): string | undefined {
