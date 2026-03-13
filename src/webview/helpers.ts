@@ -266,8 +266,7 @@ export function renderMarkdown(text: string): string {
     // Sanitize HTML output — strips script tags, event handlers, dangerous attributes
     html = DOMPurify.sanitize(html, {
       ADD_TAGS: ["details", "summary"],
-      ADD_ATTR: ["class", "data-code-id", "data-path", "title"],
-      ALLOW_DATA_ATTR: true,
+      ADD_ATTR: ["class", "data-code-id", "data-path", "data-idx", "data-value", "data-action", "title"],
     });
 
     // Wrap bare <table> elements in a scrollable container
@@ -298,11 +297,31 @@ export function isLikelyFilePath(s: string): boolean {
 }
 
 // ============================================================
+// Time formatting
+// ============================================================
+
+export function formatRelativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  if (diff < 5000) return "just now";
+  if (diff < 60_000) return `${Math.floor(diff / 1000)}s ago`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
+// ============================================================
 // DOM helpers
 // ============================================================
 
-export function scrollToBottom(container: HTMLElement): void {
+/**
+ * Scroll to bottom of a container.
+ * When `force` is false (default), only scrolls if already near the bottom.
+ * This prevents hijacking the viewport when the user has scrolled up to review.
+ */
+export function scrollToBottom(container: HTMLElement, force = false): void {
   requestAnimationFrame(() => {
-    container.scrollTop = container.scrollHeight;
+    if (force || container.scrollHeight - container.scrollTop - container.clientHeight < 150) {
+      container.scrollTop = container.scrollHeight;
+    }
   });
 }

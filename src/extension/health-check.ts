@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
@@ -88,11 +88,12 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
   const gsdCommand = processWrapper || "gsd";
 
   try {
-    const whichCmd = process.platform === "win32" ? `where ${gsdCommand}` : `which ${gsdCommand}`;
-    const gsdPath = execSync(whichCmd, {
+    const whichBin = process.platform === "win32" ? "where" : "which";
+    const gsdPath = execFileSync(whichBin, [gsdCommand], {
       encoding: "utf8",
       timeout: 5000,
       stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
     }).trim().split(/\r?\n/)[0];
 
     result.gsdFound = true;
