@@ -512,7 +512,29 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             try {
               const result = await client.getCommands() as RpcCommandsResult;
               this.postToWebview(webview, { type: "commands", commands: result?.commands || [] });
-            } catch {}
+            } catch (err: any) {
+              this.output.appendLine(`[${sessionId}] get_commands error: ${err.message}`);
+              // Send empty commands so the webview at least marks commandsLoaded
+              // and doesn't keep retrying on every keystroke
+              this.postToWebview(webview, { type: "commands", commands: [] });
+            }
+          } else {
+            // Process not running yet — queue a retry after a short delay.
+            // This handles the race where the webview requests commands before
+            // the GSD process has fully started.
+            this.output.appendLine(`[${sessionId}] get_commands: client not running, will retry in 2s`);
+            setTimeout(async () => {
+              const retryClient = this.rpcClients.get(sessionId);
+              if (retryClient?.isRunning) {
+                try {
+                  const result = await retryClient.getCommands() as RpcCommandsResult;
+                  this.postToWebview(webview, { type: "commands", commands: result?.commands || [] });
+                } catch (err: any) {
+                  this.output.appendLine(`[${sessionId}] get_commands retry error: ${err.message}`);
+                  this.postToWebview(webview, { type: "commands", commands: [] });
+                }
+              }
+            }, 2000);
           }
           break;
         }
@@ -806,14 +828,19 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
         case "open_file": {
           try {
-            // Security: only open files within the workspace
-            const filePath = path.resolve(msg.path);
+            // Security: only open files within the workspace (resolves symlinks)
             const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-            if (workspaceRoot && !filePath.startsWith(path.resolve(workspaceRoot) + path.sep) && filePath !== path.resolve(workspaceRoot)) {
-              this.output.appendLine(`[${sessionId}] Blocked open_file outside workspace: ${filePath}`);
+            if (!workspaceRoot) {
+              this.output.appendLine(`[${sessionId}] Blocked open_file: no workspace open`);
               break;
             }
-            const doc = await vscode.workspace.openTextDocument(filePath);
+            const realFile = fs.realpathSync(path.resolve(msg.path));
+            const realRoot = fs.realpathSync(path.resolve(workspaceRoot));
+            if (!realFile.startsWith(realRoot + path.sep) && realFile !== realRoot) {
+              this.output.appendLine(`[${sessionId}] Blocked open_file outside workspace: ${realFile}`);
+              break;
+            }
+            const doc = await vscode.workspace.openTextDocument(realFile);
             await vscode.window.showTextDocument(doc);
           } catch (err: any) {
             vscode.window.showErrorMessage(`Failed to open file: ${err.message}`);
@@ -834,19 +861,22 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
         case "open_diff": {
           try {
-            // Security: only open files within the workspace
+            // Security: only open files within the workspace (resolves symlinks)
             const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-            const leftResolved = path.resolve(msg.leftPath);
-            const rightResolved = path.resolve(msg.rightPath);
-            if (workspaceRoot) {
-              const root = path.resolve(workspaceRoot) + path.sep;
-              if (!leftResolved.startsWith(root) || !rightResolved.startsWith(root)) {
-                this.output.appendLine(`[${sessionId}] Blocked open_diff outside workspace`);
-                break;
-              }
+            if (!workspaceRoot) {
+              this.output.appendLine(`[${sessionId}] Blocked open_diff: no workspace open`);
+              break;
             }
-            const left = vscode.Uri.file(leftResolved);
-            const right = vscode.Uri.file(rightResolved);
+            const realRoot = fs.realpathSync(path.resolve(workspaceRoot));
+            const realLeft = fs.realpathSync(path.resolve(msg.leftPath));
+            const realRight = fs.realpathSync(path.resolve(msg.rightPath));
+            const rootPrefix = realRoot + path.sep;
+            if (!realLeft.startsWith(rootPrefix) || !realRight.startsWith(rootPrefix)) {
+              this.output.appendLine(`[${sessionId}] Blocked open_diff outside workspace`);
+              break;
+            }
+            const left = vscode.Uri.file(realLeft);
+            const right = vscode.Uri.file(realRight);
             await vscode.commands.executeCommand("vscode.diff", left, right);
           } catch (err: any) {
             vscode.window.showErrorMessage(`Failed to open diff: ${err.message}`);

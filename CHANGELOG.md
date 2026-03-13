@@ -56,7 +56,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Smooth entrance animation on all overlay panels (model picker, thinking picker, history)
 - Tool completion border-fade transition (M005/S02)
 
-### Changed
+### Changed (M005)
 - Thinking badge now opens a dropdown instead of cycling through levels (M005/S01)
 - Streaming cursor uses smooth pulse animation instead of hard blink (M005/S02)
 - Footer stats use labeled tokens (in/out/cache) with dot separators (M005/S02)

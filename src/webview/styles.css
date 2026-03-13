@@ -2406,10 +2406,34 @@ html, body {
   color: var(--vscode-errorForeground, #f48771);
 }
 
+.gsd-ui-resolved.expired .gsd-ui-resolved-icon {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
 .gsd-entry-ui-request.resolved .gsd-ui-request {
   border-style: dashed;
   opacity: 0.45;
   padding: 6px 10px;
+}
+
+/* Timeout countdown badge */
+.gsd-ui-countdown {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 6px;
+  font-family: var(--vscode-editor-fontFamily, monospace);
+  opacity: 0.7;
+}
+
+.gsd-ui-countdown.urgent {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+  opacity: 1;
+  animation: gsd-countdown-pulse 1s ease-in-out infinite;
+}
+
+@keyframes gsd-countdown-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* ============================================================

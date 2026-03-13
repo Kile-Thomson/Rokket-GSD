@@ -1066,8 +1066,9 @@ window.addEventListener("message", (event) => {
           sessionHistory.setCurrentSessionId(data.sessionId);
         }
         if (state.processStatus !== "crashed") state.processStatus = "running";
-        // Eagerly fetch available models if not loaded yet
-        if (!state.modelsLoaded) {
+        // Eagerly fetch available models if not loaded yet (debounce)
+        if (!state.modelsLoaded && !state.modelsRequested) {
+          state.modelsRequested = true;
           vscode.postMessage({ type: "get_available_models" });
         }
         updateAllUI();
@@ -1090,7 +1091,18 @@ window.addEventListener("message", (event) => {
 
     case "process_status": {
       const data = msg;
+      const prevStatus = state.processStatus;
       state.processStatus = data.status as ProcessStatus;
+
+      // When the process becomes "running" (fresh start or after crash/restart),
+      // reset command cache so the slash menu re-fetches from the new process.
+      if (data.status === "running" && prevStatus !== "running") {
+        state.commandsLoaded = false;
+        state.commands = [];
+        // Eagerly fetch commands so they're ready when the user types /
+        vscode.postMessage({ type: "get_commands" });
+      }
+
       updateOverlayIndicators();
       updateWelcomeScreen();
       break;
@@ -1102,6 +1114,12 @@ window.addEventListener("message", (event) => {
     }
 
     case "agent_start": {
+      // Expire any pending UI dialogs from a previous turn — the backend's
+      // abort signal has already auto-resolved them, so user interaction
+      // would go nowhere.
+      if (uiDialogs.hasPending()) {
+        uiDialogs.expireAllPending("New turn started");
+      }
       state.isStreaming = true;
       state.currentTurn = {
         id: nextId(),
@@ -1124,6 +1142,12 @@ window.addEventListener("message", (event) => {
         clearTimeout(timer);
       }
       toolWatchdogTimers.clear();
+      // Expire any pending UI dialogs — the backend's abort signal fires
+      // on agent_end, auto-resolving all pending dialogs to defaults.
+      // Mark them so the user sees they're no longer interactive.
+      if (uiDialogs.hasPending()) {
+        uiDialogs.expireAllPending("Agent finished");
+      }
       renderer.finalizeCurrentTurn();
       updateInputUI();
       updateOverlayIndicators();
@@ -1343,6 +1367,7 @@ window.addEventListener("message", (event) => {
         contextWindow: m.contextWindow,
       }));
       state.modelsLoaded = true;
+      state.modelsRequested = false;
       if (modelPicker.isVisible()) {
         modelPicker.render();
       }
@@ -1388,6 +1413,13 @@ window.addEventListener("message", (event) => {
         clearTimeout(timer);
       }
       toolWatchdogTimers.clear();
+      // Expire any pending dialogs — the process is gone
+      if (uiDialogs.hasPending()) {
+        uiDialogs.expireAllPending("Process exited");
+      }
+      // Reset command cache — the process that provided them is dead
+      state.commandsLoaded = false;
+      state.commands = [];
       renderer.resetStreamingState();
       updateInputUI();
       updateOverlayIndicators();
@@ -1477,8 +1509,8 @@ window.addEventListener("message", (event) => {
 
   } catch (err: any) {
     // Global error boundary — surface crashes visibly instead of silent failure
-    const errorId = `ERR-${Date.now().toString(36)}`;
-    console.error(`[GSD ${errorId}] Message handler error for "${msg.type}":`, err);
+    const errorId = `GSD-ERR-${Date.now().toString(36).toUpperCase()}`;
+    console.error(`[${errorId}] Message handler error for "${msg.type}":`, err);
     addSystemEntry(
       `Internal error processing "${msg.type}" (${errorId}). Check browser console for details. Please report this error code.`,
       "error"

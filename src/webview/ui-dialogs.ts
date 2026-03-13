@@ -12,6 +12,34 @@ let messagesContainer: HTMLElement;
 let vscode: { postMessage(msg: unknown): void };
 
 // ============================================================
+// Pending dialog tracking
+// ============================================================
+
+/** Map of request ID → wrapper element for dialogs still awaiting user input */
+const pendingDialogs = new Map<string, HTMLElement>();
+
+/**
+ * Expire all pending dialogs — the backend has already auto-resolved them
+ * (via abort signal or timeout). Mark them visually so the user knows
+ * they can no longer interact.
+ */
+export function expireAllPending(reason: string = "Agent moved on"): void {
+  for (const [id, wrapper] of pendingDialogs) {
+    if (!wrapper.classList.contains("resolved")) {
+      disableRequest(wrapper, `Expired: ${reason}`);
+    }
+  }
+  pendingDialogs.clear();
+}
+
+/**
+ * Check if there are any pending (unresolved) dialogs.
+ */
+export function hasPending(): boolean {
+  return pendingDialogs.size > 0;
+}
+
+// ============================================================
 // Public API
 // ============================================================
 
@@ -85,6 +113,15 @@ export function handleRequest(data: any): void {
       vscode.postMessage({ type: "extension_ui_response", id, cancelled: true });
       disableRequest(wrapper, "Cancelled");
     });
+  }
+
+  // Track this dialog as pending
+  pendingDialogs.set(id, wrapper);
+
+  // If the backend specified a timeout, show a countdown and auto-expire
+  const timeout = data.timeout as number | undefined;
+  if (timeout && timeout > 0) {
+    startTimeoutCountdown(wrapper, id, timeout);
   }
 
   messagesContainer.appendChild(wrapper);
@@ -204,14 +241,68 @@ function buildMultiSelect(
 
 function disableRequest(wrapper: HTMLElement, summary: string): void {
   wrapper.classList.add("resolved");
+
+  // Remove from pending tracking
+  const uiId = wrapper.dataset.uiId;
+  if (uiId) pendingDialogs.delete(uiId);
+
+  // Clear any active timeout countdown
+  const timerId = (wrapper as any).__timeoutTimer;
+  if (timerId) {
+    clearInterval(timerId);
+    (wrapper as any).__timeoutTimer = null;
+  }
+
   const req = wrapper.querySelector(".gsd-ui-request");
   if (req) {
     const icon = summary.startsWith("Cancelled") ? "⊘" :
+                 summary.startsWith("Expired") ? "⏱" :
                  summary.startsWith("Confirmed: No") ? "✗" : "✓";
     const cssClass = summary.startsWith("Cancelled") ? "cancelled" :
+                     summary.startsWith("Expired") ? "expired" :
                      summary.startsWith("Confirmed: No") ? "rejected" : "accepted";
     req.innerHTML = `<div class="gsd-ui-resolved ${cssClass}"><span class="gsd-ui-resolved-icon">${icon}</span> ${escapeHtml(summary)}</div>`;
   }
+}
+
+/**
+ * Show a countdown timer on a dialog that has a backend timeout.
+ * This gives the user visual feedback that they need to act soon.
+ */
+function startTimeoutCountdown(wrapper: HTMLElement, id: string, timeoutMs: number): void {
+  const deadline = Date.now() + timeoutMs;
+
+  // Add a countdown element to the request
+  const req = wrapper.querySelector(".gsd-ui-request");
+  if (!req) return;
+
+  const countdownEl = document.createElement("div");
+  countdownEl.className = "gsd-ui-countdown";
+  req.prepend(countdownEl);
+
+  const updateCountdown = () => {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      clearInterval(timer);
+      (wrapper as any).__timeoutTimer = null;
+      // Don't auto-send a response — the backend already auto-resolved.
+      // Just mark it visually as expired.
+      if (!wrapper.classList.contains("resolved")) {
+        disableRequest(wrapper, "Expired: Timed out");
+      }
+      return;
+    }
+    const secs = Math.ceil(remaining / 1000);
+    countdownEl.textContent = `⏱ ${secs}s`;
+    // Add urgency class when under 10s
+    if (secs <= 10) {
+      countdownEl.classList.add("urgent");
+    }
+  };
+
+  updateCountdown();
+  const timer = setInterval(updateCountdown, 1000);
+  (wrapper as any).__timeoutTimer = timer;
 }
 
 // ============================================================

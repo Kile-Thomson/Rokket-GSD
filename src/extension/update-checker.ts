@@ -281,6 +281,19 @@ interface ReleaseInfo {
   assets: Array<{ name: string; url: string }>;
 }
 
+/** Trusted GitHub hostnames for auth header forwarding */
+const GITHUB_HOSTS = new Set(["github.com", "api.github.com"]);
+
+/** Check if a URL is on a trusted GitHub host (exact match, not substring) */
+function isGitHubHost(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return GITHUB_HOSTS.has(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** Timeout for API calls: 30 seconds */
 const API_TIMEOUT_MS = 30_000;
 
@@ -300,8 +313,8 @@ function fetchLatestRelease(): Promise<ReleaseInfo | null> {
           const location = res.headers.location;
           res.resume();
           if (location) {
-            // Preserve auth for same-host redirects
-            const redirectHeaders = location.includes("github.com")
+            // Preserve auth only for exact GitHub host matches
+            const redirectHeaders = isGitHubHost(location)
               ? headers
               : { "User-Agent": "Rokket-GSD-VSCode" };
             const rReq = https
@@ -382,6 +395,20 @@ function downloadFile(url: string, dest: string): Promise<void> {
 
     file.on("error", (err) => cleanup(err));
 
+    // Resolve only after the file stream is fully closed
+    file.once("finish", () => {
+      if (settled) return;
+      settled = true;
+      file.close((closeErr) => {
+        if (closeErr) {
+          try { fs.unlinkSync(dest); } catch {}
+          reject(closeErr);
+          return;
+        }
+        resolve();
+      });
+    });
+
     const request = (downloadUrl: string, redirectCount: number = 0) => {
       if (redirectCount > MAX_REDIRECTS) {
         cleanup(new Error("[GSD-ERR-010] Download failed: too many redirects"));
@@ -393,7 +420,7 @@ function downloadFile(url: string, dest: string): Promise<void> {
       };
 
       // Auth for GitHub-hosted URLs only — CDN redirects don't need it
-      if (downloadUrl.includes("github.com") || downloadUrl.includes("api.github.com")) {
+      if (isGitHubHost(downloadUrl)) {
         const token = getGitHubToken();
         if (token) headers["Authorization"] = `token ${token}`;
         headers["Accept"] = "application/octet-stream";
@@ -414,12 +441,6 @@ function downloadFile(url: string, dest: string): Promise<void> {
 
           res.on("error", (err) => cleanup(err));
           res.pipe(file);
-          file.on("finish", () => {
-            if (settled) return;
-            settled = true;
-            file.close();
-            resolve();
-          });
         });
 
       req.on("error", (err) => cleanup(err));
