@@ -7,6 +7,7 @@ import type {
   SessionStats,
   CommandInfo,
   ProcessStatus,
+  ProcessHealthStatus,
 } from "../shared/types";
 
 // ============================================================
@@ -83,6 +84,8 @@ export interface AppState {
   modelsLoaded: boolean;
   // Track the current in-progress assistant turn
   currentTurn: AssistantTurn | null;
+  // Process health state
+  processHealth: ProcessHealthStatus;
 }
 
 /** Tool categorization for icons & color accents */
@@ -110,6 +113,7 @@ export const state: AppState = {
   availableModels: [],
   modelsLoaded: false,
   currentTurn: null,
+  processHealth: "responsive",
 };
 
 // ============================================================
