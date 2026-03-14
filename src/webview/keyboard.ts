@@ -278,7 +278,22 @@ function setupButtonHandlers(): void {
   });
 
   exportBtn.addEventListener("click", () => {
-    vscode.postMessage({ type: "export_html" });
+    // Grab rendered conversation HTML and styles, send to extension for saving
+    const contentHtml = messagesContainer.innerHTML;
+    const styles = document.querySelector("style")?.textContent || "";
+    const linkStyles = Array.from(document.querySelectorAll("link[rel='stylesheet']"))
+      .map(l => {
+        try {
+          const sheet = (l as HTMLLinkElement).sheet;
+          if (!sheet) return "";
+          return Array.from(sheet.cssRules).map(r => r.cssText).join("\n");
+        } catch { return ""; }
+      }).join("\n");
+    vscode.postMessage({
+      type: "export_html",
+      html: contentHtml,
+      css: styles + "\n" + linkStyles,
+    });
     toasts.show("Exporting conversation…");
   });
 

@@ -784,18 +784,41 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "export_html": {
-          const client = this.rpcClients.get(sessionId);
-          if (client?.isRunning) {
-            try {
-              const result = await client.exportHtml() as RpcExportResult;
-              if (result?.path) {
-                const doc = await vscode.workspace.openTextDocument(result.path);
-                await vscode.window.showTextDocument(doc, { preview: true });
-                vscode.window.showInformationMessage(`Conversation exported to ${result.path}`);
-              }
-            } catch (err: any) {
-              this.postToWebview(webview, { type: "error", message: `Export failed: ${err.message}` });
-            }
+          try {
+            const contentHtml = (msg as any).html as string || "<p>No conversation content</p>";
+            const css = (msg as any).css as string || "";
+            const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+            const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rokket GSD — Conversation Export (${timestamp})</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { background: #1e1e1e; color: #d4d4d4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; max-width: 900px; margin: 0 auto; }
+    ${css}
+    .gsd-welcome, .gsd-scroll-fab, .gsd-slash-menu, .gsd-model-picker, .gsd-thinking-picker, .gsd-session-history { display: none !important; }
+  </style>
+</head>
+<body>
+  <h1 style="border-bottom: 1px solid #333; padding-bottom: 12px; margin-bottom: 20px;">🚀 Rokket GSD — Conversation Export</h1>
+  <div class="gsd-messages">${contentHtml}</div>
+  <footer style="margin-top: 40px; padding-top: 12px; border-top: 1px solid #333; color: #666; font-size: 12px;">
+    Exported ${new Date().toLocaleString()} — Rokket GSD
+  </footer>
+</body>
+</html>`;
+            const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+            const fs = await import("fs");
+            const path = await import("path");
+            const exportPath = path.join(cwd, `gsd-export-${timestamp}.html`);
+            fs.writeFileSync(exportPath, fullHtml, "utf-8");
+            const doc = await vscode.workspace.openTextDocument(exportPath);
+            await vscode.window.showTextDocument(doc, { preview: true });
+            vscode.window.showInformationMessage(`Conversation exported to ${exportPath}`);
+          } catch (err: any) {
+            this.postToWebview(webview, { type: "error", message: `Export failed: ${err.message}` });
           }
           break;
         }
