@@ -24,7 +24,7 @@ const pendingDialogs = new Map<string, HTMLElement>();
  * they can no longer interact.
  */
 export function expireAllPending(reason: string = "Agent moved on"): void {
-  for (const [id, wrapper] of pendingDialogs) {
+  for (const [_id, wrapper] of pendingDialogs) {
     if (!wrapper.classList.contains("resolved")) {
       // Auto-resolve linked duplicates with cancelled response
       const linkedIds = (wrapper as any).__linkedIds as string[] | undefined;
