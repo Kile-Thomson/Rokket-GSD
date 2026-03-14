@@ -47,6 +47,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private slashWatchdogs: Map<string, ReturnType<typeof setTimeout>> = new Map();
   /** Tracks per-session timestamp of last RPC event received — used by slash command watchdog */
   private lastEventTime: Map<string, number> = new Map();
+  /** Per-session launch promises — prevents concurrent launchGsd calls from racing */
+  private launchPromises: Map<string, Promise<void>> = new Map();
   /** Streaming activity monitor — detects stalled agent turns and auto-recovers */
   private activityTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
   private isSessionStreaming: Map<string, boolean> = new Map();
@@ -319,18 +321,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         watchdog.retried = true;
 
         try {
-          await client.prompt(message, images);
-          // Re-check nonce after await — a new prompt may have started during the retry
-          const current = this.promptWatchdogs.get(sessionId);
-          if (!current || current.nonce !== nonce) return;
-
-          // Restart watchdog for the retry
+          // Start the final-chance watchdog BEFORE awaiting — if prompt()
+          // hangs, we still need the timer to fire.
           watchdog.timer = setTimeout(() => {
-            // Verify nonce is still current before acting
             const finalCheck = this.promptWatchdogs.get(sessionId);
             if (!finalCheck || finalCheck.nonce !== nonce) return;
 
-            // Second timeout — give up
             this.output.appendLine(`[${sessionId}] Prompt watchdog: retry also got no response — notifying user`);
             this.clearPromptWatchdog(sessionId);
             this.postToWebview(webview, {
@@ -338,6 +334,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               message: "GSD accepted the command but didn't start processing. Try sending it again.",
             } as ExtensionToWebviewMessage);
           }, WATCHDOG_TIMEOUT_MS);
+
+          await client.prompt(message, images);
+          // Re-check nonce after await — a new prompt may have started during the retry
+          const current = this.promptWatchdogs.get(sessionId);
+          if (!current || current.nonce !== nonce) return;
         } catch (err: any) {
           this.output.appendLine(`[${sessionId}] Prompt watchdog: retry failed — ${err.message}`);
           // Only clear if this watchdog is still current
@@ -395,9 +396,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       // Retry once
       this.output.appendLine(`[${sessionId}] Slash watchdog: no events after ${TIMEOUT_MS / 1000}s for "${message}" — retrying`);
       try {
-        await client.prompt(message, images);
         const retrySentAt = Date.now();
-        // Set a second watchdog for the retry
+        // Start the final-chance watchdog BEFORE awaiting — if prompt()
+        // hangs, we still need the timer to fire.
         const retryTimer = setTimeout(() => {
           this.slashWatchdogs.delete(sessionId);
           const lastRetryEvent = this.lastEventTime.get(sessionId) || 0;
@@ -410,6 +411,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           } as ExtensionToWebviewMessage);
         }, TIMEOUT_MS);
         this.slashWatchdogs.set(sessionId, retryTimer);
+
+        await client.prompt(message, images);
       } catch (err: any) {
         this.postToWebview(webview, { type: "error", message: err.message });
       }
@@ -787,15 +790,14 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                 data: img.data,
                 mimeType: img.mimeType,
               }));
-              await c.prompt(msg.message, images);
-              // Slash commands don't emit agent_start (handled by pi extensions),
-              // so the regular watchdog would false-alarm. Instead, start a
-              // slash-command watchdog that just checks if ANY event arrived.
+              // Start watchdog BEFORE awaiting prompt — if pi never acks the
+              // RPC the await hangs forever and the watchdog would never start.
               if (msg.message.startsWith("/")) {
                 this.startSlashCommandWatchdog(webview, sessionId, msg.message, images);
               } else {
                 this.startPromptWatchdog(webview, sessionId, msg.message, images);
               }
+              await c.prompt(msg.message, images);
             } catch (err: any) {
               if (err.message?.includes("streaming")) {
                 const isSlash = msg.message.trimStart().startsWith("/");
@@ -806,8 +808,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                     mimeType: img.mimeType,
                   }));
                   if (isSlash) {
-                    await this.abortAndPrompt(c, webview, msg.message, msg.images);
                     this.startSlashCommandWatchdog(webview, sessionId, msg.message, imgs);
+                    await this.abortAndPrompt(c, webview, msg.message, msg.images);
                   } else {
                     await c.steer(msg.message, imgs);
                   }
@@ -1501,7 +1503,21 @@ ${exportOverrides}
 
   // --- GSD Process Management ---
 
-  private async launchGsd(webview: vscode.Webview, sessionId: string, cwd?: string): Promise<void> {
+  private launchGsd(webview: vscode.Webview, sessionId: string, cwd?: string): Promise<void> {
+    // Deduplicate concurrent launches for the same session — if a launch is
+    // already in progress (e.g. webview sent launch_gsd and then an immediate
+    // prompt), piggyback on the existing promise instead of spawning a second process.
+    const existing = this.launchPromises.get(sessionId);
+    if (existing) return existing;
+
+    const promise = this._doLaunchGsd(webview, sessionId, cwd).finally(() => {
+      this.launchPromises.delete(sessionId);
+    });
+    this.launchPromises.set(sessionId, promise);
+    return promise;
+  }
+
+  private async _doLaunchGsd(webview: vscode.Webview, sessionId: string, cwd?: string): Promise<void> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     const workingDir = cwd || workspaceFolders?.[0]?.uri.fsPath || process.cwd();
 
