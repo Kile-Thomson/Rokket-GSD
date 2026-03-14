@@ -125,7 +125,11 @@ function findNodeBinary(): string {
         return firstMatch;
       }
     }
-  } catch { /* ignored */ }
+  } catch (err: unknown) {
+    // Resolution failed — log but continue to fallback
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[rpc-client] findNodeBinary: "where node" failed: ${msg}`);
+  }
 
   // Fallback: assume node is on PATH
   return "node";
@@ -146,7 +150,10 @@ function resolveGsdWindows(): { command: string; args: string[]; useShell: boole
         cmdPath = firstMatch;
       }
     }
-  } catch { /* ignored */ }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[rpc-client] resolveGsdWindows: "where gsd.cmd" failed: ${msg}`);
+  }
 
   if (!cmdPath) {
     // Try without .cmd extension
@@ -165,7 +172,10 @@ function resolveGsdWindows(): { command: string; args: string[]; useShell: boole
           }
         }
       }
-    } catch { /* ignored */ }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[rpc-client] resolveGsdWindows: "where gsd" failed: ${msg}`);
+    }
   }
 
   if (cmdPath) {
@@ -204,7 +214,10 @@ function parseWindowsCmdWrapper(cmdPath: string): string | null {
         return fullPath;
       }
     }
-  } catch { /* ignored */ }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[rpc-client] parseWindowsCmdWrapper: failed to parse ${cmdPath}: ${msg}`);
+  }
   return null;
 }
 
@@ -220,7 +233,10 @@ function resolveGsdUnix(): { command: string; args: string[]; useShell: boolean 
         return { command: firstMatch, args: [], useShell: false };
       }
     }
-  } catch { /* ignored */ }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[rpc-client] resolveGsdUnix: "which gsd" failed: ${msg}`);
+  }
 
   // Fallback: hope it's on PATH
   return { command: "gsd", args: [], useShell: false };
@@ -310,9 +326,14 @@ export class GsdRpcClient extends EventEmitter {
     this._isRunning = true;
     this.buffer = "";
 
-    // Read stdout line by line (JSONL)
+    // Read stdout line by line (JSONL) — cap buffer at 10MB to prevent OOM
+    const MAX_BUFFER_SIZE = 10 * 1024 * 1024;
     this.process.stdout?.on("data", (chunk: Buffer) => {
       this.buffer += chunk.toString("utf8");
+      if (this.buffer.length > MAX_BUFFER_SIZE) {
+        this.emit("log", `[rpc-client] Buffer exceeded ${MAX_BUFFER_SIZE / 1024 / 1024}MB — resetting (possible runaway output)`);
+        this.buffer = "";
+      }
       this.processBuffer();
     });
 
@@ -403,7 +424,9 @@ export class GsdRpcClient extends EventEmitter {
       // Step 1: Try graceful abort via RPC
       try {
         this.send({ type: "abort" });
-      } catch { /* ignored */ }
+      } catch {
+        // Process stdin may already be closed — proceed to SIGTERM
+      }
 
       // Step 2: SIGTERM after 1s if still alive
       setTimeout(() => {
@@ -430,7 +453,10 @@ export class GsdRpcClient extends EventEmitter {
           stdio: "ignore",
           windowsHide: true,
         });
-      } catch { /* ignored */ }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.emit("log", `[rpc-client] forceKill: taskkill failed for PID ${pid}: ${msg}`);
+      }
     } else {
       // Unix: kill the process group (negative PID)
       try {
@@ -439,14 +465,17 @@ export class GsdRpcClient extends EventEmitter {
         // Fallback: kill just the process
         try {
           process.kill(pid, "SIGKILL");
-        } catch { /* ignored */ }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.emit("log", `[rpc-client] forceKill: kill failed for PID ${pid}: ${msg}`);
+        }
       }
     }
 
     // Also try via the ChildProcess handle
     try {
       this.process?.kill("SIGKILL");
-    } catch { /* ignored */ }
+    } catch { /* process already dead — expected */ }
   }
 
   /**
