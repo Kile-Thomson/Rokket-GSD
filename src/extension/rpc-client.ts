@@ -719,6 +719,7 @@ export class GsdRpcClient extends EventEmitter {
         if (msg.success) {
           pending.resolve(msg.data);
         } else {
+          this.emit("log", `[rpc-client] RPC error response: ${msg.command} — ${msg.error}\n`);
           pending.reject(new Error(msg.error as string || "Unknown RPC error"));
         }
       }

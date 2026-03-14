@@ -798,7 +798,29 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               } else {
                 this.startPromptWatchdog(webview, sessionId, msg.message, images);
               }
+              this.output.appendLine(`[${sessionId}] Sending prompt to RPC: "${msg.message.slice(0, 80)}"`);
+              const promptSentAt = Date.now();
               await c.prompt(msg.message, images);
+              this.output.appendLine(`[${sessionId}] Prompt RPC resolved for: "${msg.message.slice(0, 80)}"`);
+
+              // Workaround for gsd-pi issue: ctx.ui.custom() returns undefined
+              // in RPC mode, causing /gsd and /gsd auto to silently do nothing.
+              // Detect this by checking if any events arrived after the prompt
+              // resolved. When the upstream fix lands, events WILL flow and this
+              // timer will be cleared by the slash watchdog before it fires.
+              if (/^\/gsd(\s|$)/.test(msg.message)) {
+                const GSD_SILENT_TIMEOUT = 5000;
+                setTimeout(() => {
+                  const lastEvent = this.lastEventTime.get(sessionId) || 0;
+                  if (lastEvent <= promptSentAt) {
+                    this.output.appendLine(`[${sessionId}] GSD command produced no events — likely ctx.ui.custom() RPC mode issue`);
+                    this.postToWebview(webview, {
+                      type: "error",
+                      message: `The /gsd command completed but couldn't show its interactive menu (known limitation in the current GSD version). To work around this, send a plain text message describing what you want to do — e.g. "Start a new milestone for [description]" or "Continue working on the current task".`,
+                    } as ExtensionToWebviewMessage);
+                  }
+                }, GSD_SILENT_TIMEOUT);
+              }
             } catch (err: any) {
               if (err.message?.includes("streaming")) {
                 const isSlash = msg.message.trimStart().startsWith("/");
