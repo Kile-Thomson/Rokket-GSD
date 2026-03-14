@@ -301,6 +301,43 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /**
+   * Abort the current stream and re-send a slash command as a prompt.
+   * Uses bounded retry to wait for the abort to settle before prompting.
+   */
+  private async abortAndPrompt(
+    client: GsdRpcClient,
+    webview: vscode.Webview,
+    message: string,
+    images?: Array<{ data: string; mimeType: string }>,
+  ): Promise<void> {
+    try { await client.abort(); } catch { /* may not be streaming */ }
+
+    const imgs = images?.map((img) => ({
+      type: "image" as const,
+      data: img.data,
+      mimeType: img.mimeType,
+    }));
+
+    // Bounded retry — wait for stream teardown before sending the command
+    const MAX_ATTEMPTS = 5;
+    const RETRY_DELAY_MS = 150;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      try {
+        await client.prompt(message, imgs);
+        return;
+      } catch (err: any) {
+        if (err.message?.includes("streaming") && attempt < MAX_ATTEMPTS - 1) {
+          this.output.appendLine(`[abortAndPrompt] Retry ${attempt + 1}/${MAX_ATTEMPTS - 1}: stream not yet settled`);
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+          continue;
+        }
+        this.postToWebview(webview, { type: "error", message: err.message });
+        return;
+      }
+    }
+  }
+
   // --- What's New on first launch after update ---
 
   private static readonly LAST_VERSION_KEY = "gsd.lastSeenVersion";
@@ -517,15 +554,25 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                 mimeType: img.mimeType,
               }));
               await c.prompt(msg.message, images);
-              this.startPromptWatchdog(webview, sessionId, msg.message, images);
+              // Don't start watchdog for slash commands — they're handled by pi extensions
+              // internally and don't emit agent_start events, causing false watchdog alarms
+              if (!msg.message.startsWith("/")) {
+                this.startPromptWatchdog(webview, sessionId, msg.message, images);
+              }
             } catch (err: any) {
               if (err.message?.includes("streaming")) {
+                const isSlash = msg.message.trimStart().startsWith("/");
                 try {
-                  await c.steer(msg.message, msg.images?.map((img) => ({
+                  const imgs = msg.images?.map((img) => ({
                     type: "image" as const,
                     data: img.data,
                     mimeType: img.mimeType,
-                  })));
+                  }));
+                  if (isSlash) {
+                    await this.abortAndPrompt(c, webview, msg.message, msg.images);
+                  } else {
+                    await c.steer(msg.message, imgs);
+                  }
                 } catch (steerErr: any) {
                   this.postToWebview(webview, { type: "error", message: steerErr.message });
                 }
@@ -551,11 +598,17 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           const client = this.rpcClients.get(sessionId);
           if (client) {
             try {
-              await client.steer(msg.message, msg.images?.map((img) => ({
-                type: "image" as const,
-                data: img.data,
-                mimeType: img.mimeType,
-              })));
+              // Extension commands (slash commands) can't be steered — they need to run
+              // as prompts. Abort the current stream first, then send as a prompt.
+              if (msg.message.startsWith("/")) {
+                await this.abortAndPrompt(client, webview, msg.message, msg.images);
+              } else {
+                await client.steer(msg.message, msg.images?.map((img) => ({
+                  type: "image" as const,
+                  data: img.data,
+                  mimeType: img.mimeType,
+                })));
+              }
             } catch (err: any) {
               this.postToWebview(webview, { type: "error", message: err.message });
             }

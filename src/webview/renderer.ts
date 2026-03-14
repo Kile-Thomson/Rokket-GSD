@@ -59,7 +59,13 @@ export function clearMessages(): void {
 
 export function renderNewEntry(entry: ChatEntry): void {
   const el = createEntryElement(entry);
-  messagesContainer.appendChild(el);
+  // If streaming, insert before the current streaming element so user messages
+  // don't appear below the in-progress assistant response
+  if (currentTurnElement && currentTurnElement.parentNode === messagesContainer) {
+    messagesContainer.insertBefore(el, currentTurnElement);
+  } else {
+    messagesContainer.appendChild(el);
+  }
 }
 
 // ============================================================
