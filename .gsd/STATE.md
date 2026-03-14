@@ -1,8 +1,8 @@
 # GSD State
 
 **Active Milestone:** M008 — Hardening, Performance & UX
-**Active Slice:** S02 — Tool call grouping
-**Phase:** executing
+**Active Slice:** S03 — Loading states & async UX
+**Phase:** planned
 **Requirements Status:** 0 active · 0 validated · 0 deferred · 0 out of scope
 
 ## Milestone Registry
@@ -22,4 +22,4 @@
 - None
 
 ## Next Action
-Execute T01: Implement groupConsecutiveTools and integrate into finalized render path.
+Execute T01: Verify and test loading states & copy-button gating.

@@ -46,7 +46,7 @@ This milestone is complete only when all are true:
   > After this: RPC buffer is capped, watchdog timer leak fixed, silent catches in critical paths replaced with visible errors, duplicate formatNotes extracted to shared helper
 - [x] **S02: Tool call grouping** `risk:high` `depends:[]`
   > After this: Sequential read-only tool calls (read_file, list_files, search) collapse into a single expandable summary row during rendering
-- [ ] **S03: Loading states & async UX** `risk:low` `depends:[]`
+- [x] **S03: Loading states & async UX** `risk:low` `depends:[]`
   > After this: Changelog fetch, dashboard load, and model picker show spinners while loading. Code blocks hide Copy button until streaming completes.
 - [ ] **S04: Accessibility — ARIA & keyboard nav** `risk:medium` `depends:[]`
   > After this: All header buttons, message actions, and overlays have ARIA labels. Tab/Enter navigation works throughout. Screen reader live regions announce new messages.
