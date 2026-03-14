@@ -790,9 +790,29 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
             const extVersion = vscode.extensions.getExtension("rokketek.rokket-gsd")?.packageJSON?.version || "?";
             const exportOverrides = `
+    /* VS Code CSS variable fallbacks for standalone browser */
+    :root {
+      color-scheme: dark;
+      --vscode-foreground: #cccccc;
+      --vscode-editor-background: #1e1e1e;
+      --vscode-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --vscode-editor-fontFamily: 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+      --vscode-input-background: #2d2d30;
+      --vscode-input-foreground: #cccccc;
+      --vscode-input-placeholderForeground: #6e6e6e;
+      --vscode-panel-border: #2d2d30;
+      --vscode-button-background: #0e639c;
+      --vscode-button-foreground: #ffffff;
+      --vscode-button-hoverBackground: #1177bb;
+      --vscode-badge-background: #4d4d4d;
+      --vscode-badge-foreground: #ffffff;
+      --vscode-descriptionForeground: #9e9e9e;
+      --vscode-scrollbarSlider-background: rgba(121,121,121,0.4);
+      --vscode-scrollbarSlider-hoverBackground: rgba(100,100,100,0.7);
+      --vscode-editor-selectionForeground: #ffffff;
+    }
     /* Export overrides */
-    :root { color-scheme: dark; }
-    body { background: #111114; max-width: 880px; margin: 0 auto; padding: 32px 24px; }
+    body { background: #1e1e1e; color: #cccccc; max-width: 880px; margin: 0 auto; padding: 32px 24px; }
     .gsd-welcome, .gsd-scroll-fab, .gsd-slash-menu, .gsd-model-picker, .gsd-thinking-picker,
     .gsd-session-history, .gsd-copy-response-btn, .gsd-fork-btn, .gsd-retry-btn,
     .gsd-turn-actions, .gsd-input-area, .gsd-header, .gsd-footer,
