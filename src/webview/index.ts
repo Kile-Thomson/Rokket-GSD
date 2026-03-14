@@ -83,9 +83,32 @@ function handleToolWatchdogTimeout(toolCallId: string): void {
 
   // Show a system message
   messageHandler.addSystemEntry(
-    `Tool "${tc.name}" timed out after ${TOOL_WATCHDOG_TIMEOUT_MS / 1000}s. You can abort the current operation or force-restart GSD.`,
+    `Tool "${tc.name}" timed out after ${TOOL_WATCHDOG_TIMEOUT_MS / 1000}s. Sending interrupt to recover...`,
     "warning"
   );
+
+  // Auto-interrupt to recover — the server-side tool may have finished but
+  // the result event was lost, or the agent is stuck. Interrupting will
+  // trigger agent_end and clear streaming state so the user can continue.
+  vscode.postMessage({ type: "interrupt" });
+
+  // Safety net: if interrupt doesn't clear streaming within 15s, force-clear
+  // client-side state so the user isn't permanently stuck.
+  setTimeout(() => {
+    if (state.isStreaming && state.currentTurn && !state.currentTurn.isComplete) {
+      state.isStreaming = false;
+      if (state.currentTurn) {
+        state.currentTurn.isComplete = true;
+        renderer.finalizeCurrentTurn();
+      }
+      messageHandler.addSystemEntry(
+        "Interrupt did not resolve — streaming state force-cleared. You can send a new message.",
+        "warning"
+      );
+      uiUpdates.updateInputUI();
+      uiUpdates.updateFooterUI();
+    }
+  }, 15_000);
 }
 
 // ============================================================
@@ -460,8 +483,10 @@ function sendMessage(): void {
     return;
   }
 
-  // If streaming — steer
-  if (state.isStreaming) {
+  // If streaming — steer (but slash commands always go as prompt so
+  // the extension host can abort-and-resend reliably)
+  const isSlashCommand = text.startsWith("/");
+  if (state.isStreaming && !isSlashCommand) {
     state.entries.push({
       id: nextId(),
       type: "user",
