@@ -187,7 +187,7 @@ export function collapseToolIntoGroup(
 
   group.dataset.toolGroup = String(count);
   group.dataset.toolCount = String(count);
-  group.innerHTML = `<summary class="gsd-tool-group-header">
+  group.innerHTML = `<summary class="gsd-tool-group-header" role="button" tabindex="0" aria-label="Toggle ${escapeHtmlBasic(label)}" aria-expanded="false">
       <span class="gsd-tool-group-icon"><span class="gsd-tool-icon success">✓</span></span>
       <span class="gsd-tool-group-label">${escapeHtmlBasic(label)}</span>
       <span class="gsd-tool-group-count">${count}</span>

@@ -256,6 +256,38 @@ const footerStats = document.getElementById("footerStats")!;
 const footerRight = document.getElementById("footerRight")!;
 
 // ============================================================
+// Header toolbar — roving tabindex (WAI-ARIA toolbar pattern)
+// ============================================================
+
+{
+  const toolbar = document.querySelector('.gsd-header-actions[role="toolbar"]');
+  if (toolbar) {
+    const buttons = () => Array.from(toolbar.querySelectorAll<HTMLElement>(".gsd-action-btn"));
+    // Initialize: first button tabindex=0, rest -1
+    const allBtns = buttons();
+    allBtns.forEach((btn, i) => btn.setAttribute("tabindex", i === 0 ? "0" : "-1"));
+
+    toolbar.addEventListener("keydown", (e: Event) => {
+      const ke = e as KeyboardEvent;
+      const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+      if (!keys.includes(ke.key)) return;
+      ke.preventDefault();
+      const btns = buttons();
+      const current = btns.indexOf(ke.target as HTMLElement);
+      if (current === -1) return;
+      let next = current;
+      if (ke.key === "ArrowRight") next = (current + 1) % btns.length;
+      else if (ke.key === "ArrowLeft") next = (current - 1 + btns.length) % btns.length;
+      else if (ke.key === "Home") next = 0;
+      else if (ke.key === "End") next = btns.length - 1;
+      btns[current].setAttribute("tabindex", "-1");
+      btns[next].setAttribute("tabindex", "0");
+      btns[next].focus();
+    });
+  }
+}
+
+// ============================================================
 // Auto-resize textarea
 // ============================================================
 
@@ -881,6 +913,8 @@ document.addEventListener("click", (e: Event) => {
     const block = toolHeader.closest(".gsd-tool-block") as HTMLElement | null;
     if (block) {
       block.classList.toggle("collapsed");
+      const isExpanded = !block.classList.contains("collapsed");
+      toolHeader.setAttribute("aria-expanded", String(isExpanded));
     }
     return;
   }
@@ -890,6 +924,25 @@ document.addEventListener("click", (e: Event) => {
     return;
   }
 });
+
+// Keyboard activation for role="button" elements (tool headers, group headers)
+messagesContainer.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const target = e.target as HTMLElement;
+  if (target.getAttribute("role") !== "button") return;
+  e.preventDefault();
+  target.click();
+});
+
+// Sync aria-expanded on <details> toggle for group headers
+messagesContainer.addEventListener("toggle", (e: Event) => {
+  const details = e.target as HTMLDetailsElement;
+  if (!details.classList.contains("gsd-tool-group")) return;
+  const summary = details.querySelector(".gsd-tool-group-header");
+  if (summary) {
+    summary.setAttribute("aria-expanded", String(details.open));
+  }
+}, true);
 
 document.addEventListener("copy", (_e: ClipboardEvent) => {
   const selection = window.getSelection()?.toString();

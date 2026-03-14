@@ -1,9 +1,0 @@
-{
-  "pid": 30652,
-  "startedAt": "2026-03-14T04:10:20.053Z",
-  "unitType": "plan-slice",
-  "unitId": "M008/S02",
-  "unitStartedAt": "2026-03-14T04:10:20.053Z",
-  "completedUnits": 8,
-  "sessionFile": "C:\\Users\\Kile Thomson\\.gsd\\agent\\sessions\\--g--Dropbox-Rocket Social-Rokketek-VS Code Plugin-gsd-vscode--\\2026-03-14T04-10-20-053Z_9122c31b-5b9c-4a76-b9bf-42f48aaf2035.jsonl"
-}

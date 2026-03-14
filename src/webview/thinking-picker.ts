@@ -30,6 +30,8 @@ const THINKING_OPTIONS: ThinkingOption[] = [
 // ============================================================
 
 let visible = false;
+let triggerEl: HTMLElement | null = null;
+let activeIndex = -1;
 
 // ============================================================
 // Dependencies injected via init()
@@ -61,7 +63,9 @@ export function show(): void {
   if (!currentModelSupportsReasoning()) {
     return;
   }
+  triggerEl = document.activeElement as HTMLElement | null;
   visible = true;
+  activeIndex = -1;
   render();
 }
 
@@ -69,6 +73,10 @@ export function hide(): void {
   visible = false;
   pickerEl.style.display = "none";
   pickerEl.innerHTML = "";
+  if (triggerEl && typeof triggerEl.focus === "function") {
+    triggerEl.focus();
+    triggerEl = null;
+  }
 }
 
 /** Re-render if visible (called when thinking level changes externally) */
@@ -124,22 +132,31 @@ function render(): void {
   const currentLevel = state.thinkingLevel || "off";
 
   let html = `<div class="gsd-thinking-picker-header">
-    <span class="gsd-thinking-picker-title">Thinking Level</span>
-    <button class="gsd-thinking-picker-close" id="thinkingPickerClose">✕</button>
+    <span class="gsd-thinking-picker-title" id="thinkingPickerTitle">Thinking Level</span>
+    <button class="gsd-thinking-picker-close" id="thinkingPickerClose" aria-label="Close thinking picker">✕</button>
   </div>`;
 
-  html += `<div class="gsd-thinking-picker-list">`;
+  // Set initial activeIndex to current level
+  if (activeIndex < 0) {
+    activeIndex = levels.findIndex(o => o.level === currentLevel);
+    if (activeIndex < 0) activeIndex = 0;
+  }
 
-  for (const opt of levels) {
-    const isActive = opt.level === currentLevel;
+  html += `<div class="gsd-thinking-picker-list" role="listbox" aria-labelledby="thinkingPickerTitle">`;
+
+  for (let i = 0; i < levels.length; i++) {
+    const opt = levels[i];
+    const isCurrent = opt.level === currentLevel;
+    const isFocused = i === activeIndex;
     const classes = [
       "gsd-thinking-picker-item",
-      isActive ? "active" : "",
+      isCurrent ? "active" : "",
+      isFocused ? "focused" : "",
     ].filter(Boolean).join(" ");
 
-    html += `<div class="${classes}" data-level="${opt.level}">
+    html += `<div class="${classes}" role="option" aria-selected="${isCurrent}" tabindex="${isFocused ? "0" : "-1"}" data-level="${opt.level}" data-idx="${i}">
       <div class="gsd-thinking-picker-item-main">
-        ${isActive ? '<span class="gsd-thinking-picker-dot">●</span>' : '<span class="gsd-thinking-picker-dot-spacer"></span>'}
+        ${isCurrent ? '<span class="gsd-thinking-picker-dot">●</span>' : '<span class="gsd-thinking-picker-dot-spacer"></span>'}
         <span class="gsd-thinking-picker-label">${escapeHtml(opt.label)}</span>
       </div>
       <span class="gsd-thinking-picker-desc">${escapeHtml(opt.description)}</span>
@@ -166,20 +183,62 @@ function render(): void {
   // Wire close button
   pickerEl.querySelector("#thinkingPickerClose")?.addEventListener("click", hide);
 
-  // Wire level selection
-  pickerEl.querySelectorAll(".gsd-thinking-picker-item").forEach((el) => {
-    el.addEventListener("click", () => {
-      const level = (el as HTMLElement).dataset.level as ThinkingLevel;
-      if (level === currentLevel) {
-        hide();
-        return;
-      }
-      vscode.postMessage({ type: "set_thinking_level", level });
-      state.thinkingLevel = level;
-      onThinkingChanged();
+  const items = pickerEl.querySelectorAll(".gsd-thinking-picker-item");
+  const totalItems = items.length;
+
+  function selectLevel(el: HTMLElement): void {
+    const level = el.dataset.level as ThinkingLevel;
+    if (level === currentLevel) {
       hide();
-    });
+      return;
+    }
+    vscode.postMessage({ type: "set_thinking_level", level });
+    state.thinkingLevel = level;
+    onThinkingChanged();
+    hide();
+  }
+
+  // Wire level selection
+  items.forEach((el) => {
+    el.addEventListener("click", () => selectLevel(el as HTMLElement));
   });
+
+  // Arrow key navigation
+  pickerEl.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      activeIndex = Math.min(activeIndex + 1, totalItems - 1);
+      focusActiveItem();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      activeIndex = Math.max(activeIndex - 1, 0);
+      focusActiveItem();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const active = pickerEl.querySelector(`.gsd-thinking-picker-item[data-idx="${activeIndex}"]`) as HTMLElement | null;
+      if (active) selectLevel(active);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      hide();
+    }
+  });
+
+  function focusActiveItem(): void {
+    items.forEach((el, i) => {
+      (el as HTMLElement).tabIndex = i === activeIndex ? 0 : -1;
+      if (i === activeIndex) {
+        (el as HTMLElement).classList.add("focused");
+        (el as HTMLElement).focus();
+        (el as HTMLElement).scrollIntoView({ block: "nearest" });
+      } else {
+        (el as HTMLElement).classList.remove("focused");
+      }
+    });
+  }
+
+  // Focus initial active item
+  const initialActive = pickerEl.querySelector(`.gsd-thinking-picker-item[data-idx="${activeIndex}"]`) as HTMLElement | null;
+  if (initialActive) initialActive.focus();
 }
 
 // ============================================================

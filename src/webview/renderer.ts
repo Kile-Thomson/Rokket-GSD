@@ -329,8 +329,8 @@ function buildTurnHtml(turn: AssistantTurn): string {
       .join("\n\n");
     if (textContent) {
       html += `<div class="gsd-turn-actions">`;
-      html += `<button class="gsd-copy-response-btn" data-copy-text="${escapeAttr(textContent)}" title="Copy response">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 4h8v8H4V4zm1 1v6h6V5H5zm-3-3h8v1H3v7H2V2h8z"/></svg>
+      html += `<button class="gsd-copy-response-btn" data-copy-text="${escapeAttr(textContent)}" title="Copy response" aria-label="Copy response">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 4h8v8H4V4zm1 1v6h6V5H5zm-3-3h8v1H3v7H2V2h8z"/></svg>
         Copy
       </button>`;
       if (turn.timestamp) {
@@ -370,7 +370,7 @@ function buildSegmentHtml(seg: TurnSegment, toolCalls: Map<string, ToolCallState
     } catch (err) {
       console.error("Error rendering tool call:", tc.name, err);
       return `<div class="gsd-tool-segment"><div class="gsd-tool-block error collapsed" data-tool-id="${escapeAttr(tc.id)}">
-        <div class="gsd-tool-header">
+        <div class="gsd-tool-header" role="button" tabindex="0" aria-label="Toggle ${escapeAttr(tc.name)} details" aria-expanded="false">
           <span class="gsd-tool-icon error">✗</span>
           <span class="gsd-tool-name">${escapeHtml(tc.name)}</span>
           <span class="gsd-tool-arg">render error</span>
@@ -402,7 +402,7 @@ function buildToolGroupHtml(
   }
 
   return `<details class="gsd-tool-group" data-tool-group="${toolNames.length}">
-    <summary class="gsd-tool-group-header">
+    <summary class="gsd-tool-group-header" role="button" tabindex="0" aria-label="Toggle ${escapeAttr(label)}" aria-expanded="false">
       <span class="gsd-tool-group-icon">
         <span class="gsd-tool-icon success">✓</span>
       </span>
@@ -455,8 +455,9 @@ function buildToolCallHtml(tc: ToolCallState): string {
     outputHtml = `<div class="gsd-tool-output"><span class="gsd-tool-output-pending">Running...</span></div>`;
   }
 
+  const isCollapsed = collapsedClass === "collapsed";
   return `<div class="gsd-tool-block ${stateClass} ${collapsedClass} cat-${category}" data-tool-id="${escapeAttr(tc.id)}">
-    <div class="gsd-tool-header">
+    <div class="gsd-tool-header" role="button" tabindex="0" aria-label="Toggle ${escapeAttr(tc.name)} details" aria-expanded="${isCollapsed ? "false" : "true"}">
       ${statusIcon}
       <span class="gsd-tool-cat-icon">${toolIcon}</span>
       <span class="gsd-tool-name">${escapeHtml(tc.name)}</span>

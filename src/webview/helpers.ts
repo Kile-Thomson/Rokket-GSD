@@ -47,7 +47,7 @@ renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
   return `<div class="gsd-code-block" data-code-id="${id}">
     <div class="gsd-code-header">
       <span class="gsd-code-lang">${escapeHtml(langLabel)}</span>
-      <button class="gsd-copy-btn" data-code-id="${id}">Copy</button>
+      <button class="gsd-copy-btn" data-code-id="${id}" aria-label="Copy code">Copy</button>
     </div>
     <pre><code class="language-${escapeAttr(langLabel)}">${escapeHtml(text)}</code></pre>
   </div>`;

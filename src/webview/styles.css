@@ -3284,7 +3284,10 @@ html, body {
 .gsd-header-version:focus-visible,
 .gsd-welcome-chip:focus-visible,
 .gsd-copy-btn:focus-visible,
-.gsd-scroll-fab:focus-visible {
+.gsd-copy-response-btn:focus-visible,
+.gsd-scroll-fab:focus-visible,
+.gsd-tool-header[role="button"]:focus-visible,
+.gsd-tool-group-header[role="button"]:focus-visible {
   outline: 2px solid var(--vscode-focusBorder, #007fd4);
   outline-offset: 2px;
 }
