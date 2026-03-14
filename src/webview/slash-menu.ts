@@ -59,7 +59,12 @@ export function getFilteredItems(): SlashMenuItem[] {
   return filteredItems;
 }
 
+let triggerEl: HTMLElement | null = null;
+
 export function show(filter: string): void {
+  if (!slashMenuVisible) {
+    triggerEl = document.activeElement as HTMLElement | null;
+  }
   if (!state.commandsLoaded) {
     vscode.postMessage({ type: "get_commands" });
   }
@@ -81,6 +86,9 @@ export function hide(): void {
   slashMenuVisible = false;
   slashMenuEl.style.display = "none";
   slashMenuEl.innerHTML = "";
+  // Restore focus to prompt input (slash menu is always triggered from input)
+  promptInput?.focus();
+  triggerEl = null;
 }
 
 export function navigateDown(): void {
@@ -155,8 +163,10 @@ function buildItems(): SlashMenuItem[] {
 
 function render(): void {
   slashMenuEl.style.display = "block";
+  slashMenuEl.setAttribute("role", "listbox");
+  slashMenuEl.setAttribute("aria-label", "Slash commands");
   slashMenuEl.innerHTML = filteredItems.map((item, i) => `
-    <div class="gsd-slash-item ${i === slashMenuIndex ? "active" : ""}" data-idx="${i}">
+    <div class="gsd-slash-item ${i === slashMenuIndex ? "active" : ""}" role="option" aria-selected="${i === slashMenuIndex}" data-idx="${i}">
       <span class="gsd-slash-name">/${escapeHtml(item.name)}</span>
       <span class="gsd-slash-desc">${escapeHtml(item.description)}</span>
     </div>

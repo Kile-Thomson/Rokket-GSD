@@ -16,6 +16,7 @@ let loading = false;
 let searchText = "";
 let highlightIndex = -1;
 let renamingSessionId: string | null = null;
+let triggerEl: HTMLElement | null = null;
 
 // ============================================================
 // Dependencies injected via init()
@@ -43,6 +44,7 @@ export function toggle(): void {
 }
 
 export function show(): void {
+  triggerEl = document.activeElement as HTMLElement | null;
   loading = true;
   visible = true;
   searchText = "";
@@ -59,6 +61,10 @@ export function hide(): void {
   renamingSessionId = null;
   panelEl.style.display = "none";
   panelEl.innerHTML = "";
+  if (triggerEl && typeof triggerEl.focus === "function") {
+    triggerEl.focus();
+    triggerEl = null;
+  }
 }
 
 export function setCurrentSessionId(id: string | null): void {
@@ -217,10 +223,12 @@ function render(): void {
 
   if (loading) {
     panelEl.style.display = "block";
+    panelEl.setAttribute("role", "complementary");
+    panelEl.setAttribute("aria-label", "Session history");
     panelEl.innerHTML = `
       <div class="gsd-session-history-header">
         <span class="gsd-session-history-title">Session History</span>
-        <button class="gsd-session-history-close" id="sessionHistoryClose">✕</button>
+        <button class="gsd-session-history-close" id="sessionHistoryClose" aria-label="Close session history">✕</button>
       </div>
       <div class="gsd-session-history-loading">
         <span class="gsd-tool-spinner"></span> Loading sessions…
@@ -231,11 +239,13 @@ function render(): void {
   }
 
   panelEl.style.display = "block";
+  panelEl.setAttribute("role", "complementary");
+  panelEl.setAttribute("aria-label", "Session history");
 
   let html = `
     <div class="gsd-session-history-header">
       <span class="gsd-session-history-title">Session History</span>
-      <button class="gsd-session-history-close" id="sessionHistoryClose">✕</button>
+      <button class="gsd-session-history-close" id="sessionHistoryClose" aria-label="Close session history">✕</button>
     </div>
   `;
 

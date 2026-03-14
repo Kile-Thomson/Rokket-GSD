@@ -43,9 +43,42 @@ export function hasPending(): boolean {
 // Public API
 // ============================================================
 
+/** Track the element that had focus before a dialog appeared, for restoration */
+let preFocusEl: HTMLElement | null = null;
+
+/**
+ * Focus trap helper: cycles Tab/Shift+Tab within a container.
+ * Returns a keydown handler to attach to the container.
+ */
+function createFocusTrap(container: HTMLElement): (e: KeyboardEvent) => void {
+  return (e: KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const focusable = container.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  };
+}
+
 export function handleRequest(data: any): void {
   const id = data.id;
   const method = data.method;
+
+  // Save focus origin for restoration
+  preFocusEl = document.activeElement as HTMLElement | null;
 
   const wrapper = document.createElement("div");
   wrapper.className = "gsd-entry gsd-entry-ui-request";
@@ -63,7 +96,7 @@ export function handleRequest(data: any): void {
     }
   } else if (method === "confirm") {
     wrapper.innerHTML = `
-      <div class="gsd-ui-request">
+      <div class="gsd-ui-request" role="dialog" aria-modal="true" aria-label="${escapeAttr(data.title || "Confirm")}">
         <div class="gsd-ui-title">${escapeHtml(data.title || "Confirm")}</div>
         ${data.message ? `<div class="gsd-ui-message">${escapeHtml(data.message)}</div>` : ""}
         <div class="gsd-ui-buttons">
@@ -83,7 +116,7 @@ export function handleRequest(data: any): void {
     });
   } else if (method === "input") {
     wrapper.innerHTML = `
-      <div class="gsd-ui-request">
+      <div class="gsd-ui-request" role="dialog" aria-modal="true" aria-label="${escapeAttr(data.title || "Input")}">
         <div class="gsd-ui-title">${escapeHtml(data.title || "Input")}</div>
         <input type="text" class="gsd-ui-input" placeholder="${escapeAttr(data.placeholder || "")}" value="${escapeAttr(data.prefill || "")}" />
         <div class="gsd-ui-buttons">
@@ -130,6 +163,19 @@ export function handleRequest(data: any): void {
 
   messagesContainer.appendChild(wrapper);
   scrollToBottom(messagesContainer, true);
+
+  // Set up focus trap on the dialog request element
+  const reqEl = wrapper.querySelector(".gsd-ui-request") as HTMLElement | null;
+  if (reqEl) {
+    reqEl.addEventListener("keydown", createFocusTrap(reqEl));
+    // Focus first focusable element
+    const firstFocusable = reqEl.querySelector<HTMLElement>(
+      'input:not([disabled]), button:not([disabled])'
+    );
+    if (firstFocusable) {
+      setTimeout(() => firstFocusable.focus(), 50);
+    }
+  }
 }
 
 // ============================================================
@@ -140,12 +186,12 @@ function buildSingleSelect(
   wrapper: HTMLElement, id: string, title: string, message: string | undefined, options: string[]
 ): void {
   wrapper.innerHTML = `
-    <div class="gsd-ui-request">
+    <div class="gsd-ui-request" role="dialog" aria-modal="true" aria-label="${escapeAttr(title)}">
       <div class="gsd-ui-title">${escapeHtml(title)}</div>
       ${message ? `<div class="gsd-ui-message">${escapeHtml(message)}</div>` : ""}
-      <div class="gsd-ui-options">
+      <div class="gsd-ui-options" role="listbox" aria-label="${escapeAttr(title)}">
         ${options.map((opt: string) =>
-          `<button class="gsd-ui-option-btn" data-value="${escapeAttr(opt)}">${escapeHtml(opt)}</button>`
+          `<button class="gsd-ui-option-btn" role="option" data-value="${escapeAttr(opt)}">${escapeHtml(opt)}</button>`
         ).join("")}
       </div>
       <button class="gsd-ui-cancel-btn">Skip</button>
@@ -176,13 +222,13 @@ function buildMultiSelect(
   const selected = new Set<string>();
 
   wrapper.innerHTML = `
-    <div class="gsd-ui-request">
+    <div class="gsd-ui-request" role="dialog" aria-modal="true" aria-label="${escapeAttr(title)}">
       <div class="gsd-ui-title">${escapeHtml(title)}</div>
       <div class="gsd-ui-multi-hint">Click to toggle, then confirm</div>
       ${message ? `<div class="gsd-ui-message">${escapeHtml(message)}</div>` : ""}
-      <div class="gsd-ui-options gsd-ui-multi-options">
+      <div class="gsd-ui-options gsd-ui-multi-options" role="listbox" aria-label="${escapeAttr(title)}" aria-multiselectable="true">
         ${options.map((opt: string) =>
-          `<button class="gsd-ui-option-btn gsd-ui-multi-option" data-value="${escapeAttr(opt)}">
+          `<button class="gsd-ui-option-btn gsd-ui-multi-option" role="option" aria-selected="false" data-value="${escapeAttr(opt)}">
             <span class="gsd-ui-checkbox">☐</span>
             <span class="gsd-ui-option-label">${escapeHtml(opt)}</span>
           </button>`
@@ -214,10 +260,12 @@ function buildMultiSelect(
       if (selected.has(value)) {
         selected.delete(value);
         btn.classList.remove("checked");
+        btn.setAttribute("aria-selected", "false");
         checkbox.textContent = "☐";
       } else {
         selected.add(value);
         btn.classList.add("checked");
+        btn.setAttribute("aria-selected", "true");
         checkbox.textContent = "☑";
       }
       updateCount();
@@ -245,6 +293,12 @@ function buildMultiSelect(
 
 function disableRequest(wrapper: HTMLElement, summary: string): void {
   wrapper.classList.add("resolved");
+
+  // Restore focus to element that was active before the dialog
+  if (preFocusEl && typeof preFocusEl.focus === "function") {
+    preFocusEl.focus();
+    preFocusEl = null;
+  }
 
   // Remove from pending tracking
   const uiId = wrapper.dataset.uiId;
