@@ -4,6 +4,12 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.25] — 2026-03-14
+
+### Changed
+- **Ping-based monitoring replaces event-based timeouts** — long-running tools (subagent, bg_shell) run 5+ minutes without emitting intermediate RPC events; the previous hard timeouts (120s/180s) would abort healthy work. Now uses health pings — if the process responds, it's alive regardless of event flow.
+- **Removed client-side tool watchdog** — hang detection fully handled by extension host ping monitor. Users press Escape to interrupt manually.
+
 ## [0.2.24] — 2026-03-14
 
 ### Fixed
