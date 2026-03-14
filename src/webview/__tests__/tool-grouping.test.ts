@@ -6,7 +6,7 @@ import {
   buildGroupSummaryLabel,
   shouldCollapseWithPredecessor,
   collapseToolIntoGroup,
-  type GroupedSegment,
+
 } from "../tool-grouping";
 import type { TurnSegment, ToolCallState } from "../state";
 
