@@ -77,7 +77,7 @@ jobs:
       - name: Generate changelog
         id: changelog
         run: |
-          PREV_TAG=$(git tag --sort=-v:refname | grep '^v' | head -2 | tail -1)
+          PREV_TAG=$(git tag --sort=-v:refname | grep '^v' | head -1)
           if [ -z "$PREV_TAG" ]; then
             PREV_TAG=$(git rev-list --max-parents=0 HEAD)
           fi
