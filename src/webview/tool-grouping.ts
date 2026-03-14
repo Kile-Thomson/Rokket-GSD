@@ -175,8 +175,6 @@ export function collapseToolIntoGroup(
   }
 
   // Create new group from two standalone tools
-  const predToolId = predecessorEl.dataset.toolId
-    ?? predecessorEl.querySelector<HTMLElement>("[data-tool-id]")?.dataset.toolId;
   const group = document.createElement("details");
   group.className = "gsd-tool-group";
 

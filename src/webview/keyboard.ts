@@ -11,7 +11,7 @@ import * as thinkingPicker from "./thinking-picker";
 import * as sessionHistory from "./session-history";
 import * as toasts from "./toasts";
 import * as renderer from "./renderer";
-import * as messageHandler from "./message-handler";
+// messageHandler used indirectly via callbacks
 
 // ============================================================
 // Dependencies — set via init()
@@ -32,7 +32,7 @@ let thinkingBadge: HTMLElement;
 // Callbacks into index.ts
 let sendMessage: () => void;
 let updateAllUI: () => void;
-let autoResize: () => void;
+let _autoResize: () => void;
 
 export interface KeyboardDeps {
   vscode: { postMessage(msg: unknown): void };
@@ -65,7 +65,7 @@ export function init(deps: KeyboardDeps): void {
   thinkingBadge = deps.thinkingBadge;
   sendMessage = deps.sendMessage;
   updateAllUI = deps.updateAllUI;
-  autoResize = deps.autoResize;
+  _autoResize = deps.autoResize;
 
   setupKeyboardHandlers();
   setupClickHandlers();
