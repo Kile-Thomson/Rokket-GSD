@@ -38,3 +38,4 @@ nul
 .gsd/metrics.json
 .gsd/completed-units.json
 .gsd/STATE.md
+scripts/*-results.json
