@@ -819,13 +819,20 @@ ${exportOverrides}
 </body>
 </html>`;
             const fs = await import("fs");
-            const path = await import("path");
             const cp = await import("child_process");
-            // Save to user's Downloads folder
-            const downloadsDir = path.join(process.env.USERPROFILE || process.env.HOME || "", "Downloads");
-            const exportPath = path.join(downloadsDir, `gsd-export-${timestamp}.html`);
+            // Show save dialog defaulting to Downloads
+            const defaultUri = vscode.Uri.file(
+              (process.env.USERPROFILE || process.env.HOME || "") + `\\Downloads\\gsd-export-${timestamp}.html`
+            );
+            const uri = await vscode.window.showSaveDialog({
+              defaultUri,
+              filters: { "HTML": ["html"] },
+              title: "Export Conversation",
+            });
+            if (!uri) break; // user cancelled
+            const exportPath = uri.fsPath;
             fs.writeFileSync(exportPath, fullHtml, "utf-8");
-            // Open in default browser via Windows start command
+            // Open in default browser
             cp.exec(`start "" "${exportPath}"`);
             vscode.window.showInformationMessage(`Exported to ${exportPath}`);
           } catch (err: any) {
