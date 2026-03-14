@@ -7,6 +7,7 @@ import { listSessions, deleteSession } from "./session-list-service";
 import { downloadAndInstallUpdate, dismissUpdateVersion, fetchReleaseNotes, fetchRecentReleases } from "./update-checker";
 import { parseGsdWorkflowState } from "./state-parser";
 import { buildDashboardData } from "./dashboard-parser";
+import { loadMetricsLedger, buildMetricsData } from "./metrics-parser";
 import type {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
@@ -955,6 +956,19 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                 } catch {
                   // Stats not available — that's fine
                 }
+              }
+            }
+            // Merge metrics data if available
+            if (data) {
+              try {
+                const ledger = loadMetricsLedger(cwd);
+                if (ledger && ledger.units.length > 0) {
+                  // Count remaining slices from roadmap
+                  const remainingSlices = data.slices.filter(s => !s.done).length;
+                  data.metrics = buildMetricsData(ledger, remainingSlices);
+                }
+              } catch {
+                // Metrics not available — that's fine
               }
             }
             this.postToWebview(webview, { type: "dashboard_data", data } as ExtensionToWebviewMessage);

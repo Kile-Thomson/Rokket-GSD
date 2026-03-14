@@ -929,6 +929,97 @@ html, body {
   color: var(--vscode-foreground);
 }
 
+/* Metrics tables */
+.gsd-dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin-top: 4px;
+  table-layout: auto;
+  overflow-wrap: break-word;
+}
+
+.gsd-dash-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--vscode-descriptionForeground);
+  padding: 2px 6px 2px 0;
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
+}
+
+.gsd-dash-table td {
+  padding: 2px 6px 2px 0;
+  color: var(--vscode-foreground);
+}
+
+.gsd-dash-num {
+  text-align: right;
+  font-family: var(--vscode-editor-fontFamily);
+  font-variant-numeric: tabular-nums;
+}
+
+.gsd-dash-inline-breakdown {
+  font-size: 12px;
+}
+
+/* Projection */
+.gsd-dash-projection {
+  padding: 2px 0;
+}
+
+.gsd-dash-projection-line {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.gsd-dash-projection-line strong {
+  color: var(--vscode-foreground);
+}
+
+/* Activity log */
+.gsd-dash-activity {
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.gsd-dash-activity-scroll {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.gsd-dash-activity-row {
+  display: flex;
+  gap: 6px;
+  padding: 1px 0;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.gsd-dash-activity-type {
+  color: var(--vscode-descriptionForeground);
+  min-width: 90px;
+  text-transform: capitalize;
+}
+
+.gsd-dash-activity-id {
+  color: var(--vscode-foreground);
+  flex: 1;
+  font-family: var(--vscode-editor-fontFamily);
+}
+
+.gsd-dash-activity-cost {
+  color: var(--vscode-testing-iconPassed, #28a745);
+  font-family: var(--vscode-editor-fontFamily);
+  font-variant-numeric: tabular-nums;
+}
+
+.gsd-dash-activity-dur {
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-fontFamily);
+  min-width: 40px;
+  text-align: right;
+}
+
 /* ============================================================
    Entries
    ============================================================ */

@@ -304,6 +304,58 @@ export interface DashboardData {
     toolCalls?: number;
     userMessages?: number;
   };
+  /** Per-unit metrics from .gsd/metrics.json — null when file doesn't exist */
+  metrics?: DashboardMetrics | null;
+}
+
+// --- Metrics data for dashboard (from metrics.json) ---
+
+export interface DashboardMetrics {
+  totals: {
+    units: number;
+    tokens: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
+    cost: number;
+    duration: number;
+    toolCalls: number;
+    assistantMessages: number;
+    userMessages: number;
+  };
+  byPhase: Array<{
+    phase: string;
+    units: number;
+    tokens: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
+    cost: number;
+    duration: number;
+  }>;
+  bySlice: Array<{
+    sliceId: string;
+    units: number;
+    tokens: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
+    cost: number;
+    duration: number;
+  }>;
+  byModel: Array<{
+    model: string;
+    units: number;
+    tokens: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
+    cost: number;
+  }>;
+  projection: {
+    projectedRemaining: number;
+    avgCostPerSlice: number;
+    remainingSlices: number;
+    completedSlices: number;
+  } | null;
+  recentUnits: Array<{
+    type: string;
+    id: string;
+    model: string;
+    startedAt: number;
+    finishedAt: number;
+    cost: number;
+    toolCalls: number;
+  }>;
+  elapsedMs: number;
 }
 
 // --- Workflow State (parsed from .gsd/STATE.md) ---
