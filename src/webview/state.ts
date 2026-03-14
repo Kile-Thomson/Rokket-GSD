@@ -24,6 +24,8 @@ export interface ToolCallState {
   isRunning: boolean;
   startTime: number;
   endTime?: number;
+  /** Structured details from tool (e.g. subagent per-agent results) */
+  details?: any;
 }
 
 /** A segment in the sequential stream — text, thinking, or tool call */
