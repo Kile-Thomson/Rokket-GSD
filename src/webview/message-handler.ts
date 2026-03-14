@@ -342,6 +342,7 @@ function handleMessage(event: MessageEvent): void {
           .filter(Boolean)
           .join("\n");
         if (text) tc.resultText = text;
+        if (data.partialResult.details) tc.details = data.partialResult.details;
         renderer.updateToolSegmentElement(data.toolCallId);
         scrollToBottom(messagesContainer);
       }
@@ -367,6 +368,7 @@ function handleMessage(event: MessageEvent): void {
             .filter(Boolean)
             .join("\n");
           if (text) tc.resultText = text;
+          if (data.result.details) tc.details = data.result.details;
         }
       }
       renderer.updateToolSegmentElement(data.toolCallId);
