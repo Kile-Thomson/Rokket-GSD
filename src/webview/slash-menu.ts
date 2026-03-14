@@ -59,11 +59,11 @@ export function getFilteredItems(): SlashMenuItem[] {
   return filteredItems;
 }
 
-let triggerEl: HTMLElement | null = null;
+let _triggerEl: HTMLElement | null = null;
 
 export function show(filter: string): void {
   if (!slashMenuVisible) {
-    triggerEl = document.activeElement as HTMLElement | null;
+    _triggerEl = document.activeElement as HTMLElement | null;
   }
   if (!state.commandsLoaded) {
     vscode.postMessage({ type: "get_commands" });
@@ -88,7 +88,7 @@ export function hide(): void {
   slashMenuEl.innerHTML = "";
   // Restore focus to prompt input (slash menu is always triggered from input)
   promptInput?.focus();
-  triggerEl = null;
+  _triggerEl = null;
 }
 
 export function navigateDown(): void {

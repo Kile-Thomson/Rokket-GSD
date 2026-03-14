@@ -15,7 +15,6 @@ import type {
   RpcCommandsResult,
   RpcModelsResult,
   RpcThinkingResult,
-  RpcExportResult,
   RpcStateResult,
   BashResult,
   AgentMessage,
