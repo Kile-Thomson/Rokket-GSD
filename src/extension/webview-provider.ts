@@ -306,7 +306,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
    * Uses bounded retry to wait for the abort to settle before prompting.
    */
   private async abortAndPrompt(
-    client: RpcClient,
+    client: GsdRpcClient,
     webview: vscode.Webview,
     message: string,
     images?: Array<{ data: string; mimeType: string }>,
@@ -328,6 +328,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         return;
       } catch (err: any) {
         if (err.message?.includes("streaming") && attempt < MAX_ATTEMPTS - 1) {
+          this.output.appendLine(`[abortAndPrompt] Retry ${attempt + 1}/${MAX_ATTEMPTS - 1}: stream not yet settled`);
           await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
           continue;
         }
