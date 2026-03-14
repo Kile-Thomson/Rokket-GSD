@@ -77,94 +77,53 @@ jobs:
       - name: Generate changelog
         id: changelog
         run: |
-          # Find the previous release tag
           PREV_TAG=$(git tag --sort=-v:refname | grep '^v' | head -2 | tail -1)
           if [ -z "$PREV_TAG" ]; then
             PREV_TAG=$(git rev-list --max-parents=0 HEAD)
           fi
-
           VERSION="${{ steps.version.outputs.version }}"
 
-          # Generate changelog using commit subjects + bodies
-          # Format: subject as bold list item, body lines as sub-details
-          python3 - "$PREV_TAG" "$VERSION" <<'PYEOF'
-import subprocess, sys, re
+          # Write Python script to temp file to avoid heredoc YAML issues
+          cat > /tmp/gen_changelog.py << 'EOF'
+          import subprocess, sys, re
+          prev_tag, version = sys.argv[1], sys.argv[2]
+          result = subprocess.run(
+              ["git", "log", f"{prev_tag}..HEAD", "--no-merges", "--pretty=format:%s%n%b%n---COMMIT_END---"],
+              capture_output=True, text=True
+          )
+          features, fixes, changed, other = [], [], [], []
+          for block in result.stdout.split("---COMMIT_END---"):
+              lines = [l for l in block.strip().splitlines() if l.strip()]
+              if not lines: continue
+              subject = lines[0].strip()
+              body_lines = [l.strip() for l in lines[1:] if l.strip()]
+              if re.match(r"^chore:?\s*bump version", subject, re.I): continue
+              if re.match(r"^chore\(release\)", subject, re.I): continue
+              if subject.startswith("Merge "): continue
+              if re.match(r"^feat", subject, re.I):
+                  clean = re.sub(r"^feat[^:]*:\s*", "", subject); target = features
+              elif re.match(r"^fix", subject, re.I):
+                  clean = re.sub(r"^fix[^:]*:\s*", "", subject); target = fixes
+              elif re.match(r"^refactor|^perf|^style", subject, re.I):
+                  clean = re.sub(r"^[a-z]+[^:]*:\s*", "", subject); target = changed
+              else:
+                  clean = re.sub(r"^[a-z]+[^:]*:\s*", "", subject); target = other
+              entry = f"- **{clean[0].upper() + clean[1:]}**"
+              if body_lines:
+                  desc = " ".join(body_lines)
+                  if len(desc) > 200: desc = desc[:197] + "..."
+                  entry += f" — {desc}"
+              target.append(entry)
+          sections = [f"## v{version}\n"]
+          if features: sections.append("### Added\n" + "\n".join(features))
+          if fixes: sections.append("### Fixed\n" + "\n".join(fixes))
+          if changed: sections.append("### Changed\n" + "\n".join(changed))
+          if other: sections.append("### Other\n" + "\n".join(other))
+          if len(sections) == 1: sections.append("Maintenance release — no notable changes.")
+          with open("/tmp/release-notes.md", "w") as f: f.write("\n\n".join(sections) + "\n")
+          EOF
 
-prev_tag, version = sys.argv[1], sys.argv[2]
-
-# Get commits with subject and body separated by a delimiter
-result = subprocess.run(
-    ["git", "log", f"{prev_tag}..HEAD", "--no-merges", "--pretty=format:%s%n%b%n---COMMIT_END---"],
-    capture_output=True, text=True
-)
-
-features, fixes, changed, other = [], [], [], []
-
-for block in result.stdout.split("---COMMIT_END---"):
-    lines = [l for l in block.strip().splitlines() if l.strip()]
-    if not lines:
-        continue
-
-    subject = lines[0].strip()
-    body_lines = [l.strip() for l in lines[1:] if l.strip()]
-
-    # Skip version bumps and merge commits
-    if re.match(r"^chore:?\s*bump version", subject, re.I):
-        continue
-    if re.match(r"^chore\(release\)", subject, re.I):
-        continue
-    if subject.startswith("Merge "):
-        continue
-
-    # Determine category and clean subject
-    if re.match(r"^feat", subject, re.I):
-        clean = re.sub(r"^feat[^:]*:\s*", "", subject)
-        target = features
-    elif re.match(r"^fix", subject, re.I):
-        clean = re.sub(r"^fix[^:]*:\s*", "", subject)
-        target = fixes
-    elif re.match(r"^refactor|^perf|^style", subject, re.I):
-        clean = re.sub(r"^[a-z]+[^:]*:\s*", "", subject)
-        target = changed
-    else:
-        clean = re.sub(r"^[a-z]+[^:]*:\s*", "", subject)
-        target = other
-
-    # Build entry: bold title + body as description
-    entry = f"- **{clean[0].upper() + clean[1:]}**"
-    if body_lines:
-        # Use body as description, joining short lines
-        desc = " ".join(body_lines)
-        # Trim very long descriptions
-        if len(desc) > 200:
-            desc = desc[:197] + "..."
-        entry += f" — {desc}"
-
-    target.append(entry)
-
-# Build release notes
-sections = []
-title = f"## v{version}\n"
-sections.append(title)
-
-if features:
-    sections.append("### Added\n" + "\n".join(features))
-if fixes:
-    sections.append("### Fixed\n" + "\n".join(fixes))
-if changed:
-    sections.append("### Changed\n" + "\n".join(changed))
-if other:
-    sections.append("### Other\n" + "\n".join(other))
-
-if len(sections) == 1:
-    sections.append("Maintenance release — no notable changes.")
-
-notes = "\n\n".join(sections) + "\n"
-
-with open("/tmp/release-notes.md", "w") as f:
-    f.write(notes)
-PYEOF
-
+          python3 /tmp/gen_changelog.py "$PREV_TAG" "$VERSION"
           echo "notes_file=/tmp/release-notes.md" >> "$GITHUB_OUTPUT"
 
       - name: Create tag and release
