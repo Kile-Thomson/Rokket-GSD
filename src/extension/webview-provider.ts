@@ -849,9 +849,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             fs.mkdirSync(exportDir, { recursive: true });
             const exportPath = path.join(exportDir, `gsd-export-${timestamp}.html`);
             fs.writeFileSync(exportPath, fullHtml, "utf-8");
-            // Open as file:// URI so OS uses browser, not text editor
-            const fileUri = vscode.Uri.parse(`file:///${exportPath.replace(/\\\\/g, "/")}`);
-            await vscode.env.openExternal(fileUri);
+            // Open in default browser
+            const fileUri = vscode.Uri.file(exportPath);
+            await vscode.env.openExternal(vscode.Uri.parse(fileUri.toString()));
             vscode.window.showInformationMessage(`Exported to ${exportPath}`);
           } catch (err: any) {
             this.postToWebview(webview, { type: "error", message: `Export failed: ${err.message}` });
