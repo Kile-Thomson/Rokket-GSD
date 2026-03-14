@@ -12,7 +12,7 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     # Skip runs triggered by the bot's version bump or docs-only commits
-    if: "!contains(github.event.head_commit.message, 'chore: bump version to') && !startsWith(github.event.head_commit.message, 'docs:')"
+    if: "!startsWith(github.event.head_commit.message, 'chore: bump version to') && !startsWith(github.event.head_commit.message, 'docs:')"
 
     steps:
       - uses: actions/checkout@v4
