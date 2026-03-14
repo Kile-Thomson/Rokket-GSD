@@ -786,7 +786,19 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         case "export_html": {
           try {
             const contentHtml = (msg as any).html as string || "<p>No conversation content</p>";
+            const pageCss = (msg as any).css as string || "";
             const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+            const extVersion = vscode.extensions.getExtension("rokketek.rokket-gsd")?.packageJSON?.version || "?";
+            const exportOverrides = `
+    /* Export overrides */
+    :root { color-scheme: dark; }
+    body { background: #111114; max-width: 880px; margin: 0 auto; padding: 32px 24px; }
+    .gsd-welcome, .gsd-scroll-fab, .gsd-slash-menu, .gsd-model-picker, .gsd-thinking-picker,
+    .gsd-session-history, .gsd-copy-response-btn, .gsd-fork-btn, .gsd-retry-btn,
+    .gsd-turn-actions, .gsd-input-area, .gsd-header, .gsd-footer,
+    .gsd-overlay-indicators, .gsd-context-bar-container { display: none !important; }
+    .gsd-messages { padding: 0; }
+`;
             const fullHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -794,64 +806,27 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rokket GSD — Export ${timestamp}</title>
   <style>
-    :root { color-scheme: dark; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: #111114; color: #e0e0e0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 14px; line-height: 1.6;
-      max-width: 860px; margin: 0 auto; padding: 32px 24px;
-    }
-    h1 { font-size: 20px; font-weight: 600; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #2a2a2e; }
-    /* Message segments */
-    .gsd-segment { margin-bottom: 20px; padding: 12px 16px; border-radius: 8px; }
-    .gsd-segment[data-role="user"] { background: #1a1a2e; border-left: 3px solid #5b8def; }
-    .gsd-segment[data-role="assistant"] { background: #1a1e1a; border-left: 3px solid #4ec9b0; }
-    .gsd-segment[data-role="system"] { background: #1e1a1a; border-left: 3px solid #ce9178; font-size: 13px; }
-    .gsd-role-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; opacity: 0.7; }
-    /* Prose */
-    .gsd-segment p { margin: 8px 0; }
-    .gsd-segment ul, .gsd-segment ol { margin: 8px 0 8px 20px; }
-    .gsd-segment li { margin: 4px 0; }
-    .gsd-segment a { color: #5b8def; }
-    .gsd-segment strong { color: #fff; }
-    /* Code */
-    .gsd-segment pre { background: #0d0d0d; border: 1px solid #2a2a2e; border-radius: 6px; padding: 12px; margin: 10px 0; overflow-x: auto; font-size: 13px; line-height: 1.5; }
-    .gsd-segment code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 13px; }
-    .gsd-segment :not(pre) > code { background: #2a2a2e; padding: 2px 5px; border-radius: 3px; }
-    /* Tool calls */
-    .gsd-tool-group, .gsd-tool-call { background: #16161a; border: 1px solid #2a2a2e; border-radius: 6px; margin: 8px 0; padding: 10px 14px; font-size: 13px; }
-    .gsd-tool-group summary, .gsd-tool-call summary { cursor: pointer; color: #888; }
-    .gsd-tool-result { margin-top: 6px; padding-top: 6px; border-top: 1px solid #2a2a2e; color: #aaa; }
-    /* System notices */
-    .gsd-system-entry { background: #1a1612; border-left: 3px solid #e8a838; padding: 8px 14px; margin: 10px 0; border-radius: 4px; font-size: 13px; color: #cca860; }
-    /* Hide interactive-only elements */
-    .gsd-welcome, .gsd-scroll-fab, .gsd-slash-menu, .gsd-model-picker, .gsd-thinking-picker,
-    .gsd-session-history, .gsd-copy-btn, .gsd-fork-btn, .gsd-retry-btn, .gsd-toolbar,
-    button, .gsd-input-area, .gsd-header, .gsd-footer { display: none !important; }
-    /* Thinking blocks */
-    .gsd-thinking { background: #1a1a1e; border: 1px dashed #3a3a4e; border-radius: 6px; padding: 10px 14px; margin: 8px 0; font-size: 13px; color: #999; }
-    .gsd-thinking summary { color: #777; cursor: pointer; }
-    /* Footer */
-    footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #2a2a2e; color: #555; font-size: 12px; }
+${pageCss}
+${exportOverrides}
   </style>
 </head>
 <body>
-  <h1>🚀 Rokket GSD — Conversation Export</h1>
+  <h1 style="font-size: 20px; font-weight: 600; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #2a2a2e;">🚀 Rokket GSD — Conversation Export</h1>
   <div class="gsd-messages">${contentHtml}</div>
-  <footer>Exported ${new Date().toLocaleString()} — Rokket GSD v${vscode.extensions.getExtension("rokketek.rokket-gsd")?.packageJSON?.version || "?"}</footer>
+  <footer style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #2a2a2e; color: #555; font-size: 12px;">
+    Exported ${new Date().toLocaleString()} — Rokket GSD v${extVersion}
+  </footer>
 </body>
 </html>`;
-            const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
             const fs = await import("fs");
             const path = await import("path");
-            const exportDir = path.join(cwd, ".gsd", "exports");
-            fs.mkdirSync(exportDir, { recursive: true });
-            const exportPath = path.join(exportDir, `gsd-export-${timestamp}.html`);
+            const cp = await import("child_process");
+            // Save to user's Downloads folder
+            const downloadsDir = path.join(process.env.USERPROFILE || process.env.HOME || "", "Downloads");
+            const exportPath = path.join(downloadsDir, `gsd-export-${timestamp}.html`);
             fs.writeFileSync(exportPath, fullHtml, "utf-8");
-            // Open in default browser
-            const fileUri = vscode.Uri.file(exportPath);
-            await vscode.env.openExternal(vscode.Uri.parse(fileUri.toString()));
+            // Open in default browser via Windows start command
+            cp.exec(`start "" "${exportPath}"`);
             vscode.window.showInformationMessage(`Exported to ${exportPath}`);
           } catch (err: any) {
             this.postToWebview(webview, { type: "error", message: `Export failed: ${err.message}` });

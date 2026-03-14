@@ -278,9 +278,19 @@ function setupButtonHandlers(): void {
   });
 
   exportBtn.addEventListener("click", () => {
+    // Collect all stylesheet rules from the page
+    let allCss = "";
+    for (const sheet of Array.from(document.styleSheets)) {
+      try {
+        for (const rule of Array.from(sheet.cssRules)) {
+          allCss += rule.cssText + "\n";
+        }
+      } catch { /* cross-origin sheets */ }
+    }
     vscode.postMessage({
       type: "export_html",
       html: messagesContainer.innerHTML,
+      css: allCss,
     });
     toasts.show("Exporting conversation…");
   });
