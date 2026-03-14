@@ -48,6 +48,38 @@ const segmentElements = new Map<number, HTMLElement>();
 let _activeSegmentIndex = -1;
 let pendingTextRender: number | null = null;
 
+/**
+ * Live elapsed timer — refreshes running tool cards every second so the
+ * elapsed duration stays current. This gives the user a visible heartbeat
+ * that proves the extension is alive even when tools emit no partial updates.
+ */
+let elapsedTimerHandle: ReturnType<typeof setInterval> | null = null;
+
+function startElapsedTimer(): void {
+  if (elapsedTimerHandle) return;
+  elapsedTimerHandle = setInterval(() => {
+    if (!state.currentTurn) {
+      stopElapsedTimer();
+      return;
+    }
+    let anyRunning = false;
+    for (const [, tc] of state.currentTurn.toolCalls) {
+      if (tc.isRunning) {
+        anyRunning = true;
+        updateToolSegmentElement(tc.id);
+      }
+    }
+    if (!anyRunning) stopElapsedTimer();
+  }, 1000);
+}
+
+function stopElapsedTimer(): void {
+  if (elapsedTimerHandle) {
+    clearInterval(elapsedTimerHandle);
+    elapsedTimerHandle = null;
+  }
+}
+
 // ============================================================
 // Public API — entry rendering
 // ============================================================
@@ -119,6 +151,8 @@ export function appendToolSegmentElement(tc: ToolCallState, segIdx: number): voi
   el.innerHTML = buildToolCallHtml(tc);
   insertSegmentElement(container, segIdx, el);
   segmentElements.set(segIdx, el);
+  // Start live elapsed timer so running tools show a ticking duration
+  if (tc.isRunning) startElapsedTimer();
 }
 
 export function updateToolSegmentElement(toolCallId: string): void {
@@ -192,6 +226,8 @@ function tryStreamingCollapse(el: HTMLElement, segIdx: number): void {
 export function finalizeCurrentTurn(): void {
   if (!state.currentTurn) return;
 
+  stopElapsedTimer();
+
   if (pendingTextRender !== null) {
     cancelAnimationFrame(pendingTextRender);
     pendingTextRender = null;
@@ -227,6 +263,7 @@ export function resetStreamingState(): void {
   currentTurnElement = null;
   segmentElements.clear();
   _activeSegmentIndex = -1;
+  stopElapsedTimer();
 }
 
 // ============================================================
@@ -429,8 +466,14 @@ function buildToolCallHtml(tc: ToolCallState): string {
     tc.isError ? `<span class="gsd-tool-icon error">✗</span>` :
     `<span class="gsd-tool-icon success">✓</span>`;
 
-  const duration = tc.endTime && tc.startTime ? formatDuration(tc.endTime - tc.startTime) : "";
-  const durationHtml = duration ? `<span class="gsd-tool-duration">${duration}</span>` : "";
+  const duration = tc.endTime && tc.startTime
+    ? formatDuration(tc.endTime - tc.startTime)
+    : tc.isRunning && tc.startTime
+      ? formatDuration(Date.now() - tc.startTime)
+      : "";
+  const durationHtml = duration
+    ? `<span class="gsd-tool-duration${tc.isRunning ? " elapsed-live" : ""}">${duration}</span>`
+    : "";
 
   const stateClass = tc.isRunning ? "running" : tc.isError ? "error" : "done";
   const isSubagent = tc.name.toLowerCase() === "subagent";
