@@ -1,0 +1,323 @@
+// ============================================================
+// Dashboard Panel — renders GSD project status dashboard
+// ============================================================
+
+import type { DashboardData, DashboardSlice } from "../shared/types";
+import { escapeHtml, scrollToBottom } from "./helpers";
+import { state } from "./state";
+
+// ============================================================
+// Element refs — set via init()
+// ============================================================
+
+let messagesContainer: HTMLElement;
+let welcomeScreen: HTMLElement;
+let welcomeProcess: HTMLElement;
+let welcomeVersion: HTMLElement;
+let welcomeModel: HTMLElement;
+let welcomeHints: HTMLElement;
+
+export interface DashboardDeps {
+  messagesContainer: HTMLElement;
+  welcomeScreen: HTMLElement;
+  welcomeProcess: HTMLElement;
+  welcomeVersion: HTMLElement;
+  welcomeModel: HTMLElement;
+  welcomeHints: HTMLElement;
+}
+
+export function init(deps: DashboardDeps): void {
+  messagesContainer = deps.messagesContainer;
+  welcomeScreen = deps.welcomeScreen;
+  welcomeProcess = deps.welcomeProcess;
+  welcomeVersion = deps.welcomeVersion;
+  welcomeModel = deps.welcomeModel;
+  welcomeHints = deps.welcomeHints;
+}
+
+// ============================================================
+// Dashboard rendering
+// ============================================================
+
+export function renderDashboard(data: DashboardData | null): void {
+  welcomeScreen.style.display = "none";
+
+  // Remove any existing dashboard
+  const existing = document.querySelector(".gsd-dashboard");
+  if (existing) existing.remove();
+
+  const el = document.createElement("div");
+  el.className = "gsd-dashboard";
+
+  if (!data || (!data.hasProject && !data.hasMilestone)) {
+    el.innerHTML = `
+      <div class="gsd-dashboard-empty">
+        <div class="gsd-dashboard-empty-icon">📊</div>
+        <div class="gsd-dashboard-empty-text">No active GSD project</div>
+        <div class="gsd-dashboard-empty-hint">Run <code>/gsd</code> to start a project in this workspace</div>
+      </div>
+    `;
+    messagesContainer.appendChild(el);
+    scrollToBottom(messagesContainer, true);
+    return;
+  }
+
+  const phaseLabels: Record<string, string> = {
+    "pre-planning": "Pre-planning",
+    "discussing": "Discussing",
+    "researching": "Researching",
+    "planning": "Planning",
+    "executing": "Executing",
+    "verifying": "Verifying",
+    "summarizing": "Summarizing",
+    "advancing": "Advancing",
+    "completing-milestone": "Completing",
+    "replanning-slice": "Replanning",
+    "complete": "Complete",
+    "paused": "Paused",
+    "blocked": "Blocked",
+    "unknown": "",
+  };
+
+  const phaseText = phaseLabels[data.phase] || data.phase;
+  const phaseClass = data.phase === "complete" ? "complete"
+    : data.phase === "blocked" ? "blocked"
+    : data.phase === "executing" ? "executing" : "";
+
+  // Build current action breadcrumb
+  const breadcrumb: string[] = [];
+  if (data.milestone) breadcrumb.push(data.milestone.id);
+  if (data.slice) breadcrumb.push(data.slice.id);
+  if (data.task) breadcrumb.push(data.task.id);
+
+  // Progress bar helper
+  function progressBar(done: number, total: number, label: string): string {
+    if (total === 0) return "";
+    const pct = Math.round((done / total) * 100);
+    const fillPct = (done / total) * 100;
+    return `
+      <div class="gsd-dash-progress-row">
+        <span class="gsd-dash-progress-label">${escapeHtml(label)}</span>
+        <div class="gsd-dash-progress-track">
+          <div class="gsd-dash-progress-fill" style="width: ${fillPct}%"></div>
+        </div>
+        <span class="gsd-dash-progress-pct">${pct}%</span>
+        <span class="gsd-dash-progress-ratio">${done}/${total}</span>
+      </div>
+    `;
+  }
+
+  // Slice list with nested tasks
+  function sliceList(slices: DashboardSlice[]): string {
+    if (slices.length === 0) return "";
+    return `<div class="gsd-dash-slices">` + slices.map(s => {
+      const icon = s.done ? "✓" : s.active ? "▸" : "○";
+      const cls = s.done ? "done" : s.active ? "active" : "pending";
+      const riskCls = `risk-${s.risk}`;
+
+      let tasksHtml = "";
+      if (s.active && s.tasks.length > 0) {
+        tasksHtml = `<div class="gsd-dash-tasks">` +
+          s.tasks.map(t => {
+            const tIcon = t.done ? "✓" : t.active ? "▸" : "·";
+            const tCls = t.done ? "done" : t.active ? "active" : "pending";
+            return `<div class="gsd-dash-task ${tCls}"><span class="gsd-dash-icon">${tIcon}</span> ${escapeHtml(t.id)}: ${escapeHtml(t.title)}</div>`;
+          }).join("") +
+          `</div>`;
+      }
+
+      return `
+        <div class="gsd-dash-slice ${cls}">
+          <div class="gsd-dash-slice-row">
+            <span class="gsd-dash-icon">${icon}</span>
+            <span class="gsd-dash-slice-title">${escapeHtml(s.id)}: ${escapeHtml(s.title)}</span>
+            <span class="gsd-dash-risk ${riskCls}">${escapeHtml(s.risk)}</span>
+          </div>
+          ${tasksHtml}
+        </div>
+      `;
+    }).join("") + `</div>`;
+  }
+
+  // Milestone registry
+  function milestoneList(entries: typeof data.milestoneRegistry): string {
+    if (entries.length === 0) return "";
+    return `
+      <div class="gsd-dash-section">
+        <div class="gsd-dash-section-title">Milestones</div>
+        <div class="gsd-dash-milestones">
+          ${entries.map(m => {
+            const icon = m.done ? "✓" : m.active ? "▸" : "○";
+            const cls = m.done ? "done" : m.active ? "active" : "pending";
+            return `<div class="gsd-dash-milestone ${cls}"><span class="gsd-dash-icon">${icon}</span> ${escapeHtml(m.id)}: ${escapeHtml(m.title)}</div>`;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  // Cost & usage section
+  function costSection(stats: typeof data.stats): string {
+    if (!stats) return "";
+    const parts: string[] = [];
+
+    if (stats.cost != null) {
+      parts.push(`<span class="gsd-dash-cost-value">$${stats.cost.toFixed(4)}</span> total`);
+    }
+    if (stats.tokens?.total) {
+      parts.push(`${formatTokenCount(stats.tokens.total)} tokens`);
+    }
+    if (stats.toolCalls) {
+      parts.push(`${stats.toolCalls} tools`);
+    }
+    if (stats.userMessages) {
+      parts.push(`${stats.userMessages} turns`);
+    }
+
+    if (parts.length === 0) return "";
+
+    let tokenDetail = "";
+    if (stats.tokens) {
+      const t = stats.tokens;
+      tokenDetail = `<div class="gsd-dash-cost-detail">in: ${formatTokenCount(t.input)}  out: ${formatTokenCount(t.output)}  cache-r: ${formatTokenCount(t.cacheRead)}  cache-w: ${formatTokenCount(t.cacheWrite)}</div>`;
+    }
+
+    return `
+      <div class="gsd-dash-section">
+        <div class="gsd-dash-section-title">Cost & Usage</div>
+        <div class="gsd-dash-cost-summary">${parts.join("  ·  ")}</div>
+        ${tokenDetail}
+      </div>
+    `;
+  }
+
+  // Blockers section
+  function blockersSection(blockers: string[]): string {
+    if (blockers.length === 0) return "";
+    return `
+      <div class="gsd-dash-section">
+        <div class="gsd-dash-section-title gsd-dash-blockers-title">⚠ Blockers</div>
+        ${blockers.map(b => `<div class="gsd-dash-blocker">${escapeHtml(b)}</div>`).join("")}
+      </div>
+    `;
+  }
+
+  // Next action
+  function nextActionSection(next: string | null): string {
+    if (!next) return "";
+    return `
+      <div class="gsd-dash-section">
+        <div class="gsd-dash-section-title">Next</div>
+        <div class="gsd-dash-next">${escapeHtml(next)}</div>
+      </div>
+    `;
+  }
+
+  // Build the full dashboard
+  const hasActiveWork = data.hasMilestone && data.milestone;
+
+  el.innerHTML = `
+    <div class="gsd-dashboard-header">
+      <div class="gsd-dashboard-title">📊 GSD Dashboard</div>
+      <span class="gsd-dashboard-phase ${phaseClass}">${escapeHtml(phaseText)}</span>
+    </div>
+
+    ${(data.task || data.slice) ? `
+    <div class="gsd-dash-current">
+      <span class="gsd-dash-current-label">Now:</span>
+      <span class="gsd-dash-current-action">${escapeHtml(phaseText)} ${escapeHtml(breadcrumb.join("/"))}</span>
+    </div>
+    ` : ""}
+
+    ${hasActiveWork ? `
+      <div class="gsd-dash-milestone-title">${escapeHtml(data.milestone!.id)}: ${escapeHtml(data.milestone!.title)}</div>
+
+      <div class="gsd-dash-progress">
+        ${progressBar(data.progress.tasks.done, data.progress.tasks.total, "Tasks")}
+        ${progressBar(data.progress.slices.done, data.progress.slices.total, "Slices")}
+        ${progressBar(data.progress.milestones.done, data.progress.milestones.total, "Milestones")}
+      </div>
+
+      ${sliceList(data.slices)}
+    ` : `
+      <div class="gsd-dash-progress">
+        ${progressBar(data.progress.milestones.done, data.progress.milestones.total, "Milestones")}
+      </div>
+    `}
+
+    ${milestoneList(data.milestoneRegistry)}
+    ${blockersSection(data.blockers)}
+    ${costSection(data.stats)}
+    ${nextActionSection(data.nextAction)}
+
+    <div class="gsd-dashboard-footer">
+      <span class="gsd-dash-hint">${hasActiveWork ? `Run <code>/gsd auto</code> to start executing` : `Run <code>/gsd</code> to start a new milestone`}</span>
+    </div>
+  `;
+
+  messagesContainer.appendChild(el);
+  scrollToBottom(messagesContainer, true);
+}
+
+export function formatTokenCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
+
+export function updateWelcomeScreen(): void {
+  // Only hide welcome for real conversation entries (user messages, assistant turns)
+  // System info/warning entries alone shouldn't dismiss it
+  const hasConversation = state.currentTurn || state.entries.some(
+    e => e.type === "user" || e.type === "assistant"
+  );
+  if (hasConversation) {
+    welcomeScreen.style.display = "none";
+    return;
+  }
+  welcomeScreen.style.display = "flex";
+
+  welcomeVersion.textContent = state.version ? `v${state.version}` : "";
+
+  switch (state.processStatus) {
+    case "starting":
+      welcomeProcess.textContent = "Starting GSD…";
+      break;
+    case "running":
+      welcomeProcess.textContent = "Type a message to start";
+      break;
+    case "crashed":
+      welcomeProcess.textContent = "GSD failed to start — check the error below";
+      break;
+    case "restarting":
+      welcomeProcess.textContent = "Restarting…";
+      break;
+    default:
+      welcomeProcess.textContent = "Initializing…";
+  }
+
+  if (state.model && state.processStatus === "running") {
+    let modelStr = state.model.id || state.model.name || "";
+    if (state.model.provider) modelStr = `${state.model.provider}/${modelStr}`;
+    if (state.thinkingLevel && state.thinkingLevel !== "off") {
+      modelStr += ` • 🧠 ${state.thinkingLevel}`;
+    }
+    welcomeModel.textContent = modelStr;
+    welcomeModel.style.display = "block";
+  } else {
+    welcomeModel.style.display = "none";
+  }
+
+  if (state.processStatus === "running") {
+    const sendKey = state.useCtrlEnterToSend ? "Ctrl+Enter" : "Enter";
+    welcomeHints.innerHTML = [
+      `<span>${sendKey} to send</span>`,
+      `<span>Shift+Enter for newline</span>`,
+      `<span>Esc to interrupt</span>`,
+      `<span>/ for commands</span>`,
+    ].join('<span class="gsd-hint-sep">•</span>');
+    welcomeHints.style.display = "flex";
+  } else {
+    welcomeHints.style.display = "none";
+  }
+}

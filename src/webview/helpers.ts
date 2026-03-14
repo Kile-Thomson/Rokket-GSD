@@ -47,7 +47,7 @@ renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
   return `<div class="gsd-code-block" data-code-id="${id}">
     <div class="gsd-code-header">
       <span class="gsd-code-lang">${escapeHtml(langLabel)}</span>
-      <button class="gsd-copy-btn" data-code-id="${id}">Copy</button>
+      <button class="gsd-copy-btn" data-code-id="${id}" aria-label="Copy code">Copy</button>
     </div>
     <pre><code class="language-${escapeAttr(langLabel)}">${escapeHtml(text)}</code></pre>
   </div>`;
@@ -318,6 +318,38 @@ export function formatRelativeTime(ts: number): string {
  * When `force` is false (default), only scrolls if already near the bottom.
  * This prevents hijacking the viewport when the user has scrolled up to review.
  */
+/**
+ * Convert simple markdown to HTML for release notes / changelog display.
+ * Handles headers, bold, code, lists. NOT for full markdown — use renderMarkdown() for that.
+ */
+export function formatMarkdownNotes(md: string): string {
+  if (!md.trim()) return "<p>No details available.</p>";
+  return escapeHtml(md)
+    .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^# (.+)$/gm, '<h3>$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(/^\* (.+)$/gm, '<li>$1</li>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`)
+    .replace(/\n{2,}/g, '<br>')
+    .replace(/\n/g, ' ');
+}
+
+/**
+ * Format an ISO date string to a short human-readable form.
+ */
+export function formatShortDate(iso: string): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return "";
+  }
+}
+
 export function scrollToBottom(container: HTMLElement, force = false): void {
   requestAnimationFrame(() => {
     if (force || container.scrollHeight - container.scrollTop - container.clientHeight < 150) {

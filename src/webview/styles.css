@@ -1300,6 +1300,72 @@ html, body {
 }
 
 /* ============================================================
+   Tool Group (collapsed consecutive read-only tools)
+   ============================================================ */
+
+.gsd-tool-group {
+  margin: 6px 0 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(100, 160, 255, 0.12);
+  overflow: hidden;
+}
+
+.gsd-tool-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: rgba(100, 160, 255, 0.04);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(140, 180, 255, 0.7);
+  list-style: none;
+  letter-spacing: 0.3px;
+}
+
+.gsd-tool-group-header::-webkit-details-marker {
+  display: none;
+}
+
+.gsd-tool-group-icon {
+  flex-shrink: 0;
+}
+
+.gsd-tool-group-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gsd-tool-group-count {
+  font-size: 10px;
+  opacity: 0.4;
+  font-weight: 400;
+  margin-left: auto;
+}
+
+.gsd-tool-group-header .gsd-tool-chevron {
+  font-size: 10px;
+  opacity: 0.4;
+  transition: transform 0.15s ease;
+}
+
+.gsd-tool-group[open] > .gsd-tool-group-header .gsd-tool-chevron {
+  transform: rotate(90deg);
+}
+
+.gsd-tool-group-content {
+  padding: 4px 8px;
+}
+
+.gsd-tool-group-content .gsd-tool-segment {
+  margin: 2px 0;
+}
+
+/* ============================================================
    Thinking Block
    ============================================================ */
 
@@ -3192,6 +3258,72 @@ html, body {
   text-align: center;
   color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.5));
   font-size: 12px;
+}
+
+/* ============================================================
+   Screen reader only — visually hidden but accessible
+   ============================================================ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================================
+   Focus indicators
+   ============================================================ */
+
+.gsd-action-btn:focus-visible,
+.gsd-header-version:focus-visible,
+.gsd-welcome-chip:focus-visible,
+.gsd-copy-btn:focus-visible,
+.gsd-copy-response-btn:focus-visible,
+.gsd-scroll-fab:focus-visible,
+.gsd-tool-header[role="button"]:focus-visible,
+.gsd-tool-group-header[role="button"]:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Streaming: hide copy buttons on incomplete code blocks
+   ============================================================ */
+
+.gsd-entry-assistant.streaming .gsd-copy-btn {
+  display: none;
+}
+
+/* ============================================================
+   Loading spinner
+   ============================================================ */
+
+.gsd-loading-spinner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 14px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.5));
+}
+
+.gsd-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.15));
+  border-top-color: var(--vscode-textLink-foreground, #3794ff);
+  border-radius: 50%;
+  animation: gsd-spin 0.6s linear infinite;
+}
+
+@keyframes gsd-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ============================================================
