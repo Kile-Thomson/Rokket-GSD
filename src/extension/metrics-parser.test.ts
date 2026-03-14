@@ -14,6 +14,7 @@ import {
   type MetricsLedger,
 } from "./metrics-parser";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 
 // ─── Test fixtures ────────────────────────────────────────────────────────────
@@ -220,15 +221,17 @@ describe("formatDuration", () => {
 });
 
 describe("loadMetricsLedger", () => {
-  const tmpDir = path.join(__dirname, "../../.test-tmp-metrics");
-  const gsdDir = path.join(tmpDir, ".gsd");
+  let tmpDir: string;
+  let gsdDir: string;
 
   beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-metrics-test-"));
+    gsdDir = path.join(tmpDir, ".gsd");
     fs.mkdirSync(gsdDir, { recursive: true });
   });
 
   afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
   });
 
   it("returns null when file doesn't exist", () => {
