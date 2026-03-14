@@ -44,10 +44,20 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private autoModeState: Map<string, string | null> = new Map();
   private promptWatchdogs: Map<string, { timer: ReturnType<typeof setTimeout>; retried: boolean; nonce: number; message: string; images?: Array<{ type: "image"; data: string; mimeType: string }> }> = new Map();
   private promptWatchdogNonce = 0;
+  private slashWatchdogs: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  /** Tracks per-session timestamp of last RPC event received — used by slash command watchdog */
+  private lastEventTime: Map<string, number> = new Map();
+  /** Streaming activity monitor — detects stalled agent turns and auto-recovers */
+  private activityTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
+  private isSessionStreaming: Map<string, boolean> = new Map();
   private restartingSession: Set<string> = new Set();
   private sessionWebviews: Map<string, vscode.Webview> = new Map();
+  /** Disposables for webview message handlers — disposed on re-resolve to prevent duplicate handlers */
+  private messageHandlerDisposables: Map<string, vscode.Disposable> = new Map();
   private output: vscode.OutputChannel;
   private sessionCounter = 0;
+  /** The session ID of the current sidebar, for reuse on re-resolve */
+  private sidebarSessionId: string | null = null;
   private gsdVersion: string | undefined;
   private statusCallback?: (status: StatusBarUpdate) => void;
   private lastStatus: StatusBarUpdate = { isStreaming: false };
@@ -97,7 +107,30 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     _token: vscode.CancellationToken
   ): void {
     this.webviewView = webviewView;
-    const sessionId = `sidebar-${++this.sessionCounter}`;
+
+    // Reuse the existing sidebar session if there's a live RPC client.
+    // VS Code calls resolveWebviewView every time the sidebar becomes visible
+    // after being hidden — creating a new session each time would orphan the
+    // old GSD process and leave events bound to a stale webview reference.
+    let sessionId: string;
+    const existingClient = this.sidebarSessionId ? this.rpcClients.get(this.sidebarSessionId) : null;
+    if (this.sidebarSessionId && existingClient?.isRunning) {
+      sessionId = this.sidebarSessionId;
+      // Re-bind the client's event listener to the new webview reference
+      existingClient.removeAllListeners("event");
+      existingClient.on("event", (event: Record<string, unknown>) => {
+        this.handleRpcEvent(webviewView.webview, sessionId, event, existingClient);
+      });
+      this.sessionWebviews.set(sessionId, webviewView.webview);
+      this.output.appendLine(`[${sessionId}] Sidebar re-resolved — reusing existing session`);
+    } else {
+      // Clean up any stale sidebar session
+      if (this.sidebarSessionId) {
+        this.cleanupSession(this.sidebarSessionId);
+      }
+      sessionId = `sidebar-${++this.sessionCounter}`;
+      this.sidebarSessionId = sessionId;
+    }
 
     webviewView.webview.options = {
       enableScripts: true,
@@ -188,10 +221,24 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       clearTimeout(watchdog.timer);
     }
     this.promptWatchdogs.clear();
+    for (const [_, timer] of this.slashWatchdogs) {
+      clearTimeout(timer);
+    }
+    this.slashWatchdogs.clear();
+    this.lastEventTime.clear();
+    for (const [_, timer] of this.activityTimers) {
+      clearInterval(timer);
+    }
+    this.activityTimers.clear();
+    this.isSessionStreaming.clear();
     for (const [_, client] of this.rpcClients) {
       client.stop();
     }
     this.rpcClients.clear();
+    for (const [_, d] of this.messageHandlerDisposables) {
+      d.dispose();
+    }
+    this.messageHandlerDisposables.clear();
     for (const [_, panel] of this.panels) {
       panel.dispose();
     }
@@ -219,12 +266,25 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     }
     this.autoModeState.delete(sessionId);
     this.clearPromptWatchdog(sessionId);
+    const slashTimer = this.slashWatchdogs.get(sessionId);
+    if (slashTimer) {
+      clearTimeout(slashTimer);
+      this.slashWatchdogs.delete(sessionId);
+    }
+    this.lastEventTime.delete(sessionId);
+    this.stopActivityMonitor(sessionId);
+    this.isSessionStreaming.delete(sessionId);
     const client = this.rpcClients.get(sessionId);
     if (client) {
       client.stop();
       this.rpcClients.delete(sessionId);
     }
     this.sessionWebviews.delete(sessionId);
+    const msgDisposable = this.messageHandlerDisposables.get(sessionId);
+    if (msgDisposable) {
+      msgDisposable.dispose();
+      this.messageHandlerDisposables.delete(sessionId);
+    }
   }
 
   /**
@@ -298,6 +358,130 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     if (watchdog) {
       clearTimeout(watchdog.timer);
       this.promptWatchdogs.delete(sessionId);
+    }
+  }
+
+  /**
+   * Slash command watchdog — slash commands don't emit agent_start, so the
+   * regular watchdog can't be used. Instead, watch for ANY event arriving
+   * within the timeout. If nothing comes, retry once then notify the user.
+   */
+  private startSlashCommandWatchdog(
+    webview: vscode.Webview,
+    sessionId: string,
+    message: string,
+    images?: Array<{ type: "image"; data: string; mimeType: string }>
+  ): void {
+    // Clear any existing slash watchdog
+    const existing = this.slashWatchdogs.get(sessionId);
+    if (existing) clearTimeout(existing);
+
+    const TIMEOUT_MS = 10_000;
+    const sentAt = Date.now();
+
+    const timer = setTimeout(async () => {
+      this.slashWatchdogs.delete(sessionId);
+
+      // Check if any event arrived since we sent the command
+      const lastEvent = this.lastEventTime.get(sessionId) || 0;
+      if (lastEvent > sentAt) {
+        // Events are flowing — command is alive, no action needed
+        return;
+      }
+
+      const client = this.rpcClients.get(sessionId);
+      if (!client?.isRunning) return;
+
+      // Retry once
+      this.output.appendLine(`[${sessionId}] Slash watchdog: no events after ${TIMEOUT_MS / 1000}s for "${message}" — retrying`);
+      try {
+        await client.prompt(message, images);
+        const retrySentAt = Date.now();
+        // Set a second watchdog for the retry
+        const retryTimer = setTimeout(() => {
+          this.slashWatchdogs.delete(sessionId);
+          const lastRetryEvent = this.lastEventTime.get(sessionId) || 0;
+          if (lastRetryEvent > retrySentAt) return; // events flowing since retry
+
+          this.output.appendLine(`[${sessionId}] Slash watchdog: retry also got no response for "${message}"`);
+          this.postToWebview(webview, {
+            type: "error",
+            message: `Command "${message}" was sent but got no response. Try sending it again.`,
+          } as ExtensionToWebviewMessage);
+        }, TIMEOUT_MS);
+        this.slashWatchdogs.set(sessionId, retryTimer);
+      } catch (err: any) {
+        this.postToWebview(webview, { type: "error", message: err.message });
+      }
+    }, TIMEOUT_MS);
+
+    this.slashWatchdogs.set(sessionId, timer);
+  }
+
+  /**
+   * Streaming activity monitor — checks that RPC events keep flowing during
+   * an active agent turn. If no events arrive for STALL_TIMEOUT_MS, sends an
+   * abort to recover. This mirrors the CLI's built-in recovery: the CLI
+   * controls the agent loop directly and never hangs indefinitely, but the
+   * extension is a passive observer that needs its own stall detection.
+   */
+  private startActivityMonitor(webview: vscode.Webview, sessionId: string, client: GsdRpcClient): void {
+    this.stopActivityMonitor(sessionId);
+
+    const STALL_TIMEOUT_MS = 120_000; // 2 minutes with no events = stalled
+    const CHECK_INTERVAL_MS = 15_000; // check every 15s
+
+    const timer = setInterval(async () => {
+      // Only act while streaming
+      if (!this.isSessionStreaming.get(sessionId)) {
+        this.stopActivityMonitor(sessionId);
+        return;
+      }
+
+      const lastEvent = this.lastEventTime.get(sessionId) || 0;
+      const elapsed = Date.now() - lastEvent;
+
+      if (elapsed >= STALL_TIMEOUT_MS) {
+        this.output.appendLine(`[${sessionId}] Activity monitor: no events for ${Math.round(elapsed / 1000)}s — aborting to recover`);
+        this.stopActivityMonitor(sessionId);
+
+        // Notify the webview
+        this.postToWebview(webview, {
+          type: "error",
+          message: `No activity for ${Math.round(elapsed / 1000)}s — sending abort to recover.`,
+        } as ExtensionToWebviewMessage);
+
+        // Try graceful abort first
+        try {
+          await client.abort();
+          // Wait a moment for agent_end to arrive naturally
+          await new Promise(r => setTimeout(r, 3000));
+          // If still streaming, force-push agent_end to unblock the webview
+          if (this.isSessionStreaming.get(sessionId)) {
+            this.output.appendLine(`[${sessionId}] Activity monitor: abort succeeded but no agent_end — forcing`);
+            this.isSessionStreaming.set(sessionId, false);
+            this.emitStatus({ isStreaming: false });
+            this.postToWebview(webview, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
+          }
+        } catch {
+          // If abort fails, the process may be truly hung — force kill
+          this.output.appendLine(`[${sessionId}] Activity monitor: abort failed, force-killing`);
+          this.isSessionStreaming.set(sessionId, false);
+          this.emitStatus({ isStreaming: false });
+          this.postToWebview(webview, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
+          client.forceKill();
+        }
+      }
+    }, CHECK_INTERVAL_MS);
+
+    this.activityTimers.set(sessionId, timer);
+  }
+
+  private stopActivityMonitor(sessionId: string): void {
+    const timer = this.activityTimers.get(sessionId);
+    if (timer) {
+      clearInterval(timer);
+      this.activityTimers.delete(sessionId);
     }
   }
 
@@ -486,7 +670,13 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private setupWebviewMessageHandling(webview: vscode.Webview, sessionId: string): void {
     this.sessionWebviews.set(sessionId, webview);
 
-    webview.onDidReceiveMessage(async (msg: WebviewToExtensionMessage) => {
+    // Dispose previous handler for this session to prevent duplicate message processing
+    const prevDisposable = this.messageHandlerDisposables.get(sessionId);
+    if (prevDisposable) {
+      prevDisposable.dispose();
+    }
+
+    const disposable = webview.onDidReceiveMessage(async (msg: WebviewToExtensionMessage) => {
       try {
       this.output.appendLine(`[${sessionId}] Webview -> Extension: ${msg.type}`);
 
@@ -508,7 +698,19 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "launch_gsd": {
-          await this.launchGsd(webview, sessionId, msg.cwd);
+          // Guard: don't launch a second process if one already exists for this session
+          const existingLaunch = this.rpcClients.get(sessionId);
+          if (existingLaunch?.isRunning) {
+            this.output.appendLine(`[${sessionId}] launch_gsd: process already running (PID ${existingLaunch.pid}) — skipping`);
+            // Re-push state so the webview knows it's running
+            this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
+            try {
+              const rpcState = await existingLaunch.getState();
+              this.postToWebview(webview, { type: "state", data: rpcState } as ExtensionToWebviewMessage);
+            } catch { /* best effort */ }
+          } else {
+            await this.launchGsd(webview, sessionId, msg.cwd);
+          }
           break;
         }
 
@@ -554,9 +756,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                 mimeType: img.mimeType,
               }));
               await c.prompt(msg.message, images);
-              // Don't start watchdog for slash commands — they're handled by pi extensions
-              // internally and don't emit agent_start events, causing false watchdog alarms
-              if (!msg.message.startsWith("/")) {
+              // Slash commands don't emit agent_start (handled by pi extensions),
+              // so the regular watchdog would false-alarm. Instead, start a
+              // slash-command watchdog that just checks if ANY event arrived.
+              if (msg.message.startsWith("/")) {
+                this.startSlashCommandWatchdog(webview, sessionId, msg.message, images);
+              } else {
                 this.startPromptWatchdog(webview, sessionId, msg.message, images);
               }
             } catch (err: any) {
@@ -570,6 +775,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                   }));
                   if (isSlash) {
                     await this.abortAndPrompt(c, webview, msg.message, msg.images);
+                    this.startSlashCommandWatchdog(webview, sessionId, msg.message, imgs);
                   } else {
                     await c.steer(msg.message, imgs);
                   }
@@ -638,7 +844,19 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           if (client) {
             try {
               await client.abort();
-            } catch { /* ignored */ }
+            } catch (err: any) {
+              this.output.appendLine(`[${sessionId}] Interrupt/abort failed: ${err.message}`);
+              // If abort fails, force-clear streaming state on the webview side
+              // so the user isn't stuck
+              this.isSessionStreaming.set(sessionId, false);
+              this.stopActivityMonitor(sessionId);
+              this.emitStatus({ isStreaming: false });
+              // Notify webview so its state is consistent
+              const wv = this.sessionWebviews.get(sessionId);
+              if (wv) {
+                this.postToWebview(wv, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
+              }
+            }
           }
           break;
         }
@@ -1245,6 +1463,8 @@ ${exportOverrides}
         });
       }
     });
+
+    this.messageHandlerDisposables.set(sessionId, disposable);
   }
 
   // --- GSD Process Management ---
@@ -1280,7 +1500,7 @@ ${exportOverrides}
       this.postToWebview(webview, { type: "process_exit", code, signal, detail });
       this.postToWebview(webview, { type: "process_status", status: "crashed" } as ExtensionToWebviewMessage);
 
-      // Stop stats polling and health monitoring
+      // Stop all monitoring timers and watchdogs
       const timer = this.statsTimers.get(sessionId);
       if (timer) {
         clearInterval(timer);
@@ -1298,6 +1518,15 @@ ${exportOverrides}
         this.workflowTimers.delete(sessionId);
       }
       this.autoModeState.delete(sessionId);
+      this.stopActivityMonitor(sessionId);
+      this.isSessionStreaming.delete(sessionId);
+      this.clearPromptWatchdog(sessionId);
+      const slashWd = this.slashWatchdogs.get(sessionId);
+      if (slashWd) {
+        clearTimeout(slashWd);
+        this.slashWatchdogs.delete(sessionId);
+      }
+      this.lastEventTime.delete(sessionId);
 
       if (signal !== "SIGTERM" && signal !== "SIGKILL") {
         this.output.appendLine(`[${sessionId}] Unexpected exit — will auto-restart on next prompt`);
@@ -1378,6 +1607,16 @@ ${exportOverrides}
   ): void {
     const eventType = event.type as string;
 
+    // Track event arrival — used by slash command watchdog
+    this.lastEventTime.set(sessionId, Date.now());
+
+    // Clear slash command watchdog on any event — command is alive
+    const slashTimer = this.slashWatchdogs.get(sessionId);
+    if (slashTimer) {
+      clearTimeout(slashTimer);
+      this.slashWatchdogs.delete(sessionId);
+    }
+
     if (eventType === "extension_ui_request") {
       this.handleExtensionUiRequest(webview, sessionId, event, client);
       return;
@@ -1395,8 +1634,12 @@ ${exportOverrides}
     if (eventType === "agent_start") {
       this.clearPromptWatchdog(sessionId);
       this.emitStatus({ isStreaming: true });
+      this.isSessionStreaming.set(sessionId, true);
+      this.startActivityMonitor(webview, sessionId, client);
     } else if (eventType === "agent_end") {
       this.emitStatus({ isStreaming: false });
+      this.isSessionStreaming.set(sessionId, false);
+      this.stopActivityMonitor(sessionId);
       // Refresh workflow state after each agent turn
       this.refreshWorkflowState(webview, sessionId);
     } else if (eventType === "message_end") {
