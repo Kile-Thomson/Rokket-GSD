@@ -517,7 +517,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                 mimeType: img.mimeType,
               }));
               await c.prompt(msg.message, images);
-              this.startPromptWatchdog(webview, sessionId, msg.message, images);
+              // Don't start watchdog for slash commands — they're handled by pi extensions
+              // internally and don't emit agent_start events, causing false watchdog alarms
+              if (!msg.message.startsWith("/")) {
+                this.startPromptWatchdog(webview, sessionId, msg.message, images);
+              }
             } catch (err: any) {
               if (err.message?.includes("streaming")) {
                 try {
@@ -551,11 +555,30 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           const client = this.rpcClients.get(sessionId);
           if (client) {
             try {
-              await client.steer(msg.message, msg.images?.map((img) => ({
-                type: "image" as const,
-                data: img.data,
-                mimeType: img.mimeType,
-              })));
+              // Extension commands (slash commands) can't be steered — they need to run
+              // as prompts. Abort the current stream first, then send as a prompt.
+              if (msg.message.startsWith("/")) {
+                try {
+                  await client.abort();
+                } catch { /* may not be streaming anymore */ }
+                // Small delay to let the abort settle before sending the command
+                await new Promise((r) => setTimeout(r, 200));
+                try {
+                  await client.prompt(msg.message, msg.images?.map((img) => ({
+                    type: "image" as const,
+                    data: img.data,
+                    mimeType: img.mimeType,
+                  })));
+                } catch (promptErr: any) {
+                  this.postToWebview(webview, { type: "error", message: promptErr.message });
+                }
+              } else {
+                await client.steer(msg.message, msg.images?.map((img) => ({
+                  type: "image" as const,
+                  data: img.data,
+                  mimeType: img.mimeType,
+                })));
+              }
             } catch (err: any) {
               this.postToWebview(webview, { type: "error", message: err.message });
             }
