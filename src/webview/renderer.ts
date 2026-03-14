@@ -7,6 +7,7 @@ import {
   type ChatEntry,
   type AssistantTurn,
   type ToolCallState,
+  type TurnSegment,
 } from "./state";
 
 import {
@@ -23,6 +24,13 @@ import {
   renderMarkdown,
   scrollToBottom,
 } from "./helpers";
+
+import {
+  groupConsecutiveTools,
+  buildGroupSummaryLabel,
+  shouldCollapseWithPredecessor,
+  collapseToolIntoGroup,
+} from "./tool-grouping";
 
 // ============================================================
 // Dependencies injected via init()
@@ -112,12 +120,67 @@ export function updateToolSegmentElement(toolCallId: string): void {
   const tc = state.currentTurn.toolCalls.get(toolCallId);
   if (!tc) return;
 
-  for (const [, el] of segmentElements) {
+  // Find the element — could be in segmentElements directly or inside a group
+  let targetEl: HTMLElement | null = null;
+  let targetSegIdx: number | null = null;
+
+  for (const [segIdx, el] of segmentElements) {
     if (el.dataset.toolId === toolCallId) {
-      el.innerHTML = buildToolCallHtml(tc);
-      return;
+      targetEl = el;
+      targetSegIdx = segIdx;
+      break;
     }
   }
+
+  // Not found in segmentElements — search inside groups (reparented elements)
+  if (!targetEl && currentTurnElement) {
+    targetEl = currentTurnElement.querySelector<HTMLElement>(
+      `[data-tool-id="${toolCallId}"]`,
+    )?.closest<HTMLElement>(".gsd-tool-segment") ?? null;
+  }
+
+  if (!targetEl) return;
+
+  // Update the tool's HTML
+  targetEl.innerHTML = buildToolCallHtml(tc);
+
+  // Attempt streaming collapse if tool just completed
+  if (!tc.isRunning && targetSegIdx !== null) {
+    tryStreamingCollapse(targetEl, targetSegIdx);
+  }
+}
+
+/**
+ * After a tool completes, check if it should collapse with its DOM predecessor.
+ * Handles both creating new groups and expanding existing ones.
+ */
+function tryStreamingCollapse(el: HTMLElement, segIdx: number): void {
+  if (!state.currentTurn) return;
+  const turn = state.currentTurn;
+
+  // Find the preceding visible sibling in the DOM
+  const predecessor = el.previousElementSibling as HTMLElement | null;
+  if (!predecessor) return;
+
+  // Check if collapse is appropriate
+  const tc = turn.toolCalls.get(el.dataset.toolId ?? "");
+  if (!tc) return;
+
+  if (!shouldCollapseWithPredecessor(tc, predecessor, turn.toolCalls)) return;
+
+  const groupEl = collapseToolIntoGroup(el, predecessor, turn.toolCalls);
+
+  // Update segmentElements — the element was reparented into the group.
+  // For new groups, the predecessor's segIdx entry should now point to the group.
+  // Find the predecessor's segIdx and remap it.
+  for (const [predSegIdx, predEl] of segmentElements) {
+    if (predEl === predecessor) {
+      segmentElements.set(predSegIdx, groupEl);
+      break;
+    }
+  }
+  // The current element's entry should also point to the group
+  segmentElements.set(segIdx, groupEl);
 }
 
 export function finalizeCurrentTurn(): void {
@@ -233,41 +296,20 @@ function buildUserHtml(entry: ChatEntry): string {
 function buildTurnHtml(turn: AssistantTurn): string {
   let html = "";
 
-  for (const seg of turn.segments) {
-    if (seg.type === "thinking") {
-      const thinkingText = seg.chunks.join("");
-      if (thinkingText) {
-        const lineCount = thinkingText.split("\n").length;
-        html += `<details class="gsd-thinking-block">
-          <summary class="gsd-thinking-header">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm-.5-3h1v1h-1v-1zm.5-7a2.5 2.5 0 00-2.5 2.5h1A1.5 1.5 0 018 5a1.5 1.5 0 011.5 1.5c0 .44-.18.84-.46 1.13l-.64.66A2.49 2.49 0 007.5 10h1c0-.52.21-1 .57-1.35l.64-.66A2.49 2.49 0 0010.5 6.5 2.5 2.5 0 008 4z"/></svg>
-            <span class="gsd-thinking-label">Thinking</span>
-            <span class="gsd-thinking-lines">${lineCount} line${lineCount !== 1 ? "s" : ""}</span>
-          </summary>
-          <div class="gsd-thinking-content">${escapeHtml(thinkingText)}</div>
-        </details>`;
-      }
-    } else if (seg.type === "text") {
-      const text = seg.chunks.join("");
-      if (text) {
-        html += `<div class="gsd-assistant-text">${renderMarkdown(text)}</div>`;
-      }
-    } else if (seg.type === "tool") {
-      const tc = turn.toolCalls.get(seg.toolCallId);
-      if (tc) {
-        try {
-          html += `<div class="gsd-tool-segment">${buildToolCallHtml(tc)}</div>`;
-        } catch (err) {
-          console.error("Error rendering tool call:", tc.name, err);
-          html += `<div class="gsd-tool-segment"><div class="gsd-tool-block error collapsed" data-tool-id="${escapeAttr(tc.id)}">
-            <div class="gsd-tool-header">
-              <span class="gsd-tool-icon error">✗</span>
-              <span class="gsd-tool-name">${escapeHtml(tc.name)}</span>
-              <span class="gsd-tool-arg">render error</span>
-            </div>
-          </div></div>`;
-        }
-      }
+  const grouped = groupConsecutiveTools(turn.segments, turn.toolCalls);
+
+  if (grouped.length !== turn.segments.length) {
+    const groupCount = grouped.filter(g => g.type === "group").length;
+    if (groupCount > 0) {
+      console.debug(`[gsd] Tool grouping: ${groupCount} group(s) from ${turn.segments.length} segments`);
+    }
+  }
+
+  for (const item of grouped) {
+    if (item.type === "group") {
+      html += buildToolGroupHtml(item.segments, item.toolNames, turn.toolCalls);
+    } else {
+      html += buildSegmentHtml(item.segment, turn.toolCalls);
     }
   }
 
@@ -287,8 +329,8 @@ function buildTurnHtml(turn: AssistantTurn): string {
       .join("\n\n");
     if (textContent) {
       html += `<div class="gsd-turn-actions">`;
-      html += `<button class="gsd-copy-response-btn" data-copy-text="${escapeAttr(textContent)}" title="Copy response">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 4h8v8H4V4zm1 1v6h6V5H5zm-3-3h8v1H3v7H2V2h8z"/></svg>
+      html += `<button class="gsd-copy-response-btn" data-copy-text="${escapeAttr(textContent)}" title="Copy response" aria-label="Copy response">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 4h8v8H4V4zm1 1v6h6V5H5zm-3-3h8v1H3v7H2V2h8z"/></svg>
         Copy
       </button>`;
       if (turn.timestamp) {
@@ -301,6 +343,75 @@ function buildTurnHtml(turn: AssistantTurn): string {
   }
 
   return html;
+}
+
+function buildSegmentHtml(seg: TurnSegment, toolCalls: Map<string, ToolCallState>): string {
+  if (seg.type === "thinking") {
+    const thinkingText = seg.chunks.join("");
+    if (!thinkingText) return "";
+    const lineCount = thinkingText.split("\n").length;
+    return `<details class="gsd-thinking-block">
+      <summary class="gsd-thinking-header">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm-.5-3h1v1h-1v-1zm.5-7a2.5 2.5 0 00-2.5 2.5h1A1.5 1.5 0 018 5a1.5 1.5 0 011.5 1.5c0 .44-.18.84-.46 1.13l-.64.66A2.49 2.49 0 007.5 10h1c0-.52.21-1 .57-1.35l.64-.66A2.49 2.49 0 0010.5 6.5 2.5 2.5 0 008 4z"/></svg>
+        <span class="gsd-thinking-label">Thinking</span>
+        <span class="gsd-thinking-lines">${lineCount} line${lineCount !== 1 ? "s" : ""}</span>
+      </summary>
+      <div class="gsd-thinking-content">${escapeHtml(thinkingText)}</div>
+    </details>`;
+  } else if (seg.type === "text") {
+    const text = seg.chunks.join("");
+    if (!text) return "";
+    return `<div class="gsd-assistant-text">${renderMarkdown(text)}</div>`;
+  } else if (seg.type === "tool") {
+    const tc = toolCalls.get(seg.toolCallId);
+    if (!tc) return "";
+    try {
+      return `<div class="gsd-tool-segment">${buildToolCallHtml(tc)}</div>`;
+    } catch (err) {
+      console.error("Error rendering tool call:", tc.name, err);
+      return `<div class="gsd-tool-segment"><div class="gsd-tool-block error collapsed" data-tool-id="${escapeAttr(tc.id)}">
+        <div class="gsd-tool-header" role="button" tabindex="0" aria-label="Toggle ${escapeAttr(tc.name)} details" aria-expanded="false">
+          <span class="gsd-tool-icon error">✗</span>
+          <span class="gsd-tool-name">${escapeHtml(tc.name)}</span>
+          <span class="gsd-tool-arg">render error</span>
+        </div>
+      </div></div>`;
+    }
+  }
+  return "";
+}
+
+function buildToolGroupHtml(
+  segments: TurnSegment[],
+  toolNames: string[],
+  toolCalls: Map<string, ToolCallState>,
+): string {
+  const label = buildGroupSummaryLabel(toolNames);
+  let inner = "";
+  for (const seg of segments) {
+    if (seg.type === "tool") {
+      const tc = toolCalls.get(seg.toolCallId);
+      if (tc) {
+        try {
+          inner += `<div class="gsd-tool-segment">${buildToolCallHtml(tc)}</div>`;
+        } catch (err) {
+          console.error("Error rendering grouped tool call:", tc.name, err);
+        }
+      }
+    }
+  }
+
+  return `<details class="gsd-tool-group" data-tool-group="${toolNames.length}">
+    <summary class="gsd-tool-group-header" role="button" tabindex="0" aria-label="Toggle ${escapeAttr(label)}" aria-expanded="false">
+      <span class="gsd-tool-group-icon">
+        <span class="gsd-tool-icon success">✓</span>
+      </span>
+      <span class="gsd-tool-group-label">${escapeHtml(label)}</span>
+      <span class="gsd-tool-group-count">${toolNames.length}</span>
+      <span class="gsd-tool-chevron">▸</span>
+    </summary>
+    <div class="gsd-tool-group-content">${inner}</div>
+  </details>`;
 }
 
 function buildToolCallHtml(tc: ToolCallState): string {
@@ -344,8 +455,9 @@ function buildToolCallHtml(tc: ToolCallState): string {
     outputHtml = `<div class="gsd-tool-output"><span class="gsd-tool-output-pending">Running...</span></div>`;
   }
 
+  const isCollapsed = collapsedClass === "collapsed";
   return `<div class="gsd-tool-block ${stateClass} ${collapsedClass} cat-${category}" data-tool-id="${escapeAttr(tc.id)}">
-    <div class="gsd-tool-header">
+    <div class="gsd-tool-header" role="button" tabindex="0" aria-label="Toggle ${escapeAttr(tc.name)} details" aria-expanded="${isCollapsed ? "false" : "true"}">
       ${statusIcon}
       <span class="gsd-tool-cat-icon">${toolIcon}</span>
       <span class="gsd-tool-name">${escapeHtml(tc.name)}</span>
