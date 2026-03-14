@@ -4,6 +4,14 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.23] — 2026-03-14
+
+### Fixed
+- **Slash commands work during streaming** — `/gsd auto`, `/gsd stop`, and other slash commands now execute even when the agent is mid-response (aborts stream first, then sends command)
+- **Prompt watchdog false alarms** — extension commands no longer trigger "GSD accepted the command but didn't start processing" errors
+- **User messages render above streaming response** — messages sent during streaming now appear in correct order
+- **Case-insensitive `/gsd status`** check
+
 ## [0.2.11] — 2026-03-13
 
 ### Added
