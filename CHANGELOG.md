@@ -4,6 +4,19 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.24] — 2026-03-14
+
+### Fixed
+- **Eliminate duplicate confirmation dialogs** — dialog fingerprinting deduplicates identical confirm/select/input requests; linked duplicates get the same response automatically
+- **Sidebar session reuse** — re-opening the sidebar no longer creates orphaned GSD processes or stacks duplicate message handlers (root cause of triple/quadruple confirmations)
+- **Slash commands always sent as prompt** — removes unreliable steer path when `isStreaming` state is stale
+- **Slash command watchdog** (10s) — detects when a slash command gets no response and retries before showing an error
+- **Streaming activity monitor** (120s) — auto-aborts stalled agent turns and force-pushes `agent_end` if the abort doesn't produce one
+- **Tool watchdog auto-recovery** — auto-sends interrupt on timeout + 15s force-clear safety net instead of passive warning
+- **Interrupt failure recovery** — failed aborts now clear streaming state and notify the webview instead of silently swallowing
+- **Process exit full cleanup** — all tracking maps (activity timers, watchdogs, streaming state) properly cleaned on process exit
+- **Launch guard** — prevents launching duplicate GSD processes for the same session
+
 ## [0.2.23] — 2026-03-14
 
 ### Fixed
