@@ -44,20 +44,26 @@ const vscode = acquireVsCodeApi();
 // Tool Watchdog — Client-side timeout for stuck tools
 // ============================================================
 
-/** Default watchdog timeout: 3 minutes (180s). GSD's bash-safety is 120s,
- *  so this catches anything that slips through or isn't covered by bash-safety. */
-const TOOL_WATCHDOG_TIMEOUT_MS = 180_000;
+/**
+ * Tool watchdog — NO hard timeout. Long-running tools (subagent, bg_shell)
+ * routinely run 5+ minutes without emitting intermediate events through RPC.
+ * A hard timeout would abort healthy work.
+ *
+ * True hangs are detected by the extension host's ping-based activity monitor,
+ * which checks if the GSD process can respond to health pings regardless of
+ * event flow. The user can always press Escape to interrupt manually.
+ *
+ * The watchdog maps are kept for the message handler's clearToolWatchdog calls
+ * but startToolWatchdog is now a no-op.
+ */
 
-/** Map of toolCallId → timer handle for active watchdog timers */
+/** Map of toolCallId → timer handle (kept for API compat, not actively used) */
 const toolWatchdogTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-function startToolWatchdog(toolCallId: string): void {
-  clearToolWatchdog(toolCallId);
-  const timer = setTimeout(() => {
-    toolWatchdogTimers.delete(toolCallId);
-    handleToolWatchdogTimeout(toolCallId);
-  }, TOOL_WATCHDOG_TIMEOUT_MS);
-  toolWatchdogTimers.set(toolCallId, timer);
+function startToolWatchdog(_toolCallId: string): void {
+  // No-op — hang detection is handled by the extension host's ping-based
+  // activity monitor. Client-side hard timeouts cause false alarms on
+  // long-running tools like subagent.
 }
 
 function clearToolWatchdog(toolCallId: string): void {
@@ -66,49 +72,6 @@ function clearToolWatchdog(toolCallId: string): void {
     clearTimeout(timer);
     toolWatchdogTimers.delete(toolCallId);
   }
-}
-
-function handleToolWatchdogTimeout(toolCallId: string): void {
-  // Mark the tool as timed out in state
-  const tc = state.currentTurn?.toolCalls.get(toolCallId);
-  if (!tc || !tc.isRunning) return;
-
-  tc.isRunning = false;
-  tc.isError = true;
-  tc.endTime = Date.now();
-  tc.resultText = `⏱ Tool timed out after ${TOOL_WATCHDOG_TIMEOUT_MS / 1000}s (client-side watchdog). The tool may still be running on the server.`;
-
-  // Re-render the tool card with timeout state
-  renderer.updateToolSegmentElement(toolCallId);
-
-  // Show a system message
-  messageHandler.addSystemEntry(
-    `Tool "${tc.name}" timed out after ${TOOL_WATCHDOG_TIMEOUT_MS / 1000}s. Sending interrupt to recover...`,
-    "warning"
-  );
-
-  // Auto-interrupt to recover — the server-side tool may have finished but
-  // the result event was lost, or the agent is stuck. Interrupting will
-  // trigger agent_end and clear streaming state so the user can continue.
-  vscode.postMessage({ type: "interrupt" });
-
-  // Safety net: if interrupt doesn't clear streaming within 15s, force-clear
-  // client-side state so the user isn't permanently stuck.
-  setTimeout(() => {
-    if (state.isStreaming && state.currentTurn && !state.currentTurn.isComplete) {
-      state.isStreaming = false;
-      if (state.currentTurn) {
-        state.currentTurn.isComplete = true;
-        renderer.finalizeCurrentTurn();
-      }
-      messageHandler.addSystemEntry(
-        "Interrupt did not resolve — streaming state force-cleared. You can send a new message.",
-        "warning"
-      );
-      uiUpdates.updateInputUI();
-      uiUpdates.updateFooterUI();
-    }
-  }, 15_000);
 }
 
 // ============================================================
