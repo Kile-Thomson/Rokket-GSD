@@ -351,9 +351,7 @@ export function formatShortDate(iso: string): string {
 }
 
 export function scrollToBottom(container: HTMLElement, force = false): void {
-  requestAnimationFrame(() => {
-    if (force || container.scrollHeight - container.scrollTop - container.clientHeight < 150) {
-      container.scrollTop = container.scrollHeight;
-    }
-  });
+  if (force || container.scrollHeight - container.scrollTop - container.clientHeight < 150) {
+    container.scrollTop = container.scrollHeight;
+  }
 }
