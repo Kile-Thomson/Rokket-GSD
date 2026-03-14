@@ -24,12 +24,21 @@ const pendingDialogs = new Map<string, HTMLElement>();
  * they can no longer interact.
  */
 export function expireAllPending(reason: string = "Agent moved on"): void {
-  for (const [, wrapper] of pendingDialogs) {
+  for (const [id, wrapper] of pendingDialogs) {
     if (!wrapper.classList.contains("resolved")) {
+      // Auto-resolve linked duplicates with cancelled response
+      const linkedIds = (wrapper as any).__linkedIds as string[] | undefined;
+      if (linkedIds) {
+        for (const linkedId of linkedIds) {
+          vscode.postMessage({ type: "extension_ui_response", id: linkedId, cancelled: true });
+        }
+        (wrapper as any).__linkedIds = [];
+      }
       disableRequest(wrapper, `Expired: ${reason}`);
     }
   }
   pendingDialogs.clear();
+  pendingFingerprints.clear();
 }
 
 /**
@@ -73,9 +82,45 @@ function createFocusTrap(container: HTMLElement): (e: KeyboardEvent) => void {
   };
 }
 
+/**
+ * Build a fingerprint for a dialog request so we can detect duplicates.
+ * Two dialogs are considered duplicates if they have the same method, title,
+ * message, and options — even if their IDs differ.
+ */
+function dialogFingerprint(data: any): string {
+  const parts = [
+    data.method || "",
+    data.title || "",
+    data.message || "",
+  ];
+  if (data.options) {
+    parts.push(JSON.stringify(data.options));
+  }
+  return parts.join("|");
+}
+
+/** Fingerprints of currently pending (unresolved) dialogs */
+const pendingFingerprints = new Map<string, string>(); // fingerprint → request id
+
 export function handleRequest(data: any): void {
   const id = data.id;
   const method = data.method;
+
+  // Dedup: if an identical dialog is already pending, auto-resolve the new one
+  // with the same response the user gives to the original. This prevents the
+  // "triple confirmation" problem where the agent calls ask_user_questions
+  // multiple times for the same question.
+  const fp = dialogFingerprint(data);
+  const existingId = pendingFingerprints.get(fp);
+  if (existingId && pendingDialogs.has(existingId)) {
+    // Link this request to the existing dialog — when the original is resolved,
+    // we'll send the same response for this one too.
+    const existing = pendingDialogs.get(existingId)!;
+    if (!existing.__linkedIds) existing.__linkedIds = [];
+    (existing as any).__linkedIds.push(id);
+    return;
+  }
+  pendingFingerprints.set(fp, id);
 
   // Save focus origin for restoration
   preFocusEl = document.activeElement as HTMLElement | null;
@@ -107,11 +152,11 @@ export function handleRequest(data: any): void {
     `;
 
     wrapper.querySelector('[data-action="yes"]')!.addEventListener("click", () => {
-      vscode.postMessage({ type: "extension_ui_response", id, confirmed: true });
+      sendResponseWithLinked(wrapper, id, { type: "extension_ui_response", id, confirmed: true });
       disableRequest(wrapper, "Confirmed: Yes");
     });
     wrapper.querySelector('[data-action="no"]')!.addEventListener("click", () => {
-      vscode.postMessage({ type: "extension_ui_response", id, confirmed: false });
+      sendResponseWithLinked(wrapper, id, { type: "extension_ui_response", id, confirmed: false });
       disableRequest(wrapper, "Confirmed: No");
     });
   } else if (method === "input") {
@@ -130,20 +175,20 @@ export function handleRequest(data: any): void {
     setTimeout(() => input.focus(), 50);
 
     const submit = () => {
-      vscode.postMessage({ type: "extension_ui_response", id, value: input.value });
+      sendResponseWithLinked(wrapper, id, { type: "extension_ui_response", id, value: input.value });
       disableRequest(wrapper, `Submitted: ${input.value}`);
     };
 
     input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") submit();
       if (e.key === "Escape") {
-        vscode.postMessage({ type: "extension_ui_response", id, cancelled: true });
+        sendResponseWithLinked(wrapper, id, { type: "extension_ui_response", id, cancelled: true });
         disableRequest(wrapper, "Cancelled");
       }
     });
     wrapper.querySelector('[data-action="submit"]')!.addEventListener("click", submit);
     wrapper.querySelector('[data-action="cancel"]')!.addEventListener("click", () => {
-      vscode.postMessage({ type: "extension_ui_response", id, cancelled: true });
+      sendResponseWithLinked(wrapper, id, { type: "extension_ui_response", id, cancelled: true });
       disableRequest(wrapper, "Cancelled");
     });
   }
@@ -201,13 +246,13 @@ function buildSingleSelect(
   wrapper.querySelectorAll(".gsd-ui-option-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const value = (btn as HTMLElement).dataset.value!;
-      vscode.postMessage({ type: "extension_ui_response", id, value });
+      sendResponseWithLinked(wrapper, id, { type: "extension_ui_response", id, value });
       const shortTitle = title.split(":")[0]?.trim() || title;
       disableRequest(wrapper, `${shortTitle}: ${value}`);
     });
   });
   wrapper.querySelector(".gsd-ui-cancel-btn")!.addEventListener("click", () => {
-    vscode.postMessage({ type: "extension_ui_response", id, cancelled: true });
+    sendResponseWithLinked(wrapper, id, { type: "extension_ui_response", id, cancelled: true });
     disableRequest(wrapper, "Cancelled");
   });
 }
@@ -275,14 +320,13 @@ function buildMultiSelect(
   confirmBtn.addEventListener("click", () => {
     if (selected.size === 0) return;
     const values = Array.from(selected);
-    // Send as comma-joined value for backwards compat, plus values array
-    vscode.postMessage({ type: "extension_ui_response", id, value: values.join(", "), values });
+    sendResponseWithLinked(wrapper, id, { type: "extension_ui_response", id, value: values.join(", "), values });
     const shortTitle = title.split(":")[0]?.trim() || title;
     disableRequest(wrapper, `${shortTitle}: ${values.join(", ")}`);
   });
 
   wrapper.querySelector(".gsd-ui-multi-cancel")!.addEventListener("click", () => {
-    vscode.postMessage({ type: "extension_ui_response", id, cancelled: true });
+    sendResponseWithLinked(wrapper, id, { type: "extension_ui_response", id, cancelled: true });
     disableRequest(wrapper, "Cancelled");
   });
 }
@@ -290,6 +334,24 @@ function buildMultiSelect(
 // ============================================================
 // Internal
 // ============================================================
+
+/**
+ * Send a UI response for the primary dialog AND all linked duplicate dialogs.
+ * Each linked ID gets an identical response (with its own ID substituted).
+ */
+function sendResponseWithLinked(wrapper: HTMLElement, primaryId: string, response: Record<string, unknown>): void {
+  // Send primary response
+  vscode.postMessage(response);
+
+  // Send responses for any linked duplicate dialogs
+  const linkedIds = (wrapper as any).__linkedIds as string[] | undefined;
+  if (linkedIds && linkedIds.length > 0) {
+    for (const linkedId of linkedIds) {
+      vscode.postMessage({ ...response, id: linkedId });
+    }
+    (wrapper as any).__linkedIds = [];
+  }
+}
 
 function disableRequest(wrapper: HTMLElement, summary: string): void {
   wrapper.classList.add("resolved");
@@ -300,9 +362,18 @@ function disableRequest(wrapper: HTMLElement, summary: string): void {
     preFocusEl = null;
   }
 
-  // Remove from pending tracking
+  // Remove from pending tracking and fingerprint dedup
   const uiId = wrapper.dataset.uiId;
-  if (uiId) pendingDialogs.delete(uiId);
+  if (uiId) {
+    pendingDialogs.delete(uiId);
+    // Clean up fingerprint entry
+    for (const [fp, fId] of pendingFingerprints) {
+      if (fId === uiId) {
+        pendingFingerprints.delete(fp);
+        break;
+      }
+    }
+  }
 
   // Clear any active timeout countdown
   const timerId = (wrapper as any).__timeoutTimer;
