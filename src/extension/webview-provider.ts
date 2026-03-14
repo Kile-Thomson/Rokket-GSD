@@ -814,8 +814,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             const path = await import("path");
             const exportPath = path.join(cwd, `gsd-export-${timestamp}.html`);
             fs.writeFileSync(exportPath, fullHtml, "utf-8");
-            const doc = await vscode.workspace.openTextDocument(exportPath);
-            await vscode.window.showTextDocument(doc, { preview: true });
+            const uri = vscode.Uri.file(exportPath);
+            await vscode.env.openExternal(uri);
             vscode.window.showInformationMessage(`Conversation exported to ${exportPath}`);
           } catch (err: any) {
             this.postToWebview(webview, { type: "error", message: `Export failed: ${err.message}` });
