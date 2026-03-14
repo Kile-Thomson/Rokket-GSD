@@ -419,17 +419,26 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Streaming activity monitor — checks that RPC events keep flowing during
-   * an active agent turn. If no events arrive for STALL_TIMEOUT_MS, sends an
-   * abort to recover. This mirrors the CLI's built-in recovery: the CLI
-   * controls the agent loop directly and never hangs indefinitely, but the
-   * extension is a passive observer that needs its own stall detection.
+   * Streaming activity monitor — uses health pings to detect truly stuck
+   * processes during an active agent turn.
+   *
+   * Why ping-based, not event-based: Long-running tools (subagent, bg_shell)
+   * may not emit ANY intermediate events through RPC for 5+ minutes while
+   * doing real work. Event-based monitoring would abort healthy work.
+   * Ping-based monitoring only fires when the GSD process itself is
+   * unresponsive — meaning it can't even answer a get_state request.
+   *
+   * Escalation:
+   *  1. First unresponsive ping → log, notify webview, keep monitoring
+   *  2. Two consecutive unresponsive pings → abort
+   *  3. Abort fails → force-kill
    */
   private startActivityMonitor(webview: vscode.Webview, sessionId: string, client: GsdRpcClient): void {
     this.stopActivityMonitor(sessionId);
 
-    const STALL_TIMEOUT_MS = 120_000; // 2 minutes with no events = stalled
-    const CHECK_INTERVAL_MS = 15_000; // check every 15s
+    const CHECK_INTERVAL_MS = 30_000; // check every 30s
+    const PING_TIMEOUT_MS = 15_000;   // individual ping timeout
+    let consecutiveFailures = 0;
 
     const timer = setInterval(async () => {
       // Only act while streaming
@@ -438,39 +447,62 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         return;
       }
 
-      const lastEvent = this.lastEventTime.get(sessionId) || 0;
-      const elapsed = Date.now() - lastEvent;
-
-      if (elapsed >= STALL_TIMEOUT_MS) {
-        this.output.appendLine(`[${sessionId}] Activity monitor: no events for ${Math.round(elapsed / 1000)}s — aborting to recover`);
+      if (!client.isRunning) {
         this.stopActivityMonitor(sessionId);
+        return;
+      }
 
-        // Notify the webview
+      const isAlive = await client.ping(PING_TIMEOUT_MS);
+
+      if (isAlive) {
+        // Process is responsive — reset failure count
+        if (consecutiveFailures > 0) {
+          this.output.appendLine(`[${sessionId}] Activity monitor: process recovered after ${consecutiveFailures} failed ping(s)`);
+          consecutiveFailures = 0;
+        }
+        return;
+      }
+
+      consecutiveFailures++;
+      this.output.appendLine(`[${sessionId}] Activity monitor: ping failed (${consecutiveFailures} consecutive)`);
+
+      if (consecutiveFailures === 1) {
+        // First failure — warn but don't act yet (could be transient)
         this.postToWebview(webview, {
           type: "error",
-          message: `No activity for ${Math.round(elapsed / 1000)}s — sending abort to recover.`,
+          message: "GSD process is not responding — monitoring...",
         } as ExtensionToWebviewMessage);
+        return;
+      }
 
-        // Try graceful abort first
-        try {
-          await client.abort();
-          // Wait a moment for agent_end to arrive naturally
-          await new Promise(r => setTimeout(r, 3000));
-          // If still streaming, force-push agent_end to unblock the webview
-          if (this.isSessionStreaming.get(sessionId)) {
-            this.output.appendLine(`[${sessionId}] Activity monitor: abort succeeded but no agent_end — forcing`);
-            this.isSessionStreaming.set(sessionId, false);
-            this.emitStatus({ isStreaming: false });
-            this.postToWebview(webview, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
-          }
-        } catch {
-          // If abort fails, the process may be truly hung — force kill
-          this.output.appendLine(`[${sessionId}] Activity monitor: abort failed, force-killing`);
+      // Two or more consecutive failures — process is truly stuck
+      this.output.appendLine(`[${sessionId}] Activity monitor: ${consecutiveFailures} consecutive ping failures — aborting`);
+      this.stopActivityMonitor(sessionId);
+
+      this.postToWebview(webview, {
+        type: "error",
+        message: `GSD process unresponsive for ${consecutiveFailures * CHECK_INTERVAL_MS / 1000}s — aborting to recover.`,
+      } as ExtensionToWebviewMessage);
+
+      // Try graceful abort first
+      try {
+        await client.abort();
+        // Wait a moment for agent_end to arrive naturally
+        await new Promise(r => setTimeout(r, 3000));
+        // If still streaming, force-push agent_end to unblock the webview
+        if (this.isSessionStreaming.get(sessionId)) {
+          this.output.appendLine(`[${sessionId}] Activity monitor: abort succeeded but no agent_end — forcing`);
           this.isSessionStreaming.set(sessionId, false);
           this.emitStatus({ isStreaming: false });
           this.postToWebview(webview, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
-          client.forceKill();
         }
+      } catch {
+        // If abort fails, the process may be truly hung — force kill
+        this.output.appendLine(`[${sessionId}] Activity monitor: abort failed, force-killing`);
+        this.isSessionStreaming.set(sessionId, false);
+        this.emitStatus({ isStreaming: false });
+        this.postToWebview(webview, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
+        client.forceKill();
       }
     }, CHECK_INTERVAL_MS);
 
