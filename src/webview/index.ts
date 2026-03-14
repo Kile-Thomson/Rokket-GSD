@@ -419,7 +419,7 @@ function sendMessage(): void {
     : "";
 
   // Handle /gsd status — show dashboard inline (no streaming guard — this is local UI only)
-  if (text === "/gsd status") {
+  if (text.toLowerCase() === "/gsd status") {
     state.entries.push({
       id: nextId(),
       type: "user",
