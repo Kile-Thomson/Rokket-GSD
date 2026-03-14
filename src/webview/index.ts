@@ -26,6 +26,8 @@ import {
   formatTokens,
   formatContextUsage,
   formatRelativeTime,
+  formatMarkdownNotes,
+  formatShortDate,
   scrollToBottom,
   sanitizeUrl,
 } from "./helpers";
@@ -102,39 +104,39 @@ function handleToolWatchdogTimeout(toolCallId: string): void {
 const root = document.getElementById("root")!;
 root.innerHTML = `
   <div class="gsd-app">
-    <header class="gsd-header">
+    <header class="gsd-header" role="banner">
       <div class="gsd-header-brand">
-        <span class="gsd-logo">🚀</span>
+        <span class="gsd-logo" aria-hidden="true">🚀</span>
         <span class="gsd-title">Rokket GSD</span>
-        <span class="gsd-header-version" id="headerVersion" title="View changelog"></span>
+        <span class="gsd-header-version" id="headerVersion" title="View changelog" role="button" tabindex="0" aria-label="View changelog"></span>
       </div>
-      <span class="gsd-workflow-badge" id="workflowBadge" title="GSD workflow state"></span>
-      <div class="gsd-header-info">
-        <span class="gsd-model-badge" id="modelBadge" title="Model"></span>
-        <span class="gsd-thinking-badge" id="thinkingBadge" title="Thinking level"></span>
-        <span class="gsd-header-sep" id="headerSep1"></span>
-        <span class="gsd-cost-badge" id="costBadge" title="Session cost"></span>
-        <span class="gsd-context-badge" id="contextBadge" title="Context usage"></span>
+      <span class="gsd-workflow-badge" id="workflowBadge" title="GSD workflow state" role="status" aria-label="Workflow state"></span>
+      <div class="gsd-header-info" role="status" aria-label="Session info">
+        <span class="gsd-model-badge" id="modelBadge" title="Model" aria-label="Current model"></span>
+        <span class="gsd-thinking-badge" id="thinkingBadge" title="Thinking level" aria-label="Thinking level"></span>
+        <span class="gsd-header-sep" id="headerSep1" aria-hidden="true"></span>
+        <span class="gsd-cost-badge" id="costBadge" title="Session cost" aria-label="Session cost"></span>
+        <span class="gsd-context-badge" id="contextBadge" title="Context usage" aria-label="Context usage"></span>
       </div>
-      <div class="gsd-header-actions">
-        <button class="gsd-action-btn" id="compactBtn" title="Compact context — reduce token usage">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M14 2H8L7 3v3h1V3h6v5h-4l-1 1v2H8v1h2l3-3h1l1-1V3l-1-1zM9 7H3L2 8v5l1 1h6l1-1V8L9 7zm0 6H3V8h6v5z"/></svg>
+      <div class="gsd-header-actions" role="toolbar" aria-label="Actions">
+        <button class="gsd-action-btn" id="compactBtn" title="Compact context — reduce token usage" aria-label="Compact context">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M14 2H8L7 3v3h1V3h6v5h-4l-1 1v2H8v1h2l3-3h1l1-1V3l-1-1zM9 7H3L2 8v5l1 1h6l1-1V8L9 7zm0 6H3V8h6v5z"/></svg>
           <span>Compact</span>
         </button>
-        <button class="gsd-action-btn" id="exportBtn" title="Export conversation as HTML">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M13 1H5L4 2v3h1V2h8v12H5v-3H4v3l1 1h8l1-1V2l-1-1zM1 8l3-3v2h5v2H4v2L1 8z"/></svg>
+        <button class="gsd-action-btn" id="exportBtn" title="Export conversation as HTML" aria-label="Export conversation">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13 1H5L4 2v3h1V2h8v12H5v-3H4v3l1 1h8l1-1V2l-1-1zM1 8l3-3v2h5v2H4v2L1 8z"/></svg>
           <span>Export</span>
         </button>
-        <button class="gsd-action-btn" id="historyBtn" title="Browse previous sessions">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M13.507 12.324a7 7 0 0 0 .065-8.56A7 7 0 0 0 2 4.393V2H1v3.5l.5.5H5V5H2.811a6.008 6.008 0 1 1-.135 5.77l-.887.462a7 7 0 0 0 11.718 1.092zM8 4h1v4.495L11.255 10l-.51.858L7.5 9.166V4H8z"/></svg>
+        <button class="gsd-action-btn" id="historyBtn" title="Browse previous sessions" aria-label="Session history">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13.507 12.324a7 7 0 0 0 .065-8.56A7 7 0 0 0 2 4.393V2H1v3.5l.5.5H5V5H2.811a6.008 6.008 0 1 1-.135 5.77l-.887.462a7 7 0 0 0 11.718 1.092zM8 4h1v4.495L11.255 10l-.51.858L7.5 9.166V4H8z"/></svg>
           <span>History</span>
         </button>
-        <button class="gsd-action-btn" id="modelPickerBtn" title="Change AI model">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm0-9.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM4.5 8a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg>
+        <button class="gsd-action-btn" id="modelPickerBtn" title="Change AI model" aria-label="Change model">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm0-9.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM4.5 8a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg>
           <span>Model</span>
         </button>
-        <button class="gsd-action-btn primary" id="newConvoBtn" title="Start a new conversation">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a.5.5 0 01.5.5V7H14a.5.5 0 010 1H8.5v5.5a.5.5 0 01-1 0V8H2a.5.5 0 010-1h5.5V1.5A.5.5 0 018 1z"/></svg>
+        <button class="gsd-action-btn primary" id="newConvoBtn" title="Start a new conversation" aria-label="New conversation">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1a.5.5 0 01.5.5V7H14a.5.5 0 010 1H8.5v5.5a.5.5 0 01-1 0V8H2a.5.5 0 010-1h5.5V1.5A.5.5 0 018 1z"/></svg>
           <span>New</span>
         </button>
       </div>
@@ -146,7 +148,7 @@ root.innerHTML = `
 
     <div class="gsd-overlay-indicators" id="overlayIndicators"></div>
 
-    <main class="gsd-messages" id="messagesContainer">
+    <main class="gsd-messages" id="messagesContainer" role="log" aria-label="Chat messages" aria-live="polite" aria-relevant="additions">
       <div class="gsd-welcome" id="welcomeScreen">
         <div class="gsd-welcome-logo">
           <pre class="gsd-welcome-ascii">
@@ -172,7 +174,8 @@ root.innerHTML = `
       </div>
     </main>
 
-    <button class="gsd-scroll-fab" id="scrollFab" title="Scroll to bottom">↓</button>
+    <div id="srAnnouncer" role="status" aria-live="polite" class="sr-only"></div>
+    <button class="gsd-scroll-fab" id="scrollFab" title="Scroll to bottom" aria-label="Scroll to bottom">↓</button>
 
     <div class="gsd-toast-container" id="toastContainer"></div>
     <div class="gsd-slash-menu" id="slashMenu"></div>
@@ -189,7 +192,7 @@ root.innerHTML = `
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M10.404 2.318a2.5 2.5 0 0 0-3.536 0L3.343 5.843a4 4 0 1 0 5.657 5.657l3.525-3.525-.707-.707-3.525 3.525a3 3 0 1 1-4.243-4.243l3.525-3.525a1.5 1.5 0 0 1 2.122 2.121L6.172 8.672a.5.5 0 0 1-.708-.708l3.025-3.025-.707-.707-3.025 3.025a1.5 1.5 0 0 0 2.122 2.121l3.525-3.525a2.5 2.5 0 0 0 0-3.535z"/></svg>
         </button>
         <div class="gsd-input-wrapper">
-          <textarea id="promptInput" class="gsd-input" placeholder="Message GSD..." rows="1"></textarea>
+          <textarea id="promptInput" class="gsd-input" placeholder="Message GSD..." rows="1" aria-label="Chat message input"></textarea>
         </div>
         <button class="gsd-send-btn" id="sendBtn" title="Send">
           <span id="sendIcon">↑</span>
@@ -257,6 +260,13 @@ const footerRight = document.getElementById("footerRight")!;
 // ============================================================
 
 let manualMinHeight = 0;
+
+function announceToScreenReader(text: string): void {
+  const el = document.getElementById("srAnnouncer");
+  if (!el) return;
+  el.textContent = "";
+  requestAnimationFrame(() => { el.textContent = text; });
+}
 
 function autoResize(): void {
   // Reset manual min height when input is empty (after send)
@@ -603,6 +613,12 @@ function sendMessage(): void {
     scrollToBottom(messagesContainer, true);
     promptInput.value = "";
     autoResize();
+    // Show loading spinner while fetching dashboard
+    const loader = document.createElement("div");
+    loader.className = "gsd-dashboard";
+    loader.innerHTML = `<div class="gsd-loading-spinner"><div class="gsd-spinner"></div> Loading dashboard...</div>`;
+    messagesContainer.appendChild(loader);
+    scrollToBottom(messagesContainer, true);
     vscode.postMessage({ type: "get_dashboard" });
     return;
   }
@@ -753,7 +769,27 @@ headerVersion.addEventListener("click", () => {
     existing.classList.add("dismissing");
     setTimeout(() => existing.remove(), 300);
   } else {
+    // Show loading spinner while fetching
+    const loader = document.createElement("div");
+    loader.id = "gsd-changelog";
+    loader.className = "gsd-changelog";
+    loader.innerHTML = `
+      <div class="gsd-changelog-header">
+        <span class="gsd-changelog-title">📋 Changelog</span>
+      </div>
+      <div class="gsd-loading-spinner"><div class="gsd-spinner"></div> Loading...</div>
+    `;
+    messagesContainer.appendChild(loader);
+    scrollToBottom(messagesContainer, true);
     vscode.postMessage({ type: "get_changelog" } as WebviewToExtensionMessage);
+  }
+});
+
+// Keyboard support for version badge (role="button")
+headerVersion.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    headerVersion.click();
   }
 });
 
@@ -1568,11 +1604,13 @@ window.addEventListener("message", (event) => {
       renderer.resetStreamingState();
       updateInputUI();
       renderer.ensureCurrentTurnElement();
+      announceToScreenReader("Assistant is responding...");
       break;
     }
 
     case "agent_end": {
       state.isStreaming = false;
+      announceToScreenReader("Response complete.");
       state.processHealth = "responsive";
       // Clear all tool watchdog timers
       for (const [, timer] of toolWatchdogTimers) {
@@ -2108,21 +2146,7 @@ function showUpdateCard(
   const existing = document.getElementById("gsd-update-card");
   if (existing) existing.remove();
 
-  // Simple markdown-to-HTML for release notes (handles headers, lists, bold, links, code)
-  const formatReleaseNotes = (md: string): string => {
-    if (!md.trim()) return "<p>No release notes available.</p>";
-    return escapeHtml(md)
-      .replace(/^### (.+)$/gm, '<h4>$1</h4>')
-      .replace(/^## (.+)$/gm, '<h3>$1</h3>')
-      .replace(/^# (.+)$/gm, '<h3>$1</h3>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`(.+?)`/g, '<code>$1</code>')
-      .replace(/^\* (.+)$/gm, '<li>$1</li>')
-      .replace(/^- (.+)$/gm, '<li>$1</li>')
-      .replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`)
-      .replace(/\n{2,}/g, '<br>')
-      .replace(/\n/g, ' ');
-  };
+
 
   const card = document.createElement("div");
   card.id = "gsd-update-card";
@@ -2134,7 +2158,7 @@ function showUpdateCard(
       <span class="gsd-update-current">You have v${escapeHtml(currentVersion)}</span>
     </div>
     <div class="gsd-update-notes">
-      ${formatReleaseNotes(releaseNotes)}
+      ${formatMarkdownNotes(releaseNotes)}
     </div>
     <div class="gsd-update-actions">
       <button class="gsd-update-btn primary" data-action="install">Update Now</button>
@@ -2166,21 +2190,6 @@ function showWhatsNew(version: string, notes: string): void {
   const existing = document.getElementById("gsd-whats-new");
   if (existing) existing.remove();
 
-  const formatNotes = (md: string): string => {
-    if (!md.trim()) return "<p>No details available.</p>";
-    return escapeHtml(md)
-      .replace(/^### (.+)$/gm, '<h4>$1</h4>')
-      .replace(/^## (.+)$/gm, '<h3>$1</h3>')
-      .replace(/^# (.+)$/gm, '<h3>$1</h3>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`(.+?)`/g, '<code>$1</code>')
-      .replace(/^\* (.+)$/gm, '<li>$1</li>')
-      .replace(/^- (.+)$/gm, '<li>$1</li>')
-      .replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`)
-      .replace(/\n{2,}/g, '<br>')
-      .replace(/\n/g, ' ');
-  };
-
   const card = document.createElement("div");
   card.id = "gsd-whats-new";
   card.className = "gsd-whats-new";
@@ -2191,7 +2200,7 @@ function showWhatsNew(version: string, notes: string): void {
       <button class="gsd-whats-new-close" title="Dismiss">✕</button>
     </div>
     <div class="gsd-whats-new-notes">
-      ${formatNotes(notes)}
+      ${formatMarkdownNotes(notes)}
     </div>
   `;
 
@@ -2211,40 +2220,15 @@ function showChangelog(entries: Array<{ version: string; notes: string; date: st
   const existing = document.getElementById("gsd-changelog");
   if (existing) existing.remove();
 
-  const formatNotes = (md: string): string => {
-    if (!md.trim()) return "";
-    return escapeHtml(md)
-      .replace(/^### (.+)$/gm, '<h4>$1</h4>')
-      .replace(/^## (.+)$/gm, '<h3>$1</h3>')
-      .replace(/^# (.+)$/gm, '<h3>$1</h3>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`(.+?)`/g, '<code>$1</code>')
-      .replace(/^\* (.+)$/gm, '<li>$1</li>')
-      .replace(/^- (.+)$/gm, '<li>$1</li>')
-      .replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`)
-      .replace(/\n{2,}/g, '<br>')
-      .replace(/\n/g, ' ');
-  };
-
-  const formatDate = (iso: string): string => {
-    if (!iso) return "";
-    try {
-      const d = new Date(iso);
-      return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-    } catch {
-      return "";
-    }
-  };
-
   const entriesHtml = entries.length > 0
     ? entries.map((e, i) => `
       <div class="gsd-changelog-entry${i === 0 ? " latest" : ""}">
         <div class="gsd-changelog-entry-header">
           <span class="gsd-changelog-version">v${escapeHtml(e.version)}</span>
           ${i === 0 ? '<span class="gsd-changelog-latest-badge">latest</span>' : ""}
-          <span class="gsd-changelog-date">${formatDate(e.date)}</span>
+          <span class="gsd-changelog-date">${formatShortDate(e.date)}</span>
         </div>
-        <div class="gsd-changelog-entry-notes">${formatNotes(e.notes)}</div>
+        <div class="gsd-changelog-entry-notes">${formatMarkdownNotes(e.notes)}</div>
       </div>
     `).join("")
     : '<div class="gsd-changelog-empty">No changelog entries found.</div>';

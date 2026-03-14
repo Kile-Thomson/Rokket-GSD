@@ -43,7 +43,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private healthState: Map<string, ProcessHealthStatus> = new Map();
   private workflowTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
   private autoModeState: Map<string, string | null> = new Map();
-  private promptWatchdogs: Map<string, { timer: ReturnType<typeof setTimeout>; retried: boolean; message: string; images?: Array<{ type: "image"; data: string; mimeType: string }> }> = new Map();
+  private promptWatchdogs: Map<string, { timer: ReturnType<typeof setTimeout>; retried: boolean; nonce: number; message: string; images?: Array<{ type: "image"; data: string; mimeType: string }> }> = new Map();
+  private promptWatchdogNonce = 0;
   private restartingSession: Set<string> = new Set();
   private sessionWebviews: Map<string, vscode.Webview> = new Map();
   private output: vscode.OutputChannel;
@@ -240,10 +241,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     this.clearPromptWatchdog(sessionId);
 
     const WATCHDOG_TIMEOUT_MS = 8000;
+    const nonce = ++this.promptWatchdogNonce;
 
     const timer = setTimeout(async () => {
       const watchdog = this.promptWatchdogs.get(sessionId);
-      if (!watchdog) return;
+      // Stale callback — a newer watchdog has replaced this one
+      if (!watchdog || watchdog.nonce !== nonce) return;
 
       const client = this.rpcClients.get(sessionId);
       if (!client?.isRunning) {
@@ -258,8 +261,16 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
         try {
           await client.prompt(message, images);
+          // Re-check nonce after await — a new prompt may have started during the retry
+          const current = this.promptWatchdogs.get(sessionId);
+          if (!current || current.nonce !== nonce) return;
+
           // Restart watchdog for the retry
           watchdog.timer = setTimeout(() => {
+            // Verify nonce is still current before acting
+            const finalCheck = this.promptWatchdogs.get(sessionId);
+            if (!finalCheck || finalCheck.nonce !== nonce) return;
+
             // Second timeout — give up
             this.output.appendLine(`[${sessionId}] Prompt watchdog: retry also got no response — notifying user`);
             this.clearPromptWatchdog(sessionId);
@@ -270,13 +281,17 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           }, WATCHDOG_TIMEOUT_MS);
         } catch (err: any) {
           this.output.appendLine(`[${sessionId}] Prompt watchdog: retry failed — ${err.message}`);
-          this.clearPromptWatchdog(sessionId);
+          // Only clear if this watchdog is still current
+          const current = this.promptWatchdogs.get(sessionId);
+          if (current?.nonce === nonce) {
+            this.clearPromptWatchdog(sessionId);
+          }
           // Don't show error — the prompt() catch block already handles this
         }
       }
     }, WATCHDOG_TIMEOUT_MS);
 
-    this.promptWatchdogs.set(sessionId, { timer, retried: false, message, images });
+    this.promptWatchdogs.set(sessionId, { timer, retried: false, nonce, message, images });
   }
 
   private clearPromptWatchdog(sessionId: string): void {
