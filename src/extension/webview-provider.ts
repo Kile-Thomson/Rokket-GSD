@@ -396,11 +396,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.output.appendLine(`[${sessionId}] Slash watchdog: no events after ${TIMEOUT_MS / 1000}s for "${message}" — retrying`);
       try {
         await client.prompt(message, images);
+        const retrySentAt = Date.now();
         // Set a second watchdog for the retry
         const retryTimer = setTimeout(() => {
           this.slashWatchdogs.delete(sessionId);
           const lastRetryEvent = this.lastEventTime.get(sessionId) || 0;
-          if (lastRetryEvent > Date.now() - TIMEOUT_MS) return; // events flowing
+          if (lastRetryEvent > retrySentAt) return; // events flowing since retry
 
           this.output.appendLine(`[${sessionId}] Slash watchdog: retry also got no response for "${message}"`);
           this.postToWebview(webview, {
@@ -850,6 +851,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               this.isSessionStreaming.set(sessionId, false);
               this.stopActivityMonitor(sessionId);
               this.emitStatus({ isStreaming: false });
+              // Notify webview so its state is consistent
+              const wv = this.sessionWebviews.get(sessionId);
+              if (wv) {
+                this.postToWebview(wv, { type: "agent_end" } as ExtensionToWebviewMessage);
+              }
             }
           }
           break;

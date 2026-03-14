@@ -95,7 +95,7 @@ function handleToolWatchdogTimeout(toolCallId: string): void {
   // Safety net: if interrupt doesn't clear streaming within 15s, force-clear
   // client-side state so the user isn't permanently stuck.
   setTimeout(() => {
-    if (state.isStreaming) {
+    if (state.isStreaming && state.currentTurn && !state.currentTurn.isComplete) {
       state.isStreaming = false;
       if (state.currentTurn) {
         state.currentTurn.isComplete = true;
