@@ -240,10 +240,10 @@ function buildUsagePills(usage: any, model?: string): string {
   return `<div class="gsd-agent-usage">${pills.map(p => `<span class="gsd-agent-pill">${escapeHtml(p)}</span>`).join("")}</div>`;
 }
 
-function buildAgentCard(r: any, isRunning: boolean): string {
+function buildAgentCard(r: any, _isRunning: boolean): string {
   const running = r.exitCode === -1;
   const failed = !running && (r.exitCode !== 0 || r.stopReason === "error" || r.stopReason === "aborted");
-  const done = !running && !failed;
+  const _done = !running && !failed;
 
   const stateClass = running ? "running" : failed ? "error" : "done";
   const icon = running
@@ -293,7 +293,7 @@ export function buildSubagentOutputHtml(tc: ToolCallState): string {
 
     // Summary bar
     const modeLabel = mode === "chain" ? "Chain" : mode === "parallel" ? "Parallel" : "Agent";
-    let statusParts: string[] = [];
+    const statusParts: string[] = [];
     if (done > 0) statusParts.push(`<span class="gsd-agent-stat done">${done} done</span>`);
     if (running > 0) statusParts.push(`<span class="gsd-agent-stat running">${running} running</span>`);
     if (failed > 0) statusParts.push(`<span class="gsd-agent-stat error">${failed} failed</span>`);

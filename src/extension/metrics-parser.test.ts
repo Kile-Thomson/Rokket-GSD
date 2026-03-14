@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   classifyUnitPhase,
   aggregateByPhase,
@@ -231,7 +231,7 @@ describe("loadMetricsLedger", () => {
   });
 
   afterEach(() => {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* cleanup */ }
   });
 
   it("returns null when file doesn't exist", () => {
