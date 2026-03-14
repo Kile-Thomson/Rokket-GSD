@@ -461,14 +461,14 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             this.output.appendLine(`[${sessionId}] Activity monitor: abort succeeded but no agent_end — forcing`);
             this.isSessionStreaming.set(sessionId, false);
             this.emitStatus({ isStreaming: false });
-            this.postToWebview(webview, { type: "agent_end" } as ExtensionToWebviewMessage);
+            this.postToWebview(webview, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
           }
         } catch {
           // If abort fails, the process may be truly hung — force kill
           this.output.appendLine(`[${sessionId}] Activity monitor: abort failed, force-killing`);
           this.isSessionStreaming.set(sessionId, false);
           this.emitStatus({ isStreaming: false });
-          this.postToWebview(webview, { type: "agent_end" } as ExtensionToWebviewMessage);
+          this.postToWebview(webview, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
           client.forceKill();
         }
       }
@@ -854,7 +854,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               // Notify webview so its state is consistent
               const wv = this.sessionWebviews.get(sessionId);
               if (wv) {
-                this.postToWebview(wv, { type: "agent_end" } as ExtensionToWebviewMessage);
+                this.postToWebview(wv, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
               }
             }
           }
