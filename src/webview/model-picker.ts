@@ -10,6 +10,8 @@ import { escapeHtml, escapeAttr, formatTokens } from "./helpers";
 // ============================================================
 
 let visible = false;
+let triggerEl: HTMLElement | null = null;
+let activeIndex = -1;
 
 // ============================================================
 // Dependencies injected via init()
@@ -40,7 +42,9 @@ export function show(): void {
   if (!state.modelsLoaded) {
     vscode.postMessage({ type: "get_available_models" });
   }
+  triggerEl = document.activeElement as HTMLElement | null;
   visible = true;
+  activeIndex = -1;
   render();
 }
 
@@ -48,6 +52,10 @@ export function hide(): void {
   visible = false;
   pickerEl.style.display = "none";
   pickerEl.innerHTML = "";
+  if (triggerEl && typeof triggerEl.focus === "function") {
+    triggerEl.focus();
+    triggerEl = null;
+  }
 }
 
 export function render(): void {
@@ -73,18 +81,36 @@ export function render(): void {
   }
 
   let html = `<div class="gsd-model-picker-header">
-    <span class="gsd-model-picker-title">Select Model</span>
-    <button class="gsd-model-picker-close" id="modelPickerClose">✕</button>
+    <span class="gsd-model-picker-title" id="modelPickerTitle">Select Model</span>
+    <button class="gsd-model-picker-close" id="modelPickerClose" aria-label="Close model picker">✕</button>
   </div>`;
 
+  // Flatten models for arrow key indexing
+  const allModels: AvailableModel[] = [];
+  for (const [, providerModels] of byProvider) {
+    allModels.push(...providerModels);
+  }
+  // Set initial activeIndex to current model if not yet set
+  if (activeIndex < 0) {
+    activeIndex = allModels.findIndex(m => m.id === currentId && m.provider === currentProvider);
+    if (activeIndex < 0) activeIndex = 0;
+  }
+  let flatIdx = 0;
+
   for (const [provider, providerModels] of byProvider) {
-    html += `<div class="gsd-model-picker-group">
-      <div class="gsd-model-picker-provider">${escapeHtml(provider)}</div>`;
+    html += `<div class="gsd-model-picker-group" role="group" aria-label="${escapeAttr(provider)}">
+      <div class="gsd-model-picker-provider">${escapeHtml(provider)}</div>
+      <div role="listbox" aria-labelledby="modelPickerTitle">`;
     for (const m of providerModels) {
       const isCurrent = m.id === currentId && m.provider === currentProvider;
+      const isActive = flatIdx === activeIndex;
       const ctxStr = m.contextWindow ? formatTokens(m.contextWindow) : "";
       const reasoningTag = m.reasoning ? `<span class="gsd-model-tag reasoning">reasoning</span>` : "";
-      html += `<div class="gsd-model-picker-item ${isCurrent ? "current" : ""}" 
+      html += `<div class="gsd-model-picker-item ${isCurrent ? "current" : ""} ${isActive ? "active" : ""}" 
+                    role="option"
+                    aria-selected="${isCurrent}"
+                    tabindex="${isActive ? "0" : "-1"}"
+                    data-flat-idx="${flatIdx}"
                     data-provider="${escapeAttr(m.provider)}" 
                     data-model-id="${escapeAttr(m.id)}">
         <div class="gsd-model-picker-name">
@@ -96,34 +122,78 @@ export function render(): void {
           ${reasoningTag}
         </div>
       </div>`;
+      flatIdx++;
     }
-    html += `</div>`;
+    html += `</div></div>`;
   }
 
   pickerEl.style.display = "block";
   pickerEl.innerHTML = html;
 
   pickerEl.querySelector("#modelPickerClose")?.addEventListener("click", hide);
-  pickerEl.querySelectorAll(".gsd-model-picker-item").forEach((el) => {
-    el.addEventListener("click", () => {
-      const provider = (el as HTMLElement).dataset.provider!;
-      const modelId = (el as HTMLElement).dataset.modelId!;
-      vscode.postMessage({ type: "set_model", provider, modelId });
-      hide();
-      if (state.model) {
-        state.model.id = modelId;
-        state.model.provider = provider;
-        const m = state.availableModels.find((m) => m.id === modelId && m.provider === provider);
-        if (m) {
-          state.model.name = m.name || m.id;
-          state.model.contextWindow = m.contextWindow;
-        }
+
+  const items = pickerEl.querySelectorAll(".gsd-model-picker-item");
+  const totalItems = items.length;
+
+  function selectItem(el: HTMLElement): void {
+    const provider = el.dataset.provider!;
+    const modelId = el.dataset.modelId!;
+    vscode.postMessage({ type: "set_model", provider, modelId });
+    hide();
+    if (state.model) {
+      state.model.id = modelId;
+      state.model.provider = provider;
+      const m = state.availableModels.find((m) => m.id === modelId && m.provider === provider);
+      if (m) {
+        state.model.name = m.name || m.id;
+        state.model.contextWindow = m.contextWindow;
       }
-      onUpdateHeaderUI();
-      onUpdateFooterUI();
-      setTimeout(() => vscode.postMessage({ type: "get_state" }), 500);
-    });
+    }
+    onUpdateHeaderUI();
+    onUpdateFooterUI();
+    setTimeout(() => vscode.postMessage({ type: "get_state" }), 500);
+  }
+
+  items.forEach((el) => {
+    el.addEventListener("click", () => selectItem(el as HTMLElement));
   });
+
+  // Arrow key navigation
+  pickerEl.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      activeIndex = Math.min(activeIndex + 1, totalItems - 1);
+      focusActiveItem();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      activeIndex = Math.max(activeIndex - 1, 0);
+      focusActiveItem();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const active = pickerEl.querySelector(`.gsd-model-picker-item[data-flat-idx="${activeIndex}"]`) as HTMLElement | null;
+      if (active) selectItem(active);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      hide();
+    }
+  });
+
+  function focusActiveItem(): void {
+    items.forEach((el, i) => {
+      (el as HTMLElement).tabIndex = i === activeIndex ? 0 : -1;
+      if (i === activeIndex) {
+        (el as HTMLElement).classList.add("active");
+        (el as HTMLElement).focus();
+        (el as HTMLElement).scrollIntoView({ block: "nearest" });
+      } else {
+        (el as HTMLElement).classList.remove("active");
+      }
+    });
+  }
+
+  // Focus first active item on show
+  const initialActive = pickerEl.querySelector(`.gsd-model-picker-item[data-flat-idx="${activeIndex}"]`) as HTMLElement | null;
+  if (initialActive) initialActive.focus();
 }
 
 // ============================================================

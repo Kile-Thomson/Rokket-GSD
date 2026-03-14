@@ -29,13 +29,12 @@ coverage/
 tmp/
 nul
 
+
 # ── GSD baseline (auto-generated) ──
 .gsd/activity/
 .gsd/runtime/
 .gsd/worktrees/
 .gsd/auto.lock
 .gsd/metrics.json
-.gsd/STATE.md
-
-# ── GSD baseline (auto-generated) ──
 .gsd/completed-units.json
+.gsd/STATE.md

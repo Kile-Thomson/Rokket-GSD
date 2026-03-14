@@ -7,6 +7,8 @@ import {
   formatCost,
   formatTokens,
   formatContextUsage,
+  formatMarkdownNotes,
+  formatShortDate,
   shortenPath,
   formatDuration,
   truncateArg,
@@ -347,5 +349,49 @@ describe("renderMarkdown", () => {
     const html = renderMarkdown("`src/foo/bar.ts`");
     expect(html).toContain("gsd-file-link");
     expect(html).toContain('data-path="src/foo/bar.ts"');
+  });
+});
+
+describe("formatMarkdownNotes", () => {
+  it("returns fallback for empty input", () => {
+    expect(formatMarkdownNotes("")).toContain("No details available");
+    expect(formatMarkdownNotes("   ")).toContain("No details available");
+  });
+
+  it("converts headers", () => {
+    expect(formatMarkdownNotes("### Added")).toContain("<h4>Added</h4>");
+    expect(formatMarkdownNotes("## Fixed")).toContain("<h3>Fixed</h3>");
+  });
+
+  it("converts bold and code", () => {
+    const result = formatMarkdownNotes("**bold text** and `code`");
+    expect(result).toContain("<strong>bold text</strong>");
+    expect(result).toContain("<code>code</code>");
+  });
+
+  it("converts list items", () => {
+    const result = formatMarkdownNotes("- item one\n- item two");
+    expect(result).toContain("<ul>");
+    expect(result).toContain("<li>item one</li>");
+    expect(result).toContain("<li>item two</li>");
+  });
+
+  it("escapes HTML in input", () => {
+    const result = formatMarkdownNotes("<script>alert('xss')</script>");
+    expect(result).not.toContain("<script>");
+    expect(result).toContain("&lt;script&gt;");
+  });
+});
+
+describe("formatShortDate", () => {
+  it("returns empty for empty input", () => {
+    expect(formatShortDate("")).toBe("");
+  });
+
+  it("formats an ISO date", () => {
+    const result = formatShortDate("2026-03-14T10:00:00Z");
+    // Should contain month, day, year in some locale format
+    expect(result).toMatch(/\d{4}/); // year present
+    expect(result.length).toBeGreaterThan(5);
   });
 });

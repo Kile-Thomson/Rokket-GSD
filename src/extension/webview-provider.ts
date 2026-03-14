@@ -43,7 +43,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private healthState: Map<string, ProcessHealthStatus> = new Map();
   private workflowTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
   private autoModeState: Map<string, string | null> = new Map();
-  private promptWatchdogs: Map<string, { timer: ReturnType<typeof setTimeout>; retried: boolean; message: string; images?: Array<{ type: "image"; data: string; mimeType: string }> }> = new Map();
+  private promptWatchdogs: Map<string, { timer: ReturnType<typeof setTimeout>; retried: boolean; nonce: number; message: string; images?: Array<{ type: "image"; data: string; mimeType: string }> }> = new Map();
+  private promptWatchdogNonce = 0;
   private restartingSession: Set<string> = new Set();
   private sessionWebviews: Map<string, vscode.Webview> = new Map();
   private output: vscode.OutputChannel;
@@ -240,10 +241,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     this.clearPromptWatchdog(sessionId);
 
     const WATCHDOG_TIMEOUT_MS = 8000;
+    const nonce = ++this.promptWatchdogNonce;
 
     const timer = setTimeout(async () => {
       const watchdog = this.promptWatchdogs.get(sessionId);
-      if (!watchdog) return;
+      // Stale callback — a newer watchdog has replaced this one
+      if (!watchdog || watchdog.nonce !== nonce) return;
 
       const client = this.rpcClients.get(sessionId);
       if (!client?.isRunning) {
@@ -258,8 +261,16 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
         try {
           await client.prompt(message, images);
+          // Re-check nonce after await — a new prompt may have started during the retry
+          const current = this.promptWatchdogs.get(sessionId);
+          if (!current || current.nonce !== nonce) return;
+
           // Restart watchdog for the retry
           watchdog.timer = setTimeout(() => {
+            // Verify nonce is still current before acting
+            const finalCheck = this.promptWatchdogs.get(sessionId);
+            if (!finalCheck || finalCheck.nonce !== nonce) return;
+
             // Second timeout — give up
             this.output.appendLine(`[${sessionId}] Prompt watchdog: retry also got no response — notifying user`);
             this.clearPromptWatchdog(sessionId);
@@ -270,13 +281,17 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           }, WATCHDOG_TIMEOUT_MS);
         } catch (err: any) {
           this.output.appendLine(`[${sessionId}] Prompt watchdog: retry failed — ${err.message}`);
-          this.clearPromptWatchdog(sessionId);
+          // Only clear if this watchdog is still current
+          const current = this.promptWatchdogs.get(sessionId);
+          if (current?.nonce === nonce) {
+            this.clearPromptWatchdog(sessionId);
+          }
           // Don't show error — the prompt() catch block already handles this
         }
       }
     }, WATCHDOG_TIMEOUT_MS);
 
-    this.promptWatchdogs.set(sessionId, { timer, retried: false, message, images });
+    this.promptWatchdogs.set(sessionId, { timer, retried: false, nonce, message, images });
   }
 
   private clearPromptWatchdog(sessionId: string): void {
@@ -769,18 +784,79 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "export_html": {
-          const client = this.rpcClients.get(sessionId);
-          if (client?.isRunning) {
-            try {
-              const result = await client.exportHtml() as RpcExportResult;
-              if (result?.path) {
-                const doc = await vscode.workspace.openTextDocument(result.path);
-                await vscode.window.showTextDocument(doc, { preview: true });
-                vscode.window.showInformationMessage(`Conversation exported to ${result.path}`);
-              }
-            } catch (err: any) {
-              this.postToWebview(webview, { type: "error", message: `Export failed: ${err.message}` });
-            }
+          try {
+            const contentHtml = (msg as any).html as string || "<p>No conversation content</p>";
+            const pageCss = (msg as any).css as string || "";
+            const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+            const extVersion = vscode.extensions.getExtension("rokketek.rokket-gsd")?.packageJSON?.version || "?";
+            const exportOverrides = `
+    /* VS Code CSS variable fallbacks for standalone browser */
+    :root {
+      color-scheme: dark;
+      --vscode-foreground: #cccccc;
+      --vscode-editor-background: #1e1e1e;
+      --vscode-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --vscode-editor-fontFamily: 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+      --vscode-input-background: #2d2d30;
+      --vscode-input-foreground: #cccccc;
+      --vscode-input-placeholderForeground: #6e6e6e;
+      --vscode-panel-border: #2d2d30;
+      --vscode-button-background: #0e639c;
+      --vscode-button-foreground: #ffffff;
+      --vscode-button-hoverBackground: #1177bb;
+      --vscode-badge-background: #4d4d4d;
+      --vscode-badge-foreground: #ffffff;
+      --vscode-descriptionForeground: #9e9e9e;
+      --vscode-scrollbarSlider-background: rgba(121,121,121,0.4);
+      --vscode-scrollbarSlider-hoverBackground: rgba(100,100,100,0.7);
+      --vscode-editor-selectionForeground: #ffffff;
+    }
+    /* Export overrides */
+    body { background: #1e1e1e; color: #cccccc; max-width: 880px; margin: 0 auto; padding: 32px 24px; }
+    .gsd-welcome, .gsd-scroll-fab, .gsd-slash-menu, .gsd-model-picker, .gsd-thinking-picker,
+    .gsd-session-history, .gsd-copy-response-btn, .gsd-fork-btn, .gsd-retry-btn,
+    .gsd-turn-actions, .gsd-input-area, .gsd-header, .gsd-footer,
+    .gsd-overlay-indicators, .gsd-context-bar-container { display: none !important; }
+    .gsd-messages { padding: 0; }
+`;
+            const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rokket GSD — Export ${timestamp}</title>
+  <style>
+${pageCss}
+${exportOverrides}
+  </style>
+</head>
+<body>
+  <h1 style="font-size: 20px; font-weight: 600; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #2a2a2e;">🚀 Rokket GSD — Conversation Export</h1>
+  <div class="gsd-messages">${contentHtml}</div>
+  <footer style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #2a2a2e; color: #555; font-size: 12px;">
+    Exported ${new Date().toLocaleString()} — Rokket GSD v${extVersion}
+  </footer>
+</body>
+</html>`;
+            const fs = await import("fs");
+            const cp = await import("child_process");
+            // Show save dialog defaulting to Downloads
+            const defaultUri = vscode.Uri.file(
+              (process.env.USERPROFILE || process.env.HOME || "") + `\\Downloads\\gsd-export-${timestamp}.html`
+            );
+            const uri = await vscode.window.showSaveDialog({
+              defaultUri,
+              filters: { "HTML": ["html"] },
+              title: "Export Conversation",
+            });
+            if (!uri) break; // user cancelled
+            const exportPath = uri.fsPath;
+            fs.writeFileSync(exportPath, fullHtml, "utf-8");
+            // Open in default browser
+            cp.exec(`start "" "${exportPath}"`);
+            vscode.window.showInformationMessage(`Exported to ${exportPath}`);
+          } catch (err: any) {
+            this.postToWebview(webview, { type: "error", message: `Export failed: ${err.message}` });
           }
           break;
         }
