@@ -1560,7 +1560,9 @@ ${exportOverrides}
     client.on("exit", ({ code, signal, detail }: { code: number | null; signal: string | null; detail?: string }) => {
       this.output.appendLine(`[${sessionId}] Process exited: ${detail || `code=${code}, signal=${signal}`}`);
       this.postToWebview(webview, { type: "process_exit", code, signal, detail });
-      this.postToWebview(webview, { type: "process_status", status: "crashed" } as ExtensionToWebviewMessage);
+      // Clean exit (code 0 or SIGTERM/SIGKILL) → stopped; anything else → crashed
+      const isCleanExit = code === 0 || signal === "SIGTERM" || signal === "SIGKILL";
+      this.postToWebview(webview, { type: "process_status", status: isCleanExit ? "stopped" : "crashed" } as ExtensionToWebviewMessage);
 
       // Stop all monitoring timers and watchdogs
       const timer = this.statsTimers.get(sessionId);
@@ -1590,10 +1592,10 @@ ${exportOverrides}
       }
       this.lastEventTime.delete(sessionId);
 
-      if (signal !== "SIGTERM" && signal !== "SIGKILL") {
-        this.output.appendLine(`[${sessionId}] Unexpected exit — will auto-restart on next prompt`);
-      } else {
+      if (isCleanExit) {
         this.rpcClients.delete(sessionId);
+      } else {
+        this.output.appendLine(`[${sessionId}] Unexpected exit — will auto-restart on next prompt`);
       }
     });
 
