@@ -87,34 +87,23 @@ export function createSessionState(): SessionState {
  * Stops the RPC client and disposes the message handler.
  */
 export function cleanupSessionState(session: SessionState): void {
-  if (session.statsTimer) {
-    clearInterval(session.statsTimer);
-    session.statsTimer = null;
-  }
-  if (session.healthTimer) {
-    clearInterval(session.healthTimer);
-    session.healthTimer = null;
-  }
-  if (session.workflowTimer) {
-    clearInterval(session.workflowTimer);
-    session.workflowTimer = null;
-  }
-  if (session.activityTimer) {
-    clearInterval(session.activityTimer);
-    session.activityTimer = null;
-  }
-  if (session.promptWatchdog) {
-    clearTimeout(session.promptWatchdog.timer);
-    session.promptWatchdog = null;
-  }
-  if (session.slashWatchdog) {
-    clearTimeout(session.slashWatchdog);
-    session.slashWatchdog = null;
-  }
-  if (session.gsdFallbackTimer) {
-    clearTimeout(session.gsdFallbackTimer);
-    session.gsdFallbackTimer = null;
-  }
+  // Clear all timers
+  if (session.statsTimer) clearInterval(session.statsTimer);
+  if (session.healthTimer) clearInterval(session.healthTimer);
+  if (session.workflowTimer) clearInterval(session.workflowTimer);
+  if (session.activityTimer) clearInterval(session.activityTimer);
+  if (session.promptWatchdog) clearTimeout(session.promptWatchdog.timer);
+  if (session.slashWatchdog) clearTimeout(session.slashWatchdog);
+  if (session.gsdFallbackTimer) clearTimeout(session.gsdFallbackTimer);
+
+  session.statsTimer = null;
+  session.healthTimer = null;
+  session.workflowTimer = null;
+  session.activityTimer = null;
+  session.promptWatchdog = null;
+  session.slashWatchdog = null;
+  session.gsdFallbackTimer = null;
+
   session.healthState = "responsive";
   session.autoModeState = null;
   session.gsdTurnStarted = false;
@@ -123,16 +112,13 @@ export function cleanupSessionState(session: SessionState): void {
   session.isRestarting = false;
   session.launchPromise = null;
 
-  if (session.client) {
-    // Fire-and-forget: stop() is async but callers don't need to wait for
-    // graceful shutdown. The process is killed if it doesn't exit promptly.
-    session.client.stop();
-    session.client = null;
-  }
-  if (session.messageHandlerDisposable) {
-    session.messageHandlerDisposable.dispose();
-    session.messageHandlerDisposable = null;
-  }
+  // Fire-and-forget: stop() is async but callers don't need to wait for
+  // graceful shutdown. The process is killed if it doesn't exit promptly.
+  try { session.client?.stop(); } catch { /* ignore */ }
+  try { session.messageHandlerDisposable?.dispose(); } catch { /* ignore */ }
+
+  session.client = null;
+  session.messageHandlerDisposable = null;
   session.webview = null;
   // Note: panel is NOT disposed here — the caller manages panel lifecycle
 }
