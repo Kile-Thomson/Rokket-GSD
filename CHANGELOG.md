@@ -4,6 +4,14 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.34] — 2026-03-15
+
+### Added
+- **Parallel tool execution indicator** — tools running concurrently display a ⚡ badge with pulse animation, distinguishing parallel from sequential execution (gsd-pi 2.12.0+)
+- **Provider fallback notifications** — toast alerts when gsd-pi auto-switches models due to rate limits (`fallback_provider_switch`), and when the original provider recovers (`fallback_provider_restored`). Model badge and status bar update accordingly.
+- **Session shutdown handling** — `session_shutdown` event produces a clean "Session ended" state instead of appearing as a crash
+- **Resume last session** — "↩ Resume" button on welcome screen and `/resume` slash command to instantly resume the most recent conversation
+
 ## [0.2.25] — 2026-03-14
 
 ### Changed
