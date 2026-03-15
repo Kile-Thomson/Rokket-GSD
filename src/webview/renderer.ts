@@ -23,6 +23,7 @@ import {
   buildSubagentOutputHtml,
   renderMarkdown,
   scrollToBottom,
+  resetAutoScroll,
 } from "./helpers";
 
 import {
@@ -87,6 +88,7 @@ function stopElapsedTimer(): void {
 export function clearMessages(): void {
   const els = messagesContainer.querySelectorAll(".gsd-entry");
   els.forEach((el) => el.remove());
+  resetAutoScroll();
 }
 
 export function renderNewEntry(entry: ChatEntry): void {
@@ -223,6 +225,53 @@ function tryStreamingCollapse(el: HTMLElement, segIdx: number): void {
   segmentElements.set(segIdx, groupEl);
 }
 
+/**
+ * Detect "stale echo" turns — short, text-only agent responses that occur
+ * in rapid succession without user interaction. These happen when async_bash
+ * job results are delivered after the agent has already consumed them,
+ * triggering redundant model turns that just say "already handled."
+ *
+ * Conditions (ALL must be true):
+ * 1. No tool calls — the model didn't do any work
+ * 2. Text-only, short — total text < 200 chars
+ * 3. No user entry between this turn and the previous assistant turn
+ * 4. Previous assistant turn exists
+ * 5. Completed within 30s of the previous assistant turn
+ *
+ * @internal — exported for testing
+ */
+export function detectStaleEcho(turn: AssistantTurn): boolean {
+  if (turn.toolCalls.size > 0) return false;
+
+  const textSegments = turn.segments.filter(s => s.type === "text");
+  if (textSegments.length === 0) return false;
+  if (turn.segments.some(s => s.type === "thinking")) return false;
+
+  const totalText = textSegments
+    .map(s => s.chunks.join(""))
+    .join("")
+    .trim();
+  if (totalText.length > 200) return false;
+
+  let lastAssistantIdx = -1;
+  for (let i = state.entries.length - 1; i >= 0; i--) {
+    if (state.entries[i].type === "assistant") {
+      lastAssistantIdx = i;
+      break;
+    }
+  }
+  if (lastAssistantIdx === -1) return false;
+
+  for (let i = lastAssistantIdx + 1; i < state.entries.length; i++) {
+    if (state.entries[i].type === "user") return false;
+  }
+
+  const prevTimestamp = state.entries[lastAssistantIdx].timestamp;
+  if (turn.timestamp - prevTimestamp > 30000) return false;
+
+  return true;
+}
+
 export function finalizeCurrentTurn(): void {
   if (!state.currentTurn) return;
 
@@ -240,6 +289,9 @@ export function finalizeCurrentTurn(): void {
     tc.isRunning = false;
   }
 
+  const isStaleEcho = detectStaleEcho(turn);
+  turn.isStaleEcho = isStaleEcho;
+
   state.entries.push({
     id: turn.id,
     type: "assistant",
@@ -249,7 +301,12 @@ export function finalizeCurrentTurn(): void {
 
   if (currentTurnElement) {
     currentTurnElement.classList.remove("streaming");
-    currentTurnElement.innerHTML = buildTurnHtml(turn);
+    if (isStaleEcho) {
+      currentTurnElement.classList.add("gsd-stale-echo");
+      currentTurnElement.innerHTML = buildStaleEchoHtml(turn);
+    } else {
+      currentTurnElement.innerHTML = buildTurnHtml(turn);
+    }
   }
 
   state.currentTurn = null;
@@ -278,7 +335,12 @@ function createEntryElement(entry: ChatEntry): HTMLElement {
   if (entry.type === "user") {
     el.innerHTML = buildUserHtml(entry);
   } else if (entry.type === "assistant" && entry.turn) {
-    el.innerHTML = buildTurnHtml(entry.turn);
+    if (entry.turn.isStaleEcho) {
+      el.classList.add("gsd-stale-echo");
+      el.innerHTML = buildStaleEchoHtml(entry.turn);
+    } else {
+      el.innerHTML = buildTurnHtml(entry.turn);
+    }
   } else if (entry.type === "system") {
     el.innerHTML = buildSystemHtml(entry);
   }
@@ -334,6 +396,21 @@ function buildUserHtml(entry: ChatEntry): string {
   html += `</div>`;
   html += buildTimestampHtml(entry.timestamp);
   return html;
+}
+
+function buildStaleEchoHtml(turn: AssistantTurn): string {
+  const textContent = turn.segments
+    .filter(s => s.type === "text")
+    .map(s => s.chunks.join(""))
+    .join(" ")
+    .trim();
+  const preview = textContent.length > 80 ? textContent.slice(0, 77) + "…" : textContent;
+  const panelId = `stale-echo-${turn.id}`;
+  return `<div class="gsd-stale-echo-bar" role="button" tabindex="0" aria-expanded="false" aria-controls="${escapeAttr(panelId)}" aria-label="Expand background notification echo" title="Background job notification — click to expand">
+    <span class="gsd-stale-echo-icon">↩</span>
+    <span class="gsd-stale-echo-text">${escapeHtml(preview)}</span>
+  </div>
+  <div class="gsd-stale-echo-full" id="${escapeAttr(panelId)}" hidden>${buildTurnHtml(turn)}</div>`;
 }
 
 function buildTurnHtml(turn: AssistantTurn): string {

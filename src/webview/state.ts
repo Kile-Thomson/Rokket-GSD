@@ -45,6 +45,8 @@ export interface AssistantTurn {
   toolCalls: Map<string, ToolCallState>;
   isComplete: boolean;
   timestamp: number;
+  /** True when this turn was detected as a stale background job echo */
+  isStaleEcho?: boolean;
 }
 
 export interface ChatEntry {
