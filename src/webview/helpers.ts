@@ -464,8 +464,57 @@ export function formatShortDate(iso: string): string {
   }
 }
 
+/**
+ * Auto-scroll to bottom of the message container.
+ *
+ * Uses intent-based tracking: we track whether the user has actively scrolled
+ * away from the bottom (userScrolledUp). Auto-scroll is suppressed when the
+ * user has scrolled up, and re-enabled when they scroll back near the bottom
+ * or click the scroll FAB.
+ *
+ * The `force` parameter bypasses intent tracking (used for user messages,
+ * new sessions, etc.).
+ */
+let _userScrolledUp = false;
+let _lastScrollTop = 0;
+let _scrollListenerAttached = false;
+
+export function initAutoScroll(container: HTMLElement): void {
+  if (_scrollListenerAttached) return;
+  _scrollListenerAttached = true;
+  _userScrolledUp = false;
+  _lastScrollTop = container.scrollTop;
+
+  container.addEventListener("scroll", () => {
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const distFromBottom = scrollHeight - scrollTop - clientHeight;
+
+    if (scrollTop < _lastScrollTop && distFromBottom > 50) {
+      // User scrolled up
+      _userScrolledUp = true;
+    } else if (distFromBottom < 30) {
+      // User scrolled back to bottom (or auto-scroll brought us here)
+      _userScrolledUp = false;
+    }
+    _lastScrollTop = scrollTop;
+  }, { passive: true });
+}
+
+/** Reset scroll tracking (e.g. new session, clear messages) */
+export function resetAutoScroll(): void {
+  _userScrolledUp = false;
+  _lastScrollTop = 0;
+}
+
+/** Check if auto-scroll is currently suppressed by user intent */
+export function isAutoScrollSuppressed(): boolean {
+  return _userScrolledUp;
+}
+
 export function scrollToBottom(container: HTMLElement, force = false): void {
-  if (force || container.scrollHeight - container.scrollTop - container.clientHeight < 150) {
-    container.scrollTop = container.scrollHeight;
+  if (force) {
+    _userScrolledUp = false;
   }
+  if (_userScrolledUp) return;
+  container.scrollTop = container.scrollHeight;
 }
