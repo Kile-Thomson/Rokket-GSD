@@ -83,6 +83,23 @@
 					],
 					"default": "panel",
 					"description": "Where GSD opens by default."
+				},
+				"gsd.theme": {
+					"type": "string",
+					"enum": [
+						"classic",
+						"phosphor",
+						"clarity",
+						"forge"
+					],
+					"enumDescriptions": [
+						"Classic — the stable default theme",
+						"Phosphor — matrix-inspired green phosphor on black",
+						"Clarity — ultra-clean modern flat design, maximum readability",
+						"Forge — dark industrial metallic with inset shadows"
+					],
+					"default": "classic",
+					"description": "UI theme for the GSD panel."
 				}
 			}
 		},
