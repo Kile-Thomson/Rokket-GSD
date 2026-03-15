@@ -489,7 +489,7 @@ export function initAutoScroll(container: HTMLElement): void {
     const { scrollTop, scrollHeight, clientHeight } = container;
     const distFromBottom = scrollHeight - scrollTop - clientHeight;
 
-    if (scrollTop < _lastScrollTop && distFromBottom > 50) {
+    if (scrollTop < _lastScrollTop) {
       // User scrolled up
       _userScrolledUp = true;
     } else if (distFromBottom < 30) {

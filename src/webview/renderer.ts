@@ -290,6 +290,7 @@ export function finalizeCurrentTurn(): void {
   }
 
   const isStaleEcho = detectStaleEcho(turn);
+  turn.isStaleEcho = isStaleEcho;
 
   state.entries.push({
     id: turn.id,
@@ -302,17 +303,7 @@ export function finalizeCurrentTurn(): void {
     currentTurnElement.classList.remove("streaming");
     if (isStaleEcho) {
       currentTurnElement.classList.add("gsd-stale-echo");
-      const textContent = turn.segments
-        .filter(s => s.type === "text")
-        .map(s => s.chunks.join(""))
-        .join(" ")
-        .trim();
-      const preview = textContent.length > 80 ? textContent.slice(0, 77) + "…" : textContent;
-      currentTurnElement.innerHTML = `<div class="gsd-stale-echo-bar" role="button" tabindex="0" aria-label="Expand background notification echo" title="Background job notification — click to expand">
-        <span class="gsd-stale-echo-icon">↩</span>
-        <span class="gsd-stale-echo-text">${escapeHtml(preview)}</span>
-      </div>
-      <div class="gsd-stale-echo-full" hidden>${buildTurnHtml(turn)}</div>`;
+      currentTurnElement.innerHTML = buildStaleEchoHtml(turn);
     } else {
       currentTurnElement.innerHTML = buildTurnHtml(turn);
     }
@@ -344,7 +335,12 @@ function createEntryElement(entry: ChatEntry): HTMLElement {
   if (entry.type === "user") {
     el.innerHTML = buildUserHtml(entry);
   } else if (entry.type === "assistant" && entry.turn) {
-    el.innerHTML = buildTurnHtml(entry.turn);
+    if (entry.turn.isStaleEcho) {
+      el.classList.add("gsd-stale-echo");
+      el.innerHTML = buildStaleEchoHtml(entry.turn);
+    } else {
+      el.innerHTML = buildTurnHtml(entry.turn);
+    }
   } else if (entry.type === "system") {
     el.innerHTML = buildSystemHtml(entry);
   }
@@ -400,6 +396,21 @@ function buildUserHtml(entry: ChatEntry): string {
   html += `</div>`;
   html += buildTimestampHtml(entry.timestamp);
   return html;
+}
+
+function buildStaleEchoHtml(turn: AssistantTurn): string {
+  const textContent = turn.segments
+    .filter(s => s.type === "text")
+    .map(s => s.chunks.join(""))
+    .join(" ")
+    .trim();
+  const preview = textContent.length > 80 ? textContent.slice(0, 77) + "…" : textContent;
+  const panelId = `stale-echo-${turn.id}`;
+  return `<div class="gsd-stale-echo-bar" role="button" tabindex="0" aria-expanded="false" aria-controls="${escapeAttr(panelId)}" aria-label="Expand background notification echo" title="Background job notification — click to expand">
+    <span class="gsd-stale-echo-icon">↩</span>
+    <span class="gsd-stale-echo-text">${escapeHtml(preview)}</span>
+  </div>
+  <div class="gsd-stale-echo-full" id="${escapeAttr(panelId)}" hidden>${buildTurnHtml(turn)}</div>`;
 }
 
 function buildTurnHtml(turn: AssistantTurn): string {
