@@ -813,6 +813,16 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                 this.startPromptWatchdog(webview, sessionId, msg.message, images);
               }
               this.output.appendLine(`[${sessionId}] Sending prompt to RPC: "${msg.message.slice(0, 80)}"`);
+
+              // Arm /gsd fallback probe BEFORE prompt() — agent_start could
+              // arrive while the RPC is still in flight.
+              const gsdMatch = /^\/gsd(?:\s+(auto|next|stop|status|queue))?$/.exec(msg.message.trim());
+              if (gsdMatch) {
+                const existingTimer = this.gsdFallbackTimers.get(sessionId);
+                if (existingTimer) clearTimeout(existingTimer);
+                this.gsdTurnStarted.set(sessionId, false);
+              }
+
               await c.prompt(msg.message, images);
               this.output.appendLine(`[${sessionId}] Prompt RPC resolved for: "${msg.message.slice(0, 80)}"`);
 
@@ -821,12 +831,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               // when the flow needs an interactive decision (showNextAction).
               // The prompt resolves almost instantly when this happens, so we
               // only need a brief delay for any in-flight events to arrive.
-              if (/^\/gsd(\s+(auto|next|stop|status|queue))?$/.test(msg.message.trim())) {
-                this.gsdTurnStarted.set(sessionId, false);
-                
+              if (gsdMatch) {
                 // Brief delay — if the command actually worked, agent_start
                 // arrives within milliseconds. 500ms is generous.
                 const fallbackTimer = setTimeout(async () => {
+                  if (this.gsdFallbackTimers.get(sessionId) !== fallbackTimer) return;
                   this.gsdFallbackTimers.delete(sessionId);
                   const started = this.gsdTurnStarted.get(sessionId);
                   this.gsdTurnStarted.delete(sessionId);
@@ -1851,16 +1860,40 @@ ${exportOverrides}
       }
 
       let fallbackPrompt: string;
+      let fallbackNotice: string;
+      const cmdParts = originalCommand.trim().split(/\s+/);
+      const subcommand = cmdParts[1] || "";
 
       if (!stateContent) {
         // No GSD state — project needs initialization
+        fallbackNotice = "ℹ️ The /gsd interactive menu isn't available yet — reading project state and continuing automatically...";
         fallbackPrompt = `The user ran "${originalCommand}" but the interactive wizard couldn't display. There is no .gsd/STATE.md yet, so this project needs GSD initialization. Read the GSD workflow documentation and help the user set up their first milestone. Start by understanding what the project is and what they want to accomplish.`;
-      } else if (originalCommand === "/gsd auto") {
-        // /gsd auto — enter auto mode. Parse state to give precise instructions.
-        fallbackPrompt = `The user ran "/gsd auto" but the interactive wizard couldn't display (known RPC limitation). Here is the current .gsd/STATE.md:\n\n${stateContent}\n\nYou are now in auto-mode. Execute continuously without stopping to ask for confirmation between steps. Read the relevant .gsd/ files and:\n\n- If the phase is "complete" with no active work: start a new milestone. Ask the user what they want to build next.\n- If there's an active milestone with no roadmap: research and create the roadmap.\n- If there's a roadmap but no active slice: plan and begin the next slice.\n- If there's an active task: continue executing it.\n- If a slice is complete: run verification, write the summary, and move to the next slice.\n\nDo NOT just report status. Take action. Execute the work.`;
       } else {
-        // /gsd (step mode) or other — let the LLM figure out the right action
-        fallbackPrompt = `The user ran "${originalCommand}" but the interactive wizard couldn't display (known RPC limitation). Here is the current .gsd/STATE.md:\n\n${stateContent}\n\nBased on this state, determine the appropriate next action and execute it. If the phase is "complete" and there are no active slices, check if there's a branch to squash-merge or if the user needs a new milestone. If there's active work, continue executing it. Read relevant .gsd/ files to understand the full context before proceeding. IMPORTANT: Always communicate your findings to the user — tell them what state the project is in and what you're doing (or why there's nothing to do).`;
+        const statePrefix = `The user ran "${originalCommand}" but the interactive wizard couldn't display (known RPC limitation). Here is the current .gsd/STATE.md:\n\n${stateContent}\n\n`;
+
+        switch (subcommand) {
+          case "auto":
+            fallbackNotice = "ℹ️ The /gsd interactive menu isn't available yet — entering auto-mode...";
+            fallbackPrompt = statePrefix + `You are now in auto-mode. Execute continuously without stopping to ask for confirmation between steps. Read the relevant .gsd/ files and:\n\n- If the phase is "complete" with no active work: start a new milestone. Ask the user what they want to build next.\n- If there's an active milestone with no roadmap: research and create the roadmap.\n- If there's a roadmap but no active slice: plan and begin the next slice.\n- If there's an active task: continue executing it.\n- If a slice is complete: run verification, write the summary, and move to the next slice.\n\nDo NOT just report status. Take action. Execute the work.`;
+            break;
+          case "stop":
+            fallbackNotice = "ℹ️ Stopping auto-mode...";
+            fallbackPrompt = statePrefix + `The user wants to stop auto-mode. Do NOT continue executing new work. Confirm that auto-mode has been stopped and wait for the next instruction.`;
+            break;
+          case "status":
+            fallbackNotice = "ℹ️ Reading project status...";
+            fallbackPrompt = statePrefix + `The user wants a status report. Read the relevant .gsd/ files and report the current state. Do NOT execute new work — just report what's in progress, what's complete, and what's next.`;
+            break;
+          case "queue":
+            fallbackNotice = "ℹ️ Reading milestone queue...";
+            fallbackPrompt = statePrefix + `The user wants to see the milestone queue. Read .gsd/QUEUE.md and any relevant state files, then report queued milestones. Do NOT execute new work.`;
+            break;
+          default:
+            // /gsd or /gsd next — step mode
+            fallbackNotice = "ℹ️ The /gsd interactive menu isn't available yet — reading project state and continuing automatically...";
+            fallbackPrompt = statePrefix + `Based on this state, determine the appropriate next action and execute it. If the phase is "complete" and there are no active slices, check if there's a branch to squash-merge or if the user needs a new milestone. If there's active work, continue executing it. Read relevant .gsd/ files to understand the full context before proceeding. IMPORTANT: Always communicate your findings to the user — tell them what state the project is in and what you're doing (or why there's nothing to do).`;
+            break;
+        }
       }
 
       this.output.appendLine(`[${sessionId}] Sending fallback prompt for "${originalCommand}"`);
@@ -1868,7 +1901,7 @@ ${exportOverrides}
         type: "extension_ui_request",
         id: `gsd-fallback-${Date.now()}`,
         method: "notify",
-        message: "ℹ️ The /gsd interactive menu isn't available yet — reading project state and continuing automatically...",
+        message: fallbackNotice,
         notifyType: "info",
       } as ExtensionToWebviewMessage);
 
