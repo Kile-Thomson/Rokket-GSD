@@ -477,27 +477,35 @@ export function formatShortDate(iso: string): string {
  */
 let _userScrolledUp = false;
 let _lastScrollTop = 0;
-let _scrollListenerAttached = false;
+let _scrollContainer: HTMLElement | null = null;
+let _scrollHandler: (() => void) | null = null;
 
 export function initAutoScroll(container: HTMLElement): void {
-  if (_scrollListenerAttached) return;
-  _scrollListenerAttached = true;
+  // If already attached to this container, skip
+  if (_scrollContainer === container) return;
+
+  // Detach from previous container if any
+  if (_scrollContainer && _scrollHandler) {
+    _scrollContainer.removeEventListener("scroll", _scrollHandler);
+  }
+
   _userScrolledUp = false;
   _lastScrollTop = container.scrollTop;
+  _scrollContainer = container;
 
-  container.addEventListener("scroll", () => {
+  _scrollHandler = () => {
     const { scrollTop, scrollHeight, clientHeight } = container;
     const distFromBottom = scrollHeight - scrollTop - clientHeight;
 
     if (scrollTop < _lastScrollTop) {
-      // User scrolled up
       _userScrolledUp = true;
     } else if (distFromBottom < 30) {
-      // User scrolled back to bottom (or auto-scroll brought us here)
       _userScrolledUp = false;
     }
     _lastScrollTop = scrollTop;
-  }, { passive: true });
+  };
+
+  container.addEventListener("scroll", _scrollHandler, { passive: true });
 }
 
 /** Reset scroll tracking (e.g. new session, clear messages) */
