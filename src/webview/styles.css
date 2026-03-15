@@ -423,7 +423,6 @@ html, body {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 12px 16px;
-  scroll-behavior: smooth;
 }
 
 .gsd-messages::-webkit-scrollbar {
@@ -3737,4 +3736,46 @@ html, body {
   .gsd-user-bubble { max-width: 95%; }
   .gsd-footer { padding: 2px 8px; font-size: 9px; }
   .gsd-welcome-ascii { font-size: 8px; }
+}
+
+/* ============================================================
+   Stale Echo — collapsed background job notification echoes
+   ============================================================ */
+
+.gsd-stale-echo {
+  margin: 2px 0;
+}
+
+.gsd-stale-echo-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.1));
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #888);
+  transition: opacity 0.15s;
+  user-select: none;
+}
+
+.gsd-stale-echo-bar:hover {
+  opacity: 0.9;
+}
+
+.gsd-stale-echo-icon {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.gsd-stale-echo-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gsd-stale-echo-full {
+  margin-top: 4px;
 }

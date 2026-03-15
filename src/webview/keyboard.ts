@@ -248,6 +248,21 @@ function setupClickHandlers(): void {
       return;
     }
 
+    // Stale echo expand/collapse
+    const staleBar = target.closest(".gsd-stale-echo-bar") as HTMLElement | null;
+    if (staleBar) {
+      const entry = staleBar.closest(".gsd-stale-echo") as HTMLElement | null;
+      if (entry) {
+        const full = entry.querySelector(".gsd-stale-echo-full") as HTMLElement | null;
+        if (full) {
+          const isHidden = full.hidden;
+          full.hidden = !isHidden;
+          staleBar.setAttribute("aria-expanded", String(isHidden));
+        }
+      }
+      return;
+    }
+
     if (target.closest("#restartBtn")) {
       vscode.postMessage({ type: "launch_gsd" });
       return;
