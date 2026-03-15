@@ -3808,3 +3808,706 @@ html, body {
 .gsd-stale-echo-full {
   margin-top: 4px;
 }
+
+/* ============================================================
+   Settings Dropdown
+   ============================================================ */
+
+.gsd-settings-wrapper {
+  position: relative;
+}
+
+.gsd-settings-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  background: var(--vscode-dropdown-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-dropdown-border, var(--vscode-panel-border, rgba(128,128,128,0.3)));
+  border-radius: 6px;
+  padding: 8px 0;
+  z-index: 1000;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+.gsd-settings-dropdown.open {
+  display: block;
+}
+
+.gsd-settings-section {
+  padding: 4px 12px;
+}
+
+.gsd-settings-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.5;
+  margin-bottom: 6px;
+}
+
+.gsd-settings-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gsd-settings-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: var(--vscode-font-family);
+  transition: background 0.1s;
+  width: 100%;
+  text-align: left;
+}
+
+.gsd-settings-option:hover {
+  background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.1));
+}
+
+.gsd-settings-option-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--vscode-foreground);
+  opacity: 0.4;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.gsd-settings-option.active .gsd-settings-option-dot {
+  background: var(--vscode-focusBorder, #007acc);
+  border-color: var(--vscode-focusBorder, #007acc);
+  opacity: 1;
+}
+
+.gsd-settings-theme-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: auto;
+}
+
+.gsd-settings-theme-tag.phosphor {
+  background: rgba(0, 255, 65, 0.12);
+  color: rgba(0, 255, 65, 0.8);
+}
+
+.gsd-settings-theme-tag.clarity {
+  background: rgba(100, 160, 255, 0.12);
+  color: rgba(130, 180, 255, 0.8);
+}
+
+.gsd-settings-theme-tag.forge {
+  background: rgba(180, 160, 140, 0.15);
+  color: rgba(200, 180, 160, 0.8);
+}
+
+/* ============================================================
+   PHOSPHOR — Terminal that grew a UI
+   ============================================================
+   CRT aesthetic. Scanlines, phosphor glow, monospace everything,
+   terminal-green accents. User messages are commands. Tool calls
+   are shell executions. Zero border-radius anywhere.
+   ============================================================ */
+
+.gsd-app[data-theme="phosphor"] {
+  --phosphor: #00ff41;
+  --phosphor-dim: rgba(0, 255, 65, 0.6);
+  --phosphor-faint: rgba(0, 255, 65, 0.08);
+  --phosphor-glow: 0 0 8px rgba(0, 255, 65, 0.3);
+  --phosphor-bg: #050505;
+  --phosphor-surface: #0a0d0a;
+  --phosphor-border: rgba(0, 255, 65, 0.1);
+  --phosphor-text: #b8c4b8;
+}
+
+/* Scanline overlay */
+.gsd-app[data-theme="phosphor"]::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0, 0, 0, 0.08) 2px, rgba(0, 0, 0, 0.08) 4px
+  );
+}
+
+/* All text monospace */
+.gsd-app[data-theme="phosphor"],
+.gsd-app[data-theme="phosphor"] * {
+  font-family: var(--vscode-editor-fontFamily, 'Cascadia Code', 'Fira Code', Consolas, monospace) !important;
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-header {
+  background: var(--phosphor-bg);
+  border-bottom: 1px solid var(--phosphor-border);
+  box-shadow: 0 1px 0 rgba(0, 255, 65, 0.05);
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-title {
+  color: var(--phosphor);
+  text-shadow: var(--phosphor-glow), 0 0 20px rgba(0, 255, 65, 0.15);
+  letter-spacing: 3px;
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-logo.working::after {
+  background: radial-gradient(circle, rgba(0, 255, 65, 0.6) 0%, rgba(0, 255, 65, 0.2) 50%, transparent 70%);
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-model-badge,
+.gsd-app[data-theme="phosphor"] .gsd-thinking-badge,
+.gsd-app[data-theme="phosphor"] .gsd-cost-badge,
+.gsd-app[data-theme="phosphor"] .gsd-context-badge {
+  color: var(--phosphor-dim);
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-workflow-badge {
+  background: var(--phosphor-faint);
+  color: var(--phosphor-dim);
+  border: 1px solid var(--phosphor-border);
+  text-shadow: 0 0 4px rgba(0, 255, 65, 0.2);
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-messages { background: var(--phosphor-bg); }
+
+/* User messages: right-aligned but terminal-styled */
+.gsd-app[data-theme="phosphor"] .gsd-user-bubble {
+  background: transparent;
+  color: var(--phosphor);
+  border: none;
+  border-radius: 0;
+  border-right: 2px solid var(--phosphor);
+  padding: 4px 12px;
+  text-shadow: 0 0 4px rgba(0, 255, 65, 0.15);
+}
+
+/* Assistant text */
+.gsd-app[data-theme="phosphor"] .gsd-assistant-text { color: var(--phosphor-text); }
+
+.gsd-app[data-theme="phosphor"] .gsd-assistant-text h1,
+.gsd-app[data-theme="phosphor"] .gsd-assistant-text h2,
+.gsd-app[data-theme="phosphor"] .gsd-assistant-text h3 {
+  color: var(--phosphor-dim);
+  text-shadow: 0 0 6px rgba(0, 255, 65, 0.1);
+  border-color: var(--phosphor-border);
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-assistant-text a {
+  color: var(--phosphor) !important;
+  text-decoration: none;
+  border-bottom: 1px dashed var(--phosphor-dim);
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-entry-assistant.streaming .gsd-assistant-text > *:last-child::after {
+  color: var(--phosphor);
+  text-shadow: var(--phosphor-glow);
+}
+
+/* Tool blocks: shell execution style — left border, no radius */
+.gsd-app[data-theme="phosphor"] .gsd-tool-block {
+  border: none; border-left: 2px solid rgba(0, 255, 65, 0.2);
+  border-radius: 0; margin-left: 8px;
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-tool-block.running {
+  border-left-color: var(--phosphor);
+  box-shadow: none; background: none; animation: none;
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-tool-block.running .gsd-tool-header {
+  animation: phosphorPulse 2s ease-in-out infinite;
+}
+
+@keyframes phosphorPulse {
+  0%, 100% { background: rgba(0, 255, 65, 0.02); }
+  50% { background: rgba(0, 255, 65, 0.06); }
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-tool-header {
+  background: rgba(0, 255, 65, 0.02); border: none;
+}
+.gsd-app[data-theme="phosphor"] .gsd-tool-header:hover { background: rgba(0, 255, 65, 0.05); }
+
+.gsd-app[data-theme="phosphor"] .gsd-tool-icon { color: var(--phosphor-dim); }
+
+.gsd-app[data-theme="phosphor"] .gsd-tool-name {
+  color: var(--phosphor);
+  text-shadow: 0 0 4px rgba(0, 255, 65, 0.15);
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-tool-name::before { content: '$ '; opacity: 0.4; }
+
+.gsd-app[data-theme="phosphor"] .gsd-tool-arg { color: rgba(0, 255, 65, 0.35); }
+
+.gsd-app[data-theme="phosphor"] .gsd-tool-spinner {
+  border-color: rgba(0, 255, 65, 0.2); border-top-color: var(--phosphor);
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-tool-output {
+  background: var(--phosphor-bg); border: none;
+  border-top: 1px dashed rgba(0, 255, 65, 0.1); border-radius: 0;
+}
+
+/* Code blocks: pure terminal */
+.gsd-app[data-theme="phosphor"] .gsd-code-block {
+  border: none; border-left: 2px solid rgba(0, 255, 65, 0.15); border-radius: 0;
+}
+
+.gsd-app[data-theme="phosphor"] pre,
+.gsd-app[data-theme="phosphor"] code {
+  background: rgba(0, 255, 65, 0.02) !important; border: none !important; color: var(--phosphor-text);
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-code-header {
+  background: rgba(0, 255, 65, 0.03); border: none;
+  border-bottom: 1px dashed rgba(0, 255, 65, 0.1); border-radius: 0;
+}
+
+.gsd-app[data-theme="phosphor"] .gsd-code-lang { color: var(--phosphor-dim); }
+.gsd-app[data-theme="phosphor"] .gsd-copy-btn { color: var(--phosphor-dim); }
+
+/* Thinking */
+.gsd-app[data-theme="phosphor"] .gsd-thinking-block {
+  border: none; border-left: 1px solid rgba(0, 255, 65, 0.08); border-radius: 0;
+}
+.gsd-app[data-theme="phosphor"] .gsd-thinking-header { border: none; color: rgba(0, 255, 65, 0.3); }
+.gsd-app[data-theme="phosphor"] .gsd-thinking-content { color: rgba(0, 255, 65, 0.25); }
+.gsd-app[data-theme="phosphor"] .gsd-thinking-dots span { background: var(--phosphor); }
+
+/* Input */
+.gsd-app[data-theme="phosphor"] .gsd-input-area { background: var(--phosphor-bg); border-top: 1px solid var(--phosphor-border); }
+
+.gsd-app[data-theme="phosphor"] .gsd-input {
+  background: transparent; border: 1px solid var(--phosphor-border);
+  border-radius: 0; color: var(--phosphor);
+}
+.gsd-app[data-theme="phosphor"] .gsd-input:focus { border-color: var(--phosphor); box-shadow: var(--phosphor-glow); }
+.gsd-app[data-theme="phosphor"] .gsd-input::placeholder { color: rgba(0, 255, 65, 0.2); }
+
+.gsd-app[data-theme="phosphor"] .gsd-send-btn {
+  background: transparent; color: var(--phosphor);
+  border: 1px solid var(--phosphor-border); border-radius: 0;
+}
+.gsd-app[data-theme="phosphor"] .gsd-send-btn:hover { background: var(--phosphor-faint); box-shadow: var(--phosphor-glow); }
+
+/* Footer */
+.gsd-app[data-theme="phosphor"] .gsd-footer { background: var(--phosphor-bg); border-top: 1px solid var(--phosphor-border); color: rgba(0, 255, 65, 0.25); }
+
+/* Buttons */
+.gsd-app[data-theme="phosphor"] .gsd-action-btn { border: 1px solid var(--phosphor-border); color: var(--phosphor-dim); border-radius: 0; }
+.gsd-app[data-theme="phosphor"] .gsd-action-btn:hover { background: var(--phosphor-faint); border-color: rgba(0, 255, 65, 0.25); text-shadow: 0 0 4px rgba(0, 255, 65, 0.15); }
+.gsd-app[data-theme="phosphor"] .gsd-action-btn.primary { background: var(--phosphor-faint); border-color: rgba(0, 255, 65, 0.25); color: var(--phosphor); }
+
+/* Welcome */
+.gsd-app[data-theme="phosphor"] .gsd-welcome-ascii { color: var(--phosphor); text-shadow: var(--phosphor-glow); }
+.gsd-app[data-theme="phosphor"] .gsd-welcome-title { color: var(--phosphor-dim); }
+.gsd-app[data-theme="phosphor"] .gsd-welcome-chip { border: 1px solid var(--phosphor-border); color: var(--phosphor-dim); border-radius: 0; }
+.gsd-app[data-theme="phosphor"] .gsd-welcome-chip:hover { background: var(--phosphor-faint); border-color: rgba(0, 255, 65, 0.3); text-shadow: 0 0 4px rgba(0, 255, 65, 0.15); }
+
+/* Scroll FAB */
+.gsd-app[data-theme="phosphor"] .gsd-scroll-fab { background: var(--phosphor-bg); border: 1px solid var(--phosphor-border); color: var(--phosphor-dim); border-radius: 0; }
+.gsd-app[data-theme="phosphor"] .gsd-scroll-fab:hover { background: var(--phosphor-faint); box-shadow: var(--phosphor-glow); }
+
+/* Slash menu */
+.gsd-app[data-theme="phosphor"] .gsd-slash-menu { background: var(--phosphor-bg); border: 1px solid var(--phosphor-border); border-radius: 0; box-shadow: 0 0 20px rgba(0, 255, 65, 0.05); }
+.gsd-app[data-theme="phosphor"] .gsd-slash-item.active { background: var(--phosphor-faint); }
+.gsd-app[data-theme="phosphor"] .gsd-slash-name { color: var(--phosphor); }
+.gsd-app[data-theme="phosphor"] .gsd-slash-desc { color: rgba(0, 255, 65, 0.3); }
+
+/* Settings dropdown */
+.gsd-app[data-theme="phosphor"] .gsd-settings-dropdown { background: var(--phosphor-bg); border: 1px solid var(--phosphor-border); border-radius: 0; }
+.gsd-app[data-theme="phosphor"] .gsd-settings-option.active .gsd-settings-option-dot { background: var(--phosphor); border-color: var(--phosphor); box-shadow: var(--phosphor-glow); }
+
+/* Context bar */
+.gsd-app[data-theme="phosphor"] .gsd-context-bar { background: rgba(0, 255, 65, 0.04); border-radius: 0; }
+.gsd-app[data-theme="phosphor"] .gsd-context-bar-fill { background: var(--phosphor); border-radius: 0; box-shadow: 0 0 6px rgba(0, 255, 65, 0.3); }
+
+/* Misc */
+.gsd-app[data-theme="phosphor"] .gsd-timestamp { color: rgba(0, 255, 65, 0.15); }
+.gsd-app[data-theme="phosphor"] .gsd-messages::-webkit-scrollbar-thumb { background: rgba(0, 255, 65, 0.15); }
+.gsd-app[data-theme="phosphor"] .gsd-messages::-webkit-scrollbar-thumb:hover { background: rgba(0, 255, 65, 0.25); }
+.gsd-app[data-theme="phosphor"] .gsd-assistant-text code { background: rgba(0, 255, 65, 0.06) !important; color: var(--phosphor-dim); }
+.gsd-app[data-theme="phosphor"] .gsd-assistant-text table { border-color: var(--phosphor-border); }
+.gsd-app[data-theme="phosphor"] .gsd-assistant-text th { background: rgba(0, 255, 65, 0.04); color: var(--phosphor-dim); border-color: var(--phosphor-border); }
+.gsd-app[data-theme="phosphor"] .gsd-assistant-text td { border-color: var(--phosphor-border); }
+.gsd-app[data-theme="phosphor"] .gsd-resize-handle::after { background: var(--phosphor-border); }
+
+
+/* ============================================================
+   CLARITY — Linear-grade flat design
+   ============================================================
+   Refined restraint. Borders vanish — surfaces separate by
+   luminance. Generous padding, large radii, soft focus rings.
+   Frosted glass panels floating in void. Ghost buttons.
+   Pill-shaped user messages. Borderless cards.
+   ============================================================ */
+
+.gsd-app[data-theme="clarity"] {
+  --clarity-bg: #111114;
+  --clarity-surface: #18181c;
+  --clarity-elevated: #222228;
+  --clarity-hover: #2a2a32;
+  --clarity-border: rgba(255, 255, 255, 0.05);
+  --clarity-border-hover: rgba(255, 255, 255, 0.1);
+  --clarity-text: #e4e4e8;
+  --clarity-text-dim: rgba(255, 255, 255, 0.45);
+  --clarity-accent: #818cf8;
+  --clarity-accent-soft: rgba(129, 140, 248, 0.1);
+  --clarity-accent-glow: 0 0 0 3px rgba(129, 140, 248, 0.08);
+  --clarity-radius: 12px;
+  --clarity-radius-sm: 8px;
+}
+
+.gsd-app[data-theme="clarity"] {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif !important;
+  letter-spacing: -0.01em;
+}
+
+.gsd-app[data-theme="clarity"] .gsd-header {
+  background: var(--clarity-bg); border-bottom: none;
+  padding: 12px 20px; box-shadow: 0 1px 0 var(--clarity-border);
+}
+
+.gsd-app[data-theme="clarity"] .gsd-title {
+  font-weight: 500; letter-spacing: 0.3px; color: var(--clarity-text);
+  text-transform: none; font-size: 15px;
+}
+
+.gsd-app[data-theme="clarity"] .gsd-logo.working::after {
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.4) 0%, rgba(129, 140, 248, 0.12) 50%, transparent 70%);
+}
+
+.gsd-app[data-theme="clarity"] .gsd-model-badge,
+.gsd-app[data-theme="clarity"] .gsd-thinking-badge,
+.gsd-app[data-theme="clarity"] .gsd-cost-badge,
+.gsd-app[data-theme="clarity"] .gsd-context-badge { color: var(--clarity-text-dim); font-weight: 400; font-size: 12px; }
+
+.gsd-app[data-theme="clarity"] .gsd-workflow-badge {
+  background: var(--clarity-accent-soft); color: var(--clarity-accent);
+  border: none; border-radius: 20px; padding: 3px 12px; font-size: 12px;
+}
+
+.gsd-app[data-theme="clarity"] .gsd-messages { background: var(--clarity-bg); padding: 16px 20px; }
+
+/* User messages: pill shape */
+.gsd-app[data-theme="clarity"] .gsd-user-bubble {
+  background: var(--clarity-elevated); color: var(--clarity-text);
+  border: none; border-radius: 20px 20px 4px 20px;
+  padding: 10px 18px; font-size: 13.5px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.gsd-app[data-theme="clarity"] .gsd-assistant-text { color: var(--clarity-text); line-height: 1.7; padding: 4px 0; }
+
+.gsd-app[data-theme="clarity"] .gsd-assistant-text h1,
+.gsd-app[data-theme="clarity"] .gsd-assistant-text h2,
+.gsd-app[data-theme="clarity"] .gsd-assistant-text h3 { color: var(--clarity-text); font-weight: 600; border: none; }
+.gsd-app[data-theme="clarity"] .gsd-assistant-text h1 { font-size: 1.25em; }
+.gsd-app[data-theme="clarity"] .gsd-assistant-text h2 { font-size: 1.1em; }
+.gsd-app[data-theme="clarity"] .gsd-assistant-text a { color: var(--clarity-accent) !important; text-decoration: none; }
+.gsd-app[data-theme="clarity"] .gsd-assistant-text a:hover { text-decoration: underline; }
+
+.gsd-app[data-theme="clarity"] .gsd-entry-assistant.streaming .gsd-assistant-text > *:last-child::after { color: var(--clarity-accent); }
+
+/* Tool blocks: borderless cards */
+.gsd-app[data-theme="clarity"] .gsd-tool-block {
+  border: none; border-radius: var(--clarity-radius);
+  background: var(--clarity-surface); margin: 8px 0;
+}
+
+.gsd-app[data-theme="clarity"] .gsd-tool-block.running {
+  box-shadow: 0 0 0 1px var(--clarity-accent-soft);
+  background: var(--clarity-surface);
+  animation: clarityShimmer 2.5s ease-in-out infinite;
+}
+
+@keyframes clarityShimmer {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.1); }
+  50% { box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.25), 0 0 12px rgba(129, 140, 248, 0.05); }
+}
+
+.gsd-app[data-theme="clarity"] .gsd-tool-header {
+  background: transparent; border: none; padding: 8px 14px; border-radius: var(--clarity-radius);
+}
+.gsd-app[data-theme="clarity"] .gsd-tool-header:hover { background: var(--clarity-hover); }
+.gsd-app[data-theme="clarity"] .gsd-tool-name { color: var(--clarity-text-dim); font-weight: 500; font-size: 12px; }
+.gsd-app[data-theme="clarity"] .gsd-tool-spinner { border-color: rgba(129, 140, 248, 0.2); border-top-color: var(--clarity-accent); }
+.gsd-app[data-theme="clarity"] .gsd-tool-output {
+  background: var(--clarity-bg); border: none;
+  border-top: 1px solid var(--clarity-border);
+  border-radius: 0 0 var(--clarity-radius) var(--clarity-radius); padding: 12px 14px;
+}
+
+/* Code blocks: embedded cards */
+.gsd-app[data-theme="clarity"] .gsd-code-block { border: none; border-radius: var(--clarity-radius); background: var(--clarity-surface); }
+.gsd-app[data-theme="clarity"] pre, .gsd-app[data-theme="clarity"] code { background: transparent !important; border: none !important; }
+.gsd-app[data-theme="clarity"] .gsd-code-header { background: transparent; border: none; border-bottom: 1px solid var(--clarity-border); padding: 6px 14px; }
+.gsd-app[data-theme="clarity"] .gsd-code-lang { color: var(--clarity-text-dim); font-weight: 500; }
+.gsd-app[data-theme="clarity"] .gsd-copy-btn { color: var(--clarity-text-dim); border-radius: 6px; }
+.gsd-app[data-theme="clarity"] .gsd-copy-btn:hover { background: var(--clarity-hover); }
+.gsd-app[data-theme="clarity"] .gsd-assistant-text code { background: var(--clarity-surface) !important; border-radius: 6px; padding: 2px 7px; font-size: 0.87em; }
+
+/* Thinking */
+.gsd-app[data-theme="clarity"] .gsd-thinking-block { border: none; border-radius: var(--clarity-radius); background: var(--clarity-surface); }
+.gsd-app[data-theme="clarity"] .gsd-thinking-header { border: none; color: var(--clarity-text-dim); padding: 8px 14px; }
+.gsd-app[data-theme="clarity"] .gsd-thinking-content { color: var(--clarity-text-dim); padding: 0 14px 10px; }
+.gsd-app[data-theme="clarity"] .gsd-thinking-dots span { background: var(--clarity-accent); }
+
+/* Input: floating bar */
+.gsd-app[data-theme="clarity"] .gsd-input-area { background: var(--clarity-bg); border-top: none; padding: 12px 20px 14px; box-shadow: 0 -1px 0 var(--clarity-border); }
+.gsd-app[data-theme="clarity"] .gsd-input {
+  background: var(--clarity-surface); border: 1px solid var(--clarity-border);
+  border-radius: var(--clarity-radius); color: var(--clarity-text); padding: 11px 16px; font-size: 13.5px;
+}
+.gsd-app[data-theme="clarity"] .gsd-input:focus { border-color: rgba(129, 140, 248, 0.4); box-shadow: var(--clarity-accent-glow); }
+.gsd-app[data-theme="clarity"] .gsd-input::placeholder { color: var(--clarity-text-dim); }
+.gsd-app[data-theme="clarity"] .gsd-send-btn { background: var(--clarity-accent-soft); color: var(--clarity-accent); border: none; border-radius: var(--clarity-radius-sm); }
+.gsd-app[data-theme="clarity"] .gsd-send-btn:hover { background: rgba(129, 140, 248, 0.2); }
+
+/* Footer */
+.gsd-app[data-theme="clarity"] .gsd-footer { background: var(--clarity-bg); border-top: none; color: var(--clarity-text-dim); padding: 4px 20px; font-size: 11px; }
+
+/* Buttons: ghost pills */
+.gsd-app[data-theme="clarity"] .gsd-action-btn { border: none; border-radius: 20px; color: var(--clarity-text-dim); background: transparent; padding: 5px 12px; }
+.gsd-app[data-theme="clarity"] .gsd-action-btn:hover { background: var(--clarity-hover); color: var(--clarity-text); }
+.gsd-app[data-theme="clarity"] .gsd-action-btn.primary { background: var(--clarity-accent-soft); color: var(--clarity-accent); }
+.gsd-app[data-theme="clarity"] .gsd-action-btn.primary:hover { background: rgba(129, 140, 248, 0.2); }
+
+/* Welcome */
+.gsd-app[data-theme="clarity"] .gsd-welcome-title { font-weight: 500; color: var(--clarity-text); opacity: 0.7; }
+.gsd-app[data-theme="clarity"] .gsd-welcome-ascii { color: var(--clarity-accent); opacity: 0.4; }
+.gsd-app[data-theme="clarity"] .gsd-welcome-chip { border: none; border-radius: var(--clarity-radius); background: var(--clarity-surface); color: var(--clarity-text-dim); padding: 8px 16px; }
+.gsd-app[data-theme="clarity"] .gsd-welcome-chip:hover { background: var(--clarity-hover); color: var(--clarity-text); }
+
+/* Scroll FAB */
+.gsd-app[data-theme="clarity"] .gsd-scroll-fab { background: var(--clarity-surface); border: none; border-radius: var(--clarity-radius); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4); color: var(--clarity-text-dim); }
+.gsd-app[data-theme="clarity"] .gsd-scroll-fab:hover { background: var(--clarity-hover); color: var(--clarity-text); }
+
+/* Slash menu */
+.gsd-app[data-theme="clarity"] .gsd-slash-menu { background: var(--clarity-surface); border: 1px solid var(--clarity-border); border-radius: var(--clarity-radius); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); }
+.gsd-app[data-theme="clarity"] .gsd-slash-item { border-radius: var(--clarity-radius-sm); margin: 0 4px; }
+.gsd-app[data-theme="clarity"] .gsd-slash-item.active { background: var(--clarity-accent-soft); }
+.gsd-app[data-theme="clarity"] .gsd-slash-name { color: var(--clarity-text); font-weight: 500; }
+.gsd-app[data-theme="clarity"] .gsd-slash-desc { color: var(--clarity-text-dim); }
+
+/* Settings */
+.gsd-app[data-theme="clarity"] .gsd-settings-dropdown { background: var(--clarity-surface); border: 1px solid var(--clarity-border); border-radius: var(--clarity-radius); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); }
+.gsd-app[data-theme="clarity"] .gsd-settings-option { border-radius: var(--clarity-radius-sm); }
+.gsd-app[data-theme="clarity"] .gsd-settings-option:hover { background: var(--clarity-hover); }
+.gsd-app[data-theme="clarity"] .gsd-settings-option.active .gsd-settings-option-dot { background: var(--clarity-accent); border-color: var(--clarity-accent); }
+
+/* Context bar */
+.gsd-app[data-theme="clarity"] .gsd-context-bar { background: var(--clarity-surface); border-radius: 6px; }
+.gsd-app[data-theme="clarity"] .gsd-context-bar-fill { background: var(--clarity-accent); border-radius: 6px; }
+
+/* Scrollbar */
+.gsd-app[data-theme="clarity"] .gsd-messages::-webkit-scrollbar { width: 6px; }
+.gsd-app[data-theme="clarity"] .gsd-messages::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 6px; }
+.gsd-app[data-theme="clarity"] .gsd-messages::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+
+/* Tables */
+.gsd-app[data-theme="clarity"] .gsd-assistant-text table { border: none; border-radius: var(--clarity-radius-sm); overflow: hidden; }
+.gsd-app[data-theme="clarity"] .gsd-assistant-text th { background: var(--clarity-surface); color: var(--clarity-text-dim); border-color: var(--clarity-border); font-weight: 500; }
+.gsd-app[data-theme="clarity"] .gsd-assistant-text td { border-color: var(--clarity-border); }
+
+.gsd-app[data-theme="clarity"] .gsd-resize-handle::after { background: var(--clarity-border); border-radius: 3px; width: 40px; }
+.gsd-app[data-theme="clarity"] .gsd-timestamp { color: var(--clarity-text-dim); font-size: 11px; }
+
+
+/* ============================================================
+   FORGE — Dark industrial, machined from steel
+   ============================================================
+   Brutalist meets industrial. Surfaces are stamped metal plates
+   with visible inset shadows. Elements are physically recessed
+   or raised. Copper accent. No soft corners — squared, heavy.
+   Buttons depress on click. The UI weighs something.
+   ============================================================ */
+
+.gsd-app[data-theme="forge"] {
+  --forge-bg: #121416;
+  --forge-surface: #191c20;
+  --forge-elevated: #21252b;
+  --forge-recessed: #0e1012;
+  --forge-border: rgba(255, 255, 255, 0.06);
+  --forge-bevel-light: rgba(255, 255, 255, 0.04);
+  --forge-bevel-dark: rgba(0, 0, 0, 0.4);
+  --forge-inset: inset 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 0 1px rgba(0, 0, 0, 0.3);
+  --forge-raised: inset 0 1px 0 var(--forge-bevel-light), 0 1px 2px var(--forge-bevel-dark);
+  --forge-plate: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 40%, rgba(0,0,0,0.03) 100%);
+  --forge-accent: #c8875a;
+  --forge-accent-dim: rgba(200, 135, 90, 0.5);
+  --forge-accent-bg: rgba(200, 135, 90, 0.08);
+  --forge-accent-glow: 0 0 8px rgba(200, 135, 90, 0.15);
+  --forge-text: #b8b4ae;
+  --forge-text-dim: rgba(184, 180, 174, 0.4);
+}
+
+/* Header: heavy top plate */
+.gsd-app[data-theme="forge"] .gsd-header {
+  background: var(--forge-surface); background-image: var(--forge-plate);
+  border-bottom: 1px solid var(--forge-border);
+  box-shadow: var(--forge-raised), 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.gsd-app[data-theme="forge"] .gsd-title {
+  color: var(--forge-text); font-weight: 900; letter-spacing: 2px;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+.gsd-app[data-theme="forge"] .gsd-logo.working::after {
+  background: radial-gradient(circle, rgba(200, 135, 90, 0.5) 0%, rgba(200, 135, 90, 0.15) 50%, transparent 70%);
+}
+
+.gsd-app[data-theme="forge"] .gsd-model-badge,
+.gsd-app[data-theme="forge"] .gsd-thinking-badge,
+.gsd-app[data-theme="forge"] .gsd-cost-badge,
+.gsd-app[data-theme="forge"] .gsd-context-badge { color: var(--forge-text-dim); }
+
+.gsd-app[data-theme="forge"] .gsd-workflow-badge {
+  background: var(--forge-accent-bg); color: var(--forge-accent);
+  border: 1px solid rgba(200, 135, 90, 0.15); border-radius: 3px;
+  box-shadow: var(--forge-inset); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+}
+
+.gsd-app[data-theme="forge"] .gsd-messages { background: var(--forge-bg); }
+
+/* User messages: embossed plate */
+.gsd-app[data-theme="forge"] .gsd-user-bubble {
+  background: var(--forge-elevated); background-image: var(--forge-plate);
+  color: var(--forge-text); border: 1px solid var(--forge-border);
+  border-radius: 4px 4px 2px 4px; box-shadow: var(--forge-raised);
+}
+
+.gsd-app[data-theme="forge"] .gsd-assistant-text { color: var(--forge-text); }
+
+.gsd-app[data-theme="forge"] .gsd-assistant-text h1,
+.gsd-app[data-theme="forge"] .gsd-assistant-text h2,
+.gsd-app[data-theme="forge"] .gsd-assistant-text h3 {
+  color: var(--forge-accent); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3); border-color: var(--forge-border);
+}
+
+.gsd-app[data-theme="forge"] .gsd-assistant-text a { color: var(--forge-accent) !important; }
+.gsd-app[data-theme="forge"] .gsd-entry-assistant.streaming .gsd-assistant-text > *:last-child::after { color: var(--forge-accent); }
+
+/* Tool blocks: recessed slots punched into the surface */
+.gsd-app[data-theme="forge"] .gsd-tool-block {
+  border: 1px solid var(--forge-border); border-radius: 3px;
+  background: var(--forge-recessed); box-shadow: var(--forge-inset);
+}
+
+.gsd-app[data-theme="forge"] .gsd-tool-block.running {
+  border-color: rgba(200, 135, 90, 0.2);
+  animation: forgeGlow 2.5s ease-in-out infinite;
+  background: var(--forge-recessed);
+}
+
+@keyframes forgeGlow {
+  0%, 100% { box-shadow: var(--forge-inset); }
+  50% { box-shadow: var(--forge-inset), 0 0 8px rgba(200, 135, 90, 0.08); }
+}
+
+.gsd-app[data-theme="forge"] .gsd-tool-header {
+  background: var(--forge-surface); background-image: var(--forge-plate);
+  border-bottom: 1px solid var(--forge-border);
+  box-shadow: var(--forge-raised); border-radius: 2px 2px 0 0;
+}
+.gsd-app[data-theme="forge"] .gsd-tool-header:hover { background-color: var(--forge-elevated); }
+.gsd-app[data-theme="forge"] .gsd-tool-icon { color: var(--forge-accent-dim); }
+.gsd-app[data-theme="forge"] .gsd-tool-name { color: var(--forge-accent); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3); }
+.gsd-app[data-theme="forge"] .gsd-tool-spinner { border-color: rgba(200, 135, 90, 0.2); border-top-color: var(--forge-accent); }
+.gsd-app[data-theme="forge"] .gsd-tool-output { background: var(--forge-recessed); border: none; border-radius: 0 0 2px 2px; }
+
+/* Code blocks: inset trays */
+.gsd-app[data-theme="forge"] .gsd-code-block { border: 1px solid var(--forge-border); border-radius: 3px; box-shadow: var(--forge-inset); }
+.gsd-app[data-theme="forge"] pre, .gsd-app[data-theme="forge"] code { background: var(--forge-recessed) !important; border: none !important; }
+.gsd-app[data-theme="forge"] .gsd-code-header {
+  background: var(--forge-surface); background-image: var(--forge-plate);
+  border: none; border-bottom: 1px solid var(--forge-border); border-radius: 2px 2px 0 0;
+  box-shadow: var(--forge-raised);
+}
+.gsd-app[data-theme="forge"] .gsd-code-lang { color: var(--forge-accent-dim); }
+.gsd-app[data-theme="forge"] .gsd-copy-btn { color: var(--forge-text-dim); }
+.gsd-app[data-theme="forge"] .gsd-assistant-text code { background: var(--forge-recessed) !important; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3); border-radius: 3px; color: var(--forge-accent-dim); }
+
+/* Thinking: stamped recess */
+.gsd-app[data-theme="forge"] .gsd-thinking-block { border: 1px solid var(--forge-border); border-radius: 3px; background: var(--forge-recessed); box-shadow: var(--forge-inset); }
+.gsd-app[data-theme="forge"] .gsd-thinking-header { border: none; color: var(--forge-text-dim); background: var(--forge-surface); background-image: var(--forge-plate); box-shadow: var(--forge-raised); }
+.gsd-app[data-theme="forge"] .gsd-thinking-content { color: var(--forge-text-dim); }
+.gsd-app[data-theme="forge"] .gsd-thinking-dots span { background: var(--forge-accent); }
+
+/* Input: punched-in slot */
+.gsd-app[data-theme="forge"] .gsd-input-area { background: var(--forge-surface); background-image: var(--forge-plate); border-top: 1px solid var(--forge-border); box-shadow: inset 0 1px 0 var(--forge-bevel-light); }
+.gsd-app[data-theme="forge"] .gsd-input { background: var(--forge-recessed); border: 1px solid var(--forge-border); border-radius: 4px; color: var(--forge-text); box-shadow: var(--forge-inset); }
+.gsd-app[data-theme="forge"] .gsd-input:focus { border-color: rgba(200, 135, 90, 0.3); box-shadow: var(--forge-inset), var(--forge-accent-glow); }
+.gsd-app[data-theme="forge"] .gsd-input::placeholder { color: var(--forge-text-dim); }
+
+/* Send button: raised, depresses on click */
+.gsd-app[data-theme="forge"] .gsd-send-btn {
+  background: var(--forge-elevated); background-image: var(--forge-plate);
+  color: var(--forge-accent); border: 1px solid var(--forge-border); border-radius: 4px;
+  box-shadow: var(--forge-raised);
+}
+.gsd-app[data-theme="forge"] .gsd-send-btn:hover { background-color: var(--forge-accent-bg); box-shadow: var(--forge-raised), var(--forge-accent-glow); }
+.gsd-app[data-theme="forge"] .gsd-send-btn:active { box-shadow: var(--forge-inset); transform: translateY(1px); }
+
+/* Footer: bottom plate */
+.gsd-app[data-theme="forge"] .gsd-footer { background: var(--forge-surface); background-image: var(--forge-plate); border-top: 1px solid var(--forge-border); color: var(--forge-text-dim); box-shadow: inset 0 1px 0 var(--forge-bevel-light); }
+
+/* Buttons: raised bolted plates, depress on click */
+.gsd-app[data-theme="forge"] .gsd-action-btn { border: 1px solid var(--forge-border); border-radius: 3px; color: var(--forge-text-dim); background: var(--forge-elevated); background-image: var(--forge-plate); box-shadow: var(--forge-raised); }
+.gsd-app[data-theme="forge"] .gsd-action-btn:hover { color: var(--forge-text); border-color: rgba(255, 255, 255, 0.08); }
+.gsd-app[data-theme="forge"] .gsd-action-btn:active { box-shadow: var(--forge-inset); transform: translateY(1px); }
+.gsd-app[data-theme="forge"] .gsd-action-btn.primary { background-color: var(--forge-accent-bg); border-color: rgba(200, 135, 90, 0.15); color: var(--forge-accent); }
+.gsd-app[data-theme="forge"] .gsd-action-btn.primary:hover { box-shadow: var(--forge-raised), var(--forge-accent-glow); }
+
+/* Welcome */
+.gsd-app[data-theme="forge"] .gsd-welcome-ascii { color: var(--forge-accent); opacity: 0.4; }
+.gsd-app[data-theme="forge"] .gsd-welcome-title { color: var(--forge-text); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5); }
+.gsd-app[data-theme="forge"] .gsd-welcome-chip { border: 1px solid var(--forge-border); border-radius: 3px; color: var(--forge-text-dim); background: var(--forge-elevated); background-image: var(--forge-plate); box-shadow: var(--forge-raised); }
+.gsd-app[data-theme="forge"] .gsd-welcome-chip:hover { color: var(--forge-text); border-color: rgba(200, 135, 90, 0.15); }
+.gsd-app[data-theme="forge"] .gsd-welcome-chip:active { box-shadow: var(--forge-inset); transform: translateY(1px); }
+
+/* Scroll FAB */
+.gsd-app[data-theme="forge"] .gsd-scroll-fab { background: var(--forge-elevated); background-image: var(--forge-plate); border: 1px solid var(--forge-border); border-radius: 3px; box-shadow: var(--forge-raised), 0 4px 12px rgba(0, 0, 0, 0.3); color: var(--forge-text-dim); }
+.gsd-app[data-theme="forge"] .gsd-scroll-fab:hover { color: var(--forge-accent); box-shadow: var(--forge-raised), var(--forge-accent-glow); }
+
+/* Slash menu */
+.gsd-app[data-theme="forge"] .gsd-slash-menu { background: var(--forge-surface); background-image: var(--forge-plate); border: 1px solid var(--forge-border); border-radius: 3px; box-shadow: var(--forge-raised), 0 8px 24px rgba(0, 0, 0, 0.5); }
+.gsd-app[data-theme="forge"] .gsd-slash-item.active { background: var(--forge-accent-bg); }
+.gsd-app[data-theme="forge"] .gsd-slash-name { color: var(--forge-accent); }
+.gsd-app[data-theme="forge"] .gsd-slash-desc { color: var(--forge-text-dim); }
+
+/* Settings */
+.gsd-app[data-theme="forge"] .gsd-settings-dropdown { background: var(--forge-surface); background-image: var(--forge-plate); border: 1px solid var(--forge-border); border-radius: 3px; box-shadow: var(--forge-raised), 0 8px 24px rgba(0, 0, 0, 0.5); }
+.gsd-app[data-theme="forge"] .gsd-settings-option:hover { background: var(--forge-elevated); }
+.gsd-app[data-theme="forge"] .gsd-settings-option.active .gsd-settings-option-dot { background: var(--forge-accent); border-color: var(--forge-accent); box-shadow: var(--forge-accent-glow); }
+
+/* Context bar */
+.gsd-app[data-theme="forge"] .gsd-context-bar { background: var(--forge-recessed); border-radius: 2px; box-shadow: var(--forge-inset); }
+.gsd-app[data-theme="forge"] .gsd-context-bar-fill { background: linear-gradient(90deg, var(--forge-accent), rgba(200, 135, 90, 0.7)); border-radius: 2px; }
+
+/* Scrollbar */
+.gsd-app[data-theme="forge"] .gsd-messages::-webkit-scrollbar-thumb { background: rgba(200, 135, 90, 0.12); border-radius: 2px; }
+.gsd-app[data-theme="forge"] .gsd-messages::-webkit-scrollbar-thumb:hover { background: rgba(200, 135, 90, 0.2); }
+
+/* Tables */
+.gsd-app[data-theme="forge"] .gsd-assistant-text table { border-color: var(--forge-border); }
+.gsd-app[data-theme="forge"] .gsd-assistant-text th { background: var(--forge-surface); background-image: var(--forge-plate); color: var(--forge-accent-dim); border-color: var(--forge-border); box-shadow: var(--forge-raised); }
+.gsd-app[data-theme="forge"] .gsd-assistant-text td { border-color: var(--forge-border); }
+.gsd-app[data-theme="forge"] .gsd-resize-handle::after { background: var(--forge-border); border-radius: 1px; }
+.gsd-app[data-theme="forge"] .gsd-timestamp { color: var(--forge-text-dim); }

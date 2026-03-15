@@ -119,6 +119,37 @@ root.innerHTML = `
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1a.5.5 0 01.5.5V7H14a.5.5 0 010 1H8.5v5.5a.5.5 0 01-1 0V8H2a.5.5 0 010-1h5.5V1.5A.5.5 0 018 1z"/></svg>
           <span>New</span>
         </button>
+        <div class="gsd-settings-wrapper" id="settingsWrapper">
+          <button class="gsd-icon-btn" id="settingsBtn" title="Settings" aria-label="Settings" aria-haspopup="true" aria-expanded="false">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M9.1 4.4L8.6 2H7.4l-.5 2.4-.7.3-2-1.3-.9.8 1.3 2-.3.7L2 7.4v1.2l2.4.5.3.7-1.3 2 .8.8 2-1.3.7.3.5 2.4h1.2l.5-2.4.7-.3 2 1.3.8-.8-1.3-2 .3-.7 2.4-.5V7.4l-2.4-.5-.3-.7 1.3-2-.8-.8-2 1.3-.7-.3zM8 10a2 2 0 110-4 2 2 0 010 4z"/></svg>
+          </button>
+          <div class="gsd-settings-dropdown" id="settingsDropdown" role="menu" aria-label="Settings">
+            <div class="gsd-settings-section">
+              <span class="gsd-settings-label">Theme</span>
+              <div class="gsd-settings-options" id="themeOptions">
+                <button class="gsd-settings-option active" data-theme="classic" role="menuitemradio" aria-checked="true">
+                  <span class="gsd-settings-option-dot"></span>
+                  <span>Classic</span>
+                </button>
+                <button class="gsd-settings-option" data-theme="phosphor" role="menuitemradio" aria-checked="false">
+                  <span class="gsd-settings-option-dot"></span>
+                  <span>Phosphor</span>
+                  <span class="gsd-settings-theme-tag phosphor">MATRIX</span>
+                </button>
+                <button class="gsd-settings-option" data-theme="clarity" role="menuitemradio" aria-checked="false">
+                  <span class="gsd-settings-option-dot"></span>
+                  <span>Clarity</span>
+                  <span class="gsd-settings-theme-tag clarity">CLEAN</span>
+                </button>
+                <button class="gsd-settings-option" data-theme="forge" role="menuitemradio" aria-checked="false">
+                  <span class="gsd-settings-option-dot"></span>
+                  <span>Forge</span>
+                  <span class="gsd-settings-theme-tag forge">METAL</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -345,8 +376,7 @@ initAutoScroll(messagesContainer);
 messagesContainer.addEventListener("scroll", updateScrollFab, { passive: true });
 
 scrollFab.addEventListener("click", () => {
-  resetAutoScroll();
-  messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: "smooth" });
+  scrollToBottom(messagesContainer, true);
 });
 
 // ============================================================

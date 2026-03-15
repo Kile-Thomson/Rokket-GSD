@@ -86,6 +86,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("gsd")) {
         output.appendLine("GSD configuration changed");
+        provider.onConfigChanged();
       }
     })
   );
