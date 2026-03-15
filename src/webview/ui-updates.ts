@@ -201,6 +201,12 @@ export function updateFooterUI(): void {
 }
 
 export function updateInputUI(): void {
+  // Toggle rocket glow based on streaming state
+  const logo = document.querySelector(".gsd-logo");
+  if (logo) {
+    logo.classList.toggle("working", state.isStreaming);
+  }
+
   if (state.isStreaming) {
     sendIcon.textContent = "■";
     sendBtn.classList.add("gsd-stop-btn");
