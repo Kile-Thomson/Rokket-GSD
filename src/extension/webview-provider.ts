@@ -1732,6 +1732,13 @@ ${exportOverrides}
       if (msg?.role === "assistant" && usage?.cost?.total) {
         this.emitStatus({ cost: (this.lastStatus.cost || 0) + usage.cost.total });
       }
+    } else if (eventType === "fallback_provider_switch") {
+      const to = (event as any).to as string || "";
+      if (to) this.emitStatus({ model: to });
+    } else if (eventType === "session_shutdown") {
+      this.emitStatus({ isStreaming: false });
+      this.isSessionStreaming.set(sessionId, false);
+      this.stopActivityMonitor(sessionId);
     }
 
     // Forward all other events directly to the webview

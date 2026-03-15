@@ -313,6 +313,13 @@ function handleMessage(event: MessageEvent): void {
     case "tool_execution_start": {
       if (!state.currentTurn) break;
       const data = msg;
+
+      // Detect parallel execution: if any other tool is already running, both are parallel
+      const runningTools: ToolCallState[] = [];
+      for (const [, existing] of state.currentTurn.toolCalls) {
+        if (existing.isRunning) runningTools.push(existing);
+      }
+
       const tc: ToolCallState = {
         id: data.toolCallId,
         name: data.toolName,
@@ -321,7 +328,19 @@ function handleMessage(event: MessageEvent): void {
         isError: false,
         isRunning: true,
         startTime: Date.now(),
+        isParallel: runningTools.length > 0,
       };
+
+      // Mark previously-running tools as parallel too (they weren't until now)
+      if (runningTools.length > 0) {
+        for (const rt of runningTools) {
+          if (!rt.isParallel) {
+            rt.isParallel = true;
+            renderer.updateToolSegmentElement(rt.id);
+          }
+        }
+      }
+
       state.currentTurn.toolCalls.set(data.toolCallId, tc);
       const segIdx = state.currentTurn.segments.length;
       state.currentTurn.segments.push({ type: "tool", toolCallId: data.toolCallId });
@@ -408,6 +427,53 @@ function handleMessage(event: MessageEvent): void {
       if (!data.success && data.finalError) {
         addSystemEntry(data.finalError, "error");
       }
+      break;
+    }
+
+    case "fallback_provider_switch": {
+      const data = msg as any;
+      const from = data.from || "unknown";
+      const to = data.to || "unknown";
+      const reason = data.reason || "rate limit";
+      toasts.show(`⚠ Model switched: ${from} → ${to} (${reason})`, 5000);
+      // Update model display if we can parse provider/id from the "to" field
+      const parts = to.split("/");
+      if (parts.length >= 2) {
+        state.model = {
+          id: parts.slice(1).join("/"),
+          name: parts.slice(1).join("/"),
+          provider: parts[0],
+          contextWindow: state.model?.contextWindow,
+        };
+        updateHeaderUI();
+      }
+      addSystemEntry(`Provider fallback: ${from} → ${to} (${reason})`, "warning");
+      break;
+    }
+
+    case "fallback_provider_restored": {
+      const data = msg as any;
+      const model = data.model;
+      if (model) {
+        toasts.show(`✓ Original provider restored: ${model.provider}/${model.id}`, 4000);
+        state.model = {
+          id: model.id,
+          name: model.name || model.id,
+          provider: model.provider,
+          contextWindow: model.contextWindow,
+        };
+        updateHeaderUI();
+      } else {
+        toasts.show("✓ Original provider restored", 4000);
+      }
+      break;
+    }
+
+    case "session_shutdown": {
+      state.isStreaming = false;
+      state.processStatus = "stopped";
+      addSystemEntry("Session ended", "info");
+      updateOverlayIndicators();
       break;
     }
 
