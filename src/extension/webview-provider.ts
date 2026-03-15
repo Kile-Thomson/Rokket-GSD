@@ -46,6 +46,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private promptWatchdogs: Map<string, { timer: ReturnType<typeof setTimeout>; retried: boolean; nonce: number; message: string; images?: Array<{ type: "image"; data: string; mimeType: string }> }> = new Map();
   private promptWatchdogNonce = 0;
   private slashWatchdogs: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  /** Per-session GSD auto fallback timers — cleared on session cleanup */
+  private gsdFallbackTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   /** Tracks per-session timestamp of last RPC event received — used by slash command watchdog */
   private lastEventTime: Map<string, number> = new Map();
   /** Per-session launch promises — prevents concurrent launchGsd calls from racing */
@@ -273,6 +275,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     if (slashTimer) {
       clearTimeout(slashTimer);
       this.slashWatchdogs.delete(sessionId);
+    }
+    const gsdTimer = this.gsdFallbackTimers.get(sessionId);
+    if (gsdTimer) {
+      clearTimeout(gsdTimer);
+      this.gsdFallbackTimers.delete(sessionId);
     }
     this.lastEventTime.delete(sessionId);
     this.stopActivityMonitor(sessionId);
@@ -798,7 +805,31 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               } else {
                 this.startPromptWatchdog(webview, sessionId, msg.message, images);
               }
+              this.output.appendLine(`[${sessionId}] Sending prompt to RPC: "${msg.message.slice(0, 80)}"`);
+              const promptSentAt = Date.now();
               await c.prompt(msg.message, images);
+              this.output.appendLine(`[${sessionId}] Prompt RPC resolved for: "${msg.message.slice(0, 80)}"`);
+
+              // Workaround for gsd-pi issue: ctx.ui.custom() returns undefined
+              // in RPC mode, causing /gsd and /gsd auto to silently do nothing
+              // when the flow needs an interactive decision (showNextAction).
+              // Detect this by checking if any events arrived after the prompt.
+              // When the upstream fix lands, events WILL flow and this check
+              // won't trigger.
+              if (/^\/gsd(\s+auto)?$/.test(msg.message.trim())) {
+                const GSD_SILENT_TIMEOUT = 5000;
+                const fallbackTimer = setTimeout(async () => {
+                  this.gsdFallbackTimers.delete(sessionId);
+                  const client = this.rpcClients.get(sessionId);
+                  if (!client?.isRunning) return;
+                  const lastEvent = this.lastEventTime.get(sessionId) || 0;
+                  if (lastEvent <= promptSentAt) {
+                    this.output.appendLine(`[${sessionId}] /gsd command produced no events — applying workaround`);
+                    await this.handleGsdAutoFallback(client, webview, sessionId, msg.message.trim());
+                  }
+                }, GSD_SILENT_TIMEOUT);
+                this.gsdFallbackTimers.set(sessionId, fallbackTimer);
+              }
             } catch (err: any) {
               if (err.message?.includes("streaming")) {
                 const isSlash = msg.message.trimStart().startsWith("/");
@@ -1315,6 +1346,56 @@ ${exportOverrides}
           break;
         }
 
+        case "resume_last_session": {
+          const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+          if (!cwd) {
+            this.postToWebview(webview, { type: "error", message: "No workspace folder open" });
+            break;
+          }
+          try {
+            const sessions = await listSessions(cwd);
+            if (sessions.length === 0) {
+              this.postToWebview(webview, { type: "error", message: "No previous sessions found" });
+              break;
+            }
+            // Sessions are sorted most-recent first
+            const latest = sessions[0];
+            const client = this.rpcClients.get(sessionId);
+            if (client?.isRunning) {
+              const result = await client.switchSession(latest.path) as { cancelled?: boolean } | null;
+              if (result?.cancelled) {
+                this.output.appendLine(`[${sessionId}] Resume cancelled`);
+                break;
+              }
+              const state = await client.getState() as RpcStateResult;
+              const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
+              this.output.appendLine(`[${sessionId}] Resumed last session: ${latest.name || latest.id} (${messagesResult?.messages?.length || 0} messages)`);
+              const gsdState = {
+                model: state?.model || null,
+                thinkingLevel: (state?.thinkingLevel || "off") as import("../shared/types").ThinkingLevel,
+                isStreaming: state?.isStreaming || false,
+                isCompacting: state?.isCompacting || false,
+                sessionFile: (state?.sessionFile as string) || null,
+                sessionId: (state?.sessionId as string) || null,
+                messageCount: (state?.messageCount as number) || 0,
+                autoCompactionEnabled: state?.autoCompactionEnabled || false,
+              };
+              this.postToWebview(webview, {
+                type: "session_switched",
+                state: gsdState,
+                messages: messagesResult?.messages || [],
+              });
+              if (state?.model) {
+                this.emitStatus({ model: (state.model as any).id || (state.model as any).name });
+              }
+            }
+          } catch (err: any) {
+            this.output.appendLine(`[${sessionId}] Resume error: ${err.message}`);
+            this.postToWebview(webview, { type: "error", message: `Failed to resume: ${err.message}` });
+          }
+          break;
+        }
+
         case "force_kill": {
           const client = this.rpcClients.get(sessionId);
           if (client) {
@@ -1712,10 +1793,73 @@ ${exportOverrides}
       if (msg?.role === "assistant" && usage?.cost?.total) {
         this.emitStatus({ cost: (this.lastStatus.cost || 0) + usage.cost.total });
       }
+    } else if (eventType === "fallback_provider_switch") {
+      const to = (event as any).to as string || "";
+      if (to) this.emitStatus({ model: to });
+    } else if (eventType === "session_shutdown") {
+      this.emitStatus({ isStreaming: false });
+      this.isSessionStreaming.set(sessionId, false);
+      this.stopActivityMonitor(sessionId);
     }
 
     // Forward all other events directly to the webview
     this.postToWebview(webview, event as unknown as ExtensionToWebviewMessage);
+  }
+
+  /**
+   * Workaround for gsd-pi ctx.ui.custom() returning undefined in RPC mode.
+   * When /gsd or /gsd auto silently produces no events, read the project
+   * STATE.md and send a plain-text prompt that achieves the same effect
+   * without needing the broken interactive wizard.
+   *
+   * Forward-compatible: when gsd-pi fixes ctx.ui.custom(), the 5-second
+   * timer that calls this method won't fire because real events will arrive.
+   */
+  private async handleGsdAutoFallback(
+    client: GsdRpcClient,
+    webview: vscode.Webview,
+    sessionId: string,
+    originalCommand: string,
+  ): Promise<void> {
+    try {
+      // Read STATE.md to understand project status
+      const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      let stateContent = "";
+      if (cwd) {
+        const statePath = path.join(cwd, ".gsd", "STATE.md");
+        try {
+          stateContent = fs.readFileSync(statePath, "utf8");
+        } catch {
+          // No STATE.md — project has no GSD setup yet
+        }
+      }
+
+      let fallbackPrompt: string;
+
+      if (!stateContent) {
+        // No GSD state — project needs initialization
+        fallbackPrompt = `The user ran "${originalCommand}" but the interactive wizard couldn't display. There is no .gsd/STATE.md yet, so this project needs GSD initialization. Read the GSD workflow documentation and help the user set up their first milestone. Start by understanding what the project is and what they want to accomplish.`;
+      } else {
+        // Has state — let the LLM figure out the right action from context
+        fallbackPrompt = `The user ran "${originalCommand}" but the interactive wizard couldn't display (known RPC limitation). Here is the current .gsd/STATE.md:\n\n${stateContent}\n\nBased on this state, determine the appropriate next action and execute it. If the phase is "complete" and there are no active slices, check if there's a branch to squash-merge or if the user needs a new milestone. If there's active work, continue executing it. Read relevant .gsd/ files to understand the full context before proceeding.`;
+      }
+
+      this.output.appendLine(`[${sessionId}] Sending fallback prompt for "${originalCommand}"`);
+      this.postToWebview(webview, {
+        type: "system_output",
+        output: "ℹ️ The /gsd interactive menu isn't available yet — reading project state and continuing automatically...",
+      } as ExtensionToWebviewMessage);
+
+      // Send as a regular prompt — this bypasses the extension command system
+      // and goes straight to the LLM, which CAN work in RPC mode
+      await client.prompt(fallbackPrompt);
+    } catch (err: any) {
+      this.output.appendLine(`[${sessionId}] GSD auto fallback failed: ${err.message}`);
+      this.postToWebview(webview, {
+        type: "error",
+        message: `The /gsd command couldn't complete. Try sending a plain text message describing what you want to do instead.`,
+      } as ExtensionToWebviewMessage);
+    }
   }
 
   private async handleExtensionUiRequest(

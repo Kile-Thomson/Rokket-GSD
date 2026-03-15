@@ -1682,6 +1682,22 @@ html, body {
   font-family: var(--vscode-editor-fontFamily, monospace);
 }
 
+.gsd-tool-parallel-badge {
+  font-size: 10px;
+  color: var(--vscode-charts-yellow, #cca700);
+  opacity: 0.85;
+  letter-spacing: 0;
+}
+
+.gsd-tool-block.parallel.running .gsd-tool-parallel-badge {
+  animation: parallel-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes parallel-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
 .gsd-tool-chevron {
   font-size: 10px;
   opacity: 0.35;
