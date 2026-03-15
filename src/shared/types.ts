@@ -29,6 +29,7 @@ export type WebviewToExtensionMessage =
   | { type: "open_url"; url: string }
   | { type: "open_diff"; leftPath: string; rightPath: string }
   | { type: "ready" }
+  | { type: "resume_last_session" }
   | { type: "get_session_list" }
   | { type: "switch_session"; path: string }
   | { type: "rename_session"; name: string }
@@ -37,7 +38,6 @@ export type WebviewToExtensionMessage =
   | { type: "update_dismiss"; version: string }
   | { type: "update_view_release"; htmlUrl: string }
   | { type: "set_auto_compaction"; enabled: boolean }
-  | { type: "copy_last_response" }
   | { type: "force_kill" }
   | { type: "force_restart" }
   | { type: "check_file_access"; paths: string[] }
