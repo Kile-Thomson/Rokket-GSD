@@ -476,6 +476,7 @@ function buildToolCallHtml(tc: ToolCallState): string {
     : "";
 
   const stateClass = tc.isRunning ? "running" : tc.isError ? "error" : "done";
+  const parallelClass = tc.isParallel ? " parallel" : "";
   const isSubagent = tc.name.toLowerCase() === "subagent";
 
   const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
@@ -504,14 +505,16 @@ function buildToolCallHtml(tc: ToolCallState): string {
     outputHtml = `<div class="gsd-tool-output"><span class="gsd-tool-output-pending">Running...</span></div>`;
   }
 
+  const parallelBadge = tc.isParallel ? `<span class="gsd-tool-parallel-badge" title="Running in parallel">⚡</span>` : "";
+
   const isCollapsed = collapsedClass === "collapsed";
-  return `<div class="gsd-tool-block ${stateClass} ${collapsedClass} cat-${category}" data-tool-id="${escapeAttr(tc.id)}">
+  return `<div class="gsd-tool-block ${stateClass}${parallelClass} ${collapsedClass} cat-${category}" data-tool-id="${escapeAttr(tc.id)}">
     <div class="gsd-tool-header" role="button" tabindex="0" aria-label="Toggle ${escapeAttr(tc.name)} details" aria-expanded="${isCollapsed ? "false" : "true"}">
       ${statusIcon}
       <span class="gsd-tool-cat-icon">${toolIcon}</span>
       <span class="gsd-tool-name">${escapeHtml(tc.name)}</span>
       ${keyArg ? `<span class="gsd-tool-arg">${escapeHtml(keyArg)}</span>` : ""}
-      <span class="gsd-tool-header-right">${durationHtml}<span class="gsd-tool-chevron">▸</span></span>
+      <span class="gsd-tool-header-right">${parallelBadge}${durationHtml}<span class="gsd-tool-chevron">▸</span></span>
     </div>
     ${outputHtml}
   </div>`;
