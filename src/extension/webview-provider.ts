@@ -804,20 +804,18 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               this.output.appendLine(`[${sessionId}] Prompt RPC resolved for: "${msg.message.slice(0, 80)}"`);
 
               // Workaround for gsd-pi issue: ctx.ui.custom() returns undefined
-              // in RPC mode, causing /gsd and /gsd auto to silently do nothing.
-              // Detect this by checking if any events arrived after the prompt
-              // resolved. When the upstream fix lands, events WILL flow and this
-              // timer will be cleared by the slash watchdog before it fires.
-              if (/^\/gsd(\s|$)/.test(msg.message)) {
+              // in RPC mode, causing /gsd and /gsd auto to silently do nothing
+              // when the flow needs an interactive decision (showNextAction).
+              // Detect this by checking if any events arrived after the prompt.
+              // When the upstream fix lands, events WILL flow and this check
+              // won't trigger.
+              if (/^\/gsd(\s+auto)?$/.test(msg.message.trim())) {
                 const GSD_SILENT_TIMEOUT = 5000;
-                setTimeout(() => {
+                setTimeout(async () => {
                   const lastEvent = this.lastEventTime.get(sessionId) || 0;
                   if (lastEvent <= promptSentAt) {
-                    this.output.appendLine(`[${sessionId}] GSD command produced no events — likely ctx.ui.custom() RPC mode issue`);
-                    this.postToWebview(webview, {
-                      type: "error",
-                      message: `The /gsd command completed but couldn't show its interactive menu (known limitation in the current GSD version). To work around this, send a plain text message describing what you want to do — e.g. "Start a new milestone for [description]" or "Continue working on the current task".`,
-                    } as ExtensionToWebviewMessage);
+                    this.output.appendLine(`[${sessionId}] /gsd command produced no events — applying workaround`);
+                    await this.handleGsdAutoFallback(c, webview, sessionId, msg.message.trim());
                   }
                 }, GSD_SILENT_TIMEOUT);
               }
@@ -1738,6 +1736,62 @@ ${exportOverrides}
 
     // Forward all other events directly to the webview
     this.postToWebview(webview, event as unknown as ExtensionToWebviewMessage);
+  }
+
+  /**
+   * Workaround for gsd-pi ctx.ui.custom() returning undefined in RPC mode.
+   * When /gsd or /gsd auto silently produces no events, read the project
+   * STATE.md and send a plain-text prompt that achieves the same effect
+   * without needing the broken interactive wizard.
+   *
+   * Forward-compatible: when gsd-pi fixes ctx.ui.custom(), the 5-second
+   * timer that calls this method won't fire because real events will arrive.
+   */
+  private async handleGsdAutoFallback(
+    client: GsdRpcClient,
+    webview: vscode.Webview,
+    sessionId: string,
+    originalCommand: string,
+  ): Promise<void> {
+    try {
+      // Read STATE.md to understand project status
+      const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      let stateContent = "";
+      if (cwd) {
+        const statePath = path.join(cwd, ".gsd", "STATE.md");
+        try {
+          stateContent = fs.readFileSync(statePath, "utf8");
+        } catch {
+          // No STATE.md — project has no GSD setup yet
+        }
+      }
+
+      let fallbackPrompt: string;
+
+      if (!stateContent) {
+        // No GSD state — project needs initialization
+        fallbackPrompt = `The user ran "${originalCommand}" but the interactive wizard couldn't display. There is no .gsd/STATE.md yet, so this project needs GSD initialization. Read the GSD workflow documentation and help the user set up their first milestone. Start by understanding what the project is and what they want to accomplish.`;
+      } else {
+        // Has state — let the LLM figure out the right action from context
+        fallbackPrompt = `The user ran "${originalCommand}" but the interactive wizard couldn't display (known RPC limitation). Here is the current .gsd/STATE.md:\n\n${stateContent}\n\nBased on this state, determine the appropriate next action and execute it. If the phase is "complete" and there are no active slices, check if there's a branch to squash-merge or if the user needs a new milestone. If there's active work, continue executing it. Read relevant .gsd/ files to understand the full context before proceeding.`;
+      }
+
+      this.output.appendLine(`[${sessionId}] Sending fallback prompt for "${originalCommand}"`);
+      this.postToWebview(webview, {
+        type: "system_output",
+        output: "ℹ️ The /gsd interactive menu isn't available yet — reading project state and continuing automatically...",
+      } as ExtensionToWebviewMessage);
+
+      // Send as a regular prompt — this bypasses the extension command system
+      // and goes straight to the LLM, which CAN work in RPC mode
+      await client.prompt(fallbackPrompt);
+    } catch (err: any) {
+      this.output.appendLine(`[${sessionId}] GSD auto fallback failed: ${err.message}`);
+      this.postToWebview(webview, {
+        type: "error",
+        message: `The /gsd command couldn't complete. Try sending a plain text message describing what you want to do instead.`,
+      } as ExtensionToWebviewMessage);
+    }
   }
 
   private async handleExtensionUiRequest(
