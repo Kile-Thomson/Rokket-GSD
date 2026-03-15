@@ -472,6 +472,10 @@ function handleMessage(event: MessageEvent): void {
     case "session_shutdown": {
       state.isStreaming = false;
       state.processStatus = "stopped";
+      // Clean up any in-progress turn
+      if (state.currentTurn) {
+        renderer.finalizeCurrentTurn();
+      }
       addSystemEntry("Session ended", "info");
       updateOverlayIndicators();
       break;

@@ -46,6 +46,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private promptWatchdogs: Map<string, { timer: ReturnType<typeof setTimeout>; retried: boolean; nonce: number; message: string; images?: Array<{ type: "image"; data: string; mimeType: string }> }> = new Map();
   private promptWatchdogNonce = 0;
   private slashWatchdogs: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  /** Per-session GSD auto fallback timers — cleared on session cleanup */
+  private gsdFallbackTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   /** Tracks per-session timestamp of last RPC event received — used by slash command watchdog */
   private lastEventTime: Map<string, number> = new Map();
   /** Per-session launch promises — prevents concurrent launchGsd calls from racing */
@@ -273,6 +275,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     if (slashTimer) {
       clearTimeout(slashTimer);
       this.slashWatchdogs.delete(sessionId);
+    }
+    const gsdTimer = this.gsdFallbackTimers.get(sessionId);
+    if (gsdTimer) {
+      clearTimeout(gsdTimer);
+      this.gsdFallbackTimers.delete(sessionId);
     }
     this.lastEventTime.delete(sessionId);
     this.stopActivityMonitor(sessionId);
@@ -811,13 +818,17 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               // won't trigger.
               if (/^\/gsd(\s+auto)?$/.test(msg.message.trim())) {
                 const GSD_SILENT_TIMEOUT = 5000;
-                setTimeout(async () => {
+                const fallbackTimer = setTimeout(async () => {
+                  this.gsdFallbackTimers.delete(sessionId);
+                  const client = this.rpcClients.get(sessionId);
+                  if (!client?.isRunning) return;
                   const lastEvent = this.lastEventTime.get(sessionId) || 0;
                   if (lastEvent <= promptSentAt) {
                     this.output.appendLine(`[${sessionId}] /gsd command produced no events — applying workaround`);
-                    await this.handleGsdAutoFallback(c, webview, sessionId, msg.message.trim());
+                    await this.handleGsdAutoFallback(client, webview, sessionId, msg.message.trim());
                   }
                 }, GSD_SILENT_TIMEOUT);
+                this.gsdFallbackTimers.set(sessionId, fallbackTimer);
               }
             } catch (err: any) {
               if (err.message?.includes("streaming")) {
