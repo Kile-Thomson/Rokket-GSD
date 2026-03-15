@@ -124,6 +124,8 @@ export function cleanupSessionState(session: SessionState): void {
   session.launchPromise = null;
 
   if (session.client) {
+    // Fire-and-forget: stop() is async but callers don't need to wait for
+    // graceful shutdown. The process is killed if it doesn't exit promptly.
     session.client.stop();
     session.client = null;
   }

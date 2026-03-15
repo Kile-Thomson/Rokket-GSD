@@ -170,7 +170,7 @@ export function getToolIcon(name: string, category: ToolCategory): string {
 
 export function getToolKeyArg(name: string, args: Record<string, unknown>): string {
   const n = name.toLowerCase();
-  if (n === "bash" && args.command) return truncateArg(String(args.command), 80);
+  if ((n === "bash" || n === "async_bash") && args.command) return truncateArg(String(args.command), 80);
   if ((n === "read" || n === "write" || n === "edit") && args.path) return truncateArg(String(args.path), 80);
   if (n === "browser_navigate" && args.url) return truncateArg(String(args.url), 60);
   if (n === "browser_click" && args.selector) return truncateArg(String(args.selector), 60);
