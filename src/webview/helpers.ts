@@ -479,6 +479,7 @@ let _userScrolledUp = false;
 let _lastScrollTop = 0;
 let _scrollContainer: HTMLElement | null = null;
 let _scrollHandler: (() => void) | null = null;
+let _programmaticScroll = false;
 
 export function initAutoScroll(container: HTMLElement): void {
   // If already attached to this container, skip
@@ -493,12 +494,17 @@ export function initAutoScroll(container: HTMLElement): void {
   _scrollContainer = container;
 
   _scrollHandler = () => {
+    // Ignore scroll events triggered by our own scrollToBottom calls
+    if (_programmaticScroll) return;
+
     const { scrollTop, scrollHeight, clientHeight } = container;
     const distFromBottom = scrollHeight - scrollTop - clientHeight;
 
-    if (scrollTop < _lastScrollTop) {
+    if (scrollTop < _lastScrollTop && distFromBottom > 50) {
+      // User actively scrolled up and is meaningfully away from bottom
       _userScrolledUp = true;
     } else if (distFromBottom < 30) {
+      // User has reached the bottom (manually or content caught up)
       _userScrolledUp = false;
     }
     _lastScrollTop = scrollTop;
@@ -523,5 +529,8 @@ export function scrollToBottom(container: HTMLElement, force = false): void {
     _userScrolledUp = false;
   }
   if (_userScrolledUp) return;
+  _programmaticScroll = true;
   container.scrollTop = container.scrollHeight;
+  _lastScrollTop = container.scrollTop;
+  _programmaticScroll = false;
 }

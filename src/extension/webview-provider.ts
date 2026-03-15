@@ -179,7 +179,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     if (this.webviewView) {
       this.webviewView.show(true);
     }
-    this.broadcastToAll({ type: "config", useCtrlEnterToSend: this.getUseCtrlEnter() } as ExtensionToWebviewMessage);
+    this.broadcastToAll({ type: "config", useCtrlEnterToSend: this.getUseCtrlEnter(), theme: this.getTheme() } as ExtensionToWebviewMessage);
+  }
+
+  onConfigChanged(): void {
+    this.broadcastToAll({ type: "config", useCtrlEnterToSend: this.getUseCtrlEnter(), theme: this.getTheme() } as ExtensionToWebviewMessage);
   }
 
   // --- New conversation ---
@@ -730,6 +734,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           this.postToWebview(webview, {
             type: "config",
             useCtrlEnterToSend: this.getUseCtrlEnter(),
+            theme: this.getTheme(),
             cwd,
             version: this.gsdVersion,
             extensionVersion: extVersion,
@@ -1523,6 +1528,11 @@ ${exportOverrides}
           break;
         }
 
+        case "set_theme": {
+          await vscode.workspace.getConfiguration("gsd").update("theme", msg.theme, vscode.ConfigurationTarget.Global);
+          break;
+        }
+
         case "open_file": {
           try {
             // Security: only open files within the workspace (resolves symlinks)
@@ -2032,6 +2042,10 @@ ${exportOverrides}
 
   private getUseCtrlEnter(): boolean {
     return vscode.workspace.getConfiguration("gsd").get<boolean>("useCtrlEnterToSend", false);
+  }
+
+  private getTheme(): string {
+    return vscode.workspace.getConfiguration("gsd").get<string>("theme", "classic");
   }
 
   // --- Webview HTML ---
