@@ -87,6 +87,7 @@ export interface AppState {
   theme: string;
   cwd: string;
   version: string;
+  extensionVersion: string;
   sessionStats: SessionStats;
   commands: CommandInfo[];
   commandsLoaded: boolean;
@@ -120,6 +121,7 @@ export const state: AppState = {
   theme: "classic",
   cwd: "",
   version: "",
+  extensionVersion: "",
   sessionStats: {},
   commands: [],
   commandsLoaded: false,
