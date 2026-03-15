@@ -1695,6 +1695,12 @@ ${exportOverrides}
         this.slashWatchdogs.delete(sessionId);
       }
       this.lastEventTime.delete(sessionId);
+      const gsdTimer = this.gsdFallbackTimers.get(sessionId);
+      if (gsdTimer) {
+        clearTimeout(gsdTimer);
+        this.gsdFallbackTimers.delete(sessionId);
+      }
+      this.gsdTurnStarted.delete(sessionId);
 
       if (isCleanExit) {
         this.rpcClients.delete(sessionId);
@@ -1865,9 +1871,28 @@ ${exportOverrides}
       const subcommand = cmdParts[1] || "";
 
       if (!stateContent) {
-        // No GSD state — project needs initialization
-        fallbackNotice = "ℹ️ The /gsd interactive menu isn't available yet — reading project state and continuing automatically...";
-        fallbackPrompt = `The user ran "${originalCommand}" but the interactive wizard couldn't display. There is no .gsd/STATE.md yet, so this project needs GSD initialization. Read the GSD workflow documentation and help the user set up their first milestone. Start by understanding what the project is and what they want to accomplish.`;
+        switch (subcommand) {
+          case "auto":
+            fallbackNotice = "ℹ️ The /gsd interactive menu isn't available yet — entering auto-mode...";
+            fallbackPrompt = `The user ran "${originalCommand}" but there is no .gsd/STATE.md yet. Enter auto-mode and guide the user through first-time GSD setup — understand what the project is and help them define their first milestone.`;
+            break;
+          case "stop":
+            fallbackNotice = "ℹ️ Auto-mode isn't active.";
+            fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet, so there is no active GSD workflow to stop. Tell the user that clearly and wait for the next instruction.`;
+            break;
+          case "status":
+            fallbackNotice = "ℹ️ Reading project status...";
+            fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet. Report that GSD has not been initialised in this project. Do not execute new work.`;
+            break;
+          case "queue":
+            fallbackNotice = "ℹ️ Reading milestone queue...";
+            fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet. Report that there is no queue because GSD has not been initialised. Do not execute new work.`;
+            break;
+          default:
+            fallbackNotice = "ℹ️ The /gsd interactive menu isn't available yet — reading project state and continuing automatically...";
+            fallbackPrompt = `The user ran "${originalCommand}" but the interactive wizard couldn't display. There is no .gsd/STATE.md yet, so this project needs GSD initialization. Read the GSD workflow documentation and help the user set up their first milestone. Start by understanding what the project is and what they want to accomplish.`;
+            break;
+        }
       } else {
         const statePrefix = `The user ran "${originalCommand}" but the interactive wizard couldn't display (known RPC limitation). Here is the current .gsd/STATE.md:\n\n${stateContent}\n\n`;
 
