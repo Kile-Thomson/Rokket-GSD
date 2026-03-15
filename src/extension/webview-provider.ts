@@ -818,21 +818,25 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               // Workaround for gsd-pi issue: ctx.ui.custom() returns undefined
               // in RPC mode, causing /gsd and /gsd auto to silently do nothing
               // when the flow needs an interactive decision (showNextAction).
-              // Detect this by checking if any events arrived after the prompt.
-              // When the upstream fix lands, events WILL flow and this check
-              // won't trigger.
-              if (/^\/gsd(\s+auto)?$/.test(msg.message.trim())) {
-                const GSD_SILENT_TIMEOUT = 5000;
+              // The prompt resolves almost instantly when this happens, so we
+              // only need a brief delay for any in-flight events to arrive.
+              if (/^\/gsd(\s+(auto|next|stop|status|queue))?$/.test(msg.message.trim())) {
+                const turnStartedKey = `${sessionId}:gsd-turn-started`;
+                (this as any)[turnStartedKey] = false;
+                const checkTurnStarted = () => (this as any)[turnStartedKey] === true;
+                
+                // Brief delay — if the command actually worked, agent_start
+                // arrives within milliseconds. 500ms is generous.
                 const fallbackTimer = setTimeout(async () => {
                   this.gsdFallbackTimers.delete(sessionId);
+                  delete (this as any)[turnStartedKey];
                   const client = this.rpcClients.get(sessionId);
                   if (!client?.isRunning) return;
-                  const lastEvent = this.lastEventTime.get(sessionId) || 0;
-                  if (lastEvent <= promptSentAt) {
-                    this.output.appendLine(`[${sessionId}] /gsd command produced no events — applying workaround`);
+                  if (!checkTurnStarted()) {
+                    this.output.appendLine(`[${sessionId}] /gsd command produced no agent turn — applying workaround`);
                     await this.handleGsdAutoFallback(client, webview, sessionId, msg.message.trim());
                   }
-                }, GSD_SILENT_TIMEOUT);
+                }, 500);
                 this.gsdFallbackTimers.set(sessionId, fallbackTimer);
               }
             } catch (err: any) {
@@ -1791,6 +1795,9 @@ ${exportOverrides}
       this.emitStatus({ isStreaming: true });
       this.isSessionStreaming.set(sessionId, true);
       this.startActivityMonitor(webview, sessionId, client);
+      // Mark that a real agent turn started (used by /gsd fallback detection)
+      const turnStartedKey = `${sessionId}:gsd-turn-started`;
+      (this as any)[turnStartedKey] = true;
     } else if (eventType === "agent_end") {
       this.emitStatus({ isStreaming: false });
       this.isSessionStreaming.set(sessionId, false);
@@ -1849,15 +1856,21 @@ ${exportOverrides}
       if (!stateContent) {
         // No GSD state — project needs initialization
         fallbackPrompt = `The user ran "${originalCommand}" but the interactive wizard couldn't display. There is no .gsd/STATE.md yet, so this project needs GSD initialization. Read the GSD workflow documentation and help the user set up their first milestone. Start by understanding what the project is and what they want to accomplish.`;
+      } else if (originalCommand === "/gsd auto") {
+        // /gsd auto — enter auto mode. Parse state to give precise instructions.
+        fallbackPrompt = `The user ran "/gsd auto" but the interactive wizard couldn't display (known RPC limitation). Here is the current .gsd/STATE.md:\n\n${stateContent}\n\nYou are now in auto-mode. Execute continuously without stopping to ask for confirmation between steps. Read the relevant .gsd/ files and:\n\n- If the phase is "complete" with no active work: start a new milestone. Ask the user what they want to build next.\n- If there's an active milestone with no roadmap: research and create the roadmap.\n- If there's a roadmap but no active slice: plan and begin the next slice.\n- If there's an active task: continue executing it.\n- If a slice is complete: run verification, write the summary, and move to the next slice.\n\nDo NOT just report status. Take action. Execute the work.`;
       } else {
-        // Has state — let the LLM figure out the right action from context
-        fallbackPrompt = `The user ran "${originalCommand}" but the interactive wizard couldn't display (known RPC limitation). Here is the current .gsd/STATE.md:\n\n${stateContent}\n\nBased on this state, determine the appropriate next action and execute it. If the phase is "complete" and there are no active slices, check if there's a branch to squash-merge or if the user needs a new milestone. If there's active work, continue executing it. Read relevant .gsd/ files to understand the full context before proceeding.`;
+        // /gsd (step mode) or other — let the LLM figure out the right action
+        fallbackPrompt = `The user ran "${originalCommand}" but the interactive wizard couldn't display (known RPC limitation). Here is the current .gsd/STATE.md:\n\n${stateContent}\n\nBased on this state, determine the appropriate next action and execute it. If the phase is "complete" and there are no active slices, check if there's a branch to squash-merge or if the user needs a new milestone. If there's active work, continue executing it. Read relevant .gsd/ files to understand the full context before proceeding. IMPORTANT: Always communicate your findings to the user — tell them what state the project is in and what you're doing (or why there's nothing to do).`;
       }
 
       this.output.appendLine(`[${sessionId}] Sending fallback prompt for "${originalCommand}"`);
       this.postToWebview(webview, {
-        type: "system_output",
-        output: "ℹ️ The /gsd interactive menu isn't available yet — reading project state and continuing automatically...",
+        type: "extension_ui_request",
+        id: `gsd-fallback-${Date.now()}`,
+        method: "notify",
+        message: "ℹ️ The /gsd interactive menu isn't available yet — reading project state and continuing automatically...",
+        notifyType: "info",
       } as ExtensionToWebviewMessage);
 
       // Send as a regular prompt — this bypasses the extension command system
