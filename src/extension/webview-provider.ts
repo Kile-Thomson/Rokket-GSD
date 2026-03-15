@@ -48,6 +48,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private slashWatchdogs: Map<string, ReturnType<typeof setTimeout>> = new Map();
   /** Per-session GSD auto fallback timers — cleared on session cleanup */
   private gsdFallbackTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private gsdTurnStarted: Map<string, boolean> = new Map();
   /** Tracks per-session timestamp of last RPC event received — used by slash command watchdog */
   private lastEventTime: Map<string, number> = new Map();
   /** Per-session launch promises — prevents concurrent launchGsd calls from racing */
@@ -285,6 +286,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       clearTimeout(gsdTimer);
       this.gsdFallbackTimers.delete(sessionId);
     }
+    this.gsdTurnStarted.delete(sessionId);
     this.lastEventTime.delete(sessionId);
     this.stopActivityMonitor(sessionId);
     this.isSessionStreaming.delete(sessionId);
@@ -811,7 +813,6 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                 this.startPromptWatchdog(webview, sessionId, msg.message, images);
               }
               this.output.appendLine(`[${sessionId}] Sending prompt to RPC: "${msg.message.slice(0, 80)}"`);
-              const promptSentAt = Date.now();
               await c.prompt(msg.message, images);
               this.output.appendLine(`[${sessionId}] Prompt RPC resolved for: "${msg.message.slice(0, 80)}"`);
 
@@ -821,18 +822,17 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               // The prompt resolves almost instantly when this happens, so we
               // only need a brief delay for any in-flight events to arrive.
               if (/^\/gsd(\s+(auto|next|stop|status|queue))?$/.test(msg.message.trim())) {
-                const turnStartedKey = `${sessionId}:gsd-turn-started`;
-                (this as any)[turnStartedKey] = false;
-                const checkTurnStarted = () => (this as any)[turnStartedKey] === true;
+                this.gsdTurnStarted.set(sessionId, false);
                 
                 // Brief delay — if the command actually worked, agent_start
                 // arrives within milliseconds. 500ms is generous.
                 const fallbackTimer = setTimeout(async () => {
                   this.gsdFallbackTimers.delete(sessionId);
-                  delete (this as any)[turnStartedKey];
+                  const started = this.gsdTurnStarted.get(sessionId);
+                  this.gsdTurnStarted.delete(sessionId);
                   const client = this.rpcClients.get(sessionId);
                   if (!client?.isRunning) return;
-                  if (!checkTurnStarted()) {
+                  if (!started) {
                     this.output.appendLine(`[${sessionId}] /gsd command produced no agent turn — applying workaround`);
                     await this.handleGsdAutoFallback(client, webview, sessionId, msg.message.trim());
                   }
@@ -1796,8 +1796,7 @@ ${exportOverrides}
       this.isSessionStreaming.set(sessionId, true);
       this.startActivityMonitor(webview, sessionId, client);
       // Mark that a real agent turn started (used by /gsd fallback detection)
-      const turnStartedKey = `${sessionId}:gsd-turn-started`;
-      (this as any)[turnStartedKey] = true;
+      this.gsdTurnStarted.set(sessionId, true);
     } else if (eventType === "agent_end") {
       this.emitStatus({ isStreaming: false });
       this.isSessionStreaming.set(sessionId, false);
