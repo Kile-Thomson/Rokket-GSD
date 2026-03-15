@@ -1,55 +1,13 @@
 import * as fs from "fs";
 import * as path from "path";
 import { parseGsdWorkflowState } from "./state-parser";
+import type { DashboardSlice, MilestoneRegistryEntry, DashboardData } from "../shared/types";
 
 // ============================================================
 // Dashboard Parser
 // Reads .gsd/ project files and builds a dashboard model
 // for the webview to render.
 // ============================================================
-
-export interface DashboardSlice {
-  id: string;
-  title: string;
-  done: boolean;
-  risk: string;
-  active: boolean;
-  tasks: DashboardTask[];
-  taskProgress?: { done: number; total: number };
-}
-
-export interface DashboardTask {
-  id: string;
-  title: string;
-  done: boolean;
-  active: boolean;
-  estimate?: string;
-}
-
-export interface MilestoneRegistryEntry {
-  id: string;
-  title: string;
-  done: boolean;
-  active: boolean;
-}
-
-export interface DashboardData {
-  hasProject: boolean;
-  hasMilestone: boolean;
-  milestone: { id: string; title: string } | null;
-  slice: { id: string; title: string } | null;
-  task: { id: string; title: string } | null;
-  phase: string;
-  slices: DashboardSlice[];
-  milestoneRegistry: MilestoneRegistryEntry[];
-  progress: {
-    tasks: { done: number; total: number };
-    slices: { done: number; total: number };
-    milestones: { done: number; total: number };
-  };
-  blockers: string[];
-  nextAction: string | null;
-}
 
 /**
  * Parse a ROADMAP.md file and extract slice entries.

@@ -38,7 +38,6 @@ let vscode: { postMessage(msg: unknown): void };
 let messagesContainer: HTMLElement;
 let welcomeScreen: HTMLElement;
 let promptInput: HTMLTextAreaElement;
-let toolWatchdogTimers: Map<string, ReturnType<typeof setTimeout>>;
 
 // Callbacks into index.ts UI functions
 let updateAllUI: () => void;
@@ -49,15 +48,12 @@ let updateOverlayIndicators: () => void;
 let updateWorkflowBadge: (wf: any) => void;
 let autoResize: () => void;
 let announceToScreenReader: (text: string) => void;
-let startToolWatchdog: (toolCallId: string) => void;
-let clearToolWatchdog: (toolCallId: string) => void;
 
 export interface MessageHandlerDeps {
   vscode: { postMessage(msg: unknown): void };
   messagesContainer: HTMLElement;
   welcomeScreen: HTMLElement;
   promptInput: HTMLTextAreaElement;
-  toolWatchdogTimers: Map<string, ReturnType<typeof setTimeout>>;
   updateAllUI: () => void;
   updateHeaderUI: () => void;
   updateFooterUI: () => void;
@@ -66,8 +62,6 @@ export interface MessageHandlerDeps {
   updateWorkflowBadge: (wf: any) => void;
   autoResize: () => void;
   announceToScreenReader: (text: string) => void;
-  startToolWatchdog: (toolCallId: string) => void;
-  clearToolWatchdog: (toolCallId: string) => void;
 }
 
 export function init(deps: MessageHandlerDeps): void {
@@ -75,7 +69,6 @@ export function init(deps: MessageHandlerDeps): void {
   messagesContainer = deps.messagesContainer;
   welcomeScreen = deps.welcomeScreen;
   promptInput = deps.promptInput;
-  toolWatchdogTimers = deps.toolWatchdogTimers;
   updateAllUI = deps.updateAllUI;
   updateHeaderUI = deps.updateHeaderUI;
   updateFooterUI = deps.updateFooterUI;
@@ -84,8 +77,6 @@ export function init(deps: MessageHandlerDeps): void {
   updateWorkflowBadge = deps.updateWorkflowBadge;
   autoResize = deps.autoResize;
   announceToScreenReader = deps.announceToScreenReader;
-  startToolWatchdog = deps.startToolWatchdog;
-  clearToolWatchdog = deps.clearToolWatchdog;
 
   window.addEventListener("message", handleMessage);
 }
@@ -229,11 +220,6 @@ function handleMessage(event: MessageEvent): void {
       state.isStreaming = false;
       announceToScreenReader("Response complete.");
       state.processHealth = "responsive";
-      // Clear all tool watchdog timers
-      for (const [, timer] of toolWatchdogTimers) {
-        clearTimeout(timer);
-      }
-      toolWatchdogTimers.clear();
       // Expire any pending UI dialogs — the backend's abort signal fires
       // on agent_end, auto-resolving all pending dialogs to defaults.
       // Mark them so the user sees they're no longer interactive.
@@ -271,8 +257,8 @@ function handleMessage(event: MessageEvent): void {
 
     case "message_update": {
       if (!state.currentTurn) break;
-      const data = msg;
-      const delta = data.assistantMessageEvent || data.delta;
+      const data = msg as any;
+      const delta = data.assistantMessageEvent;
 
       if (delta) {
         if (delta.type === "text_delta" && delta.delta) {
@@ -349,8 +335,6 @@ function handleMessage(event: MessageEvent): void {
       const segIdx = state.currentTurn.segments.length;
       state.currentTurn.segments.push({ type: "tool", toolCallId: data.toolCallId });
       renderer.appendToolSegmentElement(tc, segIdx);
-      // Start watchdog timer for this tool
-      startToolWatchdog(data.toolCallId);
       scrollToBottom(messagesContainer);
       break;
     }
@@ -375,8 +359,6 @@ function handleMessage(event: MessageEvent): void {
     case "tool_execution_end": {
       if (!state.currentTurn) break;
       const data = msg;
-      // Clear watchdog — tool completed normally
-      clearToolWatchdog(data.toolCallId);
       const tc = state.currentTurn.toolCalls.get(data.toolCallId);
       if (tc) {
         tc.isRunning = false;
@@ -470,6 +452,14 @@ function handleMessage(event: MessageEvent): void {
       } else {
         toasts.show("✓ Original provider restored", 4000);
       }
+      break;
+    }
+
+    case "fallback_chain_exhausted": {
+      const data = msg as any;
+      const lastError = data.lastError || "All providers failed";
+      addSystemEntry(`All fallback providers exhausted: ${lastError}. Check your API keys or try again later.`, "error");
+      toasts.show("⚠ All model providers failed", 5000);
       break;
     }
 
@@ -571,11 +561,6 @@ function handleMessage(event: MessageEvent): void {
       state.isRetrying = false;
       state.processHealth = "responsive";
       state.currentTurn = null;
-      // Clear all tool watchdog timers
-      for (const [, timer] of toolWatchdogTimers) {
-        clearTimeout(timer);
-      }
-      toolWatchdogTimers.clear();
       // Expire any pending dialogs — the process is gone
       if (uiDialogs.hasPending()) {
         uiDialogs.expireAllPending("Process exited");
