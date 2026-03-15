@@ -464,8 +464,64 @@ export function formatShortDate(iso: string): string {
   }
 }
 
-export function scrollToBottom(container: HTMLElement, force = false): void {
-  if (force || container.scrollHeight - container.scrollTop - container.clientHeight < 150) {
-    container.scrollTop = container.scrollHeight;
+/**
+ * Auto-scroll to bottom of the message container.
+ *
+ * Uses intent-based tracking: we track whether the user has actively scrolled
+ * away from the bottom (userScrolledUp). Auto-scroll is suppressed when the
+ * user has scrolled up, and re-enabled when they scroll back near the bottom
+ * or click the scroll FAB.
+ *
+ * The `force` parameter bypasses intent tracking (used for user messages,
+ * new sessions, etc.).
+ */
+let _userScrolledUp = false;
+let _lastScrollTop = 0;
+let _scrollContainer: HTMLElement | null = null;
+let _scrollHandler: (() => void) | null = null;
+
+export function initAutoScroll(container: HTMLElement): void {
+  // If already attached to this container, skip
+  if (_scrollContainer === container) return;
+
+  // Detach from previous container if any
+  if (_scrollContainer && _scrollHandler) {
+    _scrollContainer.removeEventListener("scroll", _scrollHandler);
   }
+
+  _lastScrollTop = container.scrollTop;
+  _scrollContainer = container;
+
+  _scrollHandler = () => {
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const distFromBottom = scrollHeight - scrollTop - clientHeight;
+
+    if (scrollTop < _lastScrollTop) {
+      _userScrolledUp = true;
+    } else if (distFromBottom < 30) {
+      _userScrolledUp = false;
+    }
+    _lastScrollTop = scrollTop;
+  };
+
+  container.addEventListener("scroll", _scrollHandler, { passive: true });
+}
+
+/** Reset scroll tracking (e.g. new session, clear messages) */
+export function resetAutoScroll(): void {
+  _userScrolledUp = false;
+  _lastScrollTop = 0;
+}
+
+/** Check if auto-scroll is currently suppressed by user intent */
+export function isAutoScrollSuppressed(): boolean {
+  return _userScrolledUp;
+}
+
+export function scrollToBottom(container: HTMLElement, force = false): void {
+  if (force) {
+    _userScrolledUp = false;
+  }
+  if (_userScrolledUp) return;
+  container.scrollTop = container.scrollHeight;
 }

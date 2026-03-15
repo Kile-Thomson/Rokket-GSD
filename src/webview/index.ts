@@ -16,6 +16,9 @@ import {
 import {
   formatRelativeTime,
   scrollToBottom,
+  initAutoScroll,
+  resetAutoScroll,
+  isAutoScrollSuppressed,
 } from "./helpers";
 
 import * as slashMenu from "./slash-menu";
@@ -332,13 +335,17 @@ function isNearBottom(threshold = 100): boolean {
 }
 
 function updateScrollFab(): void {
-  const near = isNearBottom(100);
-  scrollFab.classList.toggle("visible", !near);
+  // Show FAB when auto-scroll is suppressed (user scrolled up) or not near bottom
+  const showFab = isAutoScrollSuppressed() || !isNearBottom(100);
+  scrollFab.classList.toggle("visible", showFab);
 }
 
+// Initialize intent-based auto-scroll tracking
+initAutoScroll(messagesContainer);
 messagesContainer.addEventListener("scroll", updateScrollFab, { passive: true });
 
 scrollFab.addEventListener("click", () => {
+  resetAutoScroll();
   messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: "smooth" });
 });
 
