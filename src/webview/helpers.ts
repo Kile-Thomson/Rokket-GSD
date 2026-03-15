@@ -489,7 +489,6 @@ export function initAutoScroll(container: HTMLElement): void {
     _scrollContainer.removeEventListener("scroll", _scrollHandler);
   }
 
-  _userScrolledUp = false;
   _lastScrollTop = container.scrollTop;
   _scrollContainer = container;
 
