@@ -813,44 +813,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                 this.startPromptWatchdog(webview, sessionId, msg.message, images);
               }
               this.output.appendLine(`[${sessionId}] Sending prompt to RPC: "${msg.message.slice(0, 80)}"`);
-
-              // Arm /gsd fallback probe BEFORE prompt() — agent_start could
-              // arrive while the RPC is still in flight.
-              const gsdMatch = /^\/gsd(?:\s+(auto|next|stop|status|queue))?$/.exec(msg.message.trim());
-              if (gsdMatch) {
-                const existingTimer = this.gsdFallbackTimers.get(sessionId);
-                if (existingTimer) {
-                  clearTimeout(existingTimer);
-                  this.gsdFallbackTimers.delete(sessionId);
-                }
-                this.gsdTurnStarted.set(sessionId, false);
-              }
+              this.armGsdFallbackProbe(msg.message.trim(), sessionId, webview);
 
               await c.prompt(msg.message, images);
               this.output.appendLine(`[${sessionId}] Prompt RPC resolved for: "${msg.message.slice(0, 80)}"`);
-
-              // Workaround for gsd-pi issue: ctx.ui.custom() returns undefined
-              // in RPC mode, causing /gsd and /gsd auto to silently do nothing
-              // when the flow needs an interactive decision (showNextAction).
-              // The prompt resolves almost instantly when this happens, so we
-              // only need a brief delay for any in-flight events to arrive.
-              if (gsdMatch) {
-                // Brief delay — if the command actually worked, agent_start
-                // arrives within milliseconds. 500ms is generous.
-                const fallbackTimer = setTimeout(async () => {
-                  if (this.gsdFallbackTimers.get(sessionId) !== fallbackTimer) return;
-                  this.gsdFallbackTimers.delete(sessionId);
-                  const started = this.gsdTurnStarted.get(sessionId);
-                  this.gsdTurnStarted.delete(sessionId);
-                  const client = this.rpcClients.get(sessionId);
-                  if (!client?.isRunning) return;
-                  if (!started) {
-                    this.output.appendLine(`[${sessionId}] /gsd command produced no agent turn — applying workaround`);
-                    await this.handleGsdAutoFallback(client, webview, sessionId, msg.message.trim());
-                  }
-                }, 500);
-                this.gsdFallbackTimers.set(sessionId, fallbackTimer);
-              }
+              this.startGsdFallbackTimer(msg.message.trim(), sessionId, webview);
             } catch (err: any) {
               if (err.message?.includes("streaming")) {
                 const isSlash = msg.message.trimStart().startsWith("/");
@@ -862,7 +829,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                   }));
                   if (isSlash) {
                     this.startSlashCommandWatchdog(webview, sessionId, msg.message, imgs);
+                    this.armGsdFallbackProbe(msg.message.trim(), sessionId, webview);
                     await this.abortAndPrompt(c, webview, msg.message, msg.images);
+                    this.startGsdFallbackTimer(msg.message.trim(), sessionId, webview);
                   } else {
                     await c.steer(msg.message, imgs);
                   }
@@ -1849,6 +1818,42 @@ ${exportOverrides}
    * Forward-compatible: when gsd-pi fixes ctx.ui.custom(), the 5-second
    * timer that calls this method won't fire because real events will arrive.
    */
+  /**
+   * Arm the /gsd fallback probe — reset turn-started flag and cancel any
+   * existing fallback timer. Must be called BEFORE prompt() so agent_start
+   * events during the RPC await don't get clobbered.
+   */
+  private armGsdFallbackProbe(message: string, sessionId: string, _webview: vscode.Webview): void {
+    if (!/^\/gsd(?:\s+(auto|next|stop|status|queue))?$/.test(message)) return;
+    const existingTimer = this.gsdFallbackTimers.get(sessionId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      this.gsdFallbackTimers.delete(sessionId);
+    }
+    this.gsdTurnStarted.set(sessionId, false);
+  }
+
+  /**
+   * Start the /gsd fallback timer — if no agent_start arrived within 500ms,
+   * fire the workaround prompt. Must be called AFTER prompt() resolves.
+   */
+  private startGsdFallbackTimer(message: string, sessionId: string, webview: vscode.Webview): void {
+    if (!/^\/gsd(?:\s+(auto|next|stop|status|queue))?$/.test(message)) return;
+    const fallbackTimer = setTimeout(async () => {
+      if (this.gsdFallbackTimers.get(sessionId) !== fallbackTimer) return;
+      this.gsdFallbackTimers.delete(sessionId);
+      const started = this.gsdTurnStarted.get(sessionId);
+      this.gsdTurnStarted.delete(sessionId);
+      const client = this.rpcClients.get(sessionId);
+      if (!client?.isRunning) return;
+      if (!started) {
+        this.output.appendLine(`[${sessionId}] /gsd command produced no agent turn — applying workaround`);
+        await this.handleGsdAutoFallback(client, webview, sessionId, message);
+      }
+    }, 500);
+    this.gsdFallbackTimers.set(sessionId, fallbackTimer);
+  }
+
   private async handleGsdAutoFallback(
     client: GsdRpcClient,
     webview: vscode.Webview,
