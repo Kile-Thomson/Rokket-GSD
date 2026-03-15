@@ -49,6 +49,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   /** Per-session GSD auto fallback timers — cleared on session cleanup */
   private gsdFallbackTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private gsdTurnStarted: Map<string, boolean> = new Map();
+  private static readonly GSD_COMMAND_RE = /^\/gsd(?:\s+(auto|next|stop|status|queue))?$/;
   /** Tracks per-session timestamp of last RPC event received — used by slash command watchdog */
   private lastEventTime: Map<string, number> = new Map();
   /** Per-session launch promises — prevents concurrent launchGsd calls from racing */
@@ -1824,7 +1825,7 @@ ${exportOverrides}
    * events during the RPC await don't get clobbered.
    */
   private armGsdFallbackProbe(message: string, sessionId: string, _webview: vscode.Webview): void {
-    if (!/^\/gsd(?:\s+(auto|next|stop|status|queue))?$/.test(message)) return;
+    if (!GsdWebviewProvider.GSD_COMMAND_RE.test(message)) return;
     const existingTimer = this.gsdFallbackTimers.get(sessionId);
     if (existingTimer) {
       clearTimeout(existingTimer);
@@ -1838,7 +1839,7 @@ ${exportOverrides}
    * fire the workaround prompt. Must be called AFTER prompt() resolves.
    */
   private startGsdFallbackTimer(message: string, sessionId: string, webview: vscode.Webview): void {
-    if (!/^\/gsd(?:\s+(auto|next|stop|status|queue))?$/.test(message)) return;
+    if (!GsdWebviewProvider.GSD_COMMAND_RE.test(message)) return;
     const fallbackTimer = setTimeout(async () => {
       if (this.gsdFallbackTimers.get(sessionId) !== fallbackTimer) return;
       this.gsdFallbackTimers.delete(sessionId);
