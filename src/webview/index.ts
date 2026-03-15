@@ -144,6 +144,7 @@ root.innerHTML = `
           <button class="gsd-welcome-chip" data-prompt="/gsd auto">▶ Auto</button>
           <button class="gsd-welcome-chip" data-prompt="/gsd status">📊 Status</button>
           <button class="gsd-welcome-chip" data-prompt="Review this project and tell me what you see.">🔍 Review</button>
+          <button class="gsd-welcome-chip gsd-resume-chip" data-action="resume_last" style="display:none">↩ Resume</button>
         </div>
         <div class="gsd-welcome-attribution">
           <span class="gsd-rokketek-mark">▲ ROKKETEK</span>
@@ -363,6 +364,14 @@ setInterval(refreshTimestamps, 30_000);
 welcomeActions.addEventListener("click", (e: Event) => {
   const chip = (e.target as HTMLElement).closest(".gsd-welcome-chip") as HTMLElement | null;
   if (!chip) return;
+
+  // Special action buttons (not prompts)
+  const action = chip.dataset.action;
+  if (action === "resume_last") {
+    vscode.postMessage({ type: "resume_last_session" });
+    return;
+  }
+
   const prompt = chip.dataset.prompt;
   if (!prompt) return;
   promptInput.value = prompt;
