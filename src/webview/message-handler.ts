@@ -763,13 +763,14 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
             } else {
               segments.push({ type: "text", chunks: [block.text as string] });
             }
-          } else if (block.type === "tool_use" && block.name) {
+          } else if ((block.type === "tool_use" || block.type === "toolCall") && block.name) {
+            // pi stores tool calls as "toolCall" with "arguments"; Anthropic API uses "tool_use" with "input"
             const toolId = (block.id as string) || nextId();
             const result = toolResults.get(toolId);
             const tc: ToolCallState = {
               id: toolId,
               name: block.name as string,
-              args: (block.input as Record<string, unknown>) || {},
+              args: (block.input as Record<string, unknown>) || (block.arguments as Record<string, unknown>) || {},
               resultText: result?.text || "",
               isError: result?.isError || false,
               isRunning: false,
