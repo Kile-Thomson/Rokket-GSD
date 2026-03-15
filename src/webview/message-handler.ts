@@ -257,8 +257,8 @@ function handleMessage(event: MessageEvent): void {
 
     case "message_update": {
       if (!state.currentTurn) break;
-      const data = msg;
-      const delta = data.assistantMessageEvent || data.delta;
+      const data = msg as any;
+      const delta = data.assistantMessageEvent;
 
       if (delta) {
         if (delta.type === "text_delta" && delta.delta) {
@@ -452,6 +452,14 @@ function handleMessage(event: MessageEvent): void {
       } else {
         toasts.show("✓ Original provider restored", 4000);
       }
+      break;
+    }
+
+    case "fallback_chain_exhausted": {
+      const data = msg as any;
+      const lastError = data.lastError || "All providers failed";
+      addSystemEntry(`All fallback providers exhausted: ${lastError}. Check your API keys or try again later.`, "error");
+      toasts.show("⚠ All model providers failed", 5000);
       break;
     }
 

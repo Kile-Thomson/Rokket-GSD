@@ -57,7 +57,7 @@ export type ExtensionToWebviewMessage =
   | { type: "turn_start" }
   | { type: "turn_end"; message: AgentMessage; toolResults: AgentMessage[] }
   | { type: "message_start"; message: AgentMessage }
-  | { type: "message_update"; message: AgentMessage; delta: StreamDelta }
+  | { type: "message_update"; message: AgentMessage; assistantMessageEvent: StreamDelta }
   | { type: "message_end"; message: AgentMessage }
   | { type: "tool_execution_start"; toolCallId: string; toolName: string; args: Record<string, unknown> }
   | { type: "tool_execution_update"; toolCallId: string; toolName: string; partialResult: ToolResult }

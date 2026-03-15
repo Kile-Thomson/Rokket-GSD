@@ -1179,7 +1179,6 @@ ${exportOverrides}
 </body>
 </html>`;
             const fs = await import("fs");
-            const cp = await import("child_process");
             // Show save dialog defaulting to Downloads
             const defaultUri = vscode.Uri.file(
               (process.env.USERPROFILE || process.env.HOME || "") + `\\Downloads\\gsd-export-${timestamp}.html`
@@ -1192,8 +1191,8 @@ ${exportOverrides}
             if (!uri) break; // user cancelled
             const exportPath = uri.fsPath;
             fs.writeFileSync(exportPath, fullHtml, "utf-8");
-            // Open in default browser
-            cp.exec(`start "" "${exportPath}"`);
+            // Open in default browser (cross-platform)
+            vscode.env.openExternal(vscode.Uri.file(exportPath));
             vscode.window.showInformationMessage(`Exported to ${exportPath}`);
           } catch (err: any) {
             this.postToWebview(webview, { type: "error", message: `Export failed: ${err.message}` });

@@ -140,11 +140,12 @@ export function getToolCategory(name: string): ToolCategory {
   const n = name.toLowerCase();
   if (["read", "write", "edit"].includes(n)) return "file";
   if (n === "bg_shell") return "process";
-  if (n === "bash") return "shell";
+  if (n === "bash" || n === "async_bash") return "shell";
   if (n.startsWith("browser_") || n.startsWith("mac_")) return "browser";
   if (["search-the-web", "search_and_read", "fetch_page", "google_search",
-       "resolve_library", "get_library_docs"].includes(n)) return "search";
+       "resolve_library", "get_library_docs", "web_search"].includes(n)) return "search";
   if (n === "subagent") return "agent";
+  if (n.startsWith("github_") || n === "mcp_call" || n === "mcp_discover" || n === "mcp_servers") return "generic";
   return "generic";
 }
 
@@ -153,11 +154,16 @@ export function getToolIcon(name: string, category: ToolCategory): string {
   if (n === "read") return "📄";
   if (n === "write") return "✏️";
   if (n === "edit") return "✂️";
-  if (n === "bash") return "⌨";
+  if (n === "bash" || n === "async_bash") return "⌨";
   if (n === "bg_shell") return "⚙";
   if (n === "subagent") return "🤖";
   if (n.startsWith("browser_")) return "🌐";
   if (n.startsWith("mac_")) return "🖥";
+  if (n.startsWith("github_")) return "🐙";
+  if (n === "mcp_call" || n === "mcp_discover" || n === "mcp_servers") return "🔌";
+  if (n === "ask_user_questions") return "❓";
+  if (n === "secure_env_collect") return "🔒";
+  if (n === "discover_configs") return "🔧";
   if (category === "search") return "🔍";
   return "⚡";
 }
