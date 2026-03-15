@@ -105,6 +105,10 @@ function handleMessage(event: MessageEvent): void {
     case "config": {
       const data = msg;
       state.useCtrlEnterToSend = data.useCtrlEnterToSend ?? false;
+      if (data.theme) {
+        state.theme = data.theme;
+        try { applyTheme(data.theme); } catch (e) { console.warn("applyTheme error:", e); }
+      }
       if (data.cwd) state.cwd = data.cwd;
       if (data.version) state.version = data.version;
       if (data.extensionVersion) {
@@ -698,7 +702,7 @@ function handleMessage(event: MessageEvent): void {
     const errorId = `GSD-ERR-${Date.now().toString(36).toUpperCase()}`;
     console.error(`[${errorId}] Message handler error for "${msg.type}":`, err);
     addSystemEntry(
-      `Internal error processing "${msg.type}" (${errorId}). Check browser console for details. Please report this error code.`,
+      `Internal error processing "${msg.type}" (${errorId}): ${err?.message || err}. Check browser console for details.`,
       "error"
     );
   }
@@ -823,6 +827,27 @@ function extractMessageText(content: unknown): string {
 }
 
 /**
+// ============================================================
+// Theme
+// ============================================================
+
+function applyTheme(theme: string): void {
+  const app = document.querySelector(".gsd-app");
+  if (app) {
+    app.setAttribute("data-theme", theme);
+  }
+  // Update active state in settings dropdown
+  const dropdown = document.getElementById("settingsDropdown");
+  if (dropdown) {
+    dropdown.querySelectorAll(".gsd-settings-option").forEach(el => {
+      const isActive = (el as HTMLElement).dataset.theme === theme;
+      el.classList.toggle("active", isActive);
+      el.setAttribute("aria-checked", String(isActive));
+    });
+  }
+}
+
+/**
  * Show an inline update card in the chat with release notes and action buttons.
  */
 function showUpdateCard(
@@ -867,7 +892,7 @@ function showUpdateCard(
 
   // Insert at the top of the messages area, after any welcome screen
   messagesContainer.insertBefore(card, messagesContainer.firstChild?.nextSibling || null);
-  scrollToBottom(messagesContainer);
+  card.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 /**
@@ -897,7 +922,7 @@ function showWhatsNew(version: string, notes: string): void {
   });
 
   messagesContainer.insertBefore(card, messagesContainer.firstChild?.nextSibling || null);
-  scrollToBottom(messagesContainer);
+  card.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 /**

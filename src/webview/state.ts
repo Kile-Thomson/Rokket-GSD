@@ -84,6 +84,7 @@ export interface AppState {
   images: ImageAttachment[];
   files: FileAttachment[];
   useCtrlEnterToSend: boolean;
+  theme: string;
   cwd: string;
   version: string;
   sessionStats: SessionStats;
@@ -116,6 +117,7 @@ export const state: AppState = {
   images: [],
   files: [],
   useCtrlEnterToSend: false,
+  theme: "classic",
   cwd: "",
   version: "",
   sessionStats: {},
