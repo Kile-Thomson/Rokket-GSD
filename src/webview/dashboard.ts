@@ -468,7 +468,17 @@ export function updateWelcomeScreen(): void {
       `<span>/ for commands</span>`,
     ].join('<span class="gsd-hint-sep">•</span>');
     welcomeHints.style.display = "flex";
+
+    // Show resume button when process is ready
+    const resumeChip = document.querySelector(".gsd-resume-chip") as HTMLElement | null;
+    if (resumeChip) {
+      resumeChip.style.display = "";
+    }
   } else {
     welcomeHints.style.display = "none";
+    const resumeChip = document.querySelector(".gsd-resume-chip") as HTMLElement | null;
+    if (resumeChip) {
+      resumeChip.style.display = "none";
+    }
   }
 }
