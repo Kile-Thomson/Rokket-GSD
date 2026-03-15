@@ -314,6 +314,51 @@ function setupButtonHandlers(): void {
     vscode.postMessage({ type: "attach_files" });
   });
 
+  // Settings dropdown
+  const settingsBtn = document.getElementById("settingsBtn");
+  const settingsDropdown = document.getElementById("settingsDropdown");
+  const settingsWrapper = document.getElementById("settingsWrapper");
+  if (settingsBtn && settingsDropdown && settingsWrapper) {
+    settingsBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isOpen = settingsDropdown.classList.toggle("open");
+      settingsBtn.setAttribute("aria-expanded", String(isOpen));
+    });
+
+    // Theme option clicks
+    settingsDropdown.addEventListener("click", (e) => {
+      const option = (e.target as HTMLElement).closest("[data-theme]") as HTMLElement | null;
+      if (!option) return;
+      const theme = option.dataset.theme!;
+      if (theme === state.theme) return;
+
+      // Update active state
+      settingsDropdown.querySelectorAll(".gsd-settings-option").forEach(el => {
+        el.classList.remove("active");
+        el.setAttribute("aria-checked", "false");
+      });
+      option.classList.add("active");
+      option.setAttribute("aria-checked", "true");
+
+      // Apply and persist
+      state.theme = theme;
+      document.querySelector(".gsd-app")?.setAttribute("data-theme", theme);
+      vscode.postMessage({ type: "set_theme", theme } as WebviewToExtensionMessage);
+
+      // Close dropdown
+      settingsDropdown.classList.remove("open");
+      settingsBtn.setAttribute("aria-expanded", "false");
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+      if (!settingsWrapper.contains(e.target as Node)) {
+        settingsDropdown.classList.remove("open");
+        settingsBtn.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
   // Thinking badge click is handled by thinkingPicker.init()
   thinkingBadge.style.cursor = "pointer";
 }

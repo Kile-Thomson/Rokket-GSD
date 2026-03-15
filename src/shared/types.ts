@@ -44,7 +44,8 @@ export type WebviewToExtensionMessage =
   | { type: "save_temp_file"; name: string; data: string; mimeType: string }
   | { type: "attach_files" }
   | { type: "get_dashboard" }
-  | { type: "get_changelog" };
+  | { type: "get_changelog" }
+  | { type: "set_theme"; theme: string };
 
 // --- Messages FROM extension TO webview ---
 
@@ -72,7 +73,7 @@ export type ExtensionToWebviewMessage =
   | { type: "available_models"; models: AvailableModelInfo[] }
   | { type: "bash_result"; result: BashResult }
   | { type: "thinking_level_changed"; level: ThinkingLevel }
-  | { type: "config"; useCtrlEnterToSend: boolean; cwd?: string; version?: string; extensionVersion?: string }
+  | { type: "config"; useCtrlEnterToSend: boolean; theme?: string; cwd?: string; version?: string; extensionVersion?: string }
   | { type: "process_status"; status: ProcessStatus }
   | { type: "process_health"; status: ProcessHealthStatus }
   | { type: "session_list"; sessions: SessionListItem[] }

@@ -45,6 +45,10 @@ let welcomeScreen: HTMLElement;
 // ============================================================
 
 let currentTurnElement: HTMLElement | null = null;
+/** Prior streaming elements from the same turn, created when user messages split the stream */
+let priorTurnElements: HTMLElement[] = [];
+/** Segment indices <= this value belong to a prior (split) streaming element — don't append to them */
+let _splitSegmentBarrier = -1;
 const segmentElements = new Map<number, HTMLElement>();
 let _activeSegmentIndex = -1;
 let pendingTextRender: number | null = null;
@@ -93,10 +97,26 @@ export function clearMessages(): void {
 
 export function renderNewEntry(entry: ChatEntry): void {
   const el = createEntryElement(entry);
-  // If streaming, insert before the current streaming element so user messages
-  // don't appear below the in-progress assistant response
+  // If streaming, insert the user message AFTER the current streaming content
+  // (not before it) so it appears inline at the correct chronological position.
+  // Then create a new streaming element below the user message for continuation.
   if (currentTurnElement && currentTurnElement.parentNode === messagesContainer) {
-    messagesContainer.insertBefore(el, currentTurnElement);
+    // Insert user bubble after the current streaming element
+    currentTurnElement.after(el);
+    // Split the stream: create a new continuation element below the user message
+    const continuation = document.createElement("div");
+    continuation.className = "gsd-entry gsd-entry-assistant streaming";
+    continuation.dataset.entryId = state.currentTurn?.id || "stream";
+    el.after(continuation);
+    // Transfer segment tracking to the new element — new segments will render here
+    currentTurnElement.classList.remove("streaming");
+    priorTurnElements.push(currentTurnElement);
+    currentTurnElement = continuation;
+    // Clear segment element map so new segments create fresh DOM in the continuation
+    segmentElements.clear();
+    _activeSegmentIndex = -1;
+    // Set barrier so text appending creates new segments instead of appending to pre-split ones
+    _splitSegmentBarrier = state.currentTurn ? state.currentTurn.segments.length - 1 : -1;
   } else {
     messagesContainer.appendChild(el);
   }
@@ -126,7 +146,7 @@ export function appendToTextSegment(segType: "text" | "thinking", delta: string)
   let segIdx: number;
 
   const lastSeg = segments.length > 0 ? segments[segments.length - 1] : null;
-  if (lastSeg && lastSeg.type === segType) {
+  if (lastSeg && lastSeg.type === segType && (segments.length - 1) > _splitSegmentBarrier) {
     segIdx = segments.length - 1;
     lastSeg.chunks.push(delta);
   } else {
@@ -301,7 +321,19 @@ export function finalizeCurrentTurn(): void {
 
   if (currentTurnElement) {
     currentTurnElement.classList.remove("streaming");
-    if (isStaleEcho) {
+    if (priorTurnElements.length > 0) {
+      // Turn was split by user messages — prior elements already have rendered
+      // content in place. Don't rebuild (that would duplicate). Just finalize
+      // the prior partials and the current continuation in-place.
+      for (const prior of priorTurnElements) {
+        prior.classList.remove("streaming");
+      }
+      // Remove empty continuation element if nothing was rendered into it
+      if (currentTurnElement.innerHTML.trim() === "") {
+        currentTurnElement.remove();
+      }
+      priorTurnElements = [];
+    } else if (isStaleEcho) {
       currentTurnElement.classList.add("gsd-stale-echo");
       currentTurnElement.innerHTML = buildStaleEchoHtml(turn);
     } else {
@@ -311,6 +343,8 @@ export function finalizeCurrentTurn(): void {
 
   state.currentTurn = null;
   currentTurnElement = null;
+  priorTurnElements = [];
+  _splitSegmentBarrier = -1;
   segmentElements.clear();
   _activeSegmentIndex = -1;
 }
@@ -318,6 +352,8 @@ export function finalizeCurrentTurn(): void {
 /** Reset streaming state — used by new conversation */
 export function resetStreamingState(): void {
   currentTurnElement = null;
+  priorTurnElements = [];
+  _splitSegmentBarrier = -1;
   segmentElements.clear();
   _activeSegmentIndex = -1;
   stopElapsedTimer();
