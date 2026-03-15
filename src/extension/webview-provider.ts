@@ -8,6 +8,7 @@ import { downloadAndInstallUpdate, dismissUpdateVersion, fetchReleaseNotes, fetc
 import { parseGsdWorkflowState } from "./state-parser";
 import { buildDashboardData } from "./dashboard-parser";
 import { loadMetricsLedger, buildMetricsData } from "./metrics-parser";
+import { createSessionState, cleanupSessionState, type SessionState } from "./session-state";
 import type {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
@@ -19,7 +20,6 @@ import type {
   RpcStateResult,
   BashResult,
   AgentMessage,
-  ProcessHealthStatus,
 } from "../shared/types";
 
 // ============================================================
@@ -36,31 +36,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "gsd.sidebarView";
 
   private webviewView?: vscode.WebviewView;
-  private panels: Map<string, vscode.WebviewPanel> = new Map();
-  private rpcClients: Map<string, GsdRpcClient> = new Map();
-  private statsTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
-  private healthTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
-  private healthState: Map<string, ProcessHealthStatus> = new Map();
-  private workflowTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
-  private autoModeState: Map<string, string | null> = new Map();
-  private promptWatchdogs: Map<string, { timer: ReturnType<typeof setTimeout>; retried: boolean; nonce: number; message: string; images?: Array<{ type: "image"; data: string; mimeType: string }> }> = new Map();
+  private sessions: Map<string, SessionState> = new Map();
   private promptWatchdogNonce = 0;
-  private slashWatchdogs: Map<string, ReturnType<typeof setTimeout>> = new Map();
-  /** Per-session GSD auto fallback timers — cleared on session cleanup */
-  private gsdFallbackTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
-  private gsdTurnStarted: Map<string, boolean> = new Map();
   private static readonly GSD_COMMAND_RE = /^\/gsd(?:\s+(auto|next|stop|status|queue))?$/;
-  /** Tracks per-session timestamp of last RPC event received — used by slash command watchdog */
-  private lastEventTime: Map<string, number> = new Map();
-  /** Per-session launch promises — prevents concurrent launchGsd calls from racing */
-  private launchPromises: Map<string, Promise<void>> = new Map();
-  /** Streaming activity monitor — detects stalled agent turns and auto-recovers */
-  private activityTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
-  private isSessionStreaming: Map<string, boolean> = new Map();
-  private restartingSession: Set<string> = new Set();
-  private sessionWebviews: Map<string, vscode.Webview> = new Map();
-  /** Disposables for webview message handlers — disposed on re-resolve to prevent duplicate handlers */
-  private messageHandlerDisposables: Map<string, vscode.Disposable> = new Map();
   private output: vscode.OutputChannel;
   private sessionCounter = 0;
   /** The session ID of the current sidebar, for reuse on re-resolve */
@@ -69,6 +47,16 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private statusCallback?: (status: StatusBarUpdate) => void;
   private lastStatus: StatusBarUpdate = { isStreaming: false };
   private tempDir: string | null = null;
+
+  /** Get or create session state for a session ID */
+  private getSession(sessionId: string): SessionState {
+    let session = this.sessions.get(sessionId);
+    if (!session) {
+      session = createSessionState();
+      this.sessions.set(sessionId, session);
+    }
+    return session;
+  }
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -120,7 +108,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     // after being hidden — creating a new session each time would orphan the
     // old GSD process and leave events bound to a stale webview reference.
     let sessionId: string;
-    const existingClient = this.sidebarSessionId ? this.rpcClients.get(this.sidebarSessionId) : null;
+    const existingClient = this.sidebarSessionId ? this.getSession(this.sidebarSessionId).client : null;
     if (this.sidebarSessionId && existingClient?.isRunning) {
       sessionId = this.sidebarSessionId;
       // Re-bind the client's event listener to the new webview reference
@@ -128,7 +116,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       existingClient.on("event", (event: Record<string, unknown>) => {
         this.handleRpcEvent(webviewView.webview, sessionId, event, existingClient);
       });
-      this.sessionWebviews.set(sessionId, webviewView.webview);
+      this.getSession(sessionId).webview = webviewView.webview;
       this.output.appendLine(`[${sessionId}] Sidebar re-resolved — reusing existing session`);
     } else {
       // Clean up any stale sidebar session
@@ -164,13 +152,13 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       }
     );
 
-    this.panels.set(sessionId, panel);
+    this.getSession(sessionId).panel = panel;
 
     panel.webview.html = this.getWebviewHtml(panel.webview, sessionId);
     this.setupWebviewMessageHandling(panel.webview, sessionId);
 
     panel.onDidDispose(() => {
-      this.panels.delete(sessionId);
+      this.getSession(sessionId).panel = null;
       this.cleanupSession(sessionId);
     });
   }
@@ -191,10 +179,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   // --- New conversation ---
 
   async newConversation(): Promise<void> {
-    for (const [, client] of this.rpcClients) {
-      if (client.isRunning) {
+    for (const [, session] of this.sessions) {
+      if (session.client?.isRunning) {
         try {
-          await client.newSession();
+          await session.client.newSession();
         } catch (err) {
           this.output.appendLine(`Error creating new session: ${err}`);
         }
@@ -216,91 +204,21 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   // --- Cleanup ---
 
   dispose(): void {
-    for (const [_, timer] of this.statsTimers) {
-      clearInterval(timer);
+    for (const [, session] of this.sessions) {
+      cleanupSessionState(session);
+      if (session.panel) {
+        session.panel.dispose();
+      }
     }
-    this.statsTimers.clear();
-    for (const [_, timer] of this.healthTimers) {
-      clearInterval(timer);
-    }
-    this.healthTimers.clear();
-    for (const [_, timer] of this.workflowTimers) {
-      clearInterval(timer);
-    }
-    this.workflowTimers.clear();
-    for (const [_, watchdog] of this.promptWatchdogs) {
-      clearTimeout(watchdog.timer);
-    }
-    this.promptWatchdogs.clear();
-    for (const [_, timer] of this.slashWatchdogs) {
-      clearTimeout(timer);
-    }
-    this.slashWatchdogs.clear();
-    this.lastEventTime.clear();
-    for (const [_, timer] of this.activityTimers) {
-      clearInterval(timer);
-    }
-    this.activityTimers.clear();
-    this.isSessionStreaming.clear();
-    for (const [_, client] of this.rpcClients) {
-      client.stop();
-    }
-    this.rpcClients.clear();
-    for (const [_, d] of this.messageHandlerDisposables) {
-      d.dispose();
-    }
-    this.messageHandlerDisposables.clear();
-    for (const [_, panel] of this.panels) {
-      panel.dispose();
-    }
-    this.panels.clear();
+    this.sessions.clear();
     this.output.dispose();
     this.cleanupTempFiles();
   }
 
   private cleanupSession(sessionId: string): void {
-    const timer = this.statsTimers.get(sessionId);
-    if (timer) {
-      clearInterval(timer);
-      this.statsTimers.delete(sessionId);
-    }
-    const healthTimer = this.healthTimers.get(sessionId);
-    if (healthTimer) {
-      clearInterval(healthTimer);
-      this.healthTimers.delete(sessionId);
-    }
-    this.healthState.delete(sessionId);
-    const workflowTimer = this.workflowTimers.get(sessionId);
-    if (workflowTimer) {
-      clearInterval(workflowTimer);
-      this.workflowTimers.delete(sessionId);
-    }
-    this.autoModeState.delete(sessionId);
-    this.clearPromptWatchdog(sessionId);
-    const slashTimer = this.slashWatchdogs.get(sessionId);
-    if (slashTimer) {
-      clearTimeout(slashTimer);
-      this.slashWatchdogs.delete(sessionId);
-    }
-    const gsdTimer = this.gsdFallbackTimers.get(sessionId);
-    if (gsdTimer) {
-      clearTimeout(gsdTimer);
-      this.gsdFallbackTimers.delete(sessionId);
-    }
-    this.gsdTurnStarted.delete(sessionId);
-    this.lastEventTime.delete(sessionId);
-    this.stopActivityMonitor(sessionId);
-    this.isSessionStreaming.delete(sessionId);
-    const client = this.rpcClients.get(sessionId);
-    if (client) {
-      client.stop();
-      this.rpcClients.delete(sessionId);
-    }
-    this.sessionWebviews.delete(sessionId);
-    const msgDisposable = this.messageHandlerDisposables.get(sessionId);
-    if (msgDisposable) {
-      msgDisposable.dispose();
-      this.messageHandlerDisposables.delete(sessionId);
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      cleanupSessionState(session);
     }
   }
 
@@ -320,11 +238,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     const nonce = ++this.promptWatchdogNonce;
 
     const timer = setTimeout(async () => {
-      const watchdog = this.promptWatchdogs.get(sessionId);
+      const watchdog = this.getSession(sessionId).promptWatchdog;
       // Stale callback — a newer watchdog has replaced this one
       if (!watchdog || watchdog.nonce !== nonce) return;
 
-      const client = this.rpcClients.get(sessionId);
+      const client = this.getSession(sessionId).client;
       if (!client?.isRunning) {
         this.clearPromptWatchdog(sessionId);
         return;
@@ -339,7 +257,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           // Start the final-chance watchdog BEFORE awaiting — if prompt()
           // hangs, we still need the timer to fire.
           watchdog.timer = setTimeout(() => {
-            const finalCheck = this.promptWatchdogs.get(sessionId);
+            const finalCheck = this.getSession(sessionId).promptWatchdog;
             if (!finalCheck || finalCheck.nonce !== nonce) return;
 
             this.output.appendLine(`[${sessionId}] Prompt watchdog: retry also got no response — notifying user`);
@@ -352,12 +270,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
           await client.prompt(message, images);
           // Re-check nonce after await — a new prompt may have started during the retry
-          const current = this.promptWatchdogs.get(sessionId);
+          const current = this.getSession(sessionId).promptWatchdog;
           if (!current || current.nonce !== nonce) return;
         } catch (err: any) {
           this.output.appendLine(`[${sessionId}] Prompt watchdog: retry failed — ${err.message}`);
           // Only clear if this watchdog is still current
-          const current = this.promptWatchdogs.get(sessionId);
+          const current = this.getSession(sessionId).promptWatchdog;
           if (current?.nonce === nonce) {
             this.clearPromptWatchdog(sessionId);
           }
@@ -366,14 +284,14 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       }
     }, WATCHDOG_TIMEOUT_MS);
 
-    this.promptWatchdogs.set(sessionId, { timer, retried: false, nonce, message, images });
+    this.getSession(sessionId).promptWatchdog = { timer, retried: false, nonce, message, images };
   }
 
   private clearPromptWatchdog(sessionId: string): void {
-    const watchdog = this.promptWatchdogs.get(sessionId);
+    const watchdog = this.getSession(sessionId).promptWatchdog;
     if (watchdog) {
       clearTimeout(watchdog.timer);
-      this.promptWatchdogs.delete(sessionId);
+      this.getSession(sessionId).promptWatchdog = null;
     }
   }
 
@@ -389,23 +307,23 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     images?: Array<{ type: "image"; data: string; mimeType: string }>
   ): void {
     // Clear any existing slash watchdog
-    const existing = this.slashWatchdogs.get(sessionId);
+    const existing = this.getSession(sessionId).slashWatchdog;
     if (existing) clearTimeout(existing);
 
     const TIMEOUT_MS = 10_000;
     const sentAt = Date.now();
 
     const timer = setTimeout(async () => {
-      this.slashWatchdogs.delete(sessionId);
+      this.getSession(sessionId).slashWatchdog = null;
 
       // Check if any event arrived since we sent the command
-      const lastEvent = this.lastEventTime.get(sessionId) || 0;
+      const lastEvent = this.getSession(sessionId).lastEventTime || 0;
       if (lastEvent > sentAt) {
         // Events are flowing — command is alive, no action needed
         return;
       }
 
-      const client = this.rpcClients.get(sessionId);
+      const client = this.getSession(sessionId).client;
       if (!client?.isRunning) return;
 
       // Retry once
@@ -415,8 +333,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         // Start the final-chance watchdog BEFORE awaiting — if prompt()
         // hangs, we still need the timer to fire.
         const retryTimer = setTimeout(() => {
-          this.slashWatchdogs.delete(sessionId);
-          const lastRetryEvent = this.lastEventTime.get(sessionId) || 0;
+          this.getSession(sessionId).slashWatchdog = null;
+          const lastRetryEvent = this.getSession(sessionId).lastEventTime || 0;
           if (lastRetryEvent > retrySentAt) return; // events flowing since retry
 
           this.output.appendLine(`[${sessionId}] Slash watchdog: retry also got no response for "${message}"`);
@@ -425,7 +343,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             message: `Command "${message}" was sent but got no response. Try sending it again.`,
           } as ExtensionToWebviewMessage);
         }, TIMEOUT_MS);
-        this.slashWatchdogs.set(sessionId, retryTimer);
+        this.getSession(sessionId).slashWatchdog = retryTimer;
 
         await client.prompt(message, images);
       } catch (err: any) {
@@ -433,7 +351,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       }
     }, TIMEOUT_MS);
 
-    this.slashWatchdogs.set(sessionId, timer);
+    this.getSession(sessionId).slashWatchdog = timer;
   }
 
   /**
@@ -460,7 +378,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
     const timer = setInterval(async () => {
       // Only act while streaming
-      if (!this.isSessionStreaming.get(sessionId)) {
+      if (!this.getSession(sessionId).isStreaming) {
         this.stopActivityMonitor(sessionId);
         return;
       }
@@ -508,30 +426,30 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         // Wait a moment for agent_end to arrive naturally
         await new Promise(r => setTimeout(r, 3000));
         // If still streaming, force-push agent_end to unblock the webview
-        if (this.isSessionStreaming.get(sessionId)) {
+        if (this.getSession(sessionId).isStreaming) {
           this.output.appendLine(`[${sessionId}] Activity monitor: abort succeeded but no agent_end — forcing`);
-          this.isSessionStreaming.set(sessionId, false);
+          this.getSession(sessionId).isStreaming = false;
           this.emitStatus({ isStreaming: false });
           this.postToWebview(webview, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
         }
       } catch {
         // If abort fails, the process may be truly hung — force kill
         this.output.appendLine(`[${sessionId}] Activity monitor: abort failed, force-killing`);
-        this.isSessionStreaming.set(sessionId, false);
+        this.getSession(sessionId).isStreaming = false;
         this.emitStatus({ isStreaming: false });
         this.postToWebview(webview, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
         client.forceKill();
       }
     }, CHECK_INTERVAL_MS);
 
-    this.activityTimers.set(sessionId, timer);
+    this.getSession(sessionId).activityTimer = timer;
   }
 
   private stopActivityMonitor(sessionId: string): void {
-    const timer = this.activityTimers.get(sessionId);
+    const timer = this.getSession(sessionId).activityTimer;
     if (timer) {
       clearInterval(timer);
-      this.activityTimers.delete(sessionId);
+      this.getSession(sessionId).activityTimer = null;
     }
   }
 
@@ -630,11 +548,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
   private startStatsPolling(webview: vscode.Webview, sessionId: string): void {
     // Clear any existing timer
-    const existing = this.statsTimers.get(sessionId);
+    const existing = this.getSession(sessionId).statsTimer;
     if (existing) clearInterval(existing);
 
     const poll = async () => {
-      const client = this.rpcClients.get(sessionId);
+      const client = this.getSession(sessionId).client;
       if (!client?.isRunning) return;
       try {
         const stats = await client.getSessionStats() as SessionStats | null;
@@ -648,7 +566,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
     // Poll every 5 seconds
     const timer = setInterval(poll, 5000);
-    this.statsTimers.set(sessionId, timer);
+    this.getSession(sessionId).statsTimer = timer;
 
     // Immediate first poll
     poll();
@@ -658,38 +576,38 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
   private startHealthMonitoring(webview: vscode.Webview, sessionId: string): void {
     // Clear any existing timer
-    const existing = this.healthTimers.get(sessionId);
+    const existing = this.getSession(sessionId).healthTimer;
     if (existing) clearInterval(existing);
 
-    this.healthState.set(sessionId, "responsive");
+    this.getSession(sessionId).healthState = "responsive";
 
     const check = async () => {
-      const client = this.rpcClients.get(sessionId);
+      const client = this.getSession(sessionId).client;
       if (!client?.isRunning) return;
 
       // Only health-check while streaming (tool execution in progress)
       // During idle, the process is just waiting for input — no need to ping
       const isHealthy = await client.ping(10000);
-      const previousState = this.healthState.get(sessionId) || "responsive";
+      const previousState = this.getSession(sessionId).healthState || "responsive";
 
       if (!isHealthy && previousState === "responsive") {
         // Process became unresponsive
-        this.healthState.set(sessionId, "unresponsive");
+        this.getSession(sessionId).healthState = "unresponsive";
         this.output.appendLine(`[${sessionId}] Health check: UNRESPONSIVE (ping timed out)`);
         this.postToWebview(webview, { type: "process_health", status: "unresponsive" } as ExtensionToWebviewMessage);
       } else if (isHealthy && previousState === "unresponsive") {
         // Process recovered
-        this.healthState.set(sessionId, "recovered");
+        this.getSession(sessionId).healthState = "recovered";
         this.output.appendLine(`[${sessionId}] Health check: recovered`);
         this.postToWebview(webview, { type: "process_health", status: "recovered" } as ExtensionToWebviewMessage);
         // Reset to responsive after emitting recovered
-        this.healthState.set(sessionId, "responsive");
+        this.getSession(sessionId).healthState = "responsive";
       }
     };
 
     // Check every 30 seconds
     const timer = setInterval(check, 30000);
-    this.healthTimers.set(sessionId, timer);
+    this.getSession(sessionId).healthTimer = timer;
   }
 
   // --- Workflow state ---
@@ -698,13 +616,13 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
     const state = await parseGsdWorkflowState(cwd);
     if (state) {
-      state.autoMode = this.autoModeState.get(sessionId) || null;
+      state.autoMode = this.getSession(sessionId).autoModeState || null;
     }
     this.postToWebview(webview, { type: "workflow_state", state } as ExtensionToWebviewMessage);
   }
 
   private startWorkflowPolling(webview: vscode.Webview, sessionId: string): void {
-    const existing = this.workflowTimers.get(sessionId);
+    const existing = this.getSession(sessionId).workflowTimer;
     if (existing) clearInterval(existing);
 
     // Initial refresh
@@ -712,16 +630,16 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
     // Poll every 30 seconds
     const timer = setInterval(() => this.refreshWorkflowState(webview, sessionId), 30000);
-    this.workflowTimers.set(sessionId, timer);
+    this.getSession(sessionId).workflowTimer = timer;
   }
 
   // --- Message handling ---
 
   private setupWebviewMessageHandling(webview: vscode.Webview, sessionId: string): void {
-    this.sessionWebviews.set(sessionId, webview);
+    this.getSession(sessionId).webview = webview;
 
     // Dispose previous handler for this session to prevent duplicate message processing
-    const prevDisposable = this.messageHandlerDisposables.get(sessionId);
+    const prevDisposable = this.getSession(sessionId).messageHandlerDisposable;
     if (prevDisposable) {
       prevDisposable.dispose();
     }
@@ -750,7 +668,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
         case "launch_gsd": {
           // Guard: don't launch a second process if one already exists for this session
-          const existingLaunch = this.rpcClients.get(sessionId);
+          const existingLaunch = this.getSession(sessionId).client;
           if (existingLaunch?.isRunning) {
             this.output.appendLine(`[${sessionId}] launch_gsd: process already running (PID ${existingLaunch.pid}) — skipping`);
             // Re-push state so the webview knows it's running
@@ -766,7 +684,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "prompt": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
 
           if (!client?.isRunning) {
             if (client && !client.isRunning) {
@@ -785,12 +703,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                     this.postToWebview(webview, { type: "commands", commands: cmdResult?.commands || [] });
                   } catch { /* ignored */ }
                 } else {
-                  this.rpcClients.delete(sessionId);
+                  this.getSession(sessionId).client = null;
                   await this.launchGsd(webview, sessionId);
                 }
               } catch (restartErr: any) {
                 this.output.appendLine(`[${sessionId}] Restart failed: ${restartErr.message}`);
-                this.rpcClients.delete(sessionId);
+                this.getSession(sessionId).client = null;
                 await this.launchGsd(webview, sessionId);
               }
             } else {
@@ -798,7 +716,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             }
           }
 
-          const c = this.rpcClients.get(sessionId);
+          const c = this.getSession(sessionId).client;
           if (c?.isRunning) {
             try {
               const images = msg.images?.map((img) => ({
@@ -858,7 +776,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "steer": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client) {
             try {
               // Extension commands (slash commands) can't be steered — they need to run
@@ -880,7 +798,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "follow_up": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client) {
             try {
               await client.followUp(msg.message, msg.images?.map((img) => ({
@@ -897,7 +815,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
         case "interrupt":
         case "cancel_request": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client) {
             try {
               await client.abort();
@@ -905,11 +823,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               this.output.appendLine(`[${sessionId}] Interrupt/abort failed: ${err.message}`);
               // If abort fails, force-clear streaming state on the webview side
               // so the user isn't stuck
-              this.isSessionStreaming.set(sessionId, false);
+              this.getSession(sessionId).isStreaming = false;
               this.stopActivityMonitor(sessionId);
               this.emitStatus({ isStreaming: false });
               // Notify webview so its state is consistent
-              const wv = this.sessionWebviews.get(sessionId);
+              const wv = this.getSession(sessionId).webview;
               if (wv) {
                 this.postToWebview(wv, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
               }
@@ -920,7 +838,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
         case "new_conversation": {
           this.cleanupTempFiles();
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
               await client.newSession();
@@ -934,7 +852,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "set_model": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client) {
             try {
               await client.setModel(msg.provider, msg.modelId);
@@ -946,7 +864,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "set_thinking_level": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client) {
             try {
               await client.setThinkingLevel(msg.level);
@@ -963,7 +881,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             const data = await buildDashboardData(cwd);
             // Merge session stats if available
             if (data) {
-              const client = this.rpcClients.get(sessionId);
+              const client = this.getSession(sessionId).client;
               if (client?.isRunning) {
                 try {
                   const statsResult = await client.getSessionStats() as Record<string, unknown> | null;
@@ -1014,7 +932,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "get_state": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
               const state = await client.getState();
@@ -1027,7 +945,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "get_session_stats": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
               const stats = await client.getSessionStats() as SessionStats | null;
@@ -1040,7 +958,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "get_commands": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
               const result = await client.getCommands() as RpcCommandsResult;
@@ -1057,7 +975,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             // the GSD process has fully started.
             this.output.appendLine(`[${sessionId}] get_commands: client not running, will retry in 2s`);
             setTimeout(async () => {
-              const retryClient = this.rpcClients.get(sessionId);
+              const retryClient = this.getSession(sessionId).client;
               if (retryClient?.isRunning) {
                 try {
                   const result = await retryClient.getCommands() as RpcCommandsResult;
@@ -1073,7 +991,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "get_available_models": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
               const result = await client.getAvailableModels() as RpcModelsResult;
@@ -1086,7 +1004,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "cycle_thinking_level": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
               const result = await client.cycleThinkingLevel() as RpcThinkingResult;
@@ -1104,7 +1022,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case "compact_context": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
               this.postToWebview(webview, { type: "auto_compaction_start", reason: "manual" } as ExtensionToWebviewMessage);
@@ -1201,7 +1119,7 @@ ${exportOverrides}
         }
 
         case "run_bash": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
               const result = await client.executeBash(msg.command) as BashResult;
@@ -1214,7 +1132,7 @@ ${exportOverrides}
         }
 
         case "fork_conversation": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
               await client.fork(msg.entryId);
@@ -1248,7 +1166,7 @@ ${exportOverrides}
         }
 
         case "switch_session": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
               const result = await client.switchSession(msg.path) as { cancelled?: boolean } | null;
@@ -1288,7 +1206,7 @@ ${exportOverrides}
         }
 
         case "rename_session": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
               await client.setSessionName(msg.name);
@@ -1325,7 +1243,7 @@ ${exportOverrides}
         }
 
         case "set_auto_compaction": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
               await client.setAutoCompaction(msg.enabled);
@@ -1350,7 +1268,7 @@ ${exportOverrides}
             }
             // Sessions are sorted most-recent first
             const latest = sessions[0];
-            const client = this.rpcClients.get(sessionId);
+            const client = this.getSession(sessionId).client;
             if (client?.isRunning) {
               const result = await client.switchSession(latest.path) as { cancelled?: boolean } | null;
               if (result?.cancelled) {
@@ -1387,7 +1305,7 @@ ${exportOverrides}
         }
 
         case "force_kill": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client) {
             this.output.appendLine(`[${sessionId}] Force-killing GSD process (PID: ${client.pid})`);
             client.forceKill();
@@ -1396,13 +1314,13 @@ ${exportOverrides}
         }
 
         case "force_restart": {
-          if (this.restartingSession.has(sessionId)) {
+          if (this.getSession(sessionId).isRestarting) {
             this.output.appendLine(`[${sessionId}] Force-restart already in progress — ignoring`);
             break;
           }
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client) {
-            this.restartingSession.add(sessionId);
+            this.getSession(sessionId).isRestarting = true;
             this.output.appendLine(`[${sessionId}] Force-restarting GSD process`);
             client.forceKill();
             // Clean up existing timers before restart
@@ -1410,14 +1328,14 @@ ${exportOverrides}
             // Wait a moment for cleanup, then re-launch from scratch
             setTimeout(async () => {
               try {
-                this.rpcClients.delete(sessionId);
+                this.getSession(sessionId).client = null;
                 await this.launchGsd(webview, sessionId);
                 this.output.appendLine(`[${sessionId}] GSD re-launched after force-kill`);
               } catch (err: any) {
                 this.output.appendLine(`[${sessionId}] Force-restart failed: ${err.message}`);
                 this.postToWebview(webview, { type: "error", message: `[GSD-ERR-030] Force-restart failed: ${err.message}` });
               } finally {
-                this.restartingSession.delete(sessionId);
+                this.getSession(sessionId).isRestarting = false;
               }
             }, 1000);
           }
@@ -1450,7 +1368,7 @@ ${exportOverrides}
         }
 
         case "extension_ui_response": {
-          const client = this.rpcClients.get(sessionId);
+          const client = this.getSession(sessionId).client;
           if (client) {
             client.sendExtensionUiResponse({
               type: "extension_ui_response",
@@ -1588,7 +1506,7 @@ ${exportOverrides}
       }
     });
 
-    this.messageHandlerDisposables.set(sessionId, disposable);
+    this.getSession(sessionId).messageHandlerDisposable = disposable;
   }
 
   // --- GSD Process Management ---
@@ -1597,13 +1515,13 @@ ${exportOverrides}
     // Deduplicate concurrent launches for the same session — if a launch is
     // already in progress (e.g. webview sent launch_gsd and then an immediate
     // prompt), piggyback on the existing promise instead of spawning a second process.
-    const existing = this.launchPromises.get(sessionId);
+    const existing = this.getSession(sessionId).launchPromise;
     if (existing) return existing;
 
     const promise = this._doLaunchGsd(webview, sessionId, cwd).finally(() => {
-      this.launchPromises.delete(sessionId);
+      this.getSession(sessionId).launchPromise = null;
     });
-    this.launchPromises.set(sessionId, promise);
+    this.getSession(sessionId).launchPromise = promise;
     return promise;
   }
 
@@ -1641,41 +1559,41 @@ ${exportOverrides}
       this.postToWebview(webview, { type: "process_status", status: isCleanExit ? "stopped" : "crashed" } as ExtensionToWebviewMessage);
 
       // Stop all monitoring timers and watchdogs
-      const timer = this.statsTimers.get(sessionId);
+      const timer = this.getSession(sessionId).statsTimer;
       if (timer) {
         clearInterval(timer);
-        this.statsTimers.delete(sessionId);
+        this.getSession(sessionId).statsTimer = null;
       }
-      const healthTimer = this.healthTimers.get(sessionId);
+      const healthTimer = this.getSession(sessionId).healthTimer;
       if (healthTimer) {
         clearInterval(healthTimer);
-        this.healthTimers.delete(sessionId);
+        this.getSession(sessionId).healthTimer = null;
       }
-      this.healthState.delete(sessionId);
-      const workflowTimer = this.workflowTimers.get(sessionId);
+      this.getSession(sessionId).healthState = "responsive";
+      const workflowTimer = this.getSession(sessionId).workflowTimer;
       if (workflowTimer) {
         clearInterval(workflowTimer);
-        this.workflowTimers.delete(sessionId);
+        this.getSession(sessionId).workflowTimer = null;
       }
-      this.autoModeState.delete(sessionId);
+      this.getSession(sessionId).autoModeState = null;
       this.stopActivityMonitor(sessionId);
-      this.isSessionStreaming.delete(sessionId);
+      this.getSession(sessionId).isStreaming = false;
       this.clearPromptWatchdog(sessionId);
-      const slashWd = this.slashWatchdogs.get(sessionId);
+      const slashWd = this.getSession(sessionId).slashWatchdog;
       if (slashWd) {
         clearTimeout(slashWd);
-        this.slashWatchdogs.delete(sessionId);
+        this.getSession(sessionId).slashWatchdog = null;
       }
-      this.lastEventTime.delete(sessionId);
-      const gsdTimer = this.gsdFallbackTimers.get(sessionId);
+      this.getSession(sessionId).lastEventTime = 0;
+      const gsdTimer = this.getSession(sessionId).gsdFallbackTimer;
       if (gsdTimer) {
         clearTimeout(gsdTimer);
-        this.gsdFallbackTimers.delete(sessionId);
+        this.getSession(sessionId).gsdFallbackTimer = null;
       }
-      this.gsdTurnStarted.delete(sessionId);
+      this.getSession(sessionId).gsdTurnStarted = false;
 
       if (isCleanExit) {
-        this.rpcClients.delete(sessionId);
+        this.getSession(sessionId).client = null;
       } else {
         this.output.appendLine(`[${sessionId}] Unexpected exit — will auto-restart on next prompt`);
       }
@@ -1699,7 +1617,7 @@ ${exportOverrides}
         env,
       });
 
-      this.rpcClients.set(sessionId, client);
+      this.getSession(sessionId).client = client;
       this.output.appendLine(`[${sessionId}] GSD started in ${workingDir}`);
 
       // Get initial state — this blocks until the process is actually ready
@@ -1754,13 +1672,13 @@ ${exportOverrides}
     const eventType = event.type as string;
 
     // Track event arrival — used by slash command watchdog
-    this.lastEventTime.set(sessionId, Date.now());
+    this.getSession(sessionId).lastEventTime = Date.now();
 
     // Clear slash command watchdog on any event — command is alive
-    const slashTimer = this.slashWatchdogs.get(sessionId);
+    const slashTimer = this.getSession(sessionId).slashWatchdog;
     if (slashTimer) {
       clearTimeout(slashTimer);
-      this.slashWatchdogs.delete(sessionId);
+      this.getSession(sessionId).slashWatchdog = null;
     }
 
     if (eventType === "extension_ui_request") {
@@ -1780,13 +1698,13 @@ ${exportOverrides}
     if (eventType === "agent_start") {
       this.clearPromptWatchdog(sessionId);
       this.emitStatus({ isStreaming: true });
-      this.isSessionStreaming.set(sessionId, true);
+      this.getSession(sessionId).isStreaming = true;
       this.startActivityMonitor(webview, sessionId, client);
       // Mark that a real agent turn started (used by /gsd fallback detection)
-      this.gsdTurnStarted.set(sessionId, true);
+      this.getSession(sessionId).gsdTurnStarted = true;
     } else if (eventType === "agent_end") {
       this.emitStatus({ isStreaming: false });
-      this.isSessionStreaming.set(sessionId, false);
+      this.getSession(sessionId).isStreaming = false;
       this.stopActivityMonitor(sessionId);
       // Refresh workflow state after each agent turn
       this.refreshWorkflowState(webview, sessionId);
@@ -1801,7 +1719,7 @@ ${exportOverrides}
       if (to) this.emitStatus({ model: to });
     } else if (eventType === "session_shutdown") {
       this.emitStatus({ isStreaming: false });
-      this.isSessionStreaming.set(sessionId, false);
+      this.getSession(sessionId).isStreaming = false;
       this.stopActivityMonitor(sessionId);
     }
 
@@ -1825,12 +1743,12 @@ ${exportOverrides}
    */
   private armGsdFallbackProbe(message: string, sessionId: string, _webview: vscode.Webview): void {
     if (!GsdWebviewProvider.GSD_COMMAND_RE.test(message)) return;
-    const existingTimer = this.gsdFallbackTimers.get(sessionId);
+    const existingTimer = this.getSession(sessionId).gsdFallbackTimer;
     if (existingTimer) {
       clearTimeout(existingTimer);
-      this.gsdFallbackTimers.delete(sessionId);
+      this.getSession(sessionId).gsdFallbackTimer = null;
     }
-    this.gsdTurnStarted.set(sessionId, false);
+    this.getSession(sessionId).gsdTurnStarted = false;
   }
 
   /**
@@ -1840,18 +1758,18 @@ ${exportOverrides}
   private startGsdFallbackTimer(message: string, sessionId: string, webview: vscode.Webview): void {
     if (!GsdWebviewProvider.GSD_COMMAND_RE.test(message)) return;
     const fallbackTimer = setTimeout(async () => {
-      if (this.gsdFallbackTimers.get(sessionId) !== fallbackTimer) return;
-      this.gsdFallbackTimers.delete(sessionId);
-      const started = this.gsdTurnStarted.get(sessionId);
-      this.gsdTurnStarted.delete(sessionId);
-      const client = this.rpcClients.get(sessionId);
+      if (this.getSession(sessionId).gsdFallbackTimer !== fallbackTimer) return;
+      this.getSession(sessionId).gsdFallbackTimer = null;
+      const started = this.getSession(sessionId).gsdTurnStarted;
+      this.getSession(sessionId).gsdTurnStarted = false;
+      const client = this.getSession(sessionId).client;
       if (!client?.isRunning) return;
       if (!started) {
         this.output.appendLine(`[${sessionId}] /gsd command produced no agent turn — applying workaround`);
         await this.handleGsdAutoFallback(client, webview, sessionId, message);
       }
     }, 500);
-    this.gsdFallbackTimers.set(sessionId, fallbackTimer);
+    this.getSession(sessionId).gsdFallbackTimer = fallbackTimer;
   }
 
   private async handleGsdAutoFallback(
@@ -1982,7 +1900,7 @@ ${exportOverrides}
               if (this.webviewView) {
                 this.webviewView.show(true);
               }
-              const panel = this.panels.get(sessionId);
+              const panel = this.getSession(sessionId).panel;
               if (panel) {
                 panel.reveal();
               }
@@ -2047,7 +1965,7 @@ ${exportOverrides}
         // Track auto-mode status for workflow badge
         if (event.statusKey === "gsd-auto") {
           const autoMode = event.statusText as string | undefined;
-          this.autoModeState.set(sessionId, autoMode || null);
+          this.getSession(sessionId).autoModeState = autoMode || null;
           this.refreshWorkflowState(webview, sessionId);
         }
         this.postToWebview(webview, event as unknown as ExtensionToWebviewMessage);
@@ -2061,10 +1979,9 @@ ${exportOverrides}
 
       case "setTitle": {
         const title = event.title as string;
-        for (const [sid, panel] of this.panels) {
-          if (sid === sessionId && title) {
-            panel.title = title;
-          }
+        const sessionPanel = this.getSession(sessionId).panel;
+        if (sessionPanel && title) {
+          sessionPanel.title = title;
         }
         break;
       }
@@ -2098,9 +2015,11 @@ ${exportOverrides}
       this.webviewView.webview.postMessage(message);
       delivered = true;
     }
-    for (const [_, panel] of this.panels) {
-      panel.webview.postMessage(message);
-      delivered = true;
+    for (const [, session] of this.sessions) {
+      if (session.panel) {
+        session.panel.webview.postMessage(message);
+        delivered = true;
+      }
     }
     return delivered;
   }
@@ -2113,7 +2032,7 @@ ${exportOverrides}
     // Check sidebar visibility
     if (this.webviewView?.visible) return true;
     // Check panel visibility
-    const panel = this.panels.get(sessionId);
+    const panel = this.getSession(sessionId).panel;
     if (panel?.visible) return true;
     return false;
   }
