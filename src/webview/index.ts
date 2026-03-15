@@ -17,7 +17,6 @@ import {
   formatRelativeTime,
   scrollToBottom,
   initAutoScroll,
-  resetAutoScroll,
   isAutoScrollSuppressed,
 } from "./helpers";
 
@@ -42,40 +41,6 @@ declare function acquireVsCodeApi(): {
 };
 
 const vscode = acquireVsCodeApi();
-
-// ============================================================
-// Tool Watchdog — Client-side timeout for stuck tools
-// ============================================================
-
-/**
- * Tool watchdog — NO hard timeout. Long-running tools (subagent, bg_shell)
- * routinely run 5+ minutes without emitting intermediate events through RPC.
- * A hard timeout would abort healthy work.
- *
- * True hangs are detected by the extension host's ping-based activity monitor,
- * which checks if the GSD process can respond to health pings regardless of
- * event flow. The user can always press Escape to interrupt manually.
- *
- * The watchdog maps are kept for the message handler's clearToolWatchdog calls
- * but startToolWatchdog is now a no-op.
- */
-
-/** Map of toolCallId → timer handle (kept for API compat, not actively used) */
-const toolWatchdogTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-function startToolWatchdog(_toolCallId: string): void {
-  // No-op — hang detection is handled by the extension host's ping-based
-  // activity monitor. Client-side hard timeouts cause false alarms on
-  // long-running tools like subagent.
-}
-
-function clearToolWatchdog(toolCallId: string): void {
-  const timer = toolWatchdogTimers.get(toolCallId);
-  if (timer) {
-    clearTimeout(timer);
-    toolWatchdogTimers.delete(toolCallId);
-  }
-}
 
 // ============================================================
 // DOM Setup
@@ -626,7 +591,6 @@ messageHandler.init({
   messagesContainer,
   welcomeScreen,
   promptInput,
-  toolWatchdogTimers,
   updateAllUI,
   updateHeaderUI,
   updateFooterUI,
@@ -635,8 +599,6 @@ messageHandler.init({
   updateWorkflowBadge,
   autoResize,
   announceToScreenReader,
-  startToolWatchdog,
-  clearToolWatchdog,
 });
 
 slashMenu.init({
