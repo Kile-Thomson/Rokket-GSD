@@ -1335,6 +1335,56 @@ ${exportOverrides}
           break;
         }
 
+        case "resume_last_session": {
+          const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+          if (!cwd) {
+            this.postToWebview(webview, { type: "error", message: "No workspace folder open" });
+            break;
+          }
+          try {
+            const sessions = await listSessions(cwd);
+            if (sessions.length === 0) {
+              this.postToWebview(webview, { type: "error", message: "No previous sessions found" });
+              break;
+            }
+            // Sessions are sorted most-recent first
+            const latest = sessions[0];
+            const client = this.rpcClients.get(sessionId);
+            if (client?.isRunning) {
+              const result = await client.switchSession(latest.path) as { cancelled?: boolean } | null;
+              if (result?.cancelled) {
+                this.output.appendLine(`[${sessionId}] Resume cancelled`);
+                break;
+              }
+              const state = await client.getState() as RpcStateResult;
+              const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
+              this.output.appendLine(`[${sessionId}] Resumed last session: ${latest.name || latest.id} (${messagesResult?.messages?.length || 0} messages)`);
+              const gsdState = {
+                model: state?.model || null,
+                thinkingLevel: (state?.thinkingLevel || "off") as import("../shared/types").ThinkingLevel,
+                isStreaming: state?.isStreaming || false,
+                isCompacting: state?.isCompacting || false,
+                sessionFile: (state?.sessionFile as string) || null,
+                sessionId: (state?.sessionId as string) || null,
+                messageCount: (state?.messageCount as number) || 0,
+                autoCompactionEnabled: state?.autoCompactionEnabled || false,
+              };
+              this.postToWebview(webview, {
+                type: "session_switched",
+                state: gsdState,
+                messages: messagesResult?.messages || [],
+              });
+              if (state?.model) {
+                this.emitStatus({ model: (state.model as any).id || (state.model as any).name });
+              }
+            }
+          } catch (err: any) {
+            this.output.appendLine(`[${sessionId}] Resume error: ${err.message}`);
+            this.postToWebview(webview, { type: "error", message: `Failed to resume: ${err.message}` });
+          }
+          break;
+        }
+
         case "force_kill": {
           const client = this.rpcClients.get(sessionId);
           if (client) {
