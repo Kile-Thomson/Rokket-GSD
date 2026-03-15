@@ -819,7 +819,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               const gsdMatch = /^\/gsd(?:\s+(auto|next|stop|status|queue))?$/.exec(msg.message.trim());
               if (gsdMatch) {
                 const existingTimer = this.gsdFallbackTimers.get(sessionId);
-                if (existingTimer) clearTimeout(existingTimer);
+                if (existingTimer) {
+                  clearTimeout(existingTimer);
+                  this.gsdFallbackTimers.delete(sessionId);
+                }
                 this.gsdTurnStarted.set(sessionId, false);
               }
 
