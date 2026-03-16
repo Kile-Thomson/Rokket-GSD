@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { GsdRpcClient } from "./rpc-client";
+import { AutoProgressPoller } from "./auto-progress";
 import type { ProcessHealthStatus } from "../shared/types";
 
 // ============================================================
@@ -44,6 +45,9 @@ export interface SessionState {
   isStreaming: boolean;
   isRestarting: boolean;
 
+  // --- Auto-mode progress ---
+  autoProgressPoller: AutoProgressPoller | null;
+
   // --- Lifecycle ---
   launchPromise: Promise<void> | null;
   messageHandlerDisposable: vscode.Disposable | null;
@@ -76,6 +80,7 @@ export function createSessionState(): SessionState {
     lastEventTime: 0,
     isStreaming: false,
     isRestarting: false,
+    autoProgressPoller: null,
     launchPromise: null,
     messageHandlerDisposable: null,
     lastStartOptions: null,
@@ -111,6 +116,12 @@ export function cleanupSessionState(session: SessionState): void {
   session.isStreaming = false;
   session.isRestarting = false;
   session.launchPromise = null;
+
+  // Clean up auto-progress poller
+  if (session.autoProgressPoller) {
+    session.autoProgressPoller.dispose();
+    session.autoProgressPoller = null;
+  }
 
   // Fire-and-forget: stop() is async but callers don't need to wait for
   // graceful shutdown. The process is killed if it doesn't exit promptly.

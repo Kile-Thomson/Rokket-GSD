@@ -28,6 +28,8 @@ import * as uiDialogs from "./ui-dialogs";
 import * as toasts from "./toasts";
 import * as renderer from "./renderer";
 import * as dashboard from "./dashboard";
+import * as autoProgressWidget from "./auto-progress";
+import * as visualizer from "./visualizer";
 import * as fileHandling from "./file-handling";
 import * as messageHandler from "./message-handler";
 import * as keyboard from "./keyboard";
@@ -438,6 +440,14 @@ function sendMessage(): void {
     return;
   }
 
+  // Handle /gsd visualize — open workflow visualizer overlay
+  if (text.toLowerCase() === "/gsd visualize" || text.toLowerCase() === "/gsd visualise") {
+    promptInput.value = "";
+    autoResize();
+    visualizer.show();
+    return;
+  }
+
   // Handle ! bash shortcut
   if (text.startsWith("!") && !text.startsWith("!!") && text.length > 1) {
     const bashCmd = text.slice(1).trim();
@@ -521,7 +531,7 @@ function sendMessage(): void {
 
 
 // UI update functions are in ui-updates.ts
-const { updateAllUI, updateHeaderUI, updateFooterUI, updateInputUI, updateOverlayIndicators, updateWorkflowBadge } = uiUpdates;
+const { updateAllUI, updateHeaderUI, updateFooterUI, updateInputUI, updateOverlayIndicators, updateWorkflowBadge, handleModelRouted } = uiUpdates;
 
 // Dashboard functions are in dashboard.ts
 
@@ -561,6 +571,12 @@ dashboard.init({
   welcomeHints,
 });
 
+// Initialize auto-progress widget
+autoProgressWidget.init();
+
+// Initialize workflow visualizer
+visualizer.init({ vscode });
+
 fileHandling.init({
   root,
   imagePreview,
@@ -597,6 +613,7 @@ messageHandler.init({
   updateInputUI,
   updateOverlayIndicators,
   updateWorkflowBadge,
+  handleModelRouted,
   autoResize,
   announceToScreenReader,
 });
