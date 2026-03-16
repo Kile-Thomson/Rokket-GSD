@@ -109,7 +109,8 @@ proc.stdout.on("data", (chunk) => {
         gap: gap(),
         type: eventType,
         toolName: msg.toolName || undefined,
-        toolCallId: msg.toolCallId ? "…" + msg.toolCallId.slice(-6) : undefined,
+        toolCallId: msg.toolCallId || undefined,
+        toolCallIdShort: msg.toolCallId ? "…" + msg.toolCallId.slice(-6) : undefined,
         hasPartialResult: eventType === "tool_execution_update" ? !!msg.partialResult : undefined,
         partialLen: msg.partialResult?.content?.[0]?.text?.length || undefined,
       };
@@ -121,7 +122,7 @@ proc.stdout.on("data", (chunk) => {
       if (record.gap > 100) parts.push(`gap=${record.gap}ms`);
       parts.push(eventType);
       if (record.toolName) parts.push(`tool=${record.toolName}`);
-      if (record.toolCallId) parts.push(`id=${record.toolCallId}`);
+      if (record.toolCallIdShort) parts.push(`id=${record.toolCallIdShort}`);
       if (record.partialLen) parts.push(`partial=${record.partialLen}ch`);
 
       // Highlight gaps > 1s
@@ -205,7 +206,7 @@ function printSummary() {
       const end = toolEnds.find(e => e.toolCallId === start.toolCallId);
       const updates = toolUpdates.filter(e => e.toolCallId === start.toolCallId);
       const duration = end ? end.t - start.t : "still running";
-      console.log(`  ${start.toolName} (${start.toolCallId}):`);
+      console.log(`  ${start.toolName} (${start.toolCallIdShort || start.toolCallId}):`);
       console.log(`    Duration: ${typeof duration === "number" ? `${duration}ms` : duration}`);
       console.log(`    Updates:  ${updates.length}`);
       if (updates.length > 0) {

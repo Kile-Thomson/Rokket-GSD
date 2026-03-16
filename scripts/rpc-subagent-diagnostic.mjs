@@ -89,7 +89,8 @@ proc.stdout.on("data", (chunk) => {
         sincePrompt,
         type: eventType,
         toolName: msg.toolName || undefined,
-        toolCallId: msg.toolCallId ? "…" + msg.toolCallId.slice(-6) : undefined,
+        toolCallId: msg.toolCallId || undefined,
+        toolCallIdShort: msg.toolCallId ? "…" + msg.toolCallId.slice(-6) : undefined,
         partialLen: msg.partialResult?.content?.[0]?.text?.length || undefined,
       };
       events.push(record);
@@ -107,7 +108,7 @@ proc.stdout.on("data", (chunk) => {
         if (record.gap > 2000) parts.push(`⚠️GAP=${(record.gap/1000).toFixed(1)}s`);
         parts.push(eventType);
         if (record.toolName) parts.push(`tool=${record.toolName}`);
-        if (record.toolCallId) parts.push(`id=${record.toolCallId}`);
+        if (record.toolCallIdShort) parts.push(`id=${record.toolCallIdShort}`);
         if (record.partialLen) parts.push(`partial=${record.partialLen}ch`);
         if (eventType === "response") parts.push(`cmd=${msg.command} ok=${msg.success}`);
         console.log(`  ${parts.join("  ")}`);
@@ -168,7 +169,7 @@ function printSummary() {
       const end = toolEnds.find(e => e.toolCallId === start.toolCallId);
       const updates = toolUpdates.filter(e => e.toolCallId === start.toolCallId);
       const duration = end ? end.t - start.t : "still running";
-      console.log(`  ${start.toolName} (${start.toolCallId}): ${typeof duration === "number" ? `${(duration/1000).toFixed(1)}s` : duration}, ${updates.length} updates`);
+      console.log(`  ${start.toolName} (${start.toolCallIdShort || start.toolCallId}): ${typeof duration === "number" ? `${(duration/1000).toFixed(1)}s` : duration}, ${updates.length} updates`);
       if (updates.length > 0) {
         const gaps = updates.map(u => u.gap);
         console.log(`    Update gaps: min=${(Math.min(...gaps)/1000).toFixed(1)}s max=${(Math.max(...gaps)/1000).toFixed(1)}s`);
