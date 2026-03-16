@@ -389,6 +389,7 @@ export function handleModelRouted(
       contextWindow: routed?.contextWindow,
     };
     updateHeaderUI();
+    updateFooterUI();
 
     // Flash the model badge to make the switch visually obvious
     modelBadge.classList.add("gsd-model-badge-flash");

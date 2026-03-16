@@ -203,7 +203,7 @@ function handleMessage(event: MessageEvent): void {
       handleModelRouted(msg.oldModel, msg.newModel);
       const oldName = msg.oldModel?.id || "unknown";
       const newName = msg.newModel?.id || "unknown";
-      toasts.show(`Model routed: ${oldName} → ${newName}`, "info");
+      toasts.show(`Model routed: ${oldName} → ${newName}`, 3000);
       break;
     }
 
