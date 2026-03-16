@@ -23,6 +23,7 @@ import {
   buildSubagentOutputHtml,
   renderMarkdown,
   scrollToBottom,
+  resetAutoScroll,
 } from "./helpers";
 
 import {
@@ -44,9 +45,45 @@ let welcomeScreen: HTMLElement;
 // ============================================================
 
 let currentTurnElement: HTMLElement | null = null;
+/** Prior streaming elements from the same turn, created when user messages split the stream */
+let priorTurnElements: HTMLElement[] = [];
+/** Segment indices <= this value belong to a prior (split) streaming element — don't append to them */
+let _splitSegmentBarrier = -1;
 const segmentElements = new Map<number, HTMLElement>();
 let _activeSegmentIndex = -1;
 let pendingTextRender: number | null = null;
+
+/**
+ * Live elapsed timer — refreshes running tool cards every second so the
+ * elapsed duration stays current. This gives the user a visible heartbeat
+ * that proves the extension is alive even when tools emit no partial updates.
+ */
+let elapsedTimerHandle: ReturnType<typeof setInterval> | null = null;
+
+function startElapsedTimer(): void {
+  if (elapsedTimerHandle) return;
+  elapsedTimerHandle = setInterval(() => {
+    if (!state.currentTurn) {
+      stopElapsedTimer();
+      return;
+    }
+    let anyRunning = false;
+    for (const [, tc] of state.currentTurn.toolCalls) {
+      if (tc.isRunning) {
+        anyRunning = true;
+        updateToolSegmentElement(tc.id);
+      }
+    }
+    if (!anyRunning) stopElapsedTimer();
+  }, 1000);
+}
+
+function stopElapsedTimer(): void {
+  if (elapsedTimerHandle) {
+    clearInterval(elapsedTimerHandle);
+    elapsedTimerHandle = null;
+  }
+}
 
 // ============================================================
 // Public API — entry rendering
@@ -55,14 +92,31 @@ let pendingTextRender: number | null = null;
 export function clearMessages(): void {
   const els = messagesContainer.querySelectorAll(".gsd-entry");
   els.forEach((el) => el.remove());
+  resetAutoScroll();
 }
 
 export function renderNewEntry(entry: ChatEntry): void {
   const el = createEntryElement(entry);
-  // If streaming, insert before the current streaming element so user messages
-  // don't appear below the in-progress assistant response
+  // If streaming, insert the user message AFTER the current streaming content
+  // (not before it) so it appears inline at the correct chronological position.
+  // Then create a new streaming element below the user message for continuation.
   if (currentTurnElement && currentTurnElement.parentNode === messagesContainer) {
-    messagesContainer.insertBefore(el, currentTurnElement);
+    // Insert user bubble after the current streaming element
+    currentTurnElement.after(el);
+    // Split the stream: create a new continuation element below the user message
+    const continuation = document.createElement("div");
+    continuation.className = "gsd-entry gsd-entry-assistant streaming";
+    continuation.dataset.entryId = state.currentTurn?.id || "stream";
+    el.after(continuation);
+    // Transfer segment tracking to the new element — new segments will render here
+    currentTurnElement.classList.remove("streaming");
+    priorTurnElements.push(currentTurnElement);
+    currentTurnElement = continuation;
+    // Clear segment element map so new segments create fresh DOM in the continuation
+    segmentElements.clear();
+    _activeSegmentIndex = -1;
+    // Set barrier so text appending creates new segments instead of appending to pre-split ones
+    _splitSegmentBarrier = state.currentTurn ? state.currentTurn.segments.length - 1 : -1;
   } else {
     messagesContainer.appendChild(el);
   }
@@ -92,7 +146,7 @@ export function appendToTextSegment(segType: "text" | "thinking", delta: string)
   let segIdx: number;
 
   const lastSeg = segments.length > 0 ? segments[segments.length - 1] : null;
-  if (lastSeg && lastSeg.type === segType) {
+  if (lastSeg && lastSeg.type === segType && (segments.length - 1) > _splitSegmentBarrier) {
     segIdx = segments.length - 1;
     lastSeg.chunks.push(delta);
   } else {
@@ -119,6 +173,8 @@ export function appendToolSegmentElement(tc: ToolCallState, segIdx: number): voi
   el.innerHTML = buildToolCallHtml(tc);
   insertSegmentElement(container, segIdx, el);
   segmentElements.set(segIdx, el);
+  // Start live elapsed timer so running tools show a ticking duration
+  if (tc.isRunning) startElapsedTimer();
 }
 
 export function updateToolSegmentElement(toolCallId: string): void {
@@ -189,8 +245,57 @@ function tryStreamingCollapse(el: HTMLElement, segIdx: number): void {
   segmentElements.set(segIdx, groupEl);
 }
 
+/**
+ * Detect "stale echo" turns — short, text-only agent responses that occur
+ * in rapid succession without user interaction. These happen when async_bash
+ * job results are delivered after the agent has already consumed them,
+ * triggering redundant model turns that just say "already handled."
+ *
+ * Conditions (ALL must be true):
+ * 1. No tool calls — the model didn't do any work
+ * 2. Text-only, short — total text < 200 chars
+ * 3. No user entry between this turn and the previous assistant turn
+ * 4. Previous assistant turn exists
+ * 5. Completed within 30s of the previous assistant turn
+ *
+ * @internal — exported for testing
+ */
+export function detectStaleEcho(turn: AssistantTurn): boolean {
+  if (turn.toolCalls.size > 0) return false;
+
+  const textSegments = turn.segments.filter(s => s.type === "text");
+  if (textSegments.length === 0) return false;
+  if (turn.segments.some(s => s.type === "thinking")) return false;
+
+  const totalText = textSegments
+    .map(s => s.chunks.join(""))
+    .join("")
+    .trim();
+  if (totalText.length > 200) return false;
+
+  let lastAssistantIdx = -1;
+  for (let i = state.entries.length - 1; i >= 0; i--) {
+    if (state.entries[i].type === "assistant") {
+      lastAssistantIdx = i;
+      break;
+    }
+  }
+  if (lastAssistantIdx === -1) return false;
+
+  for (let i = lastAssistantIdx + 1; i < state.entries.length; i++) {
+    if (state.entries[i].type === "user") return false;
+  }
+
+  const prevTimestamp = state.entries[lastAssistantIdx].timestamp;
+  if (turn.timestamp - prevTimestamp > 30000) return false;
+
+  return true;
+}
+
 export function finalizeCurrentTurn(): void {
   if (!state.currentTurn) return;
+
+  stopElapsedTimer();
 
   if (pendingTextRender !== null) {
     cancelAnimationFrame(pendingTextRender);
@@ -204,6 +309,9 @@ export function finalizeCurrentTurn(): void {
     tc.isRunning = false;
   }
 
+  const isStaleEcho = detectStaleEcho(turn);
+  turn.isStaleEcho = isStaleEcho;
+
   state.entries.push({
     id: turn.id,
     type: "assistant",
@@ -213,11 +321,30 @@ export function finalizeCurrentTurn(): void {
 
   if (currentTurnElement) {
     currentTurnElement.classList.remove("streaming");
-    currentTurnElement.innerHTML = buildTurnHtml(turn);
+    if (priorTurnElements.length > 0) {
+      // Turn was split by user messages — prior elements already have rendered
+      // content in place. Don't rebuild (that would duplicate). Just finalize
+      // the prior partials and the current continuation in-place.
+      for (const prior of priorTurnElements) {
+        prior.classList.remove("streaming");
+      }
+      // Remove empty continuation element if nothing was rendered into it
+      if (currentTurnElement.innerHTML.trim() === "") {
+        currentTurnElement.remove();
+      }
+      priorTurnElements = [];
+    } else if (isStaleEcho) {
+      currentTurnElement.classList.add("gsd-stale-echo");
+      currentTurnElement.innerHTML = buildStaleEchoHtml(turn);
+    } else {
+      currentTurnElement.innerHTML = buildTurnHtml(turn);
+    }
   }
 
   state.currentTurn = null;
   currentTurnElement = null;
+  priorTurnElements = [];
+  _splitSegmentBarrier = -1;
   segmentElements.clear();
   _activeSegmentIndex = -1;
 }
@@ -225,8 +352,11 @@ export function finalizeCurrentTurn(): void {
 /** Reset streaming state — used by new conversation */
 export function resetStreamingState(): void {
   currentTurnElement = null;
+  priorTurnElements = [];
+  _splitSegmentBarrier = -1;
   segmentElements.clear();
   _activeSegmentIndex = -1;
+  stopElapsedTimer();
 }
 
 // ============================================================
@@ -241,7 +371,12 @@ function createEntryElement(entry: ChatEntry): HTMLElement {
   if (entry.type === "user") {
     el.innerHTML = buildUserHtml(entry);
   } else if (entry.type === "assistant" && entry.turn) {
-    el.innerHTML = buildTurnHtml(entry.turn);
+    if (entry.turn.isStaleEcho) {
+      el.classList.add("gsd-stale-echo");
+      el.innerHTML = buildStaleEchoHtml(entry.turn);
+    } else {
+      el.innerHTML = buildTurnHtml(entry.turn);
+    }
   } else if (entry.type === "system") {
     el.innerHTML = buildSystemHtml(entry);
   }
@@ -297,6 +432,21 @@ function buildUserHtml(entry: ChatEntry): string {
   html += `</div>`;
   html += buildTimestampHtml(entry.timestamp);
   return html;
+}
+
+function buildStaleEchoHtml(turn: AssistantTurn): string {
+  const textContent = turn.segments
+    .filter(s => s.type === "text")
+    .map(s => s.chunks.join(""))
+    .join(" ")
+    .trim();
+  const preview = textContent.length > 80 ? textContent.slice(0, 77) + "…" : textContent;
+  const panelId = `stale-echo-${turn.id}`;
+  return `<div class="gsd-stale-echo-bar" role="button" tabindex="0" aria-expanded="false" aria-controls="${escapeAttr(panelId)}" aria-label="Expand background notification echo" title="Background job notification — click to expand">
+    <span class="gsd-stale-echo-icon">↩</span>
+    <span class="gsd-stale-echo-text">${escapeHtml(preview)}</span>
+  </div>
+  <div class="gsd-stale-echo-full" id="${escapeAttr(panelId)}" hidden>${buildTurnHtml(turn)}</div>`;
 }
 
 function buildTurnHtml(turn: AssistantTurn): string {
@@ -429,10 +579,17 @@ function buildToolCallHtml(tc: ToolCallState): string {
     tc.isError ? `<span class="gsd-tool-icon error">✗</span>` :
     `<span class="gsd-tool-icon success">✓</span>`;
 
-  const duration = tc.endTime && tc.startTime ? formatDuration(tc.endTime - tc.startTime) : "";
-  const durationHtml = duration ? `<span class="gsd-tool-duration">${duration}</span>` : "";
+  const duration = tc.endTime && tc.startTime
+    ? formatDuration(tc.endTime - tc.startTime)
+    : tc.isRunning && tc.startTime
+      ? formatDuration(Date.now() - tc.startTime)
+      : "";
+  const durationHtml = duration
+    ? `<span class="gsd-tool-duration${tc.isRunning ? " elapsed-live" : ""}">${duration}</span>`
+    : "";
 
   const stateClass = tc.isRunning ? "running" : tc.isError ? "error" : "done";
+  const parallelClass = tc.isParallel ? " parallel" : "";
   const isSubagent = tc.name.toLowerCase() === "subagent";
 
   const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
@@ -461,14 +618,16 @@ function buildToolCallHtml(tc: ToolCallState): string {
     outputHtml = `<div class="gsd-tool-output"><span class="gsd-tool-output-pending">Running...</span></div>`;
   }
 
+  const parallelBadge = tc.isParallel ? `<span class="gsd-tool-parallel-badge" title="Running in parallel">⚡</span>` : "";
+
   const isCollapsed = collapsedClass === "collapsed";
-  return `<div class="gsd-tool-block ${stateClass} ${collapsedClass} cat-${category}" data-tool-id="${escapeAttr(tc.id)}">
+  return `<div class="gsd-tool-block ${stateClass}${parallelClass} ${collapsedClass} cat-${category}" data-tool-id="${escapeAttr(tc.id)}">
     <div class="gsd-tool-header" role="button" tabindex="0" aria-label="Toggle ${escapeAttr(tc.name)} details" aria-expanded="${isCollapsed ? "false" : "true"}">
       ${statusIcon}
       <span class="gsd-tool-cat-icon">${toolIcon}</span>
       <span class="gsd-tool-name">${escapeHtml(tc.name)}</span>
       ${keyArg ? `<span class="gsd-tool-arg">${escapeHtml(keyArg)}</span>` : ""}
-      <span class="gsd-tool-header-right">${durationHtml}<span class="gsd-tool-chevron">▸</span></span>
+      <span class="gsd-tool-header-right">${parallelBadge}${durationHtml}<span class="gsd-tool-chevron">▸</span></span>
     </div>
     ${outputHtml}
   </div>`;

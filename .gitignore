@@ -3,6 +3,7 @@ dist/
 *.vsix
 .vscode-test/
 .bg-shell/
+.gsd/
 .DS_Store
 Thumbs.db
 *.swp
@@ -37,10 +38,7 @@ nul
 .gsd/metrics.json
 .gsd/completed-units.json
 .gsd/STATE.md
-.gsd/gsd.db
-.gsd/DISCUSSION-MANIFEST.json
-.gsd/milestones/**/*-CONTINUE.md
-.gsd/milestones/**/continue.md
+scripts/*-results.json
 
 # ── Dropbox conflicted copies ──
 *conflicted copy*

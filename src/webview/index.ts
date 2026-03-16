@@ -16,6 +16,8 @@ import {
 import {
   formatRelativeTime,
   scrollToBottom,
+  initAutoScroll,
+  isAutoScrollSuppressed,
 } from "./helpers";
 
 import * as slashMenu from "./slash-menu";
@@ -41,77 +43,6 @@ declare function acquireVsCodeApi(): {
 };
 
 const vscode = acquireVsCodeApi();
-
-// ============================================================
-// Tool Watchdog — Client-side timeout for stuck tools
-// ============================================================
-
-/** Default watchdog timeout: 3 minutes (180s). GSD's bash-safety is 120s,
- *  so this catches anything that slips through or isn't covered by bash-safety. */
-const TOOL_WATCHDOG_TIMEOUT_MS = 180_000;
-
-/** Map of toolCallId → timer handle for active watchdog timers */
-const toolWatchdogTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-function startToolWatchdog(toolCallId: string): void {
-  clearToolWatchdog(toolCallId);
-  const timer = setTimeout(() => {
-    toolWatchdogTimers.delete(toolCallId);
-    handleToolWatchdogTimeout(toolCallId);
-  }, TOOL_WATCHDOG_TIMEOUT_MS);
-  toolWatchdogTimers.set(toolCallId, timer);
-}
-
-function clearToolWatchdog(toolCallId: string): void {
-  const timer = toolWatchdogTimers.get(toolCallId);
-  if (timer) {
-    clearTimeout(timer);
-    toolWatchdogTimers.delete(toolCallId);
-  }
-}
-
-function handleToolWatchdogTimeout(toolCallId: string): void {
-  // Mark the tool as timed out in state
-  const tc = state.currentTurn?.toolCalls.get(toolCallId);
-  if (!tc || !tc.isRunning) return;
-
-  tc.isRunning = false;
-  tc.isError = true;
-  tc.endTime = Date.now();
-  tc.resultText = `⏱ Tool timed out after ${TOOL_WATCHDOG_TIMEOUT_MS / 1000}s (client-side watchdog). The tool may still be running on the server.`;
-
-  // Re-render the tool card with timeout state
-  renderer.updateToolSegmentElement(toolCallId);
-
-  // Show a system message
-  messageHandler.addSystemEntry(
-    `Tool "${tc.name}" timed out after ${TOOL_WATCHDOG_TIMEOUT_MS / 1000}s. Sending interrupt to recover...`,
-    "warning"
-  );
-
-  // Auto-interrupt to recover — the server-side tool may have finished but
-  // the result event was lost, or the agent is stuck. Interrupting will
-  // trigger agent_end and clear streaming state so the user can continue.
-  vscode.postMessage({ type: "interrupt" });
-
-  // Safety net: if interrupt doesn't clear streaming within 15s, force-clear
-  // client-side state so the user isn't permanently stuck.
-  setTimeout(() => {
-    if (state.isStreaming) {
-      state.isStreaming = false;
-      if (state.currentTurn) {
-        state.currentTurn.isComplete = true;
-        renderer.finalizeCurrentTurn();
-      }
-      messageHandler.addSystemEntry(
-        "Interrupt did not resolve — streaming state force-cleared. You can send a new message.",
-        "warning"
-      );
-      uiUpdates.updateInputUI();
-      uiUpdates.updateFooterUI();
-    }
-  }, 15_000);
-}
 
 // ============================================================
 // DOM Setup
@@ -155,6 +86,37 @@ root.innerHTML = `
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1a.5.5 0 01.5.5V7H14a.5.5 0 010 1H8.5v5.5a.5.5 0 01-1 0V8H2a.5.5 0 010-1h5.5V1.5A.5.5 0 018 1z"/></svg>
           <span>New</span>
         </button>
+        <div class="gsd-settings-wrapper" id="settingsWrapper">
+          <button class="gsd-icon-btn" id="settingsBtn" title="Settings" aria-label="Settings" aria-haspopup="true" aria-expanded="false">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M9.1 4.4L8.6 2H7.4l-.5 2.4-.7.3-2-1.3-.9.8 1.3 2-.3.7L2 7.4v1.2l2.4.5.3.7-1.3 2 .8.8 2-1.3.7.3.5 2.4h1.2l.5-2.4.7-.3 2 1.3.8-.8-1.3-2 .3-.7 2.4-.5V7.4l-2.4-.5-.3-.7 1.3-2-.8-.8-2 1.3-.7-.3zM8 10a2 2 0 110-4 2 2 0 010 4z"/></svg>
+          </button>
+          <div class="gsd-settings-dropdown" id="settingsDropdown" role="menu" aria-label="Settings">
+            <div class="gsd-settings-section">
+              <span class="gsd-settings-label">Theme</span>
+              <div class="gsd-settings-options" id="themeOptions">
+                <button class="gsd-settings-option active" data-theme="classic" role="menuitemradio" aria-checked="true">
+                  <span class="gsd-settings-option-dot"></span>
+                  <span>Classic</span>
+                </button>
+                <button class="gsd-settings-option" data-theme="phosphor" role="menuitemradio" aria-checked="false">
+                  <span class="gsd-settings-option-dot"></span>
+                  <span>Phosphor</span>
+                  <span class="gsd-settings-theme-tag phosphor">MATRIX</span>
+                </button>
+                <button class="gsd-settings-option" data-theme="clarity" role="menuitemradio" aria-checked="false">
+                  <span class="gsd-settings-option-dot"></span>
+                  <span>Clarity</span>
+                  <span class="gsd-settings-theme-tag clarity">CLEAN</span>
+                </button>
+                <button class="gsd-settings-option" data-theme="forge" role="menuitemradio" aria-checked="false">
+                  <span class="gsd-settings-option-dot"></span>
+                  <span>Forge</span>
+                  <span class="gsd-settings-theme-tag forge">METAL</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -183,6 +145,7 @@ root.innerHTML = `
           <button class="gsd-welcome-chip" data-prompt="/gsd auto">▶ Auto</button>
           <button class="gsd-welcome-chip" data-prompt="/gsd status">📊 Status</button>
           <button class="gsd-welcome-chip" data-prompt="Review this project and tell me what you see.">🔍 Review</button>
+          <button class="gsd-welcome-chip gsd-resume-chip" data-action="resume_last" style="display:none">↩ Resume</button>
         </div>
         <div class="gsd-welcome-attribution">
           <span class="gsd-rokketek-mark">▲ ROKKETEK</span>
@@ -370,14 +333,17 @@ function isNearBottom(threshold = 100): boolean {
 }
 
 function updateScrollFab(): void {
-  const near = isNearBottom(100);
-  scrollFab.classList.toggle("visible", !near);
+  // Show FAB when auto-scroll is suppressed (user scrolled up) or not near bottom
+  const showFab = isAutoScrollSuppressed() || !isNearBottom(100);
+  scrollFab.classList.toggle("visible", showFab);
 }
 
+// Initialize intent-based auto-scroll tracking
+initAutoScroll(messagesContainer);
 messagesContainer.addEventListener("scroll", updateScrollFab, { passive: true });
 
 scrollFab.addEventListener("click", () => {
-  messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: "smooth" });
+  scrollToBottom(messagesContainer, true);
 });
 
 // ============================================================
@@ -402,6 +368,14 @@ setInterval(refreshTimestamps, 30_000);
 welcomeActions.addEventListener("click", (e: Event) => {
   const chip = (e.target as HTMLElement).closest(".gsd-welcome-chip") as HTMLElement | null;
   if (!chip) return;
+
+  // Special action buttons (not prompts)
+  const action = chip.dataset.action;
+  if (action === "resume_last") {
+    vscode.postMessage({ type: "resume_last_session" });
+    return;
+  }
+
   const prompt = chip.dataset.prompt;
   if (!prompt) return;
   promptInput.value = prompt;
@@ -633,7 +607,6 @@ messageHandler.init({
   messagesContainer,
   welcomeScreen,
   promptInput,
-  toolWatchdogTimers,
   updateAllUI,
   updateHeaderUI,
   updateFooterUI,
@@ -643,8 +616,6 @@ messageHandler.init({
   handleModelRouted,
   autoResize,
   announceToScreenReader,
-  startToolWatchdog,
-  clearToolWatchdog,
 });
 
 slashMenu.init({

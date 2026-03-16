@@ -29,6 +29,7 @@ export type WebviewToExtensionMessage =
   | { type: "open_url"; url: string }
   | { type: "open_diff"; leftPath: string; rightPath: string }
   | { type: "ready" }
+  | { type: "resume_last_session" }
   | { type: "get_session_list" }
   | { type: "switch_session"; path: string }
   | { type: "rename_session"; name: string }
@@ -37,14 +38,14 @@ export type WebviewToExtensionMessage =
   | { type: "update_dismiss"; version: string }
   | { type: "update_view_release"; htmlUrl: string }
   | { type: "set_auto_compaction"; enabled: boolean }
-  | { type: "copy_last_response" }
   | { type: "force_kill" }
   | { type: "force_restart" }
   | { type: "check_file_access"; paths: string[] }
   | { type: "save_temp_file"; name: string; data: string; mimeType: string }
   | { type: "attach_files" }
   | { type: "get_dashboard" }
-  | { type: "get_changelog" };
+  | { type: "get_changelog" }
+  | { type: "set_theme"; theme: string };
 
 // --- Messages FROM extension TO webview ---
 
@@ -56,7 +57,7 @@ export type ExtensionToWebviewMessage =
   | { type: "turn_start" }
   | { type: "turn_end"; message: AgentMessage; toolResults: AgentMessage[] }
   | { type: "message_start"; message: AgentMessage }
-  | { type: "message_update"; message: AgentMessage; delta: StreamDelta }
+  | { type: "message_update"; message: AgentMessage; assistantMessageEvent: StreamDelta }
   | { type: "message_end"; message: AgentMessage }
   | { type: "tool_execution_start"; toolCallId: string; toolName: string; args: Record<string, unknown> }
   | { type: "tool_execution_update"; toolCallId: string; toolName: string; partialResult: ToolResult }
@@ -72,7 +73,7 @@ export type ExtensionToWebviewMessage =
   | { type: "available_models"; models: AvailableModelInfo[] }
   | { type: "bash_result"; result: BashResult }
   | { type: "thinking_level_changed"; level: ThinkingLevel }
-  | { type: "config"; useCtrlEnterToSend: boolean; cwd?: string; version?: string; extensionVersion?: string }
+  | { type: "config"; useCtrlEnterToSend: boolean; theme?: string; cwd?: string; version?: string; extensionVersion?: string }
   | { type: "process_status"; status: ProcessStatus }
   | { type: "process_health"; status: ProcessHealthStatus }
   | { type: "session_list"; sessions: SessionListItem[] }
@@ -306,6 +307,58 @@ export interface DashboardData {
     toolCalls?: number;
     userMessages?: number;
   };
+  /** Per-unit metrics from .gsd/metrics.json — null when file doesn't exist */
+  metrics?: DashboardMetrics | null;
+}
+
+// --- Metrics data for dashboard (from metrics.json) ---
+
+export interface DashboardMetrics {
+  totals: {
+    units: number;
+    tokens: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
+    cost: number;
+    duration: number;
+    toolCalls: number;
+    assistantMessages: number;
+    userMessages: number;
+  };
+  byPhase: Array<{
+    phase: string;
+    units: number;
+    tokens: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
+    cost: number;
+    duration: number;
+  }>;
+  bySlice: Array<{
+    sliceId: string;
+    units: number;
+    tokens: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
+    cost: number;
+    duration: number;
+  }>;
+  byModel: Array<{
+    model: string;
+    units: number;
+    tokens: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
+    cost: number;
+  }>;
+  projection: {
+    projectedRemaining: number;
+    avgCostPerSlice: number;
+    remainingSlices: number;
+    completedSlices: number;
+  } | null;
+  recentUnits: Array<{
+    type: string;
+    id: string;
+    model: string;
+    startedAt: number;
+    finishedAt: number;
+    cost: number;
+    toolCalls: number;
+  }>;
+  elapsedMs: number;
 }
 
 // --- Workflow State (parsed from .gsd/STATE.md) ---

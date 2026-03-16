@@ -140,11 +140,12 @@ export function getToolCategory(name: string): ToolCategory {
   const n = name.toLowerCase();
   if (["read", "write", "edit"].includes(n)) return "file";
   if (n === "bg_shell") return "process";
-  if (n === "bash") return "shell";
+  if (n === "bash" || n === "async_bash") return "shell";
   if (n.startsWith("browser_") || n.startsWith("mac_")) return "browser";
   if (["search-the-web", "search_and_read", "fetch_page", "google_search",
-       "resolve_library", "get_library_docs"].includes(n)) return "search";
+       "resolve_library", "get_library_docs", "web_search"].includes(n)) return "search";
   if (n === "subagent") return "agent";
+  if (n.startsWith("github_") || n === "mcp_call" || n === "mcp_discover" || n === "mcp_servers") return "generic";
   return "generic";
 }
 
@@ -153,18 +154,23 @@ export function getToolIcon(name: string, category: ToolCategory): string {
   if (n === "read") return "📄";
   if (n === "write") return "✏️";
   if (n === "edit") return "✂️";
-  if (n === "bash") return "⌨";
+  if (n === "bash" || n === "async_bash") return "⌨";
   if (n === "bg_shell") return "⚙";
   if (n === "subagent") return "🤖";
   if (n.startsWith("browser_")) return "🌐";
   if (n.startsWith("mac_")) return "🖥";
+  if (n.startsWith("github_")) return "🐙";
+  if (n === "mcp_call" || n === "mcp_discover" || n === "mcp_servers") return "🔌";
+  if (n === "ask_user_questions") return "❓";
+  if (n === "secure_env_collect") return "🔒";
+  if (n === "discover_configs") return "🔧";
   if (category === "search") return "🔍";
   return "⚡";
 }
 
 export function getToolKeyArg(name: string, args: Record<string, unknown>): string {
   const n = name.toLowerCase();
-  if (n === "bash" && args.command) return truncateArg(String(args.command), 80);
+  if ((n === "bash" || n === "async_bash") && args.command) return truncateArg(String(args.command), 80);
   if ((n === "read" || n === "write" || n === "edit") && args.path) return truncateArg(String(args.path), 80);
   if (n === "browser_navigate" && args.url) return truncateArg(String(args.url), 60);
   if (n === "browser_click" && args.selector) return truncateArg(String(args.selector), 60);
@@ -217,12 +223,126 @@ export function formatToolResult(toolName: string, resultText: string, args: Rec
   return resultText;
 }
 
+// ============================================================
+// Subagent formatting helpers
+// ============================================================
+
+function formatTokenCount(count: number): string {
+  if (count < 1000) return count.toString();
+  if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
+  if (count < 1000000) return `${Math.round(count / 1000)}k`;
+  return `${(count / 1000000).toFixed(1)}M`;
+}
+
+function buildUsagePills(usage: any, model?: string): string {
+  if (!usage) return "";
+  const pills: string[] = [];
+  if (usage.turns) pills.push(`${usage.turns} turn${usage.turns > 1 ? "s" : ""}`);
+  if (usage.input) pills.push(`↑${formatTokenCount(usage.input)}`);
+  if (usage.output) pills.push(`↓${formatTokenCount(usage.output)}`);
+  if (usage.cost) pills.push(`$${(Number(usage.cost) || 0).toFixed(4)}`);
+  if (model) pills.push(model);
+  if (pills.length === 0) return "";
+  return `<div class="gsd-agent-usage">${pills.map(p => `<span class="gsd-agent-pill">${escapeHtml(p)}</span>`).join("")}</div>`;
+}
+
+function buildAgentCard(r: any, _isRunning: boolean): string {
+  const running = r.exitCode === -1;
+  const failed = !running && (r.exitCode !== 0 || r.stopReason === "error" || r.stopReason === "aborted");
+  const _done = !running && !failed;
+
+  const stateClass = running ? "running" : failed ? "error" : "done";
+  const icon = running
+    ? `<span class="gsd-tool-spinner"></span>`
+    : failed
+      ? `<span class="gsd-agent-icon error">✗</span>`
+      : `<span class="gsd-agent-icon done">✓</span>`;
+
+  const taskPreview = r.task
+    ? (r.task.length > 120 ? r.task.slice(0, 120) + "…" : r.task)
+    : "";
+
+  let html = `<div class="gsd-agent-card ${stateClass}">`;
+  html += `<div class="gsd-agent-header">`;
+  html += `<div class="gsd-agent-header-left">${icon}<span class="gsd-agent-name">${escapeHtml(r.agent)}</span></div>`;
+  html += buildUsagePills(r.usage, r.model);
+  html += `</div>`;
+
+  if (taskPreview) {
+    html += `<div class="gsd-agent-task">${escapeHtml(taskPreview)}</div>`;
+  }
+
+  if (failed && r.errorMessage) {
+    html += `<div class="gsd-agent-error">${escapeHtml(r.errorMessage)}</div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
 /** Build rich HTML for subagent results instead of plain text */
 export function buildSubagentOutputHtml(tc: ToolCallState): string {
   const text = tc.resultText;
   const args = tc.args;
-  const mode = args.chain ? "chain" : args.tasks ? "parallel" : "single";
+  const details = tc.details as { mode?: string; results?: any[] } | undefined;
+  const mode = details?.mode || (args.chain ? "chain" : args.tasks ? "parallel" : "single");
+  const results = details?.results;
 
+  // If we have structured details with per-agent results, render cards
+  if (results && results.length > 0) {
+    const running = results.filter((r: any) => r.exitCode === -1).length;
+    const done = results.filter((r: any) => r.exitCode !== -1 && r.exitCode === 0).length;
+    const failed = results.filter((r: any) => r.exitCode > 0 || r.stopReason === "error").length;
+    const total = results.length;
+
+    let html = `<div class="gsd-subagent-panel">`;
+
+    // Summary bar
+    const modeLabel = mode === "chain" ? "Chain" : mode === "parallel" ? "Parallel" : "Agent";
+    const statusParts: string[] = [];
+    if (done > 0) statusParts.push(`<span class="gsd-agent-stat done">${done} done</span>`);
+    if (running > 0) statusParts.push(`<span class="gsd-agent-stat running">${running} running</span>`);
+    if (failed > 0) statusParts.push(`<span class="gsd-agent-stat error">${failed} failed</span>`);
+    html += `<div class="gsd-subagent-summary">`;
+    html += `<span class="gsd-subagent-mode">${escapeHtml(modeLabel)}</span>`;
+    html += `<span class="gsd-subagent-counts">${statusParts.join(`<span class="gsd-agent-sep">·</span>`)}</span>`;
+    html += `<span class="gsd-subagent-total">${done + failed}/${total}</span>`;
+    html += `</div>`;
+
+    // Agent cards
+    html += `<div class="gsd-agent-cards">`;
+    for (const r of results) {
+      html += buildAgentCard(r, tc.isRunning);
+    }
+    html += `</div>`;
+
+    // Aggregate usage for completed runs
+    if (!tc.isRunning) {
+      const totalUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+      for (const r of results) {
+        if (r.usage) {
+          totalUsage.input += r.usage.input || 0;
+          totalUsage.output += r.usage.output || 0;
+          totalUsage.cost += r.usage.cost || 0;
+          totalUsage.turns += r.usage.turns || 0;
+        }
+      }
+      if (totalUsage.turns > 0) {
+        html += `<div class="gsd-subagent-footer">${buildUsagePills(totalUsage)}</div>`;
+      }
+    }
+
+    html += `</div>`;
+
+    // If completed, also render the final output as markdown below
+    if (!tc.isRunning && text) {
+      html += `<div class="gsd-subagent-result">${renderMarkdown(text)}</div>`;
+    }
+
+    return html;
+  }
+
+  // Fallback: no structured details, use legacy rendering
   if (tc.isRunning) {
     const agentName = (args.agent as string) ||
                       (args.chain as any[])?.[0]?.agent ||
@@ -350,8 +470,73 @@ export function formatShortDate(iso: string): string {
   }
 }
 
-export function scrollToBottom(container: HTMLElement, force = false): void {
-  if (force || container.scrollHeight - container.scrollTop - container.clientHeight < 150) {
-    container.scrollTop = container.scrollHeight;
+/**
+ * Auto-scroll to bottom of the message container.
+ *
+ * Uses intent-based tracking: we track whether the user has actively scrolled
+ * away from the bottom (userScrolledUp). Auto-scroll is suppressed when the
+ * user has scrolled up, and re-enabled when they scroll back near the bottom
+ * or click the scroll FAB.
+ *
+ * The `force` parameter bypasses intent tracking (used for user messages,
+ * new sessions, etc.).
+ */
+let _userScrolledUp = false;
+let _lastScrollTop = 0;
+let _scrollContainer: HTMLElement | null = null;
+let _scrollHandler: (() => void) | null = null;
+let _programmaticScroll = false;
+
+export function initAutoScroll(container: HTMLElement): void {
+  // If already attached to this container, skip
+  if (_scrollContainer === container) return;
+
+  // Detach from previous container if any
+  if (_scrollContainer && _scrollHandler) {
+    _scrollContainer.removeEventListener("scroll", _scrollHandler);
   }
+
+  _lastScrollTop = container.scrollTop;
+  _scrollContainer = container;
+
+  _scrollHandler = () => {
+    // Ignore scroll events triggered by our own scrollToBottom calls
+    if (_programmaticScroll) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const distFromBottom = scrollHeight - scrollTop - clientHeight;
+
+    if (scrollTop < _lastScrollTop && distFromBottom > 50) {
+      // User actively scrolled up and is meaningfully away from bottom
+      _userScrolledUp = true;
+    } else if (distFromBottom < 30) {
+      // User has reached the bottom (manually or content caught up)
+      _userScrolledUp = false;
+    }
+    _lastScrollTop = scrollTop;
+  };
+
+  container.addEventListener("scroll", _scrollHandler, { passive: true });
+}
+
+/** Reset scroll tracking (e.g. new session, clear messages) */
+export function resetAutoScroll(): void {
+  _userScrolledUp = false;
+  _lastScrollTop = 0;
+}
+
+/** Check if auto-scroll is currently suppressed by user intent */
+export function isAutoScrollSuppressed(): boolean {
+  return _userScrolledUp;
+}
+
+export function scrollToBottom(container: HTMLElement, force = false): void {
+  if (force) {
+    _userScrolledUp = false;
+  }
+  if (_userScrolledUp) return;
+  _programmaticScroll = true;
+  container.scrollTop = container.scrollHeight;
+  _lastScrollTop = container.scrollTop;
+  _programmaticScroll = false;
 }

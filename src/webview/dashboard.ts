@@ -2,7 +2,7 @@
 // Dashboard Panel — renders GSD project status dashboard
 // ============================================================
 
-import type { DashboardData, DashboardSlice } from "../shared/types";
+import type { DashboardData, DashboardSlice, DashboardMetrics } from "../shared/types";
 import { escapeHtml, scrollToBottom } from "./helpers";
 import { state } from "./state";
 
@@ -247,7 +247,7 @@ export function renderDashboard(data: DashboardData | null): void {
 
     ${milestoneList(data.milestoneRegistry)}
     ${blockersSection(data.blockers)}
-    ${costSection(data.stats)}
+    ${data.metrics ? metricsSection(data.metrics) : costSection(data.stats)}
     ${nextActionSection(data.nextAction)}
 
     <div class="gsd-dashboard-footer">
@@ -257,6 +257,157 @@ export function renderDashboard(data: DashboardData | null): void {
 
   messagesContainer.appendChild(el);
   scrollToBottom(messagesContainer, true);
+}
+
+// ============================================================
+// Metrics rendering (from .gsd/metrics.json)
+// ============================================================
+
+function metricsSection(m: DashboardMetrics): string {
+  const parts: string[] = [];
+
+  // Totals summary
+  const summaryItems: string[] = [];
+  if (m.totals.cost > 0) summaryItems.push(`<span class="gsd-dash-cost-value">${fmtCost(m.totals.cost)}</span> total`);
+  if (m.totals.tokens.total > 0) summaryItems.push(`${formatTokenCount(m.totals.tokens.total)} tokens`);
+  if (m.totals.toolCalls > 0) summaryItems.push(`${m.totals.toolCalls} tools`);
+  if (m.totals.units > 0) summaryItems.push(`${m.totals.units} units`);
+  if (m.elapsedMs > 0) summaryItems.push(`${fmtDuration(m.elapsedMs)} elapsed`);
+
+  parts.push(`
+    <div class="gsd-dash-section">
+      <div class="gsd-dash-section-title">Cost & Usage</div>
+      <div class="gsd-dash-cost-summary">${summaryItems.join("  ·  ")}</div>
+    </div>
+  `);
+
+  // Projection
+  if (m.projection) {
+    parts.push(`
+      <div class="gsd-dash-section gsd-dash-projection">
+        <div class="gsd-dash-projection-line">Projected remaining: <strong>${fmtCost(m.projection.projectedRemaining)}</strong> (${fmtCost(m.projection.avgCostPerSlice)}/slice avg × ${m.projection.remainingSlices} remaining)</div>
+      </div>
+    `);
+  }
+
+  // Phase breakdown
+  if (m.byPhase.length > 0) {
+    parts.push(breakdownTable("By Phase", m.byPhase.map(p => ({
+      label: p.phase.charAt(0).toUpperCase() + p.phase.slice(1),
+      cost: p.cost,
+      tokens: p.tokens.total,
+      units: p.units,
+      duration: p.duration,
+    }))));
+  }
+
+  // Slice breakdown
+  if (m.bySlice.length > 0) {
+    parts.push(breakdownTable("By Slice", m.bySlice.map(s => ({
+      label: s.sliceId,
+      cost: s.cost,
+      tokens: s.tokens.total,
+      units: s.units,
+      duration: s.duration,
+    }))));
+  }
+
+  // Model breakdown
+  if (m.byModel.length > 0) {
+    parts.push(breakdownTable("By Model", m.byModel.map(mo => ({
+      label: mo.model.replace(/^.*\//, ""), // strip provider prefix
+      cost: mo.cost,
+      tokens: mo.tokens.total,
+      units: mo.units,
+    }))));
+  }
+
+  // Activity log
+  if (m.recentUnits.length > 0) {
+    const rows = m.recentUnits.map(u => {
+      const dur = u.finishedAt - u.startedAt;
+      return `<div class="gsd-dash-activity-row">
+        <span class="gsd-dash-activity-type">${escapeHtml(u.type.replace(/-/g, " "))}</span>
+        <span class="gsd-dash-activity-id">${escapeHtml(u.id)}</span>
+        <span class="gsd-dash-activity-cost">${fmtCost(u.cost)}</span>
+        <span class="gsd-dash-activity-dur">${fmtDuration(dur)}</span>
+      </div>`;
+    }).join("");
+
+    parts.push(`
+      <div class="gsd-dash-section">
+        <div class="gsd-dash-section-title">Activity Log</div>
+        <div class="gsd-dash-activity${m.recentUnits.length > 10 ? " gsd-dash-activity-scroll" : ""}">${rows}</div>
+      </div>
+    `);
+  }
+
+  return parts.join("");
+}
+
+interface BreakdownRow {
+  label: string;
+  cost: number;
+  tokens: number;
+  units: number;
+  duration?: number;
+}
+
+function breakdownTable(title: string, rows: BreakdownRow[]): string {
+  // Compact mode: ≤2 rows collapse to inline
+  if (rows.length <= 2) {
+    const inline = rows.map(r =>
+      `<span class="gsd-dash-inline-breakdown">${escapeHtml(r.label)}: ${fmtCost(r.cost)}</span>`
+    ).join("  ·  ");
+    return `
+      <div class="gsd-dash-section">
+        <div class="gsd-dash-section-title">${escapeHtml(title)}</div>
+        <div class="gsd-dash-cost-summary">${inline}</div>
+      </div>
+    `;
+  }
+
+  const tableRows = rows.map(r => `
+    <tr>
+      <td>${escapeHtml(r.label)}</td>
+      <td class="gsd-dash-num">${fmtCost(r.cost)}</td>
+      <td class="gsd-dash-num">${formatTokenCount(r.tokens)}</td>
+      <td class="gsd-dash-num">${r.units}</td>
+      ${r.duration != null ? `<td class="gsd-dash-num">${fmtDuration(r.duration)}</td>` : ""}
+    </tr>
+  `).join("");
+
+  const hasDuration = rows.some(r => r.duration != null);
+  return `
+    <div class="gsd-dash-section">
+      <div class="gsd-dash-section-title">${escapeHtml(title)}</div>
+      <table class="gsd-dash-table">
+        <thead><tr>
+          <th></th><th>Cost</th><th>Tokens</th><th>Units</th>
+          ${hasDuration ? "<th>Time</th>" : ""}
+        </tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function fmtCost(cost: number): string {
+  const n = Number(cost) || 0;
+  if (n < 0.01) return `$${n.toFixed(4)}`;
+  if (n < 1) return `$${n.toFixed(3)}`;
+  return `$${n.toFixed(2)}`;
+}
+
+function fmtDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rs = s % 60;
+  if (m < 60) return `${m}m ${rs}s`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return `${h}h ${rm}m`;
 }
 
 export function formatTokenCount(n: number): string {
@@ -317,7 +468,17 @@ export function updateWelcomeScreen(): void {
       `<span>/ for commands</span>`,
     ].join('<span class="gsd-hint-sep">•</span>');
     welcomeHints.style.display = "flex";
+
+    // Show resume button when process is ready
+    const resumeChip = document.querySelector(".gsd-resume-chip") as HTMLElement | null;
+    if (resumeChip) {
+      resumeChip.style.display = "";
+    }
   } else {
     welcomeHints.style.display = "none";
+    const resumeChip = document.querySelector(".gsd-resume-chip") as HTMLElement | null;
+    if (resumeChip) {
+      resumeChip.style.display = "none";
+    }
   }
 }

@@ -25,6 +25,10 @@ export interface ToolCallState {
   isRunning: boolean;
   startTime: number;
   endTime?: number;
+  /** Structured details from tool (e.g. subagent per-agent results) */
+  details?: any;
+  /** True when this tool executed concurrently with other tools */
+  isParallel?: boolean;
 }
 
 /** A segment in the sequential stream — text, thinking, or tool call */
@@ -42,6 +46,8 @@ export interface AssistantTurn {
   toolCalls: Map<string, ToolCallState>;
   isComplete: boolean;
   timestamp: number;
+  /** True when this turn was detected as a stale background job echo */
+  isStaleEcho?: boolean;
 }
 
 export interface ChatEntry {
@@ -79,8 +85,10 @@ export interface AppState {
   images: ImageAttachment[];
   files: FileAttachment[];
   useCtrlEnterToSend: boolean;
+  theme: string;
   cwd: string;
   version: string;
+  extensionVersion: string;
   sessionStats: SessionStats;
   commands: CommandInfo[];
   commandsLoaded: boolean;
@@ -115,8 +123,10 @@ export const state: AppState = {
   images: [],
   files: [],
   useCtrlEnterToSend: false,
+  theme: "classic",
   cwd: "",
   version: "",
+  extensionVersion: "",
   sessionStats: {},
   commands: [],
   commandsLoaded: false,

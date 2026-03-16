@@ -40,7 +40,6 @@ let vscode: { postMessage(msg: unknown): void };
 let messagesContainer: HTMLElement;
 let welcomeScreen: HTMLElement;
 let promptInput: HTMLTextAreaElement;
-let toolWatchdogTimers: Map<string, ReturnType<typeof setTimeout>>;
 
 // Callbacks into index.ts UI functions
 let updateAllUI: () => void;
@@ -52,15 +51,12 @@ let updateWorkflowBadge: (wf: any) => void;
 let handleModelRouted: (oldModel: any, newModel: any) => void;
 let autoResize: () => void;
 let announceToScreenReader: (text: string) => void;
-let startToolWatchdog: (toolCallId: string) => void;
-let clearToolWatchdog: (toolCallId: string) => void;
 
 export interface MessageHandlerDeps {
   vscode: { postMessage(msg: unknown): void };
   messagesContainer: HTMLElement;
   welcomeScreen: HTMLElement;
   promptInput: HTMLTextAreaElement;
-  toolWatchdogTimers: Map<string, ReturnType<typeof setTimeout>>;
   updateAllUI: () => void;
   updateHeaderUI: () => void;
   updateFooterUI: () => void;
@@ -70,8 +66,6 @@ export interface MessageHandlerDeps {
   handleModelRouted: (oldModel: any, newModel: any) => void;
   autoResize: () => void;
   announceToScreenReader: (text: string) => void;
-  startToolWatchdog: (toolCallId: string) => void;
-  clearToolWatchdog: (toolCallId: string) => void;
 }
 
 export function init(deps: MessageHandlerDeps): void {
@@ -79,7 +73,6 @@ export function init(deps: MessageHandlerDeps): void {
   messagesContainer = deps.messagesContainer;
   welcomeScreen = deps.welcomeScreen;
   promptInput = deps.promptInput;
-  toolWatchdogTimers = deps.toolWatchdogTimers;
   updateAllUI = deps.updateAllUI;
   updateHeaderUI = deps.updateHeaderUI;
   updateFooterUI = deps.updateFooterUI;
@@ -89,8 +82,6 @@ export function init(deps: MessageHandlerDeps): void {
   handleModelRouted = deps.handleModelRouted;
   autoResize = deps.autoResize;
   announceToScreenReader = deps.announceToScreenReader;
-  startToolWatchdog = deps.startToolWatchdog;
-  clearToolWatchdog = deps.clearToolWatchdog;
 
   window.addEventListener("message", handleMessage);
 }
@@ -110,6 +101,10 @@ function handleMessage(event: MessageEvent): void {
     case "config": {
       const data = msg;
       state.useCtrlEnterToSend = data.useCtrlEnterToSend ?? false;
+      if (data.theme) {
+        state.theme = data.theme;
+        try { applyTheme(data.theme); } catch (e) { console.warn("applyTheme error:", e); }
+      }
       if (data.cwd) state.cwd = data.cwd;
       if (data.version) state.version = data.version;
       if (data.extensionVersion) {
@@ -248,11 +243,6 @@ function handleMessage(event: MessageEvent): void {
       state.isStreaming = false;
       announceToScreenReader("Response complete.");
       state.processHealth = "responsive";
-      // Clear all tool watchdog timers
-      for (const [, timer] of toolWatchdogTimers) {
-        clearTimeout(timer);
-      }
-      toolWatchdogTimers.clear();
       // Expire any pending UI dialogs — the backend's abort signal fires
       // on agent_end, auto-resolving all pending dialogs to defaults.
       // Mark them so the user sees they're no longer interactive.
@@ -290,8 +280,8 @@ function handleMessage(event: MessageEvent): void {
 
     case "message_update": {
       if (!state.currentTurn) break;
-      const data = msg;
-      const delta = data.assistantMessageEvent || data.delta;
+      const data = msg as any;
+      const delta = data.assistantMessageEvent;
 
       if (delta) {
         if (delta.type === "text_delta" && delta.delta) {
@@ -336,6 +326,13 @@ function handleMessage(event: MessageEvent): void {
     case "tool_execution_start": {
       if (!state.currentTurn) break;
       const data = msg;
+
+      // Detect parallel execution: if any other tool is already running, both are parallel
+      const runningTools: ToolCallState[] = [];
+      for (const [, existing] of state.currentTurn.toolCalls) {
+        if (existing.isRunning) runningTools.push(existing);
+      }
+
       const tc: ToolCallState = {
         id: data.toolCallId,
         name: data.toolName,
@@ -344,13 +341,23 @@ function handleMessage(event: MessageEvent): void {
         isError: false,
         isRunning: true,
         startTime: Date.now(),
+        isParallel: runningTools.length > 0,
       };
+
+      // Mark previously-running tools as parallel too (they weren't until now)
+      if (runningTools.length > 0) {
+        for (const rt of runningTools) {
+          if (!rt.isParallel) {
+            rt.isParallel = true;
+            renderer.updateToolSegmentElement(rt.id);
+          }
+        }
+      }
+
       state.currentTurn.toolCalls.set(data.toolCallId, tc);
       const segIdx = state.currentTurn.segments.length;
       state.currentTurn.segments.push({ type: "tool", toolCallId: data.toolCallId });
       renderer.appendToolSegmentElement(tc, segIdx);
-      // Start watchdog timer for this tool
-      startToolWatchdog(data.toolCallId);
       scrollToBottom(messagesContainer);
       break;
     }
@@ -365,6 +372,7 @@ function handleMessage(event: MessageEvent): void {
           .filter(Boolean)
           .join("\n");
         if (text) tc.resultText = text;
+        if (data.partialResult.details) tc.details = data.partialResult.details;
         renderer.updateToolSegmentElement(data.toolCallId);
         scrollToBottom(messagesContainer);
       }
@@ -374,8 +382,6 @@ function handleMessage(event: MessageEvent): void {
     case "tool_execution_end": {
       if (!state.currentTurn) break;
       const data = msg;
-      // Clear watchdog — tool completed normally
-      clearToolWatchdog(data.toolCallId);
       const tc = state.currentTurn.toolCalls.get(data.toolCallId);
       if (tc) {
         tc.isRunning = false;
@@ -390,6 +396,7 @@ function handleMessage(event: MessageEvent): void {
             .filter(Boolean)
             .join("\n");
           if (text) tc.resultText = text;
+          if (data.result.details) tc.details = data.result.details;
         }
       }
       renderer.updateToolSegmentElement(data.toolCallId);
@@ -429,6 +436,65 @@ function handleMessage(event: MessageEvent): void {
       if (!data.success && data.finalError) {
         addSystemEntry(data.finalError, "error");
       }
+      break;
+    }
+
+    case "fallback_provider_switch": {
+      const data = msg as any;
+      const from = data.from || "unknown";
+      const to = data.to || "unknown";
+      const reason = data.reason || "rate limit";
+      toasts.show(`⚠ Model switched: ${from} → ${to} (${reason})`, 5000);
+      // Update model display if we can parse provider/id from the "to" field
+      const parts = to.split("/");
+      if (parts.length >= 2) {
+        state.model = {
+          id: parts.slice(1).join("/"),
+          name: parts.slice(1).join("/"),
+          provider: parts[0],
+          contextWindow: state.model?.contextWindow,
+        };
+        updateHeaderUI();
+      }
+      addSystemEntry(`Provider fallback: ${from} → ${to} (${reason})`, "warning");
+      break;
+    }
+
+    case "fallback_provider_restored": {
+      const data = msg as any;
+      const model = data.model;
+      if (model) {
+        toasts.show(`✓ Original provider restored: ${model.provider}/${model.id}`, 4000);
+        state.model = {
+          id: model.id,
+          name: model.name || model.id,
+          provider: model.provider,
+          contextWindow: model.contextWindow,
+        };
+        updateHeaderUI();
+      } else {
+        toasts.show("✓ Original provider restored", 4000);
+      }
+      break;
+    }
+
+    case "fallback_chain_exhausted": {
+      const data = msg as any;
+      const lastError = data.lastError || "All providers failed";
+      addSystemEntry(`All fallback providers exhausted: ${lastError}. Check your API keys or try again later.`, "error");
+      toasts.show("⚠ All model providers failed", 5000);
+      break;
+    }
+
+    case "session_shutdown": {
+      state.isStreaming = false;
+      state.processStatus = "stopped";
+      // Clean up any in-progress turn
+      if (state.currentTurn) {
+        renderer.finalizeCurrentTurn();
+      }
+      addSystemEntry("Session ended", "info");
+      updateOverlayIndicators();
       break;
     }
 
@@ -520,11 +586,6 @@ function handleMessage(event: MessageEvent): void {
       state.currentTurn = null;
       // Clear auto-progress — process is gone
       autoProgress.update(null);
-      // Clear all tool watchdog timers
-      for (const [, timer] of toolWatchdogTimers) {
-        clearTimeout(timer);
-      }
-      toolWatchdogTimers.clear();
       // Expire any pending dialogs — the process is gone
       if (uiDialogs.hasPending()) {
         uiDialogs.expireAllPending("Process exited");
@@ -651,7 +712,7 @@ function handleMessage(event: MessageEvent): void {
     const errorId = `GSD-ERR-${Date.now().toString(36).toUpperCase()}`;
     console.error(`[${errorId}] Message handler error for "${msg.type}":`, err);
     addSystemEntry(
-      `Internal error processing "${msg.type}" (${errorId}). Check browser console for details. Please report this error code.`,
+      `Internal error processing "${msg.type}" (${errorId}): ${err?.message || err}. Check browser console for details.`,
       "error"
     );
   }
@@ -712,13 +773,14 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
             } else {
               segments.push({ type: "text", chunks: [block.text as string] });
             }
-          } else if (block.type === "tool_use" && block.name) {
+          } else if ((block.type === "tool_use" || block.type === "toolCall") && block.name) {
+            // pi stores tool calls as "toolCall" with "arguments"; Anthropic API uses "tool_use" with "input"
             const toolId = (block.id as string) || nextId();
             const result = toolResults.get(toolId);
             const tc: ToolCallState = {
               id: toolId,
               name: block.name as string,
-              args: (block.input as Record<string, unknown>) || {},
+              args: (block.input as Record<string, unknown>) || (block.arguments as Record<string, unknown>) || {},
               resultText: result?.text || "",
               isError: result?.isError || false,
               isRunning: false,
@@ -776,6 +838,27 @@ function extractMessageText(content: unknown): string {
 }
 
 /**
+// ============================================================
+// Theme
+// ============================================================
+
+function applyTheme(theme: string): void {
+  const app = document.querySelector(".gsd-app");
+  if (app) {
+    app.setAttribute("data-theme", theme);
+  }
+  // Update active state in settings dropdown
+  const dropdown = document.getElementById("settingsDropdown");
+  if (dropdown) {
+    dropdown.querySelectorAll(".gsd-settings-option").forEach(el => {
+      const isActive = (el as HTMLElement).dataset.theme === theme;
+      el.classList.toggle("active", isActive);
+      el.setAttribute("aria-checked", String(isActive));
+    });
+  }
+}
+
+/**
  * Show an inline update card in the chat with release notes and action buttons.
  */
 function showUpdateCard(
@@ -820,7 +903,7 @@ function showUpdateCard(
 
   // Insert at the top of the messages area, after any welcome screen
   messagesContainer.insertBefore(card, messagesContainer.firstChild?.nextSibling || null);
-  scrollToBottom(messagesContainer);
+  card.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 /**
@@ -850,7 +933,7 @@ function showWhatsNew(version: string, notes: string): void {
   });
 
   messagesContainer.insertBefore(card, messagesContainer.firstChild?.nextSibling || null);
-  scrollToBottom(messagesContainer);
+  card.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 /**

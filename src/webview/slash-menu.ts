@@ -160,6 +160,7 @@ function buildItems(): SlashMenuItem[] {
     { name: "new", description: "Start a new conversation", insertText: "", source: "webview" },
     { name: "history", description: "Browse and switch sessions", insertText: "", source: "webview" },
     { name: "copy", description: "Copy last assistant message to clipboard", insertText: "", source: "webview" },
+    { name: "resume", description: "Resume last session", insertText: "", source: "webview" },
     { name: "auto-compact", description: "Toggle auto-compaction on/off", insertText: "", source: "webview" },
   );
 
@@ -229,6 +230,11 @@ function selectCommand(idx: number): void {
         promptInput.value = "";
         onAutoResize();
         onCopyLast?.();
+        break;
+      case "resume":
+        promptInput.value = "";
+        onAutoResize();
+        vscode.postMessage({ type: "resume_last_session" });
         break;
       case "auto-compact":
         promptInput.value = "";
