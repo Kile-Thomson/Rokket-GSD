@@ -9,6 +9,7 @@ import type {
   CommandInfo,
   ProcessStatus,
   ProcessHealthStatus,
+  AutoProgressData,
 } from "../shared/types";
 
 // ============================================================
@@ -90,6 +91,10 @@ export interface AppState {
   currentTurn: AssistantTurn | null;
   // Process health state
   processHealth: ProcessHealthStatus;
+  // Auto-mode progress data (null = not in auto-mode)
+  autoProgress: AutoProgressData | null;
+  // Timestamp of last auto_progress message (for stale-data guard)
+  autoProgressLastUpdate: number;
 }
 
 /** Tool categorization for icons & color accents */
@@ -120,6 +125,8 @@ export const state: AppState = {
   modelsRequested: false,
   currentTurn: null,
   processHealth: "responsive",
+  autoProgress: null,
+  autoProgressLastUpdate: 0,
 };
 
 // ============================================================

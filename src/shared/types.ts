@@ -85,7 +85,9 @@ export type ExtensionToWebviewMessage =
   | { type: "files_attached"; paths: string[] }
   | { type: "dashboard_data"; data: DashboardData | null }
   | { type: "whats_new"; version: string; notes: string }
-  | { type: "changelog"; entries: Array<{ version: string; notes: string; date: string }> };
+  | { type: "changelog"; entries: Array<{ version: string; notes: string; date: string }> }
+  | { type: "auto_progress"; data: AutoProgressData | null }
+  | { type: "model_routed"; oldModel: { id: string; provider: string } | null; newModel: { id: string; provider: string } | null };
 
 // --- Session List Types ---
 
@@ -319,4 +321,33 @@ export interface WorkflowState {
   task: WorkflowStateRef | null;
   phase: string;
   autoMode: string | null;
+}
+
+// --- Auto-Mode Progress Data ---
+
+export interface AutoProgressData {
+  /** Auto-mode state: "auto" | "next" | "paused" */
+  autoState: string;
+  /** Current phase label */
+  phase: string;
+  /** Active milestone info */
+  milestone: { id: string; title: string } | null;
+  /** Active slice info */
+  slice: { id: string; title: string } | null;
+  /** Active task info */
+  task: { id: string; title: string } | null;
+  /** Slice progress */
+  slices: { done: number; total: number };
+  /** Task progress within the active slice */
+  tasks: { done: number; total: number };
+  /** Milestone progress */
+  milestones: { done: number; total: number };
+  /** When auto-mode started (epoch ms), or when this poll was taken */
+  timestamp: number;
+  /** Session cost so far */
+  cost?: number;
+  /** Current model info */
+  model?: { id: string; provider: string } | null;
+  /** Number of pending captures awaiting triage */
+  pendingCaptures?: number;
 }

@@ -119,6 +119,11 @@ function buildItems(): SlashMenuItem[] {
     { name: "gsd stop", desc: "Stop auto-mode", sendOnSelect: true },
 
     { name: "gsd status", desc: "Project dashboard — milestones, slices, tasks", sendOnSelect: true },
+    { name: "gsd visualize", desc: "Open workflow visualizer overlay", sendOnSelect: true },
+    { name: "gsd capture", desc: "Capture a thought during auto-mode" },
+    { name: "gsd steer", desc: "Redirect auto-mode priorities" },
+    { name: "gsd knowledge", desc: "View or add to project knowledge base", sendOnSelect: true },
+    { name: "gsd config", desc: "View or modify GSD configuration", sendOnSelect: true },
     { name: "gsd queue", desc: "Queue future milestones", sendOnSelect: true },
     { name: "gsd discuss", desc: "Discuss without executing", sendOnSelect: true },
     { name: "gsd prefs", desc: "View or set preferences" },

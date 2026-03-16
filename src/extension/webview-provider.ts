@@ -7,6 +7,7 @@ import { listSessions, deleteSession } from "./session-list-service";
 import { downloadAndInstallUpdate, dismissUpdateVersion, fetchReleaseNotes, fetchRecentReleases } from "./update-checker";
 import { parseGsdWorkflowState } from "./state-parser";
 import { buildDashboardData } from "./dashboard-parser";
+import { AutoProgressPoller } from "./auto-progress";
 import type {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
@@ -42,12 +43,18 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private healthState: Map<string, ProcessHealthStatus> = new Map();
   private workflowTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
   private autoModeState: Map<string, string | null> = new Map();
+  private autoProgressPollers: Map<string, AutoProgressPoller> = new Map();
   private promptWatchdogs: Map<string, { timer: ReturnType<typeof setTimeout>; retried: boolean; nonce: number; message: string; images?: Array<{ type: "image"; data: string; mimeType: string }> }> = new Map();
   private promptWatchdogNonce = 0;
+  private slashWatchdogs: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  /** Tracks per-session timestamp of last RPC event received — used by slash command watchdog */
+  private lastEventTime: Map<string, number> = new Map();
   private restartingSession: Set<string> = new Set();
   private sessionWebviews: Map<string, vscode.Webview> = new Map();
   private output: vscode.OutputChannel;
   private sessionCounter = 0;
+  /** The session ID of the current sidebar, for reuse on re-resolve */
+  private sidebarSessionId: string | null = null;
   private gsdVersion: string | undefined;
   private statusCallback?: (status: StatusBarUpdate) => void;
   private lastStatus: StatusBarUpdate = { isStreaming: false };
@@ -97,7 +104,30 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     _token: vscode.CancellationToken
   ): void {
     this.webviewView = webviewView;
-    const sessionId = `sidebar-${++this.sessionCounter}`;
+
+    // Reuse the existing sidebar session if there's a live RPC client.
+    // VS Code calls resolveWebviewView every time the sidebar becomes visible
+    // after being hidden — creating a new session each time would orphan the
+    // old GSD process and leave events bound to a stale webview reference.
+    let sessionId: string;
+    const existingClient = this.sidebarSessionId ? this.rpcClients.get(this.sidebarSessionId) : null;
+    if (this.sidebarSessionId && existingClient?.isRunning) {
+      sessionId = this.sidebarSessionId;
+      // Re-bind the client's event listener to the new webview reference
+      existingClient.removeAllListeners("event");
+      existingClient.on("event", (event: Record<string, unknown>) => {
+        this.handleRpcEvent(webviewView.webview, sessionId, event, existingClient);
+      });
+      this.sessionWebviews.set(sessionId, webviewView.webview);
+      this.output.appendLine(`[${sessionId}] Sidebar re-resolved — reusing existing session`);
+    } else {
+      // Clean up any stale sidebar session
+      if (this.sidebarSessionId) {
+        this.cleanupSession(this.sidebarSessionId);
+      }
+      sessionId = `sidebar-${++this.sessionCounter}`;
+      this.sidebarSessionId = sessionId;
+    }
 
     webviewView.webview.options = {
       enableScripts: true,
@@ -188,6 +218,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       clearTimeout(watchdog.timer);
     }
     this.promptWatchdogs.clear();
+    for (const [_, timer] of this.slashWatchdogs) {
+      clearTimeout(timer);
+    }
+    this.slashWatchdogs.clear();
+    this.lastEventTime.clear();
     for (const [_, client] of this.rpcClients) {
       client.stop();
     }
@@ -218,7 +253,19 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.workflowTimers.delete(sessionId);
     }
     this.autoModeState.delete(sessionId);
+    // Clean up auto-progress poller
+    const autoPoller = this.autoProgressPollers.get(sessionId);
+    if (autoPoller) {
+      autoPoller.dispose();
+      this.autoProgressPollers.delete(sessionId);
+    }
     this.clearPromptWatchdog(sessionId);
+    const slashTimer = this.slashWatchdogs.get(sessionId);
+    if (slashTimer) {
+      clearTimeout(slashTimer);
+      this.slashWatchdogs.delete(sessionId);
+    }
+    this.lastEventTime.delete(sessionId);
     const client = this.rpcClients.get(sessionId);
     if (client) {
       client.stop();
@@ -299,6 +346,62 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       clearTimeout(watchdog.timer);
       this.promptWatchdogs.delete(sessionId);
     }
+  }
+
+  /**
+   * Slash command watchdog — slash commands don't emit agent_start, so the
+   * regular watchdog can't be used. Instead, watch for ANY event arriving
+   * within the timeout. If nothing comes, retry once then notify the user.
+   */
+  private startSlashCommandWatchdog(
+    webview: vscode.Webview,
+    sessionId: string,
+    message: string,
+    images?: Array<{ type: "image"; data: string; mimeType: string }>
+  ): void {
+    // Clear any existing slash watchdog
+    const existing = this.slashWatchdogs.get(sessionId);
+    if (existing) clearTimeout(existing);
+
+    const TIMEOUT_MS = 10_000;
+    const sentAt = Date.now();
+
+    const timer = setTimeout(async () => {
+      this.slashWatchdogs.delete(sessionId);
+
+      // Check if any event arrived since we sent the command
+      const lastEvent = this.lastEventTime.get(sessionId) || 0;
+      if (lastEvent > sentAt) {
+        // Events are flowing — command is alive, no action needed
+        return;
+      }
+
+      const client = this.rpcClients.get(sessionId);
+      if (!client?.isRunning) return;
+
+      // Retry once
+      this.output.appendLine(`[${sessionId}] Slash watchdog: no events after ${TIMEOUT_MS / 1000}s for "${message}" — retrying`);
+      try {
+        await client.prompt(message, images);
+        // Set a second watchdog for the retry
+        const retryTimer = setTimeout(() => {
+          this.slashWatchdogs.delete(sessionId);
+          const lastRetryEvent = this.lastEventTime.get(sessionId) || 0;
+          if (lastRetryEvent > Date.now() - TIMEOUT_MS) return; // events flowing
+
+          this.output.appendLine(`[${sessionId}] Slash watchdog: retry also got no response for "${message}"`);
+          this.postToWebview(webview, {
+            type: "error",
+            message: `Command "${message}" was sent but got no response. Try sending it again.`,
+          } as ExtensionToWebviewMessage);
+        }, TIMEOUT_MS);
+        this.slashWatchdogs.set(sessionId, retryTimer);
+      } catch (err: any) {
+        this.postToWebview(webview, { type: "error", message: err.message });
+      }
+    }, TIMEOUT_MS);
+
+    this.slashWatchdogs.set(sessionId, timer);
   }
 
   /**
@@ -554,9 +657,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                 mimeType: img.mimeType,
               }));
               await c.prompt(msg.message, images);
-              // Don't start watchdog for slash commands — they're handled by pi extensions
-              // internally and don't emit agent_start events, causing false watchdog alarms
-              if (!msg.message.startsWith("/")) {
+              // Slash commands don't emit agent_start (handled by pi extensions),
+              // so the regular watchdog would false-alarm. Instead, start a
+              // slash-command watchdog that just checks if ANY event arrived.
+              if (msg.message.startsWith("/")) {
+                this.startSlashCommandWatchdog(webview, sessionId, msg.message, images);
+              } else {
                 this.startPromptWatchdog(webview, sessionId, msg.message, images);
               }
             } catch (err: any) {
@@ -570,6 +676,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                   }));
                   if (isSlash) {
                     await this.abortAndPrompt(c, webview, msg.message, msg.images);
+                    this.startSlashCommandWatchdog(webview, sessionId, msg.message, imgs);
                   } else {
                     await c.steer(msg.message, imgs);
                   }
@@ -645,6 +752,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
         case "new_conversation": {
           this.cleanupTempFiles();
+          // Clear auto-progress poller on new conversation
+          const newConvPoller = this.autoProgressPollers.get(sessionId);
+          if (newConvPoller) {
+            newConvPoller.onNewConversation();
+          }
           const client = this.rpcClients.get(sessionId);
           if (client?.isRunning) {
             try {
@@ -1299,6 +1411,14 @@ ${exportOverrides}
       }
       this.autoModeState.delete(sessionId);
 
+      // Stop auto-progress poller
+      const autoPoller = this.autoProgressPollers.get(sessionId);
+      if (autoPoller) {
+        autoPoller.onProcessExit();
+        autoPoller.dispose();
+        this.autoProgressPollers.delete(sessionId);
+      }
+
       if (signal !== "SIGTERM" && signal !== "SIGKILL") {
         this.output.appendLine(`[${sessionId}] Unexpected exit — will auto-restart on next prompt`);
       } else {
@@ -1357,6 +1477,30 @@ ${exportOverrides}
       this.startStatsPolling(webview, sessionId);
       this.startHealthMonitoring(webview, sessionId);
       this.startWorkflowPolling(webview, sessionId);
+
+      // Create auto-progress poller (starts polling when setStatus "gsd-auto" arrives)
+      const cwd = workingDir;
+      const autoPoller = new AutoProgressPoller(
+        sessionId,
+        client,
+        webview,
+        () => cwd,
+        this.output,
+        (oldModel, newModel) => {
+          // Model routing detected — notify webview
+          this.output.appendLine(`[${sessionId}] Model routed: ${oldModel?.provider}/${oldModel?.id} → ${newModel?.provider}/${newModel?.id}`);
+          this.postToWebview(webview, {
+            type: "model_routed",
+            oldModel,
+            newModel,
+          } as ExtensionToWebviewMessage);
+          // Also update model badge in status bar
+          if (newModel) {
+            this.emitStatus({ model: newModel.id });
+          }
+        },
+      );
+      this.autoProgressPollers.set(sessionId, autoPoller);
     } catch (err: any) {
       this.postToWebview(webview, {
         type: "process_exit",
@@ -1377,6 +1521,16 @@ ${exportOverrides}
     client: GsdRpcClient
   ): void {
     const eventType = event.type as string;
+
+    // Track event arrival — used by slash command watchdog
+    this.lastEventTime.set(sessionId, Date.now());
+
+    // Clear slash command watchdog on any event — command is alive
+    const slashTimer = this.slashWatchdogs.get(sessionId);
+    if (slashTimer) {
+      clearTimeout(slashTimer);
+      this.slashWatchdogs.delete(sessionId);
+    }
 
     if (eventType === "extension_ui_request") {
       this.handleExtensionUiRequest(webview, sessionId, event, client);
@@ -1510,6 +1664,12 @@ ${exportOverrides}
           const autoMode = event.statusText as string | undefined;
           this.autoModeState.set(sessionId, autoMode || null);
           this.refreshWorkflowState(webview, sessionId);
+
+          // Notify auto-progress poller
+          const poller = this.autoProgressPollers.get(sessionId);
+          if (poller) {
+            poller.onAutoModeChanged(autoMode);
+          }
         }
         this.postToWebview(webview, event as unknown as ExtensionToWebviewMessage);
         break;

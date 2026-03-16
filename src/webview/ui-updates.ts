@@ -360,3 +360,29 @@ export function updateWorkflowBadge(wf: WorkflowState | null): void {
   badge.className = `gsd-workflow-badge${extraClass}`;
   badge.style.display = "inline-flex";
 }
+
+/**
+ * Handle a model routing event — update badge and flash it.
+ * Called when dynamic model routing switches models mid-task.
+ */
+export function handleModelRouted(
+  oldModel: { id: string; provider: string } | null,
+  newModel: { id: string; provider: string } | null,
+): void {
+  if (newModel) {
+    // Update the state model so header reflects new model
+    state.model = {
+      id: newModel.id,
+      name: newModel.id,
+      provider: newModel.provider,
+      contextWindow: state.model?.contextWindow,
+    };
+    updateHeaderUI();
+
+    // Flash the model badge to make the switch visually obvious
+    modelBadge.classList.add("gsd-model-badge-flash");
+    setTimeout(() => {
+      modelBadge.classList.remove("gsd-model-badge-flash");
+    }, 1500);
+  }
+}
