@@ -130,6 +130,8 @@ function buildItems(): SlashMenuItem[] {
     { name: "gsd doctor", desc: "Diagnose and fix issues" },
     { name: "gsd migrate", desc: "Migrate project artifacts" },
     { name: "gsd remote", desc: "Remote question channels (Slack, Discord)" },
+    { name: "gsd do", desc: "Freeform text — routes natural language to the right command" },
+    { name: "gsd note", desc: "Quick idea capture (append, list, promote)" },
   ];
 
   for (const sub of gsdSubcommands) {
