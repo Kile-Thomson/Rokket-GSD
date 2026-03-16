@@ -45,6 +45,7 @@ const events = [];
 let startTime = null;
 let requestId = 0;
 let lastEventTime = null;
+let shuttingDown = false;
 
 function elapsed() {
   return startTime ? Date.now() - startTime : 0;
@@ -108,7 +109,8 @@ proc.stdout.on("data", (chunk) => {
         gap: gap(),
         type: eventType,
         toolName: msg.toolName || undefined,
-        toolCallId: msg.toolCallId ? "…" + msg.toolCallId.slice(-6) : undefined,
+        toolCallId: msg.toolCallId || undefined,
+        toolCallIdShort: msg.toolCallId ? "…" + msg.toolCallId.slice(-6) : undefined,
         hasPartialResult: eventType === "tool_execution_update" ? !!msg.partialResult : undefined,
         partialLen: msg.partialResult?.content?.[0]?.text?.length || undefined,
       };
@@ -120,11 +122,11 @@ proc.stdout.on("data", (chunk) => {
       if (record.gap > 100) parts.push(`gap=${record.gap}ms`);
       parts.push(eventType);
       if (record.toolName) parts.push(`tool=${record.toolName}`);
-      if (record.toolCallId) parts.push(`id=${record.toolCallId}`);
+      if (record.toolCallIdShort) parts.push(`id=${record.toolCallIdShort}`);
       if (record.partialLen) parts.push(`partial=${record.partialLen}ch`);
 
       // Highlight gaps > 1s
-      const prefix = record.gap > 1000 ? "⚠️ " : record.gap > 5000 ? "🔴" : "  ";
+      const prefix = record.gap > 5000 ? "🔴" : record.gap > 1000 ? "⚠️ " : "  ";
       console.log(`${prefix}${parts.join("  ")}`);
 
       // Response to our request
@@ -149,12 +151,16 @@ proc.stderr.on("data", (chunk) => {
 proc.on("exit", (code, signal) => {
   console.log(`\n📊 Process exited: code=${code} signal=${signal}`);
   printSummary();
-  process.exit(0);
+  process.exit(shuttingDown ? 0 : (code || 1));
 });
 
 // ── RPC helpers ───────────────────────────────────────────────────────
 
 function send(obj) {
+  if (!proc.stdin?.writable) {
+    console.log("⚠ Cannot send — GSD process stdin is not writable");
+    return null;
+  }
   const id = `diag-${++requestId}`;
   const withId = { ...obj, id };
   proc.stdin.write(JSON.stringify(withId) + "\n");
@@ -167,7 +173,11 @@ function sleep(ms) {
 
 // ── Summary ───────────────────────────────────────────────────────────
 
+let summaryPrinted = false;
+
 function printSummary() {
+  if (summaryPrinted) return;
+  summaryPrinted = true;
   console.log("\n" + "=".repeat(70));
   console.log("STREAMING DIAGNOSTIC SUMMARY");
   console.log("=".repeat(70));
@@ -196,7 +206,7 @@ function printSummary() {
       const end = toolEnds.find(e => e.toolCallId === start.toolCallId);
       const updates = toolUpdates.filter(e => e.toolCallId === start.toolCallId);
       const duration = end ? end.t - start.t : "still running";
-      console.log(`  ${start.toolName} (${start.toolCallId}):`);
+      console.log(`  ${start.toolName} (${start.toolCallIdShort || start.toolCallId}):`);
       console.log(`    Duration: ${typeof duration === "number" ? `${duration}ms` : duration}`);
       console.log(`    Updates:  ${updates.length}`);
       if (updates.length > 0) {
@@ -252,11 +262,12 @@ async function run() {
   await sleep(20000);
 
   // Shut down
+  shuttingDown = true;
   console.log("\n" + "─".repeat(70));
   console.log("Shutting down...");
   console.log("─".repeat(70));
 
-  proc.stdin.write(JSON.stringify({ type: "abort", id: "abort-1" }) + "\n");
+  send({ type: "abort" });
   await sleep(2000);
   proc.kill("SIGTERM");
   await sleep(3000);

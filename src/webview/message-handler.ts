@@ -28,6 +28,8 @@ import * as thinkingPicker from "./thinking-picker";
 import * as uiDialogs from "./ui-dialogs";
 import * as toasts from "./toasts";
 import * as dashboard from "./dashboard";
+import * as autoProgress from "./auto-progress";
+import * as visualizer from "./visualizer";
 import * as fileHandling from "./file-handling";
 
 // ============================================================
@@ -46,6 +48,7 @@ let updateFooterUI: () => void;
 let updateInputUI: () => void;
 let updateOverlayIndicators: () => void;
 let updateWorkflowBadge: (wf: any) => void;
+let handleModelRouted: (oldModel: any, newModel: any) => void;
 let autoResize: () => void;
 let announceToScreenReader: (text: string) => void;
 
@@ -60,6 +63,7 @@ export interface MessageHandlerDeps {
   updateInputUI: () => void;
   updateOverlayIndicators: () => void;
   updateWorkflowBadge: (wf: any) => void;
+  handleModelRouted: (oldModel: any, newModel: any) => void;
   autoResize: () => void;
   announceToScreenReader: (text: string) => void;
 }
@@ -75,6 +79,7 @@ export function init(deps: MessageHandlerDeps): void {
   updateInputUI = deps.updateInputUI;
   updateOverlayIndicators = deps.updateOverlayIndicators;
   updateWorkflowBadge = deps.updateWorkflowBadge;
+  handleModelRouted = deps.handleModelRouted;
   autoResize = deps.autoResize;
   announceToScreenReader = deps.announceToScreenReader;
 
@@ -180,7 +185,25 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "dashboard_data": {
-      dashboard.renderDashboard(msg.data);
+      // If visualizer is open, only feed it — don't render inline dashboard
+      if (visualizer.isVisible()) {
+        visualizer.updateData(msg.data);
+      } else {
+        dashboard.renderDashboard(msg.data);
+      }
+      break;
+    }
+
+    case "auto_progress": {
+      autoProgress.update(msg.data);
+      break;
+    }
+
+    case "model_routed": {
+      handleModelRouted(msg.oldModel, msg.newModel);
+      const oldName = msg.oldModel?.id || "unknown";
+      const newName = msg.newModel?.id || "unknown";
+      toasts.show(`Model routed: ${oldName} → ${newName}`, 3000);
       break;
     }
 
@@ -561,6 +584,8 @@ function handleMessage(event: MessageEvent): void {
       state.isRetrying = false;
       state.processHealth = "responsive";
       state.currentTurn = null;
+      // Clear auto-progress — process is gone
+      autoProgress.update(null);
       // Expire any pending dialogs — the process is gone
       if (uiDialogs.hasPending()) {
         uiDialogs.expireAllPending("Process exited");
