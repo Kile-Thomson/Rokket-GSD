@@ -53,6 +53,12 @@ export function init(): void {
     }
   }
 
+  // Clear any prior stale-data guard to prevent duplicate timers
+  if (staleGuardTimer) {
+    clearInterval(staleGuardTimer);
+    staleGuardTimer = null;
+  }
+
   // Start stale-data guard
   staleGuardTimer = setInterval(() => {
     if (state.autoProgress && state.autoProgressLastUpdate > 0) {

@@ -45,6 +45,7 @@ const events = [];
 let startTime = null;
 let requestId = 0;
 let lastEventTime = null;
+let shuttingDown = false;
 
 function elapsed() {
   return startTime ? Date.now() - startTime : 0;
@@ -149,12 +150,16 @@ proc.stderr.on("data", (chunk) => {
 proc.on("exit", (code, signal) => {
   console.log(`\n📊 Process exited: code=${code} signal=${signal}`);
   printSummary();
-  process.exit(0);
+  process.exit(shuttingDown ? 0 : (code || 1));
 });
 
 // ── RPC helpers ───────────────────────────────────────────────────────
 
 function send(obj) {
+  if (!proc.stdin?.writable) {
+    console.log("⚠ Cannot send — GSD process stdin is not writable");
+    return null;
+  }
   const id = `diag-${++requestId}`;
   const withId = { ...obj, id };
   proc.stdin.write(JSON.stringify(withId) + "\n");
@@ -256,11 +261,12 @@ async function run() {
   await sleep(20000);
 
   // Shut down
+  shuttingDown = true;
   console.log("\n" + "─".repeat(70));
   console.log("Shutting down...");
   console.log("─".repeat(70));
 
-  proc.stdin.write(JSON.stringify({ type: "abort", id: "abort-1" }) + "\n");
+  send({ type: "abort" });
   await sleep(2000);
   proc.kill("SIGTERM");
   await sleep(3000);

@@ -36,6 +36,7 @@ let startTime = null;
 let lastEventTime = null;
 let requestId = 0;
 let promptSentTime = null;
+let shuttingDown = false;
 
 function elapsed() { return startTime ? Date.now() - startTime : 0; }
 function gap() { return lastEventTime ? Date.now() - lastEventTime : 0; }
@@ -125,10 +126,14 @@ proc.stderr.on("data", (chunk) => {
 proc.on("exit", (code, signal) => {
   console.log(`\n📊 Process exited: code=${code} signal=${signal}`);
   printSummary();
-  process.exit(0);
+  process.exit(shuttingDown ? 0 : (code || 1));
 });
 
 function send(obj) {
+  if (!proc.stdin?.writable) {
+    console.log("⚠ Cannot send — GSD process stdin is not writable");
+    return null;
+  }
   const id = `diag-${++requestId}`;
   proc.stdin.write(JSON.stringify({ ...obj, id }) + "\n");
   return id;
@@ -218,6 +223,7 @@ async function run() {
     await sleep(3000);
   }
 
+  shuttingDown = true;
   console.log("\nShutting down...");
   proc.kill("SIGTERM");
   await sleep(2000);
