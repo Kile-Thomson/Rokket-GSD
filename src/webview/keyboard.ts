@@ -79,6 +79,9 @@ export function init(deps: KeyboardDeps): void {
 
 function setupKeyboardHandlers(): void {
   promptInput.addEventListener("keydown", (e: KeyboardEvent) => {
+    // Block prompt input while visualizer overlay is open
+    if (visualizer.isVisible()) return;
+
     if (sessionHistory.isVisible()) {
       if (sessionHistory.handleKeyDown(e)) return;
     }

@@ -18,6 +18,9 @@ let widgetEl: HTMLElement | null = null;
 let staleGuardTimer: ReturnType<typeof setInterval> | null = null;
 let elapsedTimer: ReturnType<typeof setInterval> | null = null;
 
+/** Stable start time for elapsed counter — set once when auto-mode starts */
+let autoStartTime: number = 0;
+
 /** Stale data threshold — hide widget if no update for 30 seconds */
 const STALE_THRESHOLD_MS = 30_000;
 
@@ -67,9 +70,17 @@ export function init(): void {
  * Handle an auto_progress message from the extension host.
  */
 export function update(data: AutoProgressData | null): void {
+  const wasNull = state.autoProgress === null;
   state.autoProgress = data;
   if (data) {
     state.autoProgressLastUpdate = Date.now();
+    // Set start time when auto-mode first activates (or re-activates after stop)
+    if (wasNull || autoStartTime === 0) {
+      autoStartTime = data.timestamp || Date.now();
+    }
+  } else {
+    // Reset start time when auto-mode stops
+    autoStartTime = 0;
   }
   render();
 }
@@ -142,7 +153,7 @@ function render(): void {
         <span class="gsd-auto-progress-mode">${modeIcon}</span>
         <span class="gsd-auto-progress-phase">${escapeHtml(phase)}</span>
         <span class="gsd-auto-progress-target">${targetLine}</span>
-        <span class="gsd-auto-progress-elapsed" data-timestamp="${data.timestamp}"></span>
+        <span class="gsd-auto-progress-elapsed" data-timestamp="${autoStartTime}"></span>
       </div>
       <div class="gsd-auto-progress-row gsd-auto-progress-detail">
         ${progressHtml}

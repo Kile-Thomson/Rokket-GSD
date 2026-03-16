@@ -370,12 +370,17 @@ export function handleModelRouted(
   newModel: { id: string; provider: string } | null,
 ): void {
   if (newModel) {
+    // Look up the routed model's metadata from available models
+    const routed = state.availableModels.find(
+      (m) => m.id === newModel.id && m.provider === newModel.provider
+    );
+
     // Update the state model so header reflects new model
     state.model = {
       id: newModel.id,
-      name: newModel.id,
+      name: routed?.name ?? newModel.id,
       provider: newModel.provider,
-      contextWindow: state.model?.contextWindow,
+      contextWindow: routed?.contextWindow,
     };
     updateHeaderUI();
 

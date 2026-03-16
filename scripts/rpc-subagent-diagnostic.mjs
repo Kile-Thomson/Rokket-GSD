@@ -136,7 +136,11 @@ function send(obj) {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+let summaryPrinted = false;
+
 function printSummary() {
+  if (summaryPrinted) return;
+  summaryPrinted = true;
   console.log("\n" + "=".repeat(70));
   console.log("SUBAGENT STREAMING DIAGNOSTIC SUMMARY");
   console.log("=".repeat(70));

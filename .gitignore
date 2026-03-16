@@ -37,8 +37,6 @@ nul
 .gsd/metrics.json
 .gsd/completed-units.json
 .gsd/STATE.md
-
-# ── GSD baseline (auto-generated) ──
 .gsd/gsd.db
 .gsd/DISCUSSION-MANIFEST.json
 .gsd/milestones/**/*-CONTINUE.md

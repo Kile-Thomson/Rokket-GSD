@@ -124,7 +124,7 @@ proc.stdout.on("data", (chunk) => {
       if (record.partialLen) parts.push(`partial=${record.partialLen}ch`);
 
       // Highlight gaps > 1s
-      const prefix = record.gap > 1000 ? "⚠️ " : record.gap > 5000 ? "🔴" : "  ";
+      const prefix = record.gap > 5000 ? "🔴" : record.gap > 1000 ? "⚠️ " : "  ";
       console.log(`${prefix}${parts.join("  ")}`);
 
       // Response to our request
@@ -167,7 +167,11 @@ function sleep(ms) {
 
 // ── Summary ───────────────────────────────────────────────────────────
 
+let summaryPrinted = false;
+
 function printSummary() {
+  if (summaryPrinted) return;
+  summaryPrinted = true;
   console.log("\n" + "=".repeat(70));
   console.log("STREAMING DIAGNOSTIC SUMMARY");
   console.log("=".repeat(70));
