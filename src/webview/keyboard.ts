@@ -9,6 +9,7 @@ import * as slashMenu from "./slash-menu";
 import * as modelPicker from "./model-picker";
 import * as thinkingPicker from "./thinking-picker";
 import * as sessionHistory from "./session-history";
+import * as visualizer from "./visualizer";
 import * as toasts from "./toasts";
 import * as renderer from "./renderer";
 // messageHandler used indirectly via callbacks
@@ -78,6 +79,9 @@ export function init(deps: KeyboardDeps): void {
 
 function setupKeyboardHandlers(): void {
   promptInput.addEventListener("keydown", (e: KeyboardEvent) => {
+    // Block prompt input while visualizer overlay is open
+    if (visualizer.isVisible()) return;
+
     if (sessionHistory.isVisible()) {
       if (sessionHistory.handleKeyDown(e)) return;
     }
@@ -122,6 +126,9 @@ function setupKeyboardHandlers(): void {
 
   // Global keyboard handler for overlay panels
   document.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (visualizer.isVisible()) {
+      if (visualizer.handleKeyDown(e)) return;
+    }
     if (sessionHistory.isVisible()) {
       if (sessionHistory.handleKeyDown(e)) return;
     }

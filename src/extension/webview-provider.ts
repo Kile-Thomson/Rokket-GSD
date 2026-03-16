@@ -8,6 +8,7 @@ import { downloadAndInstallUpdate, dismissUpdateVersion, fetchReleaseNotes, fetc
 import { parseGsdWorkflowState } from "./state-parser";
 import { buildDashboardData } from "./dashboard-parser";
 import { loadMetricsLedger, buildMetricsData } from "./metrics-parser";
+import { AutoProgressPoller } from "./auto-progress";
 import { createSessionState, cleanupSessionState, type SessionState } from "./session-state";
 import type {
   WebviewToExtensionMessage,
@@ -1620,6 +1621,24 @@ ${exportOverrides}
       this.getSession(sessionId).client = client;
       this.output.appendLine(`[${sessionId}] GSD started in ${workingDir}`);
 
+      // Create auto-progress poller for this session
+      const autoPoller = new AutoProgressPoller(
+        sessionId,
+        client,
+        webview,
+        () => workingDir,
+        this.output,
+        (oldModel, newModel) => {
+          // Forward model routing changes to webview
+          this.postToWebview(webview, {
+            type: "model_routed",
+            oldModel,
+            newModel,
+          } as ExtensionToWebviewMessage);
+        },
+      );
+      this.getSession(sessionId).autoProgressPoller = autoPoller;
+
       // Get initial state — this blocks until the process is actually ready
       // (extensions loaded, input handler attached). Only then do we announce "running".
       try {
@@ -1967,6 +1986,11 @@ ${exportOverrides}
           const autoMode = event.statusText as string | undefined;
           this.getSession(sessionId).autoModeState = autoMode || null;
           this.refreshWorkflowState(webview, sessionId);
+          // Forward to auto-progress poller
+          const poller = this.getSession(sessionId).autoProgressPoller;
+          if (poller) {
+            poller.onAutoModeChanged(autoMode);
+          }
         }
         this.postToWebview(webview, event as unknown as ExtensionToWebviewMessage);
         break;
