@@ -36,6 +36,7 @@ let startTime = null;
 let lastEventTime = null;
 let requestId = 0;
 let promptSentTime = null;
+let shuttingDown = false;
 
 function elapsed() { return startTime ? Date.now() - startTime : 0; }
 function gap() { return lastEventTime ? Date.now() - lastEventTime : 0; }
@@ -88,7 +89,8 @@ proc.stdout.on("data", (chunk) => {
         sincePrompt,
         type: eventType,
         toolName: msg.toolName || undefined,
-        toolCallId: msg.toolCallId ? "…" + msg.toolCallId.slice(-6) : undefined,
+        toolCallId: msg.toolCallId || undefined,
+        toolCallIdShort: msg.toolCallId ? "…" + msg.toolCallId.slice(-6) : undefined,
         partialLen: msg.partialResult?.content?.[0]?.text?.length || undefined,
       };
       events.push(record);
@@ -106,7 +108,7 @@ proc.stdout.on("data", (chunk) => {
         if (record.gap > 2000) parts.push(`⚠️GAP=${(record.gap/1000).toFixed(1)}s`);
         parts.push(eventType);
         if (record.toolName) parts.push(`tool=${record.toolName}`);
-        if (record.toolCallId) parts.push(`id=${record.toolCallId}`);
+        if (record.toolCallIdShort) parts.push(`id=${record.toolCallIdShort}`);
         if (record.partialLen) parts.push(`partial=${record.partialLen}ch`);
         if (eventType === "response") parts.push(`cmd=${msg.command} ok=${msg.success}`);
         console.log(`  ${parts.join("  ")}`);
@@ -125,10 +127,14 @@ proc.stderr.on("data", (chunk) => {
 proc.on("exit", (code, signal) => {
   console.log(`\n📊 Process exited: code=${code} signal=${signal}`);
   printSummary();
-  process.exit(0);
+  process.exit(shuttingDown ? 0 : (code || 1));
 });
 
 function send(obj) {
+  if (!proc.stdin?.writable) {
+    console.log("⚠ Cannot send — GSD process stdin is not writable");
+    return null;
+  }
   const id = `diag-${++requestId}`;
   proc.stdin.write(JSON.stringify({ ...obj, id }) + "\n");
   return id;
@@ -136,7 +142,11 @@ function send(obj) {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+let summaryPrinted = false;
+
 function printSummary() {
+  if (summaryPrinted) return;
+  summaryPrinted = true;
   console.log("\n" + "=".repeat(70));
   console.log("SUBAGENT STREAMING DIAGNOSTIC SUMMARY");
   console.log("=".repeat(70));
@@ -159,7 +169,7 @@ function printSummary() {
       const end = toolEnds.find(e => e.toolCallId === start.toolCallId);
       const updates = toolUpdates.filter(e => e.toolCallId === start.toolCallId);
       const duration = end ? end.t - start.t : "still running";
-      console.log(`  ${start.toolName} (${start.toolCallId}): ${typeof duration === "number" ? `${(duration/1000).toFixed(1)}s` : duration}, ${updates.length} updates`);
+      console.log(`  ${start.toolName} (${start.toolCallIdShort || start.toolCallId}): ${typeof duration === "number" ? `${(duration/1000).toFixed(1)}s` : duration}, ${updates.length} updates`);
       if (updates.length > 0) {
         const gaps = updates.map(u => u.gap);
         console.log(`    Update gaps: min=${(Math.min(...gaps)/1000).toFixed(1)}s max=${(Math.max(...gaps)/1000).toFixed(1)}s`);
@@ -214,6 +224,7 @@ async function run() {
     await sleep(3000);
   }
 
+  shuttingDown = true;
   console.log("\nShutting down...");
   proc.kill("SIGTERM");
   await sleep(2000);
