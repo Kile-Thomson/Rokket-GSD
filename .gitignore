@@ -39,3 +39,6 @@ nul
 .gsd/completed-units.json
 .gsd/STATE.md
 scripts/*-results.json
+
+# ── Dropbox conflicted copies ──
+*conflicted copy*
