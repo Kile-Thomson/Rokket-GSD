@@ -3,7 +3,6 @@ dist/
 *.vsix
 .vscode-test/
 .bg-shell/
-.gsd/
 .DS_Store
 Thumbs.db
 *.swp
@@ -42,3 +41,11 @@ scripts/*-results.json
 
 # ── Dropbox conflicted copies ──
 *conflicted copy*
+
+# ── GSD baseline (auto-generated) ──
+.gsd/forensics/
+.gsd/parallel/
+.gsd/gsd.db
+.gsd/DISCUSSION-MANIFEST.json
+.gsd/milestones/**/*-CONTINUE.md
+.gsd/milestones/**/continue.md

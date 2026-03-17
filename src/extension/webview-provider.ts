@@ -1749,6 +1749,12 @@ ${exportOverrides}
       this.emitStatus({ isStreaming: false });
       this.getSession(sessionId).isStreaming = false;
       this.stopActivityMonitor(sessionId);
+      // Cancel /gsd fallback — the command completed (even without agent_start)
+      const gsdTimer = this.getSession(sessionId).gsdFallbackTimer;
+      if (gsdTimer) {
+        clearTimeout(gsdTimer);
+        this.getSession(sessionId).gsdFallbackTimer = null;
+      }
       // Refresh workflow state after each agent turn
       this.refreshWorkflowState(webview, sessionId);
     } else if (eventType === "message_end") {
@@ -2052,6 +2058,12 @@ ${exportOverrides}
           const autoMode = event.statusText as string | undefined;
           this.getSession(sessionId).autoModeState = autoMode || null;
           this.refreshWorkflowState(webview, sessionId);
+          // Cancel /gsd fallback — setStatus proves the command is working
+          const gsdTimer = this.getSession(sessionId).gsdFallbackTimer;
+          if (gsdTimer) {
+            clearTimeout(gsdTimer);
+            this.getSession(sessionId).gsdFallbackTimer = null;
+          }
           // Forward to auto-progress poller
           const poller = this.getSession(sessionId).autoProgressPoller;
           if (poller) {
