@@ -12,3 +12,4 @@
 | 6 | 2026-03-14 | Auto-mode state comes from setStatus events | `extension_ui_request` with `method: "setStatus"` and `statusKey: "gsd-auto"` carries the auto-mode state. Values: `"auto"`, `"next"`, `"paused"`, or `undefined` (stopped). |
 | 7 | 2026-03-17 | get_state returns current model | When dynamic model routing switches models, `get_state` RPC returns the new model. No explicit "model_changed" event — must poll and compare. |
 | 8 | 2026-03-17 | STATE.md milestone registry format | Parser expects `✅` for done and `⬜` for not-done. Other emoji (🔲, 🚧) won't parse correctly. |
+| 9 | 2026-03-17 | Windows VSIX install from CLI | `code --install-extension` fails silently from bash because path spaces break the .cmd wrapper. Use `powershell.exe -Command "& 'C:\...\code.cmd' --install-extension 'path.vsix' --force"` instead. |
