@@ -1803,9 +1803,16 @@ ${exportOverrides}
   /**
    * Start the /gsd fallback timer — if no agent_start arrived within 500ms,
    * fire the workaround prompt. Must be called AFTER prompt() resolves.
+   * 
+   * Subcommands that work natively in RPC mode (auto, stop, pause, next,
+   * status, steer, remote, prefs, parallel) are excluded — they don't need fallbacks.
    */
+  private static GSD_NATIVE_SUBCOMMANDS = /^\s*\/gsd\s+(auto|stop|pause|next|status|steer|remote|prefs|parallel)\b/i;
+
   private startGsdFallbackTimer(message: string, sessionId: string, webview: vscode.Webview): void {
     if (!GsdWebviewProvider.GSD_COMMAND_RE.test(message)) return;
+    // Skip fallback for subcommands that work natively in RPC mode
+    if (GsdWebviewProvider.GSD_NATIVE_SUBCOMMANDS.test(message)) return;
     const fallbackTimer = setTimeout(async () => {
       if (this.getSession(sessionId).gsdFallbackTimer !== fallbackTimer) return;
       this.getSession(sessionId).gsdFallbackTimer = null;
