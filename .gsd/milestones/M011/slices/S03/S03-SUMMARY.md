@@ -1,53 +1,19 @@
----
-id: S03
-parent: M011
-milestone: M011
-provides: []
-requires: []
-affects: []
-key_files: []
-key_decisions: []
-patterns_established: []
-observability_surfaces:
-  - none yet — doctor created placeholder summary; replace with real diagnostics before treating as complete
-drill_down_paths: []
-duration: unknown
-verification_result: unknown
-completed_at: 2026-03-17T11:01:17.276Z
----
+# S03: WebviewProvider Decomposition
 
-# S03: Recovery placeholder summary
+**Delivered:** Consolidated 17 per-session Maps into a single SessionState object with centralized cleanup.
 
-**Doctor-created placeholder.**
+## What Was Built
 
-## What Happened
-Doctor detected that all tasks were complete but the slice summary was missing. Replace this with a real compressed slice summary before relying on it.
+- Extracted `SessionState` interface and `createSessionState()`/`cleanupSessionState()` into `session-state.ts`
+- Migrated all `Map<string, ...>` accesses in `webview-provider.ts` to a single `sessions` Map
+- `dispose()` reduced from ~40 lines to 4 lines
+- `cleanupSession()` delegates to `cleanupSessionState()` — no risk of forgetting a field
+- 148 Map access sites converted to typed field access
+- Defensive try/catch in `cleanupSessionState` around `client.stop()` and `disposable.dispose()`
+- Added `async_bash` key arg preview
 
-## Verification
-Not re-run by doctor.
+## Files Modified
 
-## Deviations
-Recovery placeholder created to restore required artifact shape.
-
-## Known Limitations
-This file is intentionally incomplete and should be replaced by a real summary.
-
-## Follow-ups
-- Regenerate this summary from task summaries.
-
-## Files Created/Modified
-- `.gsd/milestones/M011/slices/S03/S03-SUMMARY.md` — doctor-created placeholder summary
-
-## Forward Intelligence
-
-### What the next slice should know
-- Doctor had to reconstruct completion artifacts; inspect task summaries before continuing.
-
-### What's fragile
-- Placeholder summary exists solely to unblock invariant checks.
-
-### Authoritative diagnostics
-- Task summaries in the slice tasks/ directory — they are the actual authoritative source until this summary is rewritten.
-
-### What assumptions changed
-- The system assumed completion would always write a slice summary; in practice doctor may need to restore missing artifacts.
+- `src/extension/session-state.ts` — new module: SessionState interface + factory + cleanup
+- `src/extension/webview-provider.ts` — decomposed from 17 Maps to single sessions Map
+- `.github/workflows/release.yml` — fixed skip condition (check commit author, not message)

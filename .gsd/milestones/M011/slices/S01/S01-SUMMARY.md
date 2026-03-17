@@ -1,53 +1,19 @@
----
-id: S01
-parent: M011
-milestone: M011
-provides: []
-requires: []
-affects: []
-key_files: []
-key_decisions: []
-patterns_established: []
-observability_surfaces:
-  - none yet — doctor created placeholder summary; replace with real diagnostics before treating as complete
-drill_down_paths: []
-duration: unknown
-verification_result: unknown
-completed_at: 2026-03-17T11:01:17.261Z
----
+# S01: Type Safety & Dead Code Cleanup
 
-# S01: Recovery placeholder summary
+**Delivered:** Removed dead code, enforced type coverage on all message types, and deduplicated shared types.
 
-**Doctor-created placeholder.**
+## What Was Built
 
-## What Happened
-Doctor detected that all tasks were complete but the slice summary was missing. Replace this with a real compressed slice summary before relying on it.
+- Removed unused `resetAutoScroll` import (fixed lint CI failure)
+- Added `resume_last_session` to `WebviewToExtensionMessage` type union
+- Removed dead `copy_last_response` from type union (handled client-side)
+- Added `extensionVersion` to `AppState` interface
+- Removed dead tool watchdog code (no-op functions, empty map, init params)
+- Deduplicated `DashboardSlice`/`Task`/`MilestoneRegistryEntry`/`DashboardData` types — `dashboard-parser.ts` now imports from `shared/types.ts` instead of redefining
 
-## Verification
-Not re-run by doctor.
+## Files Modified
 
-## Deviations
-Recovery placeholder created to restore required artifact shape.
-
-## Known Limitations
-This file is intentionally incomplete and should be replaced by a real summary.
-
-## Follow-ups
-- Regenerate this summary from task summaries.
-
-## Files Created/Modified
-- `.gsd/milestones/M011/slices/S01/S01-SUMMARY.md` — doctor-created placeholder summary
-
-## Forward Intelligence
-
-### What the next slice should know
-- Doctor had to reconstruct completion artifacts; inspect task summaries before continuing.
-
-### What's fragile
-- Placeholder summary exists solely to unblock invariant checks.
-
-### Authoritative diagnostics
-- Task summaries in the slice tasks/ directory — they are the actual authoritative source until this summary is rewritten.
-
-### What assumptions changed
-- The system assumed completion would always write a slice summary; in practice doctor may need to restore missing artifacts.
+- `src/shared/types.ts` — added missing message types, `extensionVersion` field
+- `src/extension/dashboard-parser.ts` — removed duplicate type definitions, imports from shared
+- `src/webview/index.ts` — removed dead watchdog code
+- `src/webview/message-handler.ts` — removed dead code paths
