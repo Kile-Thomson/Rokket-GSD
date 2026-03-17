@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **Dynamic model routing indicator** — when gsd-pi switches models mid-task, the header model badge flashes with a yellow highlight animation and a toast announces the change (e.g. "Model routed: Sonnet → Opus")
 - **Pending captures badge** — `/gsd capture` thoughts during auto-mode are tracked; the progress widget shows a 📌 badge with the pending capture count
 - **Workflow visualizer overlay** — `/gsd visualize` opens a full-page overlay with two tabs: Progress (milestone header, progress bars, slice/task breakdown, milestone registry, blockers, next action) and Metrics (cost, tool calls, model, token breakdown, context usage). Auto-refreshes every 5 seconds.
-- **New slash commands** — added `gsd visualize`, `gsd capture`, `gsd steer`, `gsd knowledge`, and `gsd config` to the slash menu, bringing command parity with gsd-pi 2.13–2.19
+- **New slash commands** — added `/gsd visualize`, `/gsd capture`, `/gsd steer`, `/gsd knowledge`, and `/gsd config` to the slash menu, bringing command parity with gsd-pi 2.13–2.19
 
 ## [0.2.34] — 2026-03-15
 
