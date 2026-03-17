@@ -21,7 +21,7 @@ A seamless, performant chat UI for the GSD agent inside VS Code — streaming re
 - Subagent results rendered as rich markdown with usage pills
 - Model picker (grouped by provider, context window, reasoning tags)
 - Thinking level dropdown picker (model-aware, shows available levels with descriptions)
-- Slash command menu with 22 GSD subcommands + 8 built-in actions
+- Slash command menu with 27 GSD subcommands + 8 built-in actions
 - Inline UI dialogs (confirm/select/input/editor) rendered in chat flow
 - Image paste/drop with base64 attachment support
 - File attachment support
@@ -30,9 +30,10 @@ A seamless, performant chat UI for the GSD agent inside VS Code — streaming re
 - Parallel tool execution indicator (⚡ badge with pulse animation when tools run concurrently)
 - Provider fallback notifications (switch, restore, chain exhausted)
 - Resume last session (welcome chip + /resume slash command)
-- Auto-mode progress bar with milestone/slice/task tracking, cost, model routing
-- Dynamic model routing indicator
-- Pending captures badge in auto-progress
+- Auto-mode progress bar with milestone/slice/task tracking, cost, model routing, elapsed time
+- Dynamic model routing indicator (badge flash + toast on model switch)
+- Pending captures badge in auto-progress (📌 count from `/gsd capture`)
+- Workflow visualizer overlay (`/gsd visualize`) with progress + metrics tabs
 - Dashboard panel with milestone registry, slice/task progress, metrics, projections
 - Process resilience: direct node spawn (no cmd.exe wrapper), health monitoring, force-kill/restart UI
 - Crash recovery with restart button
@@ -90,6 +91,7 @@ src/webview/ui-dialogs.ts         — Inline confirm/select/input dialogs
 src/webview/renderer.ts           — Entry rendering + streaming segments
 src/webview/message-handler.ts    — Webview message dispatch
 src/webview/auto-progress.ts      — Auto-mode progress bar rendering
+src/webview/visualizer.ts         — Workflow visualizer overlay
 src/webview/dashboard.ts          — Dashboard panel rendering
 src/webview/keyboard.ts           — Keyboard shortcuts
 src/webview/ui-updates.ts         — UI state updates and DOM manipulation

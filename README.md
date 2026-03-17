@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.35-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-0.2.45-blue" alt="Version" />
   <img src="https://img.shields.io/badge/VS%20Code-1.94%2B-blue" alt="VS Code" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform" />
@@ -135,6 +135,10 @@ The extension checks for new releases on GitHub automatically. When an update is
 
 ### ⚡ GSD Workflow Integration
 
+- **Auto-mode progress widget** — live sticky bar during dispatch showing current task, phase, progress bars, elapsed time, cost, and active model (3-second polling)
+- **Workflow visualizer** — `/gsd visualize` opens a full-page overlay with Progress and Metrics tabs, auto-refreshes every 5 seconds
+- **Dynamic model routing indicator** — badge flashes and toast announces when gsd-pi switches models mid-task
+- **Pending captures badge** — 📌 count in the progress widget for `/gsd capture` thoughts
 - **Workflow state badge** — shows active milestone, slice, task, and current phase directly in the header
 - **Auto-mode indicator** — ⚡ Auto, ▸ Next, ⏸ Paused, ✓ Complete status in the badge
 - **Welcome screen quick actions** — clickable chips for Auto, Status, and Review to get started fast
@@ -151,6 +155,11 @@ Type `/` to open the command palette:
 | `/gsd stop` | Stop auto-mode |
 | `/gsd status` | Show progress dashboard |
 | `/gsd queue` | Queue a milestone |
+| `/gsd visualize` | Open workflow visualizer overlay |
+| `/gsd capture` | Capture a thought during auto-mode |
+| `/gsd steer` | Redirect auto-mode priorities |
+| `/gsd knowledge` | View or add to project knowledge base |
+| `/gsd config` | View or modify GSD configuration |
 | `/compact` | Compact the context window |
 | `/export` | Export the conversation |
 | `/model` | Switch AI model |
@@ -158,7 +167,7 @@ Type `/` to open the command palette:
 | `/new` | Start a new conversation |
 | `/resume` | Resume the last session |
 
-All 11 GSD subcommands are individually listed with descriptions.
+All 16 GSD subcommands are individually listed with descriptions.
 
 ### 📂 Session History
 
@@ -286,6 +295,10 @@ src/
     update-checker.ts       # Auto-update from GitHub Releases
     session-list-service.ts # Session history filesystem parser
     state-parser.ts         # GSD workflow state parsing
+    dashboard-parser.ts     # Dashboard data aggregation
+    metrics-parser.ts       # Cost/token metrics parsing
+    captures-parser.ts      # Pending capture count parsing
+    auto-progress.ts        # Auto-mode progress polling
   shared/
     types.ts                # Message protocol types (extension ↔ webview)
   webview/
@@ -298,6 +311,8 @@ src/
     model-picker.ts         # Model selection overlay
     thinking-picker.ts      # Thinking level dropdown
     ui-dialogs.ts           # Inline confirm/select/input dialogs
+    auto-progress.ts        # Auto-mode progress bar widget
+    visualizer.ts           # Workflow visualizer overlay
     session-history.ts      # Session browser panel
     tool-grouping.ts        # Read-only tool collapse logic
     dashboard.ts            # GSD dashboard overlay

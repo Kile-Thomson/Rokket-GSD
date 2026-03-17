@@ -53,5 +53,5 @@ Added `steer`, `knowledge`, `config`, `capture`, `visualize` to the slash menu. 
 ## Verification
 - Build: clean (extension 113.8KB, webview 300.9KB)
 - Lint: clean
-- Tests: 226 passing (42 new), 9 pre-existing stale-echo failures (unrelated)
+- Tests: 251 passing (42 new), 0 failures
 - No regressions
