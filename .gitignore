@@ -3,7 +3,6 @@ dist/
 *.vsix
 .vscode-test/
 .bg-shell/
-.gsd/
 .DS_Store
 Thumbs.db
 *.swp
@@ -30,14 +29,8 @@ tmp/
 nul
 
 
-# ── GSD baseline (auto-generated) ──
-.gsd/activity/
-.gsd/runtime/
-.gsd/worktrees/
-.gsd/auto.lock
-.gsd/metrics.json
-.gsd/completed-units.json
-.gsd/STATE.md
+# ── GSD (project management artifacts) ──
+.gsd/
 scripts/*-results.json
 
 # ── Dropbox conflicted copies ──

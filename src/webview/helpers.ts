@@ -140,12 +140,14 @@ export function getToolCategory(name: string): ToolCategory {
   const n = name.toLowerCase();
   if (["read", "write", "edit"].includes(n)) return "file";
   if (n === "bg_shell") return "process";
-  if (n === "bash" || n === "async_bash") return "shell";
+  if (n === "bash" || n === "async_bash" || n === "await_job" || n === "cancel_job") return "shell";
   if (n.startsWith("browser_") || n.startsWith("mac_")) return "browser";
   if (["search-the-web", "search_and_read", "fetch_page", "google_search",
        "resolve_library", "get_library_docs", "web_search"].includes(n)) return "search";
   if (n === "subagent") return "agent";
+  if (n === "lsp") return "generic";
   if (n.startsWith("github_") || n === "mcp_call" || n === "mcp_discover" || n === "mcp_servers") return "generic";
+  if (n.startsWith("gsd_")) return "generic";
   return "generic";
 }
 
@@ -155,8 +157,10 @@ export function getToolIcon(name: string, category: ToolCategory): string {
   if (n === "write") return "✏️";
   if (n === "edit") return "✂️";
   if (n === "bash" || n === "async_bash") return "⌨";
+  if (n === "await_job" || n === "cancel_job") return "⏳";
   if (n === "bg_shell") return "⚙";
   if (n === "subagent") return "🤖";
+  if (n === "lsp") return "🧠";
   if (n.startsWith("browser_")) return "🌐";
   if (n.startsWith("mac_")) return "🖥";
   if (n.startsWith("github_")) return "🐙";
@@ -164,6 +168,7 @@ export function getToolIcon(name: string, category: ToolCategory): string {
   if (n === "ask_user_questions") return "❓";
   if (n === "secure_env_collect") return "🔒";
   if (n === "discover_configs") return "🔧";
+  if (n.startsWith("gsd_")) return "📋";
   if (category === "search") return "🔍";
   return "⚡";
 }
@@ -174,6 +179,30 @@ export function getToolKeyArg(name: string, args: Record<string, unknown>): stri
   if ((n === "read" || n === "write" || n === "edit") && args.path) return truncateArg(String(args.path), 80);
   if (n === "browser_navigate" && args.url) return truncateArg(String(args.url), 60);
   if (n === "browser_click" && args.selector) return truncateArg(String(args.selector), 60);
+  if (n === "browser_type" && args.selector) return truncateArg(String(args.selector), 60);
+  if (n === "browser_wait_for" && args.condition) {
+    const val = args.value ? `: ${truncateArg(String(args.value), 40)}` : "";
+    return `${args.condition}${val}`;
+  }
+  if (n === "browser_assert" && args.checks) {
+    const checks = args.checks as any[];
+    if (checks.length === 1) return truncateArg(String(checks[0].kind || ""), 60);
+    return `${checks.length} checks`;
+  }
+  if (n === "browser_batch" && args.steps) {
+    const steps = args.steps as any[];
+    return `${steps.length} steps`;
+  }
+  if (n === "browser_find" && (args.text || args.role)) {
+    const parts: string[] = [];
+    if (args.role) parts.push(String(args.role));
+    if (args.text) parts.push(`"${truncateArg(String(args.text), 30)}"`);
+    return parts.join(" ");
+  }
+  if (n === "browser_evaluate" && args.expression) return truncateArg(String(args.expression), 60);
+  if (n === "browser_emulate_device" && args.device) return truncateArg(String(args.device), 40);
+  if (n === "browser_mock_route" && args.url) return truncateArg(String(args.url), 60);
+  if (n === "browser_extract" && args.selector) return truncateArg(String(args.selector), 60);
   if (n === "subagent") {
     const agent = args.agent || (args.chain as any)?.[0]?.agent || (args.tasks as any)?.[0]?.agent || "";
     const task = args.task || "";
@@ -189,6 +218,48 @@ export function getToolKeyArg(name: string, args: Record<string, unknown>): stri
     if (action && args.id) return `${action}: ${args.id}`;
     return action || "";
   }
+  if (n === "lsp") {
+    const action = args.action ? String(args.action) : "";
+    const file = args.file ? truncateArg(String(args.file), 40) : "";
+    const symbol = args.symbol ? String(args.symbol) : "";
+    if (action && file) return `${action}: ${file}${symbol ? ` → ${symbol}` : ""}`;
+    if (action && args.query) return `${action}: ${truncateArg(String(args.query), 40)}`;
+    return action || "";
+  }
+  if (n === "await_job" && args.jobs) {
+    const jobs = args.jobs as string[];
+    return jobs.length === 1 ? jobs[0] : `${jobs.length} jobs`;
+  }
+  if (n === "cancel_job" && args.job_id) return truncateArg(String(args.job_id), 40);
+  if (n.startsWith("github_")) {
+    const action = args.action ? String(args.action) : "";
+    const num = args.number ? `#${args.number}` : "";
+    return action + (num ? ` ${num}` : "");
+  }
+  if (n === "mcp_call") {
+    const server = args.server ? String(args.server) : "";
+    const tool = args.tool ? String(args.tool) : "";
+    return server && tool ? `${server}/${tool}` : server || tool || "";
+  }
+  if (n === "gsd_save_decision" && args.decision) return truncateArg(String(args.decision), 60);
+  if (n === "gsd_update_requirement" && args.id) return truncateArg(String(args.id), 20);
+  if (n === "gsd_save_summary") {
+    const parts: string[] = [];
+    if (args.milestone_id) parts.push(String(args.milestone_id));
+    if (args.slice_id) parts.push(String(args.slice_id));
+    if (args.artifact_type) parts.push(String(args.artifact_type));
+    return parts.join("/");
+  }
+  if (n === "resolve_library" && args.libraryName) return truncateArg(String(args.libraryName), 40);
+  if (n === "get_library_docs" && args.libraryId) return truncateArg(String(args.libraryId), 40);
+  if (n === "web_search" && args.query) return truncateArg(String(args.query), 60);
+  if (n === "fetch_page" && args.url) return truncateArg(String(args.url), 60);
+  if (n === "search_and_read" && args.query) return truncateArg(String(args.query), 60);
+  if (n === "secure_env_collect" && args.keys) {
+    const keys = args.keys as any[];
+    return keys.map((k: any) => k.key || "").filter(Boolean).join(", ");
+  }
+  if (n.startsWith("mac_") && args.app) return truncateArg(String(args.app), 40);
   for (const [k, v] of Object.entries(args)) {
     if (typeof v === "string" && v.length > 0 && k !== "content" && k !== "oldText" && k !== "newText") {
       return truncateArg(v, 60);
