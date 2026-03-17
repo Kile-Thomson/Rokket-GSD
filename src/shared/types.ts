@@ -38,6 +38,8 @@ export type WebviewToExtensionMessage =
   | { type: "update_dismiss"; version: string }
   | { type: "update_view_release"; htmlUrl: string }
   | { type: "set_auto_compaction"; enabled: boolean }
+  | { type: "set_steering_mode"; mode: "all" | "one-at-a-time" }
+  | { type: "set_follow_up_mode"; mode: "all" | "one-at-a-time" }
   | { type: "force_kill" }
   | { type: "force_restart" }
   | { type: "check_file_access"; paths: string[] }
@@ -137,8 +139,12 @@ export interface GsdState {
   isCompacting: boolean;
   sessionFile: string | null;
   sessionId: string | null;
+  sessionName?: string;
   messageCount: number;
+  pendingMessageCount?: number;
   autoCompactionEnabled: boolean;
+  steeringMode?: "all" | "one-at-a-time";
+  followUpMode?: "all" | "one-at-a-time";
   cwd?: string;
 }
 

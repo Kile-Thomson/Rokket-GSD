@@ -39,7 +39,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private webviewView?: vscode.WebviewView;
   private sessions: Map<string, SessionState> = new Map();
   private promptWatchdogNonce = 0;
-  private static readonly GSD_COMMAND_RE = /^\/gsd(?:\s+(auto|next|stop|status|queue))?$/;
+  private static readonly GSD_COMMAND_RE = /^\/gsd(?:\s+(auto|next|stop|status|queue|quick|mode|help|forensics|doctor|discuss|visualize|capture|steer|knowledge|config|prefs|migrate|remote|do|note))?(?:\s|$)/;
   private output: vscode.OutputChannel;
   private sessionCounter = 0;
   /** The session ID of the current sidebar, for reuse on re-resolve */
@@ -1255,6 +1255,30 @@ ${exportOverrides}
           break;
         }
 
+        case "set_steering_mode": {
+          const client = this.getSession(sessionId).client;
+          if (client?.isRunning) {
+            try {
+              await client.setSteeringMode(msg.mode);
+            } catch (err: any) {
+              this.postToWebview(webview, { type: "error", message: err.message });
+            }
+          }
+          break;
+        }
+
+        case "set_follow_up_mode": {
+          const client = this.getSession(sessionId).client;
+          if (client?.isRunning) {
+            try {
+              await client.setFollowUpMode(msg.mode);
+            } catch (err: any) {
+              this.postToWebview(webview, { type: "error", message: err.message });
+            }
+          }
+          break;
+        }
+
         case "resume_last_session": {
           const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
           if (!cwd) {
@@ -1826,12 +1850,33 @@ ${exportOverrides}
             fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet, so there is no active GSD workflow to stop. Tell the user that clearly and wait for the next instruction.`;
             break;
           case "status":
+          case "visualize":
             fallbackNotice = "ℹ️ Reading project status...";
             fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet. Report that GSD has not been initialised in this project. Do not execute new work.`;
             break;
           case "queue":
             fallbackNotice = "ℹ️ Reading milestone queue...";
             fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet. Report that there is no queue because GSD has not been initialised. Do not execute new work.`;
+            break;
+          case "quick":
+            fallbackNotice = "ℹ️ Starting quick task...";
+            fallbackPrompt = `The user ran "${originalCommand}". Execute it as a quick task with GSD guarantees (atomic commits, state tracking). Ask the user what task they want to accomplish, then plan and execute it.`;
+            break;
+          case "help":
+            fallbackNotice = "ℹ️ Loading command reference...";
+            fallbackPrompt = `The user ran "${originalCommand}". Show a categorized reference of all available GSD commands with descriptions. Do not execute new work.`;
+            break;
+          case "forensics":
+            fallbackNotice = "ℹ️ Running forensics...";
+            fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet, so there is no auto-mode history to analyze. Report that GSD has not been initialised.`;
+            break;
+          case "doctor":
+            fallbackNotice = "ℹ️ Running health checks...";
+            fallbackPrompt = `The user ran "${originalCommand}". Run diagnostic health checks on the GSD installation and project state. Report any issues found and suggest fixes.`;
+            break;
+          case "mode":
+            fallbackNotice = "ℹ️ Loading workflow modes...";
+            fallbackPrompt = `The user ran "${originalCommand}". Show available workflow modes (solo, team) and let the user choose. Do not execute new work.`;
             break;
           default:
             fallbackNotice = "ℹ️ The /gsd interactive menu isn't available yet — reading project state and continuing automatically...";
@@ -1851,12 +1896,33 @@ ${exportOverrides}
             fallbackPrompt = statePrefix + `The user wants to stop auto-mode. Do NOT continue executing new work. Confirm that auto-mode has been stopped and wait for the next instruction.`;
             break;
           case "status":
+          case "visualize":
             fallbackNotice = "ℹ️ Reading project status...";
             fallbackPrompt = statePrefix + `The user wants a status report. Read the relevant .gsd/ files and report the current state. Do NOT execute new work — just report what's in progress, what's complete, and what's next.`;
             break;
           case "queue":
             fallbackNotice = "ℹ️ Reading milestone queue...";
             fallbackPrompt = statePrefix + `The user wants to see the milestone queue. Read .gsd/QUEUE.md and any relevant state files, then report queued milestones. Do NOT execute new work.`;
+            break;
+          case "quick":
+            fallbackNotice = "ℹ️ Starting quick task...";
+            fallbackPrompt = statePrefix + `The user wants to run a quick task. Execute it with GSD guarantees (atomic commits, state tracking) without full milestone planning. Ask the user what task they want to accomplish if not specified, then plan and execute it.`;
+            break;
+          case "help":
+            fallbackNotice = "ℹ️ Loading command reference...";
+            fallbackPrompt = statePrefix + `Show a categorized reference of all available GSD commands with descriptions. Do not execute new work.`;
+            break;
+          case "forensics":
+            fallbackNotice = "ℹ️ Running forensics...";
+            fallbackPrompt = statePrefix + `Run a post-mortem investigation on the most recent auto-mode session. Read .gsd/activity/ logs, STATE.md, and any error artifacts to identify what went wrong and provide a structured root-cause analysis.`;
+            break;
+          case "doctor":
+            fallbackNotice = "ℹ️ Running health checks...";
+            fallbackPrompt = statePrefix + `Run diagnostic health checks on the GSD installation and project state. Check for state corruption, stale locks, orphaned worktrees, and other common issues. Report findings and auto-fix where safe.`;
+            break;
+          case "mode":
+            fallbackNotice = "ℹ️ Loading workflow modes...";
+            fallbackPrompt = statePrefix + `Show available workflow modes (solo, team) and the current mode. Let the user choose a mode if they want to switch.`;
             break;
           default:
             // /gsd or /gsd next — step mode

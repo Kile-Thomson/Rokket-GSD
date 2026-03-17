@@ -186,18 +186,37 @@ describe("getToolCategory", () => {
   });
   it("classifies shell/process", () => {
     expect(getToolCategory("bash")).toBe("shell");
+    expect(getToolCategory("async_bash")).toBe("shell");
+    expect(getToolCategory("await_job")).toBe("shell");
+    expect(getToolCategory("cancel_job")).toBe("shell");
     expect(getToolCategory("bg_shell")).toBe("process");
   });
   it("classifies browser tools", () => {
     expect(getToolCategory("browser_click")).toBe("browser");
+    expect(getToolCategory("browser_batch")).toBe("browser");
+    expect(getToolCategory("browser_assert")).toBe("browser");
+    expect(getToolCategory("browser_find")).toBe("browser");
+    expect(getToolCategory("browser_emulate_device")).toBe("browser");
     expect(getToolCategory("mac_screenshot")).toBe("browser");
   });
   it("classifies search tools", () => {
     expect(getToolCategory("google_search")).toBe("search");
     expect(getToolCategory("fetch_page")).toBe("search");
+    expect(getToolCategory("web_search")).toBe("search");
+    expect(getToolCategory("resolve_library")).toBe("search");
+    expect(getToolCategory("get_library_docs")).toBe("search");
+    expect(getToolCategory("search_and_read")).toBe("search");
   });
   it("classifies subagent", () => {
     expect(getToolCategory("subagent")).toBe("agent");
+  });
+  it("classifies lsp as generic", () => {
+    expect(getToolCategory("lsp")).toBe("generic");
+  });
+  it("classifies gsd_ tools as generic", () => {
+    expect(getToolCategory("gsd_save_decision")).toBe("generic");
+    expect(getToolCategory("gsd_update_requirement")).toBe("generic");
+    expect(getToolCategory("gsd_save_summary")).toBe("generic");
   });
   it("returns generic for unknown", () => {
     expect(getToolCategory("unknown_tool")).toBe("generic");
@@ -216,6 +235,17 @@ describe("getToolIcon", () => {
     expect(getToolIcon("browser_navigate", "browser")).toBe("🌐");
     expect(getToolIcon("google_search", "search")).toBe("🔍");
     expect(getToolIcon("unknown", "generic")).toBe("⚡");
+  });
+  it("returns icons for new v2.20+ tools", () => {
+    expect(getToolIcon("lsp", "generic")).toBe("🧠");
+    expect(getToolIcon("await_job", "shell")).toBe("⏳");
+    expect(getToolIcon("cancel_job", "shell")).toBe("⏳");
+    expect(getToolIcon("gsd_save_decision", "generic")).toBe("📋");
+    expect(getToolIcon("gsd_update_requirement", "generic")).toBe("📋");
+    expect(getToolIcon("gsd_save_summary", "generic")).toBe("📋");
+    expect(getToolIcon("github_reviews", "generic")).toBe("🐙");
+    expect(getToolIcon("github_comments", "generic")).toBe("🐙");
+    expect(getToolIcon("github_labels", "generic")).toBe("🐙");
   });
 });
 
@@ -238,6 +268,53 @@ describe("getToolKeyArg", () => {
   });
   it("falls back to first string arg", () => {
     expect(getToolKeyArg("unknown", { query: "hello" })).toBe("hello");
+  });
+  it("extracts lsp action and file", () => {
+    expect(getToolKeyArg("lsp", { action: "definition", file: "src/foo.ts", symbol: "MyClass" })).toBe("definition: src/foo.ts → MyClass");
+    expect(getToolKeyArg("lsp", { action: "diagnostics" })).toBe("diagnostics");
+    expect(getToolKeyArg("lsp", { action: "symbols", query: "handleClick" })).toBe("symbols: handleClick");
+  });
+  it("extracts github_ action and number", () => {
+    expect(getToolKeyArg("github_issues", { action: "view", number: 42 })).toBe("view #42");
+    expect(getToolKeyArg("github_prs", { action: "list" })).toBe("list");
+    expect(getToolKeyArg("github_reviews", { action: "submit", number: 10 })).toBe("submit #10");
+  });
+  it("extracts mcp_call server/tool", () => {
+    expect(getToolKeyArg("mcp_call", { server: "railway", tool: "list_projects" })).toBe("railway/list_projects");
+  });
+  it("extracts gsd_ tool args", () => {
+    expect(getToolKeyArg("gsd_save_decision", { decision: "Use SQLite for storage" })).toBe("Use SQLite for storage");
+    expect(getToolKeyArg("gsd_update_requirement", { id: "R003" })).toBe("R003");
+    expect(getToolKeyArg("gsd_save_summary", { milestone_id: "M001", slice_id: "S01", artifact_type: "SUMMARY" })).toBe("M001/S01/SUMMARY");
+  });
+  it("extracts browser_batch step count", () => {
+    expect(getToolKeyArg("browser_batch", { steps: [{ action: "click" }, { action: "type" }] })).toBe("2 steps");
+  });
+  it("extracts browser_find text/role", () => {
+    expect(getToolKeyArg("browser_find", { text: "Submit", role: "button" })).toBe("button \"Submit\"");
+    expect(getToolKeyArg("browser_find", { text: "Login" })).toBe("\"Login\"");
+  });
+  it("extracts browser_wait_for condition", () => {
+    expect(getToolKeyArg("browser_wait_for", { condition: "text_visible", value: "Success" })).toBe("text_visible: Success");
+  });
+  it("extracts web_search query", () => {
+    expect(getToolKeyArg("web_search", { query: "react hooks" })).toBe("react hooks");
+  });
+  it("extracts resolve_library name", () => {
+    expect(getToolKeyArg("resolve_library", { libraryName: "next.js" })).toBe("next.js");
+  });
+  it("extracts await_job job ids", () => {
+    expect(getToolKeyArg("await_job", { jobs: ["bg_abc123"] })).toBe("bg_abc123");
+    expect(getToolKeyArg("await_job", { jobs: ["bg_a", "bg_b", "bg_c"] })).toBe("3 jobs");
+  });
+  it("extracts cancel_job id", () => {
+    expect(getToolKeyArg("cancel_job", { job_id: "bg_abc123" })).toBe("bg_abc123");
+  });
+  it("extracts mac_ app name", () => {
+    expect(getToolKeyArg("mac_find", { app: "Finder", role: "AXButton" })).toBe("Finder");
+  });
+  it("extracts secure_env_collect key names", () => {
+    expect(getToolKeyArg("secure_env_collect", { keys: [{ key: "OPENAI_API_KEY" }, { key: "DATABASE_URL" }] })).toBe("OPENAI_API_KEY, DATABASE_URL");
   });
 });
 
