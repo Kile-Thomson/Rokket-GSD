@@ -656,6 +656,18 @@ export class GsdRpcClient extends EventEmitter {
     return await this.request({ type: "get_last_assistant_text" });
   }
 
+  async setSteeringMode(mode: "all" | "one-at-a-time"): Promise<void> {
+    await this.request({ type: "set_steering_mode", mode });
+  }
+
+  async setFollowUpMode(mode: "all" | "one-at-a-time"): Promise<void> {
+    await this.request({ type: "set_follow_up_mode", mode });
+  }
+
+  async getForkMessages(): Promise<unknown> {
+    return await this.request({ type: "get_fork_messages" });
+  }
+
   /**
    * Send an extension_ui_response back to the GSD process.
    */
