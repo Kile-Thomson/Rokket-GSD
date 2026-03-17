@@ -27,7 +27,9 @@ A seamless, performant chat UI for the GSD agent inside VS Code — streaming re
 - File attachment support
 - Steer-while-streaming (send messages while agent is working)
 - Auto-compaction and auto-retry overlay indicators
+- Parallel tool execution indicator (⚡ badge with pulse animation when tools run concurrently)
 - Provider fallback notifications (switch, restore, chain exhausted)
+- Resume last session (welcome chip + /resume slash command)
 - Auto-mode progress bar with milestone/slice/task tracking, cost, model routing
 - Dynamic model routing indicator
 - Pending captures badge in auto-progress
