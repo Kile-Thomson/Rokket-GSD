@@ -29,23 +29,9 @@ tmp/
 nul
 
 
-# ── GSD baseline (auto-generated) ──
-.gsd/activity/
-.gsd/runtime/
-.gsd/worktrees/
-.gsd/auto.lock
-.gsd/metrics.json
-.gsd/completed-units.json
-.gsd/STATE.md
+# ── GSD (project management artifacts) ──
+.gsd/
 scripts/*-results.json
 
 # ── Dropbox conflicted copies ──
 *conflicted copy*
-
-# ── GSD baseline (auto-generated) ──
-.gsd/forensics/
-.gsd/parallel/
-.gsd/gsd.db
-.gsd/DISCUSSION-MANIFEST.json
-.gsd/milestones/**/*-CONTINUE.md
-.gsd/milestones/**/continue.md
