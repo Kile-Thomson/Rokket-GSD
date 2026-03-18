@@ -80,7 +80,10 @@ export function init(deps: KeyboardDeps): void {
 function setupKeyboardHandlers(): void {
   promptInput.addEventListener("keydown", (e: KeyboardEvent) => {
     // Block prompt input while visualizer overlay is open
-    if (visualizer.isVisible()) return;
+    if (visualizer.isVisible()) {
+      e.preventDefault();
+      return;
+    }
 
     if (sessionHistory.isVisible()) {
       if (sessionHistory.handleKeyDown(e)) return;
@@ -111,12 +114,12 @@ function setupKeyboardHandlers(): void {
     if (state.useCtrlEnterToSend) {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
-        sendMessage();
+        if (!state.isCompacting) sendMessage();
       }
     } else {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        sendMessage();
+        if (!state.isCompacting) sendMessage();
       }
     }
     if (e.key === "Escape" && state.isStreaming) {
@@ -283,6 +286,7 @@ function setupClickHandlers(): void {
 
 function setupButtonHandlers(): void {
   sendBtn.addEventListener("click", () => {
+    if (state.isCompacting) return;
     if (state.isStreaming) {
       vscode.postMessage({ type: "interrupt" });
     } else {

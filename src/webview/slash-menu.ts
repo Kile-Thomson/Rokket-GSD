@@ -253,6 +253,8 @@ function selectCommand(idx: number): void {
   }
 
   if (item.sendOnSelect) {
+    // Block sending during compaction
+    if (state.isCompacting) { hide(); return; }
     // Execute immediately — set the text and trigger send
     promptInput.value = item.insertText.trimEnd();
     onAutoResize();
