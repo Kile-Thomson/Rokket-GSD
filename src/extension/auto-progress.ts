@@ -109,7 +109,7 @@ export class AutoProgressPoller {
         this.output.appendLine(`[${this.sessionId}] Auto-progress: discussion pause detected, keeping widget visible`);
 
         // Build a final progress snapshot with paused state
-        let model: { id: string; provider: string } | null = this.lastModel;
+        const model: { id: string; provider: string } | null = this.lastModel;
         let cost: number | undefined;
 
         if (this.client.isRunning) {
