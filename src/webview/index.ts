@@ -408,6 +408,10 @@ promptInput.addEventListener("input", () => {
 function sendMessage(): void {
   slashMenu.hide();
   modelPicker.hide();
+
+  // Block sending during compaction
+  if (state.isCompacting) return;
+
   const text = promptInput.value.trim();
   if (!text && state.images.length === 0 && state.files.length === 0) return;
 
