@@ -372,8 +372,10 @@ html, body {
 }
 
 .gsd-overlay-indicator.compacting {
-  background: rgba(100, 140, 220, 0.06);
+  background: rgba(100, 140, 220, 0.12);
   color: var(--vscode-textLink-foreground, #3794ff);
+  font-size: 12px;
+  padding: 8px 14px;
 }
 
 .gsd-overlay-indicator.retrying {
@@ -2699,6 +2701,11 @@ html, body {
   color: var(--vscode-input-placeholderForeground);
 }
 
+.gsd-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* File chips — input area (pre-send) */
 .gsd-file-chips {
   display: none;
@@ -2822,6 +2829,12 @@ html, body {
 
 .gsd-send-btn.gsd-stop-btn:hover {
   background: rgba(220, 60, 60, 0.3);
+}
+
+.gsd-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .gsd-input-hint {

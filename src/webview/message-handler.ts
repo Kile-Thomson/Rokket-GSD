@@ -407,12 +407,14 @@ function handleMessage(event: MessageEvent): void {
     case "auto_compaction_start": {
       state.isCompacting = true;
       updateOverlayIndicators();
+      updateInputUI();
       break;
     }
 
     case "auto_compaction_end": {
       state.isCompacting = false;
       updateOverlayIndicators();
+      updateInputUI();
       break;
     }
 
@@ -488,12 +490,14 @@ function handleMessage(event: MessageEvent): void {
 
     case "session_shutdown": {
       state.isStreaming = false;
+      state.isCompacting = false;
       state.processStatus = "stopped";
       // Clean up any in-progress turn
       if (state.currentTurn) {
         renderer.finalizeCurrentTurn();
       }
       addSystemEntry("Session ended", "info");
+      updateInputUI();
       updateOverlayIndicators();
       break;
     }
@@ -837,7 +841,6 @@ function extractMessageText(content: unknown): string {
   return "";
 }
 
-/**
 // ============================================================
 // Theme
 // ============================================================
