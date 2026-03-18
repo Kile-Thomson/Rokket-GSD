@@ -207,12 +207,24 @@ export function updateInputUI(): void {
     logo.classList.toggle("working", state.isStreaming);
   }
 
-  if (state.isStreaming) {
+  if (state.isCompacting) {
+    sendIcon.textContent = "⟳";
+    sendBtn.classList.add("gsd-stop-btn");
+    sendBtn.title = "Compacting context…";
+    (sendBtn as HTMLButtonElement).disabled = true;
+    promptInput.placeholder = "Compacting context — please wait…";
+    promptInput.disabled = true;
+    inputHint.textContent = "Context window is being compacted";
+  } else if (state.isStreaming) {
+    (sendBtn as HTMLButtonElement).disabled = false;
+    promptInput.disabled = false;
     sendIcon.textContent = "■";
     sendBtn.classList.add("gsd-stop-btn");
     sendBtn.title = "Stop (Esc)";
     promptInput.placeholder = "Interrupt or steer GSD...";
   } else {
+    (sendBtn as HTMLButtonElement).disabled = false;
+    promptInput.disabled = false;
     sendIcon.textContent = "↑";
     sendBtn.classList.remove("gsd-stop-btn");
     sendBtn.title = "Send";
@@ -220,10 +232,12 @@ export function updateInputUI(): void {
   }
 
   const sendKey = state.useCtrlEnterToSend ? "Ctrl+Enter" : "Enter";
-  if (state.isStreaming) {
-    inputHint.textContent = `${sendKey} to steer • Esc to stop`;
-  } else {
-    inputHint.textContent = `${sendKey} to send • !cmd for bash • / for commands`;
+  if (!state.isCompacting) {
+    if (state.isStreaming) {
+      inputHint.textContent = `${sendKey} to steer • Esc to stop`;
+    } else {
+      inputHint.textContent = `${sendKey} to send • !cmd for bash • / for commands`;
+    }
   }
 }
 
