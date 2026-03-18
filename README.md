@@ -185,6 +185,7 @@ Type `/` to open the command palette with 32 commands:
 - **`!command` shortcut** to run bash commands directly without the agent
 
 ### Tool Execution Visualization
+<img width="1749" height="775" alt="subagents" src="https://github.com/user-attachments/assets/90e4d43d-18ca-4a87-b5e9-7cd90afd50ce" />
 
 - **Live tool calls** with category-specific icons and color accents for 40+ tools
 - **Rich key arg display** for lsp, browser_*, github_*, gsd_*, mcp_call, bash, and more
