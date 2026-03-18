@@ -39,7 +39,7 @@
 
 ## Tasks
 
-- [ ] **T01: Implement discussion-pause visibility in progress widget** `est:45m`
+- [x] **T01: Implement discussion-pause visibility in progress widget** `est:45m`
   - Why: When `require_slice_discussion` pauses auto-mode, the widget currently disappears because `onAutoModeChanged("paused")` calls `sendClear()`. Need to keep the widget visible with a distinct "Awaiting Discussion" state showing a `/gsd discuss` prompt.
   - Files: `src/extension/auto-progress.ts`, `src/webview/auto-progress.ts`, `src/webview/styles.css`
   - Do: (1) In `AutoProgressPoller.onAutoModeChanged()`, when state becomes `"paused"` (or undefined/stopped), do one final poll before clearing. If the polled phase is `"needs-discussion"`, post the progress data with `autoState: "paused"` to the webview instead of clearing. Otherwise, clear as normal. (2) In webview `render()`, detect `autoState === "paused" && phase === "needs-discussion"` and render a distinct state: swap mode icon to `💬`, show "AWAITING DISCUSSION" as phase, add a hint line below with "Use /gsd discuss to continue", stop the elapsed timer, add `.gsd-auto-progress-discussion` class. (3) Add minimal CSS for the hint text and discussion state styling.

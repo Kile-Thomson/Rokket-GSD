@@ -126,8 +126,17 @@ function render(): void {
 
   widgetEl.style.display = "flex";
 
-  // Start elapsed timer if not running
-  if (!elapsedTimer) {
+  // Detect discussion-pause state
+  const isDiscussionPause = data.autoState === "paused" && data.phase === "needs-discussion";
+
+  // When in discussion-pause, stop the elapsed timer — time is not progressing
+  if (isDiscussionPause) {
+    if (elapsedTimer) {
+      clearInterval(elapsedTimer);
+      elapsedTimer = null;
+    }
+  } else if (!elapsedTimer) {
+    // Start elapsed timer if not running (normal mode)
     elapsedTimer = setInterval(() => {
       updateElapsedDisplay();
     }, ELAPSED_UPDATE_MS);
@@ -135,7 +144,10 @@ function render(): void {
 
   const phase = formatPhase(data.phase);
   const phaseIcon = data.phase === "validate-milestone" ? "✓ " : "";
-  const modeIcon = data.autoState === "auto" ? "⚡" : data.autoState === "next" ? "▸" : "⏸";
+  const modeIcon = isDiscussionPause ? "💬" : data.autoState === "auto" ? "⚡" : data.autoState === "next" ? "▸" : "⏸";
+
+  // Toggle discussion-pause class on widget
+  widgetEl.classList.toggle("gsd-auto-progress-discussion", isDiscussionPause);
 
   // Build current target line
   let targetLine = "";
@@ -153,15 +165,26 @@ function render(): void {
   // Build stats line
   const statsHtml = buildStats(data);
 
+  // Build hint line for discussion-pause state
+  const hintHtml = isDiscussionPause
+    ? `<div class="gsd-auto-progress-hint">Use /gsd discuss to continue</div>`
+    : "";
+
+  // Hide pulse dot during discussion pause
+  const pulseHtml = isDiscussionPause
+    ? ""
+    : `<span class="gsd-auto-progress-pulse"></span>`;
+
   widgetEl.innerHTML = `
     <div class="gsd-auto-progress-inner">
       <div class="gsd-auto-progress-row gsd-auto-progress-main">
-        <span class="gsd-auto-progress-pulse"></span>
+        ${pulseHtml}
         <span class="gsd-auto-progress-mode">${modeIcon}</span>
         <span class="gsd-auto-progress-phase">${phaseIcon}${escapeHtml(phase)}</span>
         <span class="gsd-auto-progress-target">${targetLine}</span>
         <span class="gsd-auto-progress-elapsed" data-timestamp="${autoStartTime}"></span>
       </div>
+      ${hintHtml}
       <div class="gsd-auto-progress-row gsd-auto-progress-detail">
         ${progressHtml}
         ${statsHtml}
@@ -238,7 +261,7 @@ function formatPhase(phase: string): string {
     case "complete": return "COMPLETE";
     case "blocked": return "BLOCKED";
     case "replanning-slice": return "REPLANNING";
-    case "needs-discussion": return "DISCUSS";
+    case "needs-discussion": return "AWAITING DISCUSSION";
     case "validate-milestone": return "VALIDATING";
     default: return phase.toUpperCase();
   }
