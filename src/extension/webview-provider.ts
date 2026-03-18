@@ -2169,7 +2169,7 @@ ${exportOverrides}
   }
 
   private getTheme(): string {
-    return vscode.workspace.getConfiguration("gsd").get<string>("theme", "classic");
+    return vscode.workspace.getConfiguration("gsd").get<string>("theme", "forge");
   }
 
   // --- Webview HTML ---

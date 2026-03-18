@@ -98,7 +98,7 @@
 						"Clarity — ultra-clean modern flat design, maximum readability",
 						"Forge — dark industrial metallic with inset shadows"
 					],
-					"default": "classic",
+					"default": "forge",
 					"description": "UI theme for the GSD panel."
 				}
 			}
