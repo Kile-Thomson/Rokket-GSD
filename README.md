@@ -33,19 +33,19 @@ The extension spawns GSD as a child process over JSON-RPC (`gsd --mode rpc`), gi
 
 ## Highlights
 
-- **Streaming chat** with sequential segment rendering, zero layout jumps, and `requestAnimationFrame` batching
-- **40+ tool visualizations** with category icons, key arg display, duration tracking, and collapsible output
+- **Live auto-mode progress bar** tracking current task, phase, progress bars, elapsed time, cost, and active model in real time
 - **Parallel worker dashboard** showing per-worker state badges, budget bars, cost tracking, and stale indicators during parallel auto-mode
 - **Budget alerts** fire a VS Code warning toast when any worker crosses 80% of the configured budget ceiling
+- **Steer while streaming** to redirect the agent mid-task without waiting for it to finish
+- **Workflow visualizer** overlay with Progress and Metrics tabs, auto-refreshing every 5 seconds
+- **40+ tool visualizations** with category icons, key arg display, duration tracking, and collapsible output
 - **Tool call grouping** collapses consecutive read-only tools (reads, searches, fetches) into expandable summary rows
+- **32 slash commands** covering the full GSD workflow plus built-in actions, all from a single `/` keystroke
 - **Model picker** grouped by provider with context window size and reasoning capability tags
 - **Thinking level picker** with model-aware level availability (off through xhigh)
-- **Live auto-mode progress bar** with current task, phase, progress bars, elapsed time, cost, and active model
-- **Workflow visualizer** overlay with Progress and Metrics tabs, auto-refreshing every 5 seconds
 - **Session history** with search, rename, delete, and instant resume
-- **23 GSD slash commands** plus 9 built-in actions, all from a single `/` keystroke
+- **Streaming chat** with sequential segment rendering and zero layout jumps
 - **Four UI themes**: Classic, Phosphor, Clarity, and Forge
-- **Steer while streaming** to redirect the agent mid-task without waiting
 - **Auto-updates** from GitHub Releases with one-click install
 
 ---
@@ -63,7 +63,7 @@ You need a working GSD environment before installing:
    ```bash
    npm install -g gsd-pi
    ```
-5. **A valid API key** configured in GSD (Anthropic, OpenAI, Google, etc.)
+5. **A configured AI provider** in GSD (Anthropic, OpenAI, Google, etc. via API key or OAuth)
    - Run `gsd` in a terminal first to verify it works before installing the extension
 
 If `gsd` doesn't work in your terminal, the extension won't work either.
@@ -103,17 +103,33 @@ Then reload VS Code (`Ctrl+Shift+P` > "Developer: Reload Window").
 
 ## Features
 
-### Streaming Chat UI
+### Auto-Mode Progress & Workflow
 
-- **Sequential segment rendering** - text, thinking blocks, and tool calls stream in arrival order with no re-renders or layout jumps
-- **Full markdown** with syntax-highlighted code blocks, tables, blockquotes, headings, inline code, and images
-- **Copy buttons** on every code block and full assistant responses
-- **Image paste and drag-drop** directly into the input area
-- **File attachments** via button, drag-and-drop, or paste with type-specific icons and removable chips
-- **Message timestamps** with relative times that update live and absolute times on hover
-- **Thinking blocks** collapsed by default with line count indicator, expanded during streaming
+- **Live progress widget** sticky above the input showing current task, phase, progress bars, elapsed time, cost, and active model
+- **Phase rendering** with distinct labels and icons: Executing, Planning, Validating (✓), Completing, Blocked, Replanning
+- **Discussion-pause visibility** shows 💬 "Awaiting Discussion" with a `/gsd discuss` hint when auto-mode pauses for slice discussion
+- **Dynamic model routing indicator** flashes the model badge and announces via toast when gsd-pi switches models mid-task
+- **Pending captures badge** (📌) in the progress widget for `/gsd capture` thoughts awaiting triage
+- **Workflow state badge** in the header showing active milestone, slice, task, and current phase
+- **Auto-mode indicator** with ⚡ Auto, ▸ Next, ⏸ Paused states
 - **Steer while streaming** to send a message while the agent is working and redirect it mid-task
-- **Drag-to-resize input area** for longer messages
+
+### Parallel Worker Progress & Budget Alerts
+
+- **Worker cards** during parallel auto-mode showing per-worker milestone ID, state badge, current unit, and cost
+- **State badges** for Running, Paused, Stopped, and Error with distinct colors
+- **Budget usage bars** per worker with green/orange/red thresholds at 80% and 100%
+- **Budget alert toast** fires a VS Code warning when any worker crosses 80% of `budget_ceiling`
+- **Stale worker detection** dims workers with old heartbeats and shows a "(stale)" label
+- **Graceful degradation** to standard single-worker display when no parallel data exists
+
+### Workflow Visualizer
+
+- **Full-page overlay** via `/gsd visualize` with two tabs
+- **Progress tab** with milestone header, progress bars, slice/task breakdown, milestone registry, blockers, and next action
+- **Metrics tab** with cost breakdown, tool call counts, model usage, token breakdown, and context usage
+- **Auto-refresh** every 5 seconds during active auto-mode
+- **Dashboard panel** with milestone registry, slice/task progress, cost projections, and activity log
 
 ### Tool Execution Visualization
 
@@ -127,33 +143,6 @@ Then reload VS Code (`Ctrl+Shift+P` > "Developer: Reload Window").
 - **Shimmer animation** on running tools so you always know what's active
 - **Duration tracking** on every completed tool call
 
-### Parallel Worker Progress & Budget Alerts
-
-- **Worker cards** during parallel auto-mode showing per-worker milestone ID, state badge, current unit, and cost
-- **State badges** for Running, Paused, Stopped, and Error with distinct colors
-- **Budget usage bars** per worker with green/orange/red thresholds at 80% and 100%
-- **Budget alert toast** fires a VS Code warning when any worker crosses 80% of `budget_ceiling`
-- **Stale worker detection** dims workers with old heartbeats and shows a "(stale)" label
-- **Graceful degradation** to standard single-worker display when no parallel data exists
-
-### Auto-Mode Progress & Workflow
-
-- **Live progress widget** sticky above the input showing current task, phase, progress bars, elapsed time, cost, and active model
-- **Phase rendering** with distinct labels and icons: Executing, Planning, Validating (✓), Completing, Blocked, Replanning
-- **Discussion-pause visibility** shows 💬 "Awaiting Discussion" with a `/gsd discuss` hint when auto-mode pauses for slice discussion
-- **Dynamic model routing indicator** flashes the model badge and announces via toast when gsd-pi switches models mid-task
-- **Pending captures badge** (📌) in the progress widget for `/gsd capture` thoughts awaiting triage
-- **Workflow state badge** in the header showing active milestone, slice, task, and current phase
-- **Auto-mode indicator** with ⚡ Auto, ▸ Next, ⏸ Paused states
-
-### Workflow Visualizer
-
-- **Full-page overlay** via `/gsd visualize` with two tabs
-- **Progress tab** with milestone header, progress bars, slice/task breakdown, milestone registry, blockers, and next action
-- **Metrics tab** with cost breakdown, tool call counts, model usage, token breakdown, and context usage
-- **Auto-refresh** every 5 seconds during active auto-mode
-- **Dashboard panel** with milestone registry, slice/task progress, cost projections, and activity log
-
 ### Model & Thinking Controls
 
 - **Model picker** grouped by provider with section headers, context window size, and reasoning capability tags
@@ -161,6 +150,17 @@ Then reload VS Code (`Ctrl+Shift+P` > "Developer: Reload Window").
 - **Model-aware thinking** hides unavailable levels; extended thinking only appears for models that support it
 - **Context usage bar** below the header with color-coded thresholds (green at 0-70%, amber at 70-90%, red at 90%+)
 - **Live session stats** showing token count, session cost, and context pressure at a glance
+
+### Streaming Chat UI
+
+- **Sequential segment rendering** - text, thinking blocks, and tool calls stream in arrival order with no re-renders or layout jumps
+- **Full markdown** with syntax-highlighted code blocks, tables, blockquotes, headings, inline code, and images
+- **Copy buttons** on every code block and full assistant responses
+- **Image paste and drag-drop** directly into the input area
+- **File attachments** via button, drag-and-drop, or paste with type-specific icons and removable chips
+- **Message timestamps** with relative times that update live and absolute times on hover
+- **Thinking blocks** collapsed by default with line count indicator, expanded during streaming
+- **Drag-to-resize input area** for longer messages
 
 ### Agent Interaction
 
