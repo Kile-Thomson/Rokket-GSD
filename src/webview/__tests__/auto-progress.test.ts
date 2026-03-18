@@ -177,4 +177,64 @@ describe("auto-progress widget", () => {
     expect(widget?.textContent).toContain("VALIDATING");
     expect(widget?.textContent).toContain("✓");
   });
+
+  // ============================================================
+  // Discussion-pause state tests
+  // ============================================================
+
+  describe("discussion-pause state", () => {
+    const discussionData = () =>
+      makeProgressData({ autoState: "paused", phase: "needs-discussion" });
+
+    it("shows 💬 mode icon when paused with needs-discussion phase", () => {
+      autoProgress.update(discussionData());
+      const widget = document.getElementById("autoProgressWidget");
+      expect(widget!.innerHTML).toContain("💬");
+      expect(widget!.innerHTML).not.toContain("⏸");
+    });
+
+    it("displays AWAITING DISCUSSION phase label", () => {
+      autoProgress.update(discussionData());
+      const widget = document.getElementById("autoProgressWidget");
+      expect(widget!.innerHTML).toContain("AWAITING DISCUSSION");
+    });
+
+    it("shows /gsd discuss hint line", () => {
+      autoProgress.update(discussionData());
+      const hint = document.querySelector(".gsd-auto-progress-hint");
+      expect(hint).toBeTruthy();
+      expect(hint!.textContent).toContain("/gsd discuss");
+    });
+
+    it("adds discussion class to widget", () => {
+      autoProgress.update(discussionData());
+      const widget = document.getElementById("autoProgressWidget");
+      expect(widget!.classList.contains("gsd-auto-progress-discussion")).toBe(true);
+    });
+
+    it("removes discussion class when returning to normal state", () => {
+      autoProgress.update(discussionData());
+      autoProgress.update(makeProgressData({ autoState: "auto", phase: "executing" }));
+      const widget = document.getElementById("autoProgressWidget");
+      expect(widget!.classList.contains("gsd-auto-progress-discussion")).toBe(false);
+    });
+
+    it("hides pulse animation during discussion pause", () => {
+      autoProgress.update(discussionData());
+      const widget = document.getElementById("autoProgressWidget");
+      expect(widget!.querySelector(".gsd-auto-progress-pulse")).toBeNull();
+    });
+
+    it("shows pulse animation during normal pause (non-discussion)", () => {
+      autoProgress.update(makeProgressData({ autoState: "paused", phase: "executing" }));
+      const widget = document.getElementById("autoProgressWidget");
+      expect(widget!.querySelector(".gsd-auto-progress-pulse")).toBeTruthy();
+    });
+
+    it("widget remains visible during discussion pause", () => {
+      autoProgress.update(discussionData());
+      const widget = document.getElementById("autoProgressWidget");
+      expect(widget!.style.display).toBe("flex");
+    });
+  });
 });
