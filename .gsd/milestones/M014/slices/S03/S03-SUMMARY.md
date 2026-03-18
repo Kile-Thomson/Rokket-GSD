@@ -2,52 +2,82 @@
 id: S03
 parent: M014
 milestone: M014
-provides: []
+provides:
+  - Discussion-pause visibility in auto-progress widget (extension poller + webview renderer + CSS)
+  - Confirmation that model picker provider grouping was already implemented
 requires: []
 affects: []
-key_files: []
-key_decisions: []
-patterns_established: []
+key_files:
+  - src/extension/auto-progress.ts
+  - src/webview/auto-progress.ts
+  - src/webview/styles.css
+  - src/webview/__tests__/auto-progress.test.ts
+key_decisions:
+  - Final poll on pause uses dashboard data only (skips full RPC model fetch for speed)
+  - No new tests needed for model picker grouping — already implemented in prior milestone
+patterns_established:
+  - classList.toggle for conditional CSS class on widget state transitions
+  - Conditional HTML omission (pulse dot) vs display:none for cleaner DOM
 observability_surfaces:
-  - none yet — doctor created placeholder summary; replace with real diagnostics before treating as complete
-drill_down_paths: []
-duration: unknown
-verification_result: unknown
-completed_at: 2026-03-18T15:59:40.733Z
+  - Log line "[sessionId] Auto-progress: discussion pause detected, keeping widget visible"
+  - DOM class .gsd-auto-progress-discussion on widget element
+  - DOM element .gsd-auto-progress-hint with "/gsd discuss" text
+drill_down_paths:
+  - .gsd/milestones/M014/slices/S03/tasks/T01-SUMMARY.md
+  - .gsd/milestones/M014/slices/S03/tasks/T02-SUMMARY.md
+duration: 25m
+verification_result: passed
+completed_at: 2026-03-19
 ---
 
-# S03: Recovery placeholder summary
+# S03: Model Picker Grouping & Discussion Pause
 
-**Doctor-created placeholder.**
+**Discussion-pause visibility with 💬 "AWAITING DISCUSSION" state and /gsd discuss hint. Model picker grouping confirmed as pre-existing — no code changes needed.**
 
 ## What Happened
-Doctor detected that all tasks were complete but the slice summary was missing. Replace this with a real compressed slice summary before relying on it.
+
+**T01** implemented discussion-pause visibility across three files. The extension poller gained `finalPollAndMaybeClear()` — when auto-mode stops or pauses, it reads dashboard data one final time. If the phase is `needs-discussion`, it keeps the widget visible with `autoState: "paused"` instead of clearing. The webview renderer detects `isDiscussionPause` (paused + needs-discussion phase) and swaps to 💬 icon, "AWAITING DISCUSSION" label, stops the elapsed timer, omits the pulse dot, adds `.gsd-auto-progress-discussion` class for yellow accent styling, and shows a hint directing users to `/gsd discuss`. Eight new tests cover all discussion-pause rendering behaviors.
+
+**T02** verified the eight discussion-pause tests pass and inspected the model picker. Provider grouping (Map<string, AvailableModel[]>, provider section headers, `gsd-model-picker-group` containers with `role="group"`) was already fully implemented before M014. No code changes were needed.
 
 ## Verification
-Not re-run by doctor.
+
+- `npx vitest run src/webview/__tests__/auto-progress.test.ts` — 28/28 tests pass (20 existing + 8 new)
+- `npx vitest run` — 262/262 tests pass across 15 test files, zero regressions
+- Model picker grouping confirmed via code inspection of model-picker.ts
 
 ## Deviations
-Recovery placeholder created to restore required artifact shape.
+
+- Model picker grouping was already implemented — the roadmap listed it as a deliverable but it pre-dated M014. No code changes needed.
+- Tests were shipped in T01 with the implementation rather than in T02 as planned. Positive deviation.
 
 ## Known Limitations
-This file is intentionally incomplete and should be replaced by a real summary.
+
+- Discussion-pause detection depends on `phase === "needs-discussion"` string match from STATE.md. If gsd-pi changes this string, detection silently fails (widget disappears on discussion pause instead of showing the hint).
 
 ## Follow-ups
-- Regenerate this summary from task summaries.
+
+None.
 
 ## Files Created/Modified
-- `.gsd/milestones/M014/slices/S03/S03-SUMMARY.md` — doctor-created placeholder summary
+
+- `src/extension/auto-progress.ts` — Added `finalPollAndMaybeClear()` method for discussion-pause detection
+- `src/webview/auto-progress.ts` — Added discussion-pause rendering (💬 icon, AWAITING DISCUSSION label, hint, class toggle, timer stop)
+- `src/webview/styles.css` — Added `.gsd-auto-progress-discussion` and `.gsd-auto-progress-hint` CSS rules
+- `src/webview/__tests__/auto-progress.test.ts` — Added 8 discussion-pause test cases
 
 ## Forward Intelligence
 
 ### What the next slice should know
-- Doctor had to reconstruct completion artifacts; inspect task summaries before continuing.
+- Model picker grouping is done — don't re-implement it.
+- The `finalPollAndMaybeClear()` pattern reads dashboard data one final time before deciding whether to clear or preserve the widget. Future pause-state detections can extend this method.
 
 ### What's fragile
-- Placeholder summary exists solely to unblock invariant checks.
+- Discussion-pause relies on exact `"needs-discussion"` phase string from STATE.md parsing.
 
 ### Authoritative diagnostics
-- Task summaries in the slice tasks/ directory — they are the actual authoritative source until this summary is rewritten.
+- `.gsd-auto-progress-discussion` class presence on the widget element confirms discussion-pause state.
+- Log line "discussion pause detected" in GSD output channel.
 
 ### What assumptions changed
-- The system assumed completion would always write a slice summary; in practice doctor may need to restore missing artifacts.
+- Model picker grouping was assumed to be new work for M014 — it was already complete.
