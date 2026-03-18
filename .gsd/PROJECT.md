@@ -10,8 +10,8 @@ A seamless, performant chat UI for the GSD agent inside VS Code — streaming re
 
 ## Current State
 
-**Version:** 0.2.41 — fully functional, published to GitHub Releases.
-**gsd-pi compatibility:** v2.12–v2.25
+**Version:** 0.2.46 — fully functional, published to GitHub Releases.
+**gsd-pi compatibility:** v2.12–v2.28 (partial — parallel worker visibility not yet implemented)
 
 ### What works:
 - Sequential segment-based streaming renderer (text, thinking, tool calls render in arrival order via rAF batching)
@@ -21,7 +21,7 @@ A seamless, performant chat UI for the GSD agent inside VS Code — streaming re
 - Subagent results rendered as rich markdown with usage pills
 - Model picker (grouped by provider, context window, reasoning tags)
 - Thinking level dropdown picker (model-aware, shows available levels with descriptions)
-- Slash command menu with 29 GSD subcommands + 8 built-in actions
+- Slash command menu with 31 GSD subcommands + 8 built-in actions
 - Inline UI dialogs (confirm/select/input/editor) rendered in chat flow
 - Image paste/drop with base64 attachment support
 - File attachment support
@@ -30,9 +30,10 @@ A seamless, performant chat UI for the GSD agent inside VS Code — streaming re
 - Parallel tool execution indicator (⚡ badge with pulse animation when tools run concurrently)
 - Provider fallback notifications (switch, restore, chain exhausted)
 - Resume last session (welcome chip + /resume slash command)
-- Auto-mode progress bar with milestone/slice/task tracking, cost, model routing, elapsed time
+- Auto-mode progress bar with milestone/slice/task tracking, cost, model routing, elapsed time, validate-milestone phase rendering
 - Dynamic model routing indicator (badge flash + toast on model switch)
 - Pending captures badge in auto-progress (📌 count from `/gsd capture`)
+- Discussion-pause visibility (💬 "Awaiting Discussion" with /gsd discuss hint when auto-mode pauses for slice discussion)
 - Workflow visualizer overlay (`/gsd visualize`) with progress + metrics tabs
 - Dashboard panel with milestone registry, slice/task progress, metrics, projections
 - Process resilience: direct node spawn (no cmd.exe wrapper), health monitoring, force-kill/restart UI
@@ -45,12 +46,14 @@ A seamless, performant chat UI for the GSD agent inside VS Code — streaming re
 - VS Code theme-aware styling
 - Session history panel — browse, search, rename, delete, and resume previous conversations
 - HTML export (cross-platform)
+- HTML milestone report export via command palette (`gsd.exportReport`)
 - What's New overlay on version upgrade
 - Changelog viewer
 - Update notification with install/dismiss/view-release actions
 - One-liner install scripts for macOS/Linux (bash) and Windows (PowerShell)
 
 ### What's incomplete or missing:
+- Parallel worker progress display during parallel auto-mode (S01 code was planned but never committed in M014 — needs re-implementation)
 - `fork_conversation` is wired but produces no UI feedback beyond the RPC call
 - No dedicated UI for steering/follow-up mode switching (RPC methods exist)
 
@@ -125,3 +128,4 @@ src/webview/styles.css            — Theme-aware styling
 - [x] M010: gsd-pi 2.12 Feature Parity
 - [x] M011: Codebase Quality & Robustness
 - [x] M012: gsd-pi 2.13–2.19 Feature Parity & Auto-Mode Visibility
+- [x] M014: gsd-pi 2.20–2.28 Feature Parity (partial — parallel worker progress missing)
