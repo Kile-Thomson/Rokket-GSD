@@ -6,7 +6,7 @@ If you discover a security vulnerability in Rokket GSD, please report it respons
 
 **Do not open a public issue.**
 
-Instead, email [kile@rokketek.com](mailto:kile@rokketek.com) with:
+Instead, email [kilebantick@outlook.com](mailto:kilebantick@outlook.com) with:
 
 - A description of the vulnerability
 - Steps to reproduce
