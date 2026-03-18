@@ -50,6 +50,12 @@ Full GSD workflow from a single `/` keystroke
 🧠 **Model Picker**<br>
 Grouped by provider with context size and reasoning tags
 
+🎯 **Steer While Streaming**<br>
+Redirect the agent mid-task without waiting
+
+🎨 **Four UI Themes**<br>
+Classic, Phosphor, Clarity, and Forge
+
 </td>
 <td width="50%">
 
@@ -64,20 +70,6 @@ Per-worker state, budget bars, and stale detection
 
 ⚡ **Live Auto-Mode Progress**<br>
 Task, phase, cost, elapsed time, and active model
-
-</td>
-</tr>
-<tr>
-<td>
-
-🎯 **Steer While Streaming**<br>
-Redirect the agent mid-task without waiting
-
-🎨 **Four UI Themes**<br>
-Classic, Phosphor, Clarity, and Forge
-
-</td>
-<td>
 
 💰 **Budget Alerts**<br>
 Warning toast when workers cross 80% of ceiling
