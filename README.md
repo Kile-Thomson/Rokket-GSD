@@ -19,11 +19,12 @@
 ---
 
 ## What Is This?
-</p><img width="3075" height="1335" alt="RokketGSD" src="https://github.com/user-attachments/assets/c9041d72-0dc0-4415-adcd-3414445c3f16" />
+<img width="1670" height="1005" alt="RokketGSD" src="https://github.com/user-attachments/assets/e68aea08-cb2c-415f-ad2e-dbad08d39dbc" 
 
 Rokket GSD wraps the `gsd-pi` CLI agent in a polished VS Code chat UI. Instead of running GSD in a terminal, you get streaming responses, rich tool call visualization, model switching, session history, and full workflow automation — without leaving your editor.
 
 It communicates with GSD over JSON-RPC (`gsd --mode rpc`), so the agent runs as a child process with full access to your workspace, tools, and configured providers.
+/>
 
 ---
 
