@@ -125,6 +125,10 @@
 				"title": "Rokket GSD: New Conversation"
 			},
 			{
+				"command": "gsd.exportReport",
+				"title": "Rokket GSD: Export Milestone Report"
+			},
+			{
 				"command": "gsd.focus",
 				"title": "Rokket GSD: Focus Input"
 			}
