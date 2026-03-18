@@ -382,6 +382,29 @@ export interface WorkflowState {
   autoMode: string | null;
 }
 
+// --- Parallel Worker Progress ---
+
+export interface WorkerProgress {
+  /** Milestone ID this worker is executing */
+  id: string;
+  /** Worker process PID */
+  pid: number;
+  /** Worker state */
+  state: "running" | "paused" | "stopped" | "error";
+  /** Current unit being executed (null when idle) */
+  currentUnit: { type: string; id: string } | null;
+  /** Number of completed units */
+  completedUnits: number;
+  /** Cumulative cost for this worker */
+  cost: number;
+  /** Budget percentage (cost / budget_ceiling * 100), null when no ceiling */
+  budgetPercent: number | null;
+  /** Last heartbeat epoch ms */
+  lastHeartbeat: number;
+  /** True when heartbeat is older than staleness threshold */
+  stale: boolean;
+}
+
 // --- Auto-Mode Progress Data ---
 
 export interface AutoProgressData {
@@ -409,4 +432,8 @@ export interface AutoProgressData {
   model?: { id: string; provider: string } | null;
   /** Number of pending captures awaiting triage */
   pendingCaptures?: number;
+  /** Parallel worker progress — null when no parallel data exists */
+  workers?: WorkerProgress[] | null;
+  /** True when any worker's budget exceeds 80% of budget_ceiling */
+  budgetAlert?: boolean;
 }

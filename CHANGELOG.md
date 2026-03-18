@@ -4,6 +4,20 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.49] — 2026-03-19
+
+### Added
+- **Parallel worker progress cards** — during parallel auto-mode, the progress widget shows per-worker cards with milestone ID, state badges (Running/Paused/Stopped/Error), current unit, cost, and budget usage bars. Workers with stale heartbeats are dimmed with a "(stale)" indicator.
+- **Budget alert toast** — a VS Code warning toast fires when any parallel worker's cost exceeds 80% of `budget_ceiling` from `.gsd/preferences.md`. Fires once per threshold crossing, resets when all workers drop below 80%.
+- **Budget alert badge** — ⚠️ badge appears in the progress widget stats when any worker is over budget.
+- **Validate-milestone phase** — progress widget renders `validate-milestone` as "✓ VALIDATING" with a checkmark icon.
+- **Discussion-pause visibility** — when auto-mode pauses for slice discussion (`require_slice_discussion`), the progress widget shows 💬 "AWAITING DISCUSSION" with a `/gsd discuss` hint instead of disappearing.
+- **New slash commands** — `/gsd update` (immediate execution) and `/gsd export` (append arguments like `--html --all`) added to the slash menu.
+- **Export report command** — "Rokket GSD: Export Milestone Report" available from the VS Code command palette (`gsd.exportReport`).
+
+### Fixed
+- **Release workflow no longer triggers on README/CHANGELOG edits** — prevents spurious empty releases when editing docs on GitHub.
+
 ## [0.2.45] — 2026-03-17
 
 ### Added

@@ -8,7 +8,7 @@
 
 import { state } from "./state";
 import { escapeHtml } from "./helpers";
-import type { AutoProgressData } from "../shared/types";
+import type { AutoProgressData, WorkerProgress } from "../shared/types";
 
 // ============================================================
 // Module state
@@ -170,6 +170,9 @@ function render(): void {
     ? `<div class="gsd-auto-progress-hint">Use /gsd discuss to continue</div>`
     : "";
 
+  // Build worker cards for parallel auto-mode
+  const workerCardsHtml = buildWorkerCards(data);
+
   // Hide pulse dot during discussion pause
   const pulseHtml = isDiscussionPause
     ? ""
@@ -189,6 +192,7 @@ function render(): void {
         ${progressHtml}
         ${statsHtml}
       </div>
+      ${workerCardsHtml}
     </div>
   `;
 
@@ -237,6 +241,11 @@ function buildStats(data: AutoProgressData): string {
     parts.push(`<span class="gsd-auto-progress-stat gsd-auto-progress-captures">📌 ${data.pendingCaptures}</span>`);
   }
 
+  // Budget alert badge
+  if (data.budgetAlert) {
+    parts.push(`<span class="gsd-auto-progress-stat gsd-auto-progress-budget-alert">⚠️ Budget</span>`);
+  }
+
   if (data.cost !== undefined && data.cost > 0) {
     parts.push(`<span class="gsd-auto-progress-stat">$${data.cost.toFixed(2)}</span>`);
   }
@@ -266,6 +275,73 @@ function formatPhase(phase: string): string {
     default: return phase.toUpperCase();
   }
 }
+
+// ============================================================
+// Parallel Worker Cards
+// ============================================================
+
+function buildWorkerCards(data: AutoProgressData): string {
+  if (!data.workers || data.workers.length === 0) return "";
+
+  const cards = data.workers.map(w => buildWorkerCard(w)).join("");
+  return `<div class="gsd-auto-progress-workers">${cards}</div>`;
+}
+
+function buildWorkerCard(w: WorkerProgress): string {
+  const stateClass = `gsd-worker-state-${w.state}`;
+  const staleClass = w.stale ? " stale" : "";
+  const stateLabel = formatWorkerState(w.state);
+  const staleLabel = w.stale ? ' <span class="gsd-worker-stale-label">(stale)</span>' : "";
+
+  let unitLine = "";
+  if (w.currentUnit) {
+    unitLine = `<div class="gsd-worker-unit">${escapeHtml(w.currentUnit.type)} ${escapeHtml(w.currentUnit.id)}</div>`;
+  }
+
+  const budgetBar = w.budgetPercent !== null ? buildWorkerBudgetBar(w.budgetPercent) : "";
+
+  return `
+    <div class="gsd-auto-progress-worker-card${staleClass}">
+      <div class="gsd-worker-header">
+        <span class="gsd-worker-id">${escapeHtml(w.id)}</span>
+        <span class="gsd-worker-state ${stateClass}">${stateLabel}</span>${staleLabel}
+      </div>
+      ${unitLine}
+      <div class="gsd-worker-cost">$${w.cost.toFixed(2)}</div>
+      ${budgetBar}
+    </div>
+  `;
+}
+
+function buildWorkerBudgetBar(percent: number): string {
+  const fillWidth = Math.min(percent, 100);
+  let colorClass = "gsd-budget-ok";
+  if (percent >= 100) colorClass = "gsd-budget-over";
+  else if (percent >= 80) colorClass = "gsd-budget-warn";
+
+  return `
+    <div class="gsd-worker-budget">
+      <div class="gsd-worker-budget-track">
+        <div class="gsd-worker-budget-fill ${colorClass}" style="width: ${fillWidth}%"></div>
+      </div>
+      <span class="gsd-worker-budget-label">${Math.round(percent)}%</span>
+    </div>
+  `;
+}
+
+function formatWorkerState(state: string): string {
+  switch (state) {
+    case "running": return "Running";
+    case "paused": return "Paused";
+    case "stopped": return "Stopped";
+    case "error": return "Error";
+    default: return state;
+  }
+}
+
+// ============================================================
+// Elapsed time helpers
+// ============================================================
 
 function updateElapsedDisplay(): void {
   const el = widgetEl?.querySelector(".gsd-auto-progress-elapsed") as HTMLElement | null;
