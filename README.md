@@ -7,6 +7,10 @@
 <h3 align="center">The GSD-PI / GSD V2 VS Code Extension</h3>
 
 <p align="center">
+  Built on <a href="https://github.com/badlogic/pi-mono">GSD</a> by <a href="https://github.com/badlogic">Glittercowboy</a> (Mario Zechner) ❤️
+</p>
+
+<p align="center">
   A full-featured VS Code frontend for the <a href="https://github.com/badlogic/pi-mono">GSD (gsd-pi)</a> AI coding agent.<br>
   Streaming chat, real-time tool visualization, parallel worker monitoring,<br>
   model switching, session history, and full workflow automation.
