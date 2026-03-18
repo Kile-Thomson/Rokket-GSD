@@ -237,4 +237,167 @@ describe("auto-progress widget", () => {
       expect(widget!.style.display).toBe("flex");
     });
   });
+
+  // ============================================================
+  // Parallel worker card tests
+  // ============================================================
+
+  describe("parallel worker cards", () => {
+    function makeWorker(overrides?: Record<string, unknown>) {
+      return {
+        id: "M001",
+        pid: 1234,
+        state: "running" as const,
+        currentUnit: { type: "task", id: "T01" } as { type: string; id: string } | null,
+        completedUnits: 3,
+        cost: 0.42,
+        budgetPercent: 42 as number | null,
+        lastHeartbeat: Date.now(),
+        stale: false,
+        ...overrides,
+      };
+    }
+
+    it("renders worker cards when workers array is present", () => {
+      autoProgress.update(makeProgressData({
+        workers: [makeWorker()],
+      }));
+      const cards = document.querySelectorAll(".gsd-auto-progress-worker-card");
+      expect(cards.length).toBe(1);
+    });
+
+    it("renders no worker cards when workers is null", () => {
+      autoProgress.update(makeProgressData({ workers: null }));
+      const cards = document.querySelectorAll(".gsd-auto-progress-worker-card");
+      expect(cards.length).toBe(0);
+    });
+
+    it("renders no worker cards when workers is undefined", () => {
+      autoProgress.update(makeProgressData());
+      const cards = document.querySelectorAll(".gsd-auto-progress-worker-card");
+      expect(cards.length).toBe(0);
+    });
+
+    it("renders multiple worker cards", () => {
+      autoProgress.update(makeProgressData({
+        workers: [
+          makeWorker({ id: "M001" }),
+          makeWorker({ id: "M002", state: "paused" }),
+        ],
+      }));
+      const cards = document.querySelectorAll(".gsd-auto-progress-worker-card");
+      expect(cards.length).toBe(2);
+    });
+
+    it("shows worker milestone ID", () => {
+      autoProgress.update(makeProgressData({
+        workers: [makeWorker({ id: "M005" })],
+      }));
+      const widget = document.getElementById("autoProgressWidget");
+      expect(widget!.innerHTML).toContain("M005");
+    });
+
+    it("shows worker state badge with correct class", () => {
+      autoProgress.update(makeProgressData({
+        workers: [makeWorker({ state: "running" })],
+      }));
+      const badge = document.querySelector(".gsd-worker-state-running");
+      expect(badge).toBeTruthy();
+      expect(badge!.textContent).toBe("Running");
+    });
+
+    it("shows error state badge", () => {
+      autoProgress.update(makeProgressData({
+        workers: [makeWorker({ state: "error" })],
+      }));
+      const badge = document.querySelector(".gsd-worker-state-error");
+      expect(badge).toBeTruthy();
+      expect(badge!.textContent).toBe("Error");
+    });
+
+    it("shows current unit info", () => {
+      autoProgress.update(makeProgressData({
+        workers: [makeWorker({ currentUnit: { type: "slice", id: "S03" } })],
+      }));
+      const unit = document.querySelector(".gsd-worker-unit");
+      expect(unit).toBeTruthy();
+      expect(unit!.textContent).toContain("slice");
+      expect(unit!.textContent).toContain("S03");
+    });
+
+    it("shows worker cost", () => {
+      autoProgress.update(makeProgressData({
+        workers: [makeWorker({ cost: 1.23 })],
+      }));
+      const cost = document.querySelector(".gsd-worker-cost");
+      expect(cost).toBeTruthy();
+      expect(cost!.textContent).toContain("$1.23");
+    });
+
+    it("shows budget bar with percentage", () => {
+      autoProgress.update(makeProgressData({
+        workers: [makeWorker({ budgetPercent: 65 })],
+      }));
+      const bar = document.querySelector(".gsd-worker-budget-fill");
+      expect(bar).toBeTruthy();
+      expect((bar as HTMLElement).style.width).toBe("65%");
+      expect(bar!.classList.contains("gsd-budget-ok")).toBe(true);
+    });
+
+    it("shows warning color at 80% budget", () => {
+      autoProgress.update(makeProgressData({
+        workers: [makeWorker({ budgetPercent: 85 })],
+      }));
+      const bar = document.querySelector(".gsd-worker-budget-fill");
+      expect(bar!.classList.contains("gsd-budget-warn")).toBe(true);
+    });
+
+    it("shows red color at 100% budget", () => {
+      autoProgress.update(makeProgressData({
+        workers: [makeWorker({ budgetPercent: 105 })],
+      }));
+      const bar = document.querySelector(".gsd-worker-budget-fill");
+      expect(bar!.classList.contains("gsd-budget-over")).toBe(true);
+      // Clamped to 100% width
+      expect((bar as HTMLElement).style.width).toBe("100%");
+    });
+
+    it("marks stale workers with stale class", () => {
+      autoProgress.update(makeProgressData({
+        workers: [makeWorker({ stale: true })],
+      }));
+      const card = document.querySelector(".gsd-auto-progress-worker-card");
+      expect(card!.classList.contains("stale")).toBe(true);
+    });
+
+    it("shows stale label on stale workers", () => {
+      autoProgress.update(makeProgressData({
+        workers: [makeWorker({ stale: true })],
+      }));
+      const label = document.querySelector(".gsd-worker-stale-label");
+      expect(label).toBeTruthy();
+      expect(label!.textContent).toContain("stale");
+    });
+
+    it("hides budget bar when budgetPercent is null", () => {
+      autoProgress.update(makeProgressData({
+        workers: [makeWorker({ budgetPercent: null })],
+      }));
+      const bar = document.querySelector(".gsd-worker-budget-fill");
+      expect(bar).toBeNull();
+    });
+
+    it("shows budget alert badge when budgetAlert is true", () => {
+      autoProgress.update(makeProgressData({ budgetAlert: true }));
+      const badge = document.querySelector(".gsd-auto-progress-budget-alert");
+      expect(badge).toBeTruthy();
+      expect(badge!.textContent).toContain("Budget");
+    });
+
+    it("hides budget alert badge when budgetAlert is false", () => {
+      autoProgress.update(makeProgressData({ budgetAlert: false }));
+      const badge = document.querySelector(".gsd-auto-progress-budget-alert");
+      expect(badge).toBeNull();
+    });
+  });
 });
