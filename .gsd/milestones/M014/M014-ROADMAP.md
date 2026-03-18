@@ -55,7 +55,7 @@ This milestone is complete only when all are true:
 - [x] **S02: Validate-Milestone Phase & New Slash Commands** `risk:low` `depends:[]`
   > After this: the progress widget renders `validate-milestone` with a distinct label and checkmark icon. `/gsd update` and `/gsd export --html --all` appear in the slash menu and execute. HTML report export is available as a `gsd.exportReport` VS Code command.
 
-- [ ] **S03: Model Picker Grouping & Discussion Pause** `risk:medium` `depends:[]`
+- [x] **S03: Model Picker Grouping & Discussion Pause** `risk:medium` `depends:[]`
   > After this: the model picker shows models grouped under provider section headers instead of a flat list. When `require_slice_discussion` pauses auto-mode, the progress widget shows "Awaiting Discussion" with a prompt to use `/gsd discuss`.
 
 ## Boundary Map
