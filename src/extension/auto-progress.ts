@@ -2,7 +2,8 @@ import * as vscode from "vscode";
 import type { GsdRpcClient } from "./rpc-client";
 import { buildDashboardData } from "./dashboard-parser";
 import { countPendingCaptures } from "./captures-parser";
-import type { AutoProgressData, ExtensionToWebviewMessage } from "../shared/types";
+import { readParallelWorkers, readBudgetCeiling } from "./parallel-status";
+import type { AutoProgressData, WorkerProgress, ExtensionToWebviewMessage } from "../shared/types";
 
 // ============================================================
 // Auto-Progress Poller
@@ -21,6 +22,14 @@ export class AutoProgressPoller {
   private autoStartTime: number = 0;
   private lastModel: { id: string; provider: string } | null = null;
   private disposed = false;
+
+  /** Budget ceiling cache — avoids re-parsing preferences.md every poll */
+  private budgetCeiling: number | null = null;
+  private budgetCeilingReadAt = 0;
+  private readonly BUDGET_CEILING_TTL_MS = 30_000;
+
+  /** Budget alert guard — fires once when any worker crosses 80%, resets when all drop below */
+  private lastBudgetAlertFired = false;
 
   constructor(
     private readonly sessionId: string,
@@ -227,7 +236,47 @@ export class AutoProgressPoller {
       // 4. Count pending captures
       const pendingCaptures = countPendingCaptures(cwd);
 
-      // 5. Build progress message
+      // 5. Read parallel worker status
+      const rawWorkers = readParallelWorkers(cwd);
+      let workers: WorkerProgress[] | null = null;
+      let budgetAlert = false;
+
+      if (rawWorkers) {
+        // Refresh budget ceiling cache if stale
+        const now = Date.now();
+        if (now - this.budgetCeilingReadAt > this.BUDGET_CEILING_TTL_MS) {
+          this.budgetCeiling = readBudgetCeiling(cwd);
+          this.budgetCeilingReadAt = now;
+        }
+
+        // Compute budget percentages
+        workers = rawWorkers.map(w => ({
+          ...w,
+          budgetPercent: this.budgetCeiling
+            ? Math.round((w.cost / this.budgetCeiling) * 10000) / 100
+            : null,
+        }));
+
+        // Check budget alert threshold
+        const anyOver80 = workers.some(w => w.budgetPercent !== null && w.budgetPercent >= 80);
+        budgetAlert = anyOver80;
+
+        if (anyOver80 && !this.lastBudgetAlertFired) {
+          this.lastBudgetAlertFired = true;
+          const overBudget = workers
+            .filter(w => w.budgetPercent !== null && w.budgetPercent >= 80)
+            .map(w => `${w.id} (${w.budgetPercent!.toFixed(0)}%)`)
+            .join(", ");
+          this.output.appendLine(`[${this.sessionId}] Budget alert fired for: ${overBudget}`);
+          vscode.window.showWarningMessage(`GSD Budget Alert: Workers over 80% — ${overBudget}`);
+        } else if (!anyOver80) {
+          this.lastBudgetAlertFired = false; // Reset when all drop below
+        }
+
+        this.output.appendLine(`[${this.sessionId}] Parallel workers: ${workers.length}`);
+      }
+
+      // 6. Build progress message
       const progress: AutoProgressData = {
         autoState: this.autoState!,
         phase: dashData?.phase || "unknown",
@@ -241,6 +290,8 @@ export class AutoProgressPoller {
         cost,
         model,
         pendingCaptures,
+        workers,
+        budgetAlert,
       };
 
       this.postToWebview({ type: "auto_progress", data: progress });
