@@ -46,6 +46,12 @@ Add comprehensive test coverage for the discussion-pause rendering introduced in
 - `src/webview/__tests__/auto-progress.test.ts` — existing test file with `makeProgressData()` helper, `beforeEach`/`afterEach` DOM setup pattern. T01 modified `render()` in `src/webview/auto-progress.ts` to handle `autoState === "paused" && phase === "needs-discussion"` with 💬 icon, "AWAITING DISCUSSION" label, `.gsd-auto-progress-discussion` class, and `/gsd discuss` hint line.
 - `src/webview/model-picker.ts` — already implements provider grouping with `Map<string, AvailableModel[]>`, `gsd-model-picker-group` divs, and `gsd-model-picker-provider` headers.
 
+## Observability Impact
+
+- **Test coverage signal:** `npx vitest run src/webview/__tests__/auto-progress.test.ts` now reports 28 passing tests (8 discussion-pause specific). A future regression in discussion-pause rendering will surface as a named test failure in the `discussion-pause state` describe block.
+- **Inspection surface:** Test names directly describe the expected DOM state — a failing test name tells the agent exactly which rendering behavior broke (icon, class, hint text, pulse, transition).
+- **No runtime observability changes** — this task adds tests only; runtime signals remain as documented in T01.
+
 ## Expected Output
 
 - `src/webview/__tests__/auto-progress.test.ts` — new `describe("discussion-pause state")` block with 5+ passing test cases
