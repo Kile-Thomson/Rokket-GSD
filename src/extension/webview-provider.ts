@@ -191,6 +191,24 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  // --- Export report ---
+
+  async exportReport(): Promise<void> {
+    this.focus();
+    for (const [, session] of this.sessions) {
+      if (session.client?.isRunning) {
+        try {
+          await session.client.prompt("/gsd export --html --all");
+        } catch (err) {
+          this.output.appendLine(`Error exporting report: ${err}`);
+          vscode.window.showErrorMessage("Failed to export milestone report.");
+        }
+        return;
+      }
+    }
+    vscode.window.showInformationMessage("Start a GSD session first to export a milestone report.");
+  }
+
   // --- Status bar ---
 
   onStatusUpdate(callback: (status: StatusBarUpdate) => void): void {

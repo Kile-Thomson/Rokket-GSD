@@ -477,7 +477,7 @@ html, body {
   display: none;
   position: absolute;
   bottom: 120px;
-  right: 20px;
+  right: 15px;
   width: 32px;
   height: 32px;
   border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.25));
@@ -2686,7 +2686,7 @@ html, body {
   color: var(--vscode-input-foreground);
   background: var(--vscode-input-background);
   outline: none;
-  min-height: 36px;
+  min-height: 38px;
   max-height: 200px;
   line-height: 1.45;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -2776,8 +2776,8 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   border: none;
   border-radius: 8px;
   background: transparent;
@@ -2801,8 +2801,8 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border: none;
   border-radius: 8px;
   background: var(--vscode-button-background);
