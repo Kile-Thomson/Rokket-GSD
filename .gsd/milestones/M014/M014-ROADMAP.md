@@ -52,7 +52,7 @@ This milestone is complete only when all are true:
 - [x] **S01: Parallel Worker Progress & Budget Alerts** `risk:high` `depends:[]`
   > After this: during parallel auto-mode, the progress widget shows multiple workers with per-worker phase, task name, and cost. A budget alert toast fires when any worker exceeds 80% of its budget. Graceful degradation when no parallel data is present.
 
-- [ ] **S02: Validate-Milestone Phase & New Slash Commands** `risk:low` `depends:[]`
+- [x] **S02: Validate-Milestone Phase & New Slash Commands** `risk:low` `depends:[]`
   > After this: the progress widget renders `validate-milestone` with a distinct label and checkmark icon. `/gsd update` and `/gsd export --html --all` appear in the slash menu and execute. HTML report export is available as a `gsd.exportReport` VS Code command.
 
 - [ ] **S03: Model Picker Grouping & Discussion Pause** `risk:medium` `depends:[]`
