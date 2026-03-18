@@ -46,7 +46,7 @@
   - Verify: `npx vitest run src/webview/__tests__/auto-progress.test.ts` (existing tests still pass)
   - Done when: The render function produces 💬 icon, "AWAITING DISCUSSION" label, and `/gsd discuss` hint when given `autoState: "paused"` + `phase: "needs-discussion"` data. Normal pause (non-discussion) still clears the widget.
 
-- [ ] **T02: Add discussion-pause tests and verify model picker grouping** `est:30m`
+- [x] **T02: Add discussion-pause tests and verify model picker grouping** `est:30m`
   - Why: Need test coverage for the discussion-pause rendering, and need to verify that model picker grouping (already implemented) works correctly.
   - Files: `src/webview/__tests__/auto-progress.test.ts`, `src/webview/model-picker.ts`
   - Do: (1) Add test cases to `auto-progress.test.ts`: discussion pause shows widget with 💬 icon and "AWAITING DISCUSSION" label; discussion pause shows "/gsd discuss" hint; discussion pause has `.gsd-auto-progress-discussion` class; normal pause (non-discussion phase) hides widget; elapsed timer element has no active timestamp during discussion pause. Use the existing `makeProgressData()` helper with `{ autoState: "paused", phase: "needs-discussion" }`. (2) Verify model picker grouping by code inspection — confirm `model-picker.ts` builds `Map<string, AvailableModel[]>` and renders `gsd-model-picker-group` with `gsd-model-picker-provider` headers. (3) Run full test suite to confirm no regressions.
