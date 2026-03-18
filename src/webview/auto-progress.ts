@@ -134,6 +134,7 @@ function render(): void {
   }
 
   const phase = formatPhase(data.phase);
+  const phaseIcon = data.phase === "validate-milestone" ? "✓ " : "";
   const modeIcon = data.autoState === "auto" ? "⚡" : data.autoState === "next" ? "▸" : "⏸";
 
   // Build current target line
@@ -157,7 +158,7 @@ function render(): void {
       <div class="gsd-auto-progress-row gsd-auto-progress-main">
         <span class="gsd-auto-progress-pulse"></span>
         <span class="gsd-auto-progress-mode">${modeIcon}</span>
-        <span class="gsd-auto-progress-phase">${escapeHtml(phase)}</span>
+        <span class="gsd-auto-progress-phase">${phaseIcon}${escapeHtml(phase)}</span>
         <span class="gsd-auto-progress-target">${targetLine}</span>
         <span class="gsd-auto-progress-elapsed" data-timestamp="${autoStartTime}"></span>
       </div>
@@ -238,6 +239,7 @@ function formatPhase(phase: string): string {
     case "blocked": return "BLOCKED";
     case "replanning-slice": return "REPLANNING";
     case "needs-discussion": return "DISCUSS";
+    case "validate-milestone": return "VALIDATING";
     default: return phase.toUpperCase();
   }
 }

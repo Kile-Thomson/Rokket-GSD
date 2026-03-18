@@ -109,7 +109,8 @@ export function selectCurrent(): void {
 // Internal
 // ============================================================
 
-function buildItems(): SlashMenuItem[] {
+/** @internal — exported for testing */
+export function buildItems(): SlashMenuItem[] {
   const items: SlashMenuItem[] = [];
 
   const gsdSubcommands: Array<{ name: string; desc: string; sendOnSelect?: boolean }> = [
@@ -136,6 +137,8 @@ function buildItems(): SlashMenuItem[] {
     { name: "gsd remote", desc: "Remote question channels (Slack, Discord, Telegram)" },
     { name: "gsd do", desc: "Freeform text — routes natural language to the right command" },
     { name: "gsd note", desc: "Quick idea capture (append, list, promote)" },
+    { name: "gsd update", desc: "Update GSD artifacts and status", sendOnSelect: true },
+    { name: "gsd export", desc: "Export milestone report (HTML)" },
   ];
 
   for (const sub of gsdSubcommands) {
