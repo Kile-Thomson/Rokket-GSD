@@ -123,7 +123,7 @@ export const state: AppState = {
   images: [],
   files: [],
   useCtrlEnterToSend: false,
-  theme: "classic",
+  theme: "forge",
   cwd: "",
   version: "",
   extensionVersion: "",
