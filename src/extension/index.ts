@@ -78,6 +78,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand("gsd.focus", () => {
       provider.focus();
+    }),
+
+    vscode.commands.registerCommand("gsd.exportReport", () => {
+      provider.exportReport();
     })
   );
 
