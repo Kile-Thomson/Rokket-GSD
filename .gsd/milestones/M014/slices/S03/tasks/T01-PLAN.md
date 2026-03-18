@@ -57,6 +57,13 @@ Key constraint: normal user-initiated pauses (where phase is NOT `needs-discussi
 - `src/webview/styles.css` — existing `.gsd-auto-progress-*` classes starting around line 4532.
 - `src/shared/types.ts` — `AutoProgressData` interface. Fields `autoState` (string) and `phase` (string) are already present — no type changes needed.
 
+## Observability Impact
+
+- **New log signal:** `[sessionId] Auto-progress: discussion pause detected, keeping widget visible` — emitted by `AutoProgressPoller.onAutoModeChanged()` when pause is caused by `needs-discussion` phase. Absence of this line when the widget disappears on discussion pause indicates the final-poll logic failed.
+- **DOM surface:** `.gsd-auto-progress-discussion` class on the widget element — inspectable via DevTools to confirm discussion-pause state is active.
+- **DOM surface:** `.gsd-auto-progress-hint` element with text "Use /gsd discuss to continue" — visible to the user and inspectable.
+- **Failure visibility:** If the widget clears during a discussion pause, the log line above will be absent and `.gsd-auto-progress-discussion` will not appear in the DOM.
+
 ## Expected Output
 
 - `src/extension/auto-progress.ts` — `onAutoModeChanged()` modified to do a final poll on pause and conditionally keep widget visible for `needs-discussion` phase

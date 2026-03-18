@@ -4687,6 +4687,19 @@ html, body {
   }
 }
 
+/* Discussion-pause state — distinct visual treatment */
+.gsd-auto-progress-discussion {
+  border-left: 3px solid var(--vscode-charts-yellow, #e2c08d);
+  background: color-mix(in srgb, var(--vscode-charts-yellow, #e2c08d) 6%, var(--vscode-editorWidget-background, var(--vscode-sideBar-background)));
+}
+
+.gsd-auto-progress-hint {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  padding: 0 0 0 16px;
+  font-style: italic;
+}
+
 /* ============================================================
    Model Badge Flash — triggered on dynamic model routing
    ============================================================ */

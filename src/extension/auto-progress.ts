@@ -51,9 +51,9 @@ export class AutoProgressPoller {
       }
       // If already polling and state changed (auto↔next), just update — poll will pick up the new state
     } else {
-      // Stopped or paused — stop polling and clear widget
+      // Stopped or paused — stop polling but do a final poll to check for discussion pause
       this.stopPolling();
-      this.sendClear();
+      this.finalPollAndMaybeClear();
     }
   }
 
@@ -93,6 +93,64 @@ export class AutoProgressPoller {
   }
 
   // --- Internal ---
+
+  /**
+   * On pause/stop, do one final read of dashboard data to detect discussion pause.
+   * If the phase is `needs-discussion`, keep the widget visible with paused state.
+   * Otherwise, clear the widget as usual.
+   */
+  private async finalPollAndMaybeClear(): Promise<void> {
+    try {
+      const cwd = this.getCwd();
+      const dashData = await buildDashboardData(cwd);
+      const phase = dashData?.phase || "unknown";
+
+      if (phase === "needs-discussion") {
+        this.output.appendLine(`[${this.sessionId}] Auto-progress: discussion pause detected, keeping widget visible`);
+
+        // Build a final progress snapshot with paused state
+        let model: { id: string; provider: string } | null = this.lastModel;
+        let cost: number | undefined;
+
+        if (this.client.isRunning) {
+          try {
+            const stats = await this.client.getSessionStats() as Record<string, unknown> | null;
+            if (stats?.cost !== undefined) {
+              cost = stats.cost as number;
+            }
+          } catch {
+            // Non-fatal
+          }
+        }
+
+        const pendingCaptures = countPendingCaptures(cwd);
+
+        const progress: AutoProgressData = {
+          autoState: "paused",
+          phase: "needs-discussion",
+          milestone: dashData?.milestone || null,
+          slice: dashData?.slice || null,
+          task: dashData?.task || null,
+          slices: dashData?.progress?.slices || { done: 0, total: 0 },
+          tasks: dashData?.progress?.tasks || { done: 0, total: 0 },
+          milestones: dashData?.progress?.milestones || { done: 0, total: 0 },
+          timestamp: Date.now(),
+          cost,
+          model,
+          pendingCaptures,
+        };
+
+        this.postToWebview({ type: "auto_progress", data: progress });
+        return;
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.output.appendLine(`[${this.sessionId}] Auto-progress final poll error: ${msg}`);
+    }
+
+    // Not a discussion pause (or error reading data) — clear as normal
+    this.sendClear();
+  }
 
   private startPolling(): void {
     if (this.timer) return; // Already polling
