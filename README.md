@@ -8,7 +8,8 @@
 
 <p align="center">
   A full-featured VS Code frontend for the <a href="https://github.com/badlogic/pi-mono">GSD (gsd-pi)</a> AI coding agent.<br>
-  Streaming chat, real-time tool visualization, parallel worker monitoring, model switching, session history, and full workflow automation.
+  Streaming chat, real-time tool visualization, parallel worker monitoring,<br>
+  model switching, session history, and full workflow automation.
 </p>
 
 <p align="center">
@@ -31,30 +32,68 @@ The extension spawns GSD as a child process over JSON-RPC (`gsd --mode rpc`), gi
 
 ---
 
-## Highlights
+## ✨ Highlights
 
-- **One-click auto-updates** from GitHub Releases. New version notification with instant install.
-- **Session history** with search, rename, delete, and instant resume. Pick up right where you left off.
-- **32 slash commands** covering the full GSD workflow plus built-in actions, all from a single `/` keystroke
-- **Model picker** grouped by provider with context window size and reasoning capability tags
-- **Thinking level control** from off through xhigh, model-aware so you only see levels your model supports
-- **Streaming chat** with text, thinking, and tool calls rendered in arrival order with zero layout jumps
-- **40+ tool visualizations** with category icons, key arg display, collapsible output, and duration tracking
-- **Tool call grouping** collapses consecutive read-only tools into expandable summary rows
-- **Steer while streaming** to redirect the agent mid-task without waiting
-- **Live auto-mode progress** tracking current task, phase, cost, elapsed time, and active model in real time
-- **Parallel worker dashboard** with per-worker state badges, budget bars, cost tracking, and stale indicators
-- **Budget alerts** when any worker crosses 80% of the configured budget ceiling
-- **Workflow visualizer** overlay with Progress and Metrics tabs, auto-refreshing every 5 seconds
-- **Inline UI dialogs** for confirms, selects, and inputs rendered directly in chat (no modal popups)
-- **Crash recovery** with one-click restart and full state cleanup
-- **Process resilience** built for multi-hour sessions: health pings, environment isolation, hang detection
-- **Four UI themes**: Classic, Phosphor, Clarity, and Forge
+<table>
+<tr>
+<td width="50%">
+
+🔄 **Auto-Updates**<br>
+One-click install from GitHub Releases
+
+📂 **Session History**<br>
+Search, rename, resume right where you left off
+
+⌨️ **32 Slash Commands**<br>
+Full GSD workflow from a single `/` keystroke
+
+🧠 **Model Picker**<br>
+Grouped by provider with context size and reasoning tags
+
+</td>
+<td width="50%">
+
+💬 **Streaming Chat**<br>
+Text, thinking, and tools render in real time
+
+🔧 **40+ Tool Visualizations**<br>
+Category icons, key args, collapsible output
+
+📊 **Parallel Worker Dashboard**<br>
+Per-worker state, budget bars, and stale detection
+
+⚡ **Live Auto-Mode Progress**<br>
+Task, phase, cost, elapsed time, and active model
+
+</td>
+</tr>
+<tr>
+<td>
+
+🎯 **Steer While Streaming**<br>
+Redirect the agent mid-task without waiting
+
+🎨 **Four UI Themes**<br>
+Classic, Phosphor, Clarity, and Forge
+
+</td>
+<td>
+
+💰 **Budget Alerts**<br>
+Warning toast when workers cross 80% of ceiling
+
+🛡️ **Process Resilience**<br>
+Built for multi-hour sessions with crash recovery
+
+</td>
+</tr>
+</table>
 
 ---
 
-## Prerequisites
+## ⚠️ Prerequisites
 
+> [!IMPORTANT]
 > **Rokket GSD is a frontend for the GSD agent. It does not include the agent itself.**
 
 You need a working GSD environment before installing:
@@ -67,13 +106,13 @@ You need a working GSD environment before installing:
    npm install -g gsd-pi
    ```
 5. **A configured AI provider** in GSD (Anthropic, OpenAI, Google, etc. via API key or OAuth)
-   - Run `gsd` in a terminal first to verify it works before installing the extension
 
-If `gsd` doesn't work in your terminal, the extension won't work either.
+> [!TIP]
+> Run `gsd` in a terminal first to verify it works before installing the extension. If `gsd` doesn't work in your terminal, the extension won't work either.
 
 ---
 
-## Installation
+## 📦 Installation
 
 ### One-Liner (macOS / Linux / Git Bash)
 
@@ -87,7 +126,8 @@ curl -sL https://raw.githubusercontent.com/Kile-Thomson/Rokket-GSD/main/install.
 irm https://raw.githubusercontent.com/Kile-Thomson/Rokket-GSD/main/install.ps1 | iex
 ```
 
-### Manual Install
+<details>
+<summary><strong>Manual Install</strong></summary>
 
 ```bash
 git clone https://github.com/Kile-Thomson/Rokket-GSD.git
@@ -100,13 +140,16 @@ code --install-extension rokket-gsd-*.vsix --force
 
 Then reload VS Code (`Ctrl+Shift+P` > "Developer: Reload Window").
 
-> **Tip:** If `code --install-extension` succeeds silently but the extension doesn't appear, install manually: VS Code > Extensions > `...` menu > "Install from VSIX..." > select the `.vsix` file.
+> [!TIP]
+> If `code --install-extension` succeeds silently but the extension doesn't appear, install manually: VS Code > Extensions > `...` menu > "Install from VSIX..." > select the `.vsix` file.
+
+</details>
 
 ---
 
-## Features
+## 🚀 Features
 
-### Session History & Resume
+### 📂 Session History & Resume
 
 - **Browse previous sessions** with searchable panel showing titles, dates, and message counts
 - **Resume any session** with a single click, full context and conversation state injected on load
@@ -115,11 +158,12 @@ Then reload VS Code (`Ctrl+Shift+P` > "Developer: Reload Window").
 - **Delete sessions** to clean up old conversations
 - **Each session gets its own GSD process** with fully isolated state
 
-### Slash Commands
+### ⌨️ Slash Commands
 
 Type `/` to open the command palette with 32 commands:
 
-**GSD Workflow** (23 commands)
+<details>
+<summary><strong>GSD Workflow</strong> (23 commands)</summary>
 
 | Command | What it does |
 |---------|-------------|
@@ -148,7 +192,10 @@ Type `/` to open the command palette with 32 commands:
 | `/gsd update` | Update GSD artifacts and status |
 | `/gsd export` | Export milestone report (supports `--html --all`) |
 
-**Built-in Actions** (9 commands)
+</details>
+
+<details>
+<summary><strong>Built-in Actions</strong> (9 commands)</summary>
 
 | Command | What it does |
 |---------|-------------|
@@ -162,7 +209,9 @@ Type `/` to open the command palette with 32 commands:
 | `/resume` | Resume last session |
 | `/auto-compact` | Toggle auto-compaction on/off |
 
-### Model & Thinking Controls
+</details>
+
+### 🧠 Model & Thinking Controls
 
 - **Model picker** grouped by provider with section headers, context window size, and reasoning capability tags
 - **Thinking level dropdown** with off / minimal / low / medium / high / xhigh and descriptions for each level
@@ -171,7 +220,7 @@ Type `/` to open the command palette with 32 commands:
 - **Live session stats** showing token count, session cost, and context pressure at a glance
 - **Dynamic model routing indicator** flashes the model badge and announces via toast when gsd-pi switches models mid-task
 
-### Streaming Chat
+### 💬 Streaming Chat
 
 - **Sequential segment rendering** - text, thinking blocks, and tool calls stream in arrival order with no re-renders or layout jumps
 - **Full markdown** with syntax-highlighted code blocks, tables, blockquotes, headings, inline code, and images
@@ -184,7 +233,7 @@ Type `/` to open the command palette with 32 commands:
 - **Drag-to-resize input area** for longer messages
 - **`!command` shortcut** to run bash commands directly without the agent
 
-### Tool Execution Visualization
+### 🔧 Tool Execution Visualization
 <img width="1749" height="775" alt="subagents" src="https://github.com/user-attachments/assets/90e4d43d-18ca-4a87-b5e9-7cd90afd50ce" />
 
 - **Live tool calls** with category-specific icons and color accents for 40+ tools
@@ -197,7 +246,7 @@ Type `/` to open the command palette with 32 commands:
 - **Shimmer animation** on running tools so you always know what's active
 - **Duration tracking** on every completed tool call
 
-### Auto-Mode Progress
+### ⚡ Auto-Mode Progress
 
 - **Live progress widget** sticky above the input showing current task, phase, progress bars, elapsed time, cost, and active model
 - **Phase rendering** with distinct labels and icons: Executing, Planning, Validating (✓), Completing, Blocked, Replanning
@@ -206,7 +255,7 @@ Type `/` to open the command palette with 32 commands:
 - **Workflow state badge** in the header showing active milestone, slice, task, and current phase
 - **Auto-mode indicator** with ⚡ Auto, ▸ Next, ⏸ Paused states
 
-### Parallel Worker Dashboard
+### 📊 Parallel Worker Dashboard
 
 - **Worker cards** during parallel auto-mode showing per-worker milestone ID, state badge, current unit, and cost
 - **State badges** for Running, Paused, Stopped, and Error with distinct colors
@@ -215,7 +264,7 @@ Type `/` to open the command palette with 32 commands:
 - **Stale worker detection** dims workers with old heartbeats and shows a "(stale)" label
 - **Graceful degradation** to standard single-worker display when no parallel data exists
 
-### Workflow Visualizer
+### 📈 Workflow Visualizer
 
 - **Full-page overlay** via `/gsd visualize` with two tabs
 - **Progress tab** with milestone header, progress bars, slice/task breakdown, milestone registry, blockers, and next action
@@ -223,7 +272,7 @@ Type `/` to open the command palette with 32 commands:
 - **Auto-refresh** every 5 seconds during active auto-mode
 - **Dashboard panel** with milestone registry, slice/task progress, cost projections, and activity log
 
-### Agent Interaction
+### 🤖 Agent Interaction
 
 - **Inline UI dialogs** for confirm, select, input, and editor prompts rendered directly in the chat flow (no modal popups)
 - **Multi-select support** with checkbox-style selection and confirm button
@@ -232,7 +281,7 @@ Type `/` to open the command palette with 32 commands:
 - **Provider fallback alerts** via toast when GSD auto-switches models due to rate limits, and again when the original provider recovers
 - **Crash recovery** with restart button and full state cleanup
 
-### VS Code Integration
+### 🎨 VS Code Integration
 
 - **Activity bar icon** (rocket) with sidebar panel
 - **Flexible layout** - open as sidebar or editor tab
@@ -247,7 +296,7 @@ Type `/` to open the command palette with 32 commands:
 - **Scroll-to-bottom FAB** when scrolled up
 - **Toast notifications** for action feedback
 
-### Keyboard Shortcuts
+### ⌨️ Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
@@ -256,9 +305,10 @@ Type `/` to open the command palette with 32 commands:
 | `Ctrl+Shift+G` | Focus the GSD input from anywhere in VS Code |
 | `Ctrl+Shift+N` | New conversation (when GSD is focused) |
 
-> **Tip:** Enable `gsd.useCtrlEnterToSend` in settings if you want `Enter` for newlines and `Ctrl+Enter` to send.
+> [!TIP]
+> Enable `gsd.useCtrlEnterToSend` in settings if you want `Enter` for newlines and `Ctrl+Enter` to send.
 
-### Security
+### 🔒 Security
 
 - **DOMPurify sanitization** on all rendered markdown
 - **URL scheme allowlist** restricting clickable links to http, https, and vscode
@@ -270,7 +320,7 @@ Type `/` to open the command palette with 32 commands:
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -284,20 +334,7 @@ Type `/` to open the command palette with 32 commands:
 
 ---
 
-## Commands
-
-| Command | Shortcut | Description |
-|---------|----------|-------------|
-| Rokket GSD: Open | | Opens in preferred location |
-| Rokket GSD: Open in New Tab | | Opens as editor tab |
-| Rokket GSD: Open in Side Bar | | Opens in sidebar |
-| Rokket GSD: New Conversation | `Ctrl+Shift+N` | Starts a fresh session |
-| Rokket GSD: Focus Input | `Ctrl+Shift+G` | Focuses the input field |
-| Rokket GSD: Export Milestone Report | | Exports HTML milestone report via GSD |
-
----
-
-## Process Resilience
+## 🛡️ Process Resilience
 
 Built to handle real-world agent sessions that run for hours:
 
@@ -311,7 +348,7 @@ Built to handle real-world agent sessions that run for hours:
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 ┌─────────────────────┐    postMessage     ┌─────────────────────┐
@@ -340,7 +377,8 @@ The extension ships as a ~147KB `.vsix` with no runtime dependencies beyond VS C
 
 ---
 
-## Development
+<details>
+<summary><strong>🔨 Development</strong></summary>
 
 ```bash
 git clone https://github.com/Kile-Thomson/Rokket-GSD.git
@@ -401,6 +439,8 @@ resources/
   gsd-logo.svg              # Activity bar icon
   rokket-icon.png            # Extension icon
 ```
+
+</details>
 
 ---
 
