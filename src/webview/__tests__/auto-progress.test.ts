@@ -170,4 +170,11 @@ describe("auto-progress widget", () => {
     const widget = document.getElementById("autoProgressWidget");
     expect(widget!.innerHTML).not.toContain("📌");
   });
+
+  it("renders validate-milestone phase with checkmark icon", () => {
+    autoProgress.update(makeProgressData({ phase: "validate-milestone" }));
+    const widget = document.querySelector(".gsd-auto-progress-phase");
+    expect(widget?.textContent).toContain("VALIDATING");
+    expect(widget?.textContent).toContain("✓");
+  });
 });

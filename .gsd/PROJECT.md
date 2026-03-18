@@ -21,7 +21,7 @@ A seamless, performant chat UI for the GSD agent inside VS Code — streaming re
 - Subagent results rendered as rich markdown with usage pills
 - Model picker (grouped by provider, context window, reasoning tags)
 - Thinking level dropdown picker (model-aware, shows available levels with descriptions)
-- Slash command menu with 27 GSD subcommands + 8 built-in actions
+- Slash command menu with 29 GSD subcommands + 8 built-in actions
 - Inline UI dialogs (confirm/select/input/editor) rendered in chat flow
 - Image paste/drop with base64 attachment support
 - File attachment support
