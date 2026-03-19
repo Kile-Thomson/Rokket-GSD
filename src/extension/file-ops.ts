@@ -13,6 +13,47 @@ export interface FileOpsContext {
   ensureTempDir: () => string;
 }
 
+/**
+ * Clean stale auto.lock crash locks that cause infinite wizard loops.
+ *
+ * When gsd-pi's auto-mode crashes, it leaves .gsd/auto.lock behind.
+ * On next /gsd invocation, showSmartEntry reads the lock, shows
+ * "Interrupted Session Detected", and if the user picks "Resume",
+ * startAuto → bootstrapAutoSession writes a NEW lock, finds no active
+ * milestone, calls showSmartEntry again → infinite loop.
+ *
+ * This pre-launch cleanup removes the lock when STATE.md indicates idle
+ * (no active work to resume), breaking the loop before it starts.
+ */
+export function cleanStaleCrashLock(cwd: string, output: vscode.OutputChannel): void {
+  try {
+    const lockPath = path.join(cwd, ".gsd", "auto.lock");
+    if (!fs.existsSync(lockPath)) return;
+
+    const statePath = path.join(cwd, ".gsd", "STATE.md");
+    if (!fs.existsSync(statePath)) {
+      // No STATE.md — lock is definitely stale
+      fs.unlinkSync(lockPath);
+      output.appendLine(`[pre-launch] Removed stale .gsd/auto.lock (no STATE.md)`);
+      return;
+    }
+
+    const stateContent = fs.readFileSync(statePath, "utf-8");
+    const phaseMatch = stateContent.match(/\*\*Phase:\*\*\s*(\S+)/);
+    const activeMatch = stateContent.match(/\*\*Active Milestone:\*\*\s*(\S+)/);
+    const phase = phaseMatch?.[1] || "unknown";
+    const activeMilestone = activeMatch?.[1] || "none";
+
+    // If state is idle/complete with no active milestone, lock is stale
+    if (activeMilestone === "none" || phase === "idle" || phase === "complete") {
+      fs.unlinkSync(lockPath);
+      output.appendLine(`[pre-launch] Removed stale .gsd/auto.lock (state: ${phase}, milestone: ${activeMilestone})`);
+    }
+  } catch {
+    // Non-fatal — if we can't clean it, gsd-pi will handle it
+  }
+}
+
 export function handleOpenFile(
   ctx: FileOpsContext,
   webview: vscode.Webview,
