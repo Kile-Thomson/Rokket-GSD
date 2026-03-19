@@ -33,5 +33,6 @@ nul
 .gsd/
 scripts/*-results.json
 
-# ── Dropbox conflicted copies ──
+# ── Dropbox ──
+.dropboxignore
 *conflicted copy*
