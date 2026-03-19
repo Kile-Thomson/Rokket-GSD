@@ -181,6 +181,7 @@ root.innerHTML = `
     </div>
 
     <footer class="gsd-footer" id="footer">
+      <div class="gsd-widgets" id="widgetContainer"></div>
       <div class="gsd-footer-line" id="footerLine1">
         <span class="gsd-footer-cwd" id="footerCwd" title="Working directory"></span>
         <span class="gsd-footer-brand">▲ ROKKETEK</span>
