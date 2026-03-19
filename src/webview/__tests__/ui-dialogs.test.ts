@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
-import { init, handleRequest, expireAllPending, hasPending } from "../ui-dialogs";
+import { init, handleRequest, expireAllPending, hasPending, clearAllDialogState } from "../ui-dialogs";
 
 // ============================================================
 // Helpers
@@ -34,8 +34,9 @@ describe("ui-dialogs", () => {
   });
 
   afterEach(() => {
-    // Expire any remaining dialogs to clear internal maps
-    expireAllPending("test cleanup");
+    // Full reset — clears pending, fingerprints, AND resolved cache
+    // so tests don't leak state via the resolved-response auto-replay
+    clearAllDialogState();
     mockVscode.postMessage.mockClear();
   });
 
@@ -283,6 +284,79 @@ describe("ui-dialogs", () => {
       handleRequest(makeRequest({ id: "t2", timeout: 10000 }));
       const countdown = messagesContainer.querySelector(".gsd-ui-countdown");
       expect(countdown).toBeTruthy();
+    });
+  });
+
+  // ============================================================
+  // resolved-response auto-replay (loop breaker)
+  // ============================================================
+
+  describe("resolved response replay", () => {
+    it("auto-responds to repeated identical dialogs after resolution", () => {
+      // First request — user clicks an option
+      handleRequest({ id: "loop1", method: "select", title: "Interrupted Session Detected", message: "", options: ["Resume", "Skip"] });
+      const btn = messagesContainer.querySelector('.gsd-ui-option-btn[data-value="Resume"]') as HTMLElement;
+      btn.click();
+
+      expect(mockVscode.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "loop1", value: "Resume" }),
+      );
+      mockVscode.postMessage.mockClear();
+
+      // Second identical request from gsd-pi — should auto-respond without rendering
+      handleRequest({ id: "loop2", method: "select", title: "Interrupted Session Detected", message: "", options: ["Resume", "Skip"] });
+
+      // Should have auto-replied with the same value
+      expect(mockVscode.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "loop2", value: "Resume" }),
+      );
+
+      // Should NOT have rendered a new dialog
+      const wrappers = messagesContainer.querySelectorAll(".gsd-entry-ui-request");
+      expect(wrappers.length).toBe(1); // only the original
+    });
+
+    it("auto-responds to repeated identical confirm dialogs", () => {
+      handleRequest({ id: "cloop1", method: "confirm", title: "Continue?", message: "Proceed?" });
+      (messagesContainer.querySelector('[data-action="yes"]') as HTMLElement).click();
+      mockVscode.postMessage.mockClear();
+
+      // Re-ask same question
+      handleRequest({ id: "cloop2", method: "confirm", title: "Continue?", message: "Proceed?" });
+      expect(mockVscode.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "cloop2", confirmed: true }),
+      );
+    });
+
+    it("stops auto-replaying after TTL expires", () => {
+      vi.useFakeTimers();
+
+      handleRequest({ id: "ttl1", method: "select", title: "Pick", message: "", options: ["A"] });
+      (messagesContainer.querySelector('.gsd-ui-option-btn') as HTMLElement).click();
+      mockVscode.postMessage.mockClear();
+
+      // Advance past the 10s TTL
+      vi.advanceTimersByTime(11_000);
+
+      // Same question again — should render a new dialog since cache expired
+      handleRequest({ id: "ttl2", method: "select", title: "Pick", message: "", options: ["A"] });
+      const wrappers = messagesContainer.querySelectorAll(".gsd-entry-ui-request");
+      expect(wrappers.length).toBe(2); // both rendered
+
+      vi.useRealTimers();
+    });
+
+    it("clearAllDialogState resets the resolved cache", () => {
+      handleRequest({ id: "clr1", method: "confirm", title: "Clear?", message: "" });
+      (messagesContainer.querySelector('[data-action="yes"]') as HTMLElement).click();
+      mockVscode.postMessage.mockClear();
+
+      clearAllDialogState();
+
+      // Same question — should render fresh since cache was cleared
+      handleRequest({ id: "clr2", method: "confirm", title: "Clear?", message: "" });
+      const wrappers = messagesContainer.querySelectorAll(".gsd-entry-ui-request");
+      expect(wrappers.length).toBe(2);
     });
   });
 });
