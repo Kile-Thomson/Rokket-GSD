@@ -63,6 +63,7 @@ import {
   handleAttachFiles,
   handleCopyText,
   handleSetTheme,
+  cleanStaleCrashLock,
   type FileOpsContext,
 } from "./file-ops";
 
@@ -296,6 +297,77 @@ describe("file-ops", () => {
       await handleSetTheme(ctx, webview, sid, { theme: "dark" });
       expect(vsc.workspace.getConfiguration).toHaveBeenCalledWith("gsd");
       expect(mockUpdate).toHaveBeenCalledWith("theme", "dark", 1); // ConfigurationTarget.Global
+    });
+  });
+
+  // ─── cleanStaleCrashLock ───────────────────────────────────────────
+
+  describe("cleanStaleCrashLock", () => {
+    it("removes lock when STATE.md says idle", () => {
+      (fs.existsSync as any) = vi.fn((p: string) => {
+        if (p.includes("auto.lock")) return true;
+        if (p.includes("STATE.md")) return true;
+        return false;
+      });
+      (fs.readFileSync as any) = vi.fn(() =>
+        "**Active Milestone:** none\n**Phase:** idle\n"
+      );
+      (fs.unlinkSync as any) = vi.fn();
+
+      const output = { appendLine: vi.fn() } as any;
+      cleanStaleCrashLock("/project", output);
+
+      expect(fs.unlinkSync).toHaveBeenCalledWith(
+        expect.stringContaining("auto.lock"),
+      );
+      expect(output.appendLine).toHaveBeenCalledWith(
+        expect.stringContaining("Removed stale"),
+      );
+    });
+
+    it("removes lock when no STATE.md exists", () => {
+      (fs.existsSync as any) = vi.fn((p: string) => {
+        if (p.includes("auto.lock")) return true;
+        return false; // no STATE.md
+      });
+      (fs.unlinkSync as any) = vi.fn();
+
+      const output = { appendLine: vi.fn() } as any;
+      cleanStaleCrashLock("/project", output);
+
+      expect(fs.unlinkSync).toHaveBeenCalledWith(
+        expect.stringContaining("auto.lock"),
+      );
+    });
+
+    it("does not remove lock when milestone is active", () => {
+      (fs.existsSync as any) = vi.fn(() => true);
+      (fs.readFileSync as any) = vi.fn(() =>
+        "**Active Milestone:** M015\n**Phase:** building\n"
+      );
+      (fs.unlinkSync as any) = vi.fn();
+
+      const output = { appendLine: vi.fn() } as any;
+      cleanStaleCrashLock("/project", output);
+
+      expect(fs.unlinkSync).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when no lock file exists", () => {
+      (fs.existsSync as any) = vi.fn(() => false);
+      (fs.unlinkSync as any) = vi.fn();
+
+      const output = { appendLine: vi.fn() } as any;
+      cleanStaleCrashLock("/project", output);
+
+      expect(fs.unlinkSync).not.toHaveBeenCalled();
+    });
+
+    it("does not throw on errors", () => {
+      (fs.existsSync as any) = vi.fn(() => { throw new Error("boom"); });
+
+      const output = { appendLine: vi.fn() } as any;
+      expect(() => cleanStaleCrashLock("/project", output)).not.toThrow();
     });
   });
 });

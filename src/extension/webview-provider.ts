@@ -1654,6 +1654,11 @@ ${exportOverrides}
     });
 
     try {
+      // Pre-launch: remove stale crash locks that cause infinite wizard loops
+      // when there's no active work to resume (idle state with leftover auto.lock)
+      const { cleanStaleCrashLock } = await import("./file-ops");
+      cleanStaleCrashLock(workingDir, this.output);
+
       await client.start({
         cwd: workingDir,
         gsdPath: processWrapper || undefined,
