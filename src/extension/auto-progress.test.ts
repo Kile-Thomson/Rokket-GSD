@@ -143,7 +143,10 @@ describe("AutoProgressPoller", () => {
     poller.onAutoModeChanged(undefined);
     expect(poller.isActive).toBe(false);
 
-    // Should send a clear message
+    // finalPollAndMaybeClear is async — flush microtasks so it resolves
+    await vi.advanceTimersByTimeAsync(0);
+
+    // Should send a clear message (phase is "building", not "needs-discussion")
     expect(webview.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ type: "auto_progress", data: null }),
     );
