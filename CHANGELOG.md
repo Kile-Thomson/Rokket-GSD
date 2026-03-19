@@ -4,6 +4,13 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.51] — 2026-03-19
+
+### Fixed
+- **Agent errors now displayed in chat** — non-retryable errors from the agent (invalid API key, permission denied, malformed requests) were silently swallowed because `message_end` never checked `stopReason: "error"`. These now surface as red system entries in the chat. Retryable errors (rate limits, 502s) also briefly show the error before the retry indicator appears, giving useful context.
+
+## [0.2.50] — 2026-03-19
+
 ## [0.2.49] — 2026-03-19
 
 ### Added
