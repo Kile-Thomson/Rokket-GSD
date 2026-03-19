@@ -19,7 +19,7 @@ let visible = false;
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 let currentData: DashboardData | null = null;
 let vscode: { postMessage(msg: unknown): void };
-let activeTab: "progress" | "metrics" = "progress";
+let activeTab: "progress" | "metrics" | "health" = "progress";
 
 /** Refresh interval — 5 seconds when visible */
 const REFRESH_INTERVAL_MS = 5_000;
@@ -174,9 +174,10 @@ function render(): void {
     <div class="gsd-visualizer-tabs">
       <button class="gsd-visualizer-tab${activeTab === "progress" ? " active" : ""}" data-tab="progress">Progress</button>
       <button class="gsd-visualizer-tab${activeTab === "metrics" ? " active" : ""}" data-tab="metrics">Metrics</button>
+      <button class="gsd-visualizer-tab${activeTab === "health" ? " active" : ""}" data-tab="health">Health</button>
     </div>
     <div class="gsd-visualizer-body">
-      ${activeTab === "progress" ? renderProgressTab(data) : renderMetricsTab(data)}
+      ${activeTab === "progress" ? renderProgressTab(data) : activeTab === "metrics" ? renderMetricsTab(data) : renderHealthTab()}
     </div>
   `;
 
@@ -435,6 +436,56 @@ function renderMetricsTab(data: DashboardData): string {
 }
 
 // ============================================================
+// Health Tab
+// ============================================================
+
+function renderHealthTab(): string {
+  const healthLines = state.widgetData.get("gsd-health");
+
+  let html = '<div class="gsd-visualizer-section">';
+  html += '<div class="gsd-visualizer-section-title">System Health</div>';
+
+  if (!healthLines || healthLines.length === 0) {
+    html += '<div class="gsd-visualizer-empty-text">No health data available yet. Health checks run when a GSD project is loaded.</div>';
+    html += '</div>';
+    return html;
+  }
+
+  // Parse the compact health line format: segments separated by │
+  const text = healthLines.join("\n").trim();
+  const parts = text.includes("│") ? text.split("│").map(p => p.trim()).filter(Boolean) : [text];
+
+  html += '<div class="gsd-visualizer-health-grid">';
+  for (const part of parts) {
+    let icon = "ℹ️";
+    let cls = "info";
+    if (/^[✗✘]/.test(part) || /error/i.test(part)) { icon = "🔴"; cls = "error"; }
+    else if (/^⚠/.test(part) || /warning/i.test(part)) { icon = "🟡"; cls = "warning"; }
+    else if (/^●/.test(part) && /OK/i.test(part)) { icon = "🟢"; cls = "ok"; }
+    else if (/Budget/i.test(part) || /Spent/i.test(part)) { icon = "💰"; cls = "info"; }
+
+    html += `<div class="gsd-visualizer-health-item ${cls}">`;
+    html += `<span class="gsd-visualizer-health-icon">${icon}</span>`;
+    html += `<span class="gsd-visualizer-health-text">${escapeHtml(part)}</span>`;
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // Model info from auto-progress
+  const autoData = state.autoProgress;
+  if (autoData?.model) {
+    html += '<div class="gsd-visualizer-section-title" style="margin-top: 12px;">Active Model</div>';
+    html += `<div class="gsd-visualizer-health-item info">`;
+    html += `<span class="gsd-visualizer-health-icon">🤖</span>`;
+    html += `<span class="gsd-visualizer-health-text">${escapeHtml(autoData.model.provider)}/${escapeHtml(autoData.model.id)}</span>`;
+    html += '</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+// ============================================================
 // Helpers
 // ============================================================
 
@@ -472,7 +523,7 @@ function wireTabs(): void {
   const tabs = overlayEl?.querySelectorAll(".gsd-visualizer-tab");
   tabs?.forEach(tab => {
     tab.addEventListener("click", () => {
-      const t = (tab as HTMLElement).dataset.tab as "progress" | "metrics";
+      const t = (tab as HTMLElement).dataset.tab as "progress" | "metrics" | "health";
       if (t && t !== activeTab) {
         activeTab = t;
         render();

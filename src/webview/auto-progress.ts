@@ -254,7 +254,20 @@ function buildStats(data: AutoProgressData): string {
     const modelDisplay = data.model.id.length > 20
       ? data.model.id.slice(0, 18) + "…"
       : data.model.id;
-    parts.push(`<span class="gsd-auto-progress-stat gsd-auto-progress-model">${escapeHtml(modelDisplay)}</span>`);
+    // Add health indicator from widget data
+    const healthLines = state.widgetData.get("gsd-health");
+    const healthText = healthLines?.join(" ") || "";
+    let healthDot = "";
+    if (healthText) {
+      if (/[✗✘]/.test(healthText) || /\berror\b/i.test(healthText)) {
+        healthDot = '<span class="gsd-auto-progress-health error" title="System issues detected">●</span>';
+      } else if (/⚠/.test(healthText) || /\bwarning\b/i.test(healthText)) {
+        healthDot = '<span class="gsd-auto-progress-health warning" title="Warnings present">●</span>';
+      } else if (/●.*OK/i.test(healthText)) {
+        healthDot = '<span class="gsd-auto-progress-health ok" title="System OK">●</span>';
+      }
+    }
+    parts.push(`<span class="gsd-auto-progress-stat gsd-auto-progress-model">${healthDot}${escapeHtml(modelDisplay)}</span>`);
   }
 
   if (parts.length === 0) return "";
