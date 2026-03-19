@@ -296,29 +296,41 @@ function handleMessage(event: MessageEvent): void {
     case "message_end": {
       const endData = msg;
       const endMsg = endData.message;
-      if (endMsg?.role === "assistant" && endMsg.usage) {
-        const u = endMsg.usage;
-        if (!state.sessionStats.tokens) {
-          state.sessionStats.tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
+      if (endMsg?.role === "assistant") {
+        // Surface agent errors that arrive via stopReason:"error" on the message.
+        // These are NOT delivered through message_update deltas, so the streaming
+        // renderer never sees them. Without this, API errors, credential failures,
+        // and other non-retryable errors are silently swallowed.
+        const stopReason = (endMsg as any).stopReason as string | undefined;
+        const errorMessage = (endMsg as any).errorMessage as string | undefined;
+        if (stopReason === "error" && errorMessage) {
+          addSystemEntry(errorMessage, "error");
         }
-        const t = state.sessionStats.tokens;
-        t.input += u.input || 0;
-        t.output += u.output || 0;
-        t.cacheRead += u.cacheRead || 0;
-        t.cacheWrite += u.cacheWrite || 0;
-        t.total = t.input + t.output + t.cacheRead + t.cacheWrite;
-        if (u.cost?.total) {
-          state.sessionStats.cost = (state.sessionStats.cost || 0) + u.cost.total;
+
+        if (endMsg.usage) {
+          const u = endMsg.usage;
+          if (!state.sessionStats.tokens) {
+            state.sessionStats.tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
+          }
+          const t = state.sessionStats.tokens;
+          t.input += u.input || 0;
+          t.output += u.output || 0;
+          t.cacheRead += u.cacheRead || 0;
+          t.cacheWrite += u.cacheWrite || 0;
+          t.total = t.input + t.output + t.cacheRead + t.cacheWrite;
+          if (u.cost?.total) {
+            state.sessionStats.cost = (state.sessionStats.cost || 0) + u.cost.total;
+          }
+          const contextTokens = (u.input || 0) + (u.cacheRead || 0);
+          const contextWindow = state.model?.contextWindow || state.sessionStats.contextWindow || 0;
+          if (contextWindow > 0 && contextTokens > 0) {
+            state.sessionStats.contextTokens = contextTokens;
+            state.sessionStats.contextWindow = contextWindow;
+            state.sessionStats.contextPercent = (contextTokens / contextWindow) * 100;
+          }
+          updateHeaderUI();
+          updateFooterUI();
         }
-        const contextTokens = (u.input || 0) + (u.cacheRead || 0);
-        const contextWindow = state.model?.contextWindow || state.sessionStats.contextWindow || 0;
-        if (contextWindow > 0 && contextTokens > 0) {
-          state.sessionStats.contextTokens = contextTokens;
-          state.sessionStats.contextWindow = contextWindow;
-          state.sessionStats.contextPercent = (contextTokens / contextWindow) * 100;
-        }
-        updateHeaderUI();
-        updateFooterUI();
       }
       break;
     }
