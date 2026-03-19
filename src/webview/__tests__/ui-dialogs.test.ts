@@ -1,0 +1,288 @@
+// @vitest-environment jsdom
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+
+import { init, handleRequest, expireAllPending, hasPending } from "../ui-dialogs";
+
+// ============================================================
+// Helpers
+// ============================================================
+
+let messagesContainer: HTMLElement;
+let mockVscode: { postMessage: ReturnType<typeof vi.fn> };
+
+function makeRequest(overrides: Record<string, unknown> = {}) {
+  return {
+    id: `req-${Math.random().toString(36).slice(2, 8)}`,
+    method: "confirm",
+    title: "Do it?",
+    message: "Are you sure?",
+    ...overrides,
+  };
+}
+
+// ============================================================
+// Setup
+// ============================================================
+
+describe("ui-dialogs", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    messagesContainer = document.createElement("div");
+    document.body.appendChild(messagesContainer);
+    mockVscode = { postMessage: vi.fn() };
+    init({ messagesContainer, vscode: mockVscode });
+  });
+
+  afterEach(() => {
+    // Expire any remaining dialogs to clear internal maps
+    expireAllPending("test cleanup");
+    mockVscode.postMessage.mockClear();
+  });
+
+  // ============================================================
+  // confirm dialog
+  // ============================================================
+
+  describe("handleRequest — confirm", () => {
+    it("renders a confirm dialog with Yes/No buttons", () => {
+      handleRequest(makeRequest({ id: "c1", method: "confirm", title: "Deploy?", message: "Ship it?" }));
+      expect(messagesContainer.querySelector('[data-action="yes"]')).toBeTruthy();
+      expect(messagesContainer.querySelector('[data-action="no"]')).toBeTruthy();
+      expect(messagesContainer.innerHTML).toContain("Deploy?");
+      expect(messagesContainer.innerHTML).toContain("Ship it?");
+    });
+
+    it("posts confirmed:true when Yes is clicked", () => {
+      handleRequest(makeRequest({ id: "c2", method: "confirm" }));
+      const yesBtn = messagesContainer.querySelector('[data-action="yes"]') as HTMLElement;
+      yesBtn.click();
+      expect(mockVscode.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "extension_ui_response", id: "c2", confirmed: true }),
+      );
+    });
+
+    it("posts confirmed:false when No is clicked", () => {
+      handleRequest(makeRequest({ id: "c3", method: "confirm" }));
+      const noBtn = messagesContainer.querySelector('[data-action="no"]') as HTMLElement;
+      noBtn.click();
+      expect(mockVscode.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "extension_ui_response", id: "c3", confirmed: false }),
+      );
+    });
+
+    it("marks wrapper as resolved after button click", () => {
+      handleRequest(makeRequest({ id: "c4", method: "confirm" }));
+      const wrapper = messagesContainer.querySelector('[data-ui-id="c4"]') as HTMLElement;
+      (messagesContainer.querySelector('[data-action="yes"]') as HTMLElement).click();
+      expect(wrapper.classList.contains("resolved")).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // select dialog (single)
+  // ============================================================
+
+  describe("handleRequest — single select", () => {
+    it("renders option buttons for each option", () => {
+      handleRequest(makeRequest({ id: "s1", method: "select", title: "Pick", options: ["A", "B", "C"] }));
+      const options = messagesContainer.querySelectorAll(".gsd-ui-option-btn");
+      expect(options.length).toBe(3);
+    });
+
+    it("posts selected value when an option is clicked", () => {
+      handleRequest(makeRequest({ id: "s2", method: "select", title: "Pick", options: ["Alpha", "Beta"] }));
+      const btns = messagesContainer.querySelectorAll(".gsd-ui-option-btn");
+      (btns[1] as HTMLElement).click();
+      expect(mockVscode.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "extension_ui_response", id: "s2", value: "Beta" }),
+      );
+    });
+
+    it("posts cancelled when Skip is clicked", () => {
+      handleRequest(makeRequest({ id: "s3", method: "select", title: "Pick", options: ["X"] }));
+      (messagesContainer.querySelector(".gsd-ui-cancel-btn") as HTMLElement).click();
+      expect(mockVscode.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "s3", cancelled: true }),
+      );
+    });
+  });
+
+  // ============================================================
+  // select dialog (multi)
+  // ============================================================
+
+  describe("handleRequest — multi select", () => {
+    it("renders checkboxes and a Confirm button", () => {
+      handleRequest(makeRequest({ id: "m1", method: "select", title: "Multi", options: ["A", "B"], allowMultiple: true }));
+      expect(messagesContainer.querySelectorAll(".gsd-ui-multi-option").length).toBe(2);
+      const confirmBtn = messagesContainer.querySelector(".gsd-ui-multi-confirm") as HTMLButtonElement;
+      expect(confirmBtn).toBeTruthy();
+      expect(confirmBtn.disabled).toBe(true); // nothing selected yet
+    });
+
+    it("toggles selection on click and posts values on confirm", () => {
+      handleRequest(makeRequest({ id: "m2", method: "select", title: "Multi", options: ["A", "B", "C"], allowMultiple: true }));
+      const opts = messagesContainer.querySelectorAll(".gsd-ui-multi-option");
+      (opts[0] as HTMLElement).click(); // select A
+      (opts[2] as HTMLElement).click(); // select C
+
+      const confirmBtn = messagesContainer.querySelector(".gsd-ui-multi-confirm") as HTMLButtonElement;
+      expect(confirmBtn.disabled).toBe(false);
+      confirmBtn.click();
+
+      expect(mockVscode.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "m2", values: expect.arrayContaining(["A", "C"]) }),
+      );
+    });
+  });
+
+  // ============================================================
+  // input dialog
+  // ============================================================
+
+  describe("handleRequest — input", () => {
+    it("renders an input field and submit/cancel buttons", () => {
+      handleRequest(makeRequest({ id: "i1", method: "input", title: "Name?", placeholder: "type here" }));
+      const input = messagesContainer.querySelector(".gsd-ui-input") as HTMLInputElement;
+      expect(input).toBeTruthy();
+      expect(input.placeholder).toBe("type here");
+      expect(messagesContainer.querySelector('[data-action="submit"]')).toBeTruthy();
+      expect(messagesContainer.querySelector('[data-action="cancel"]')).toBeTruthy();
+    });
+
+    it("posts input value when submit is clicked", () => {
+      handleRequest(makeRequest({ id: "i2", method: "input" }));
+      const input = messagesContainer.querySelector(".gsd-ui-input") as HTMLInputElement;
+      input.value = "hello world";
+      (messagesContainer.querySelector('[data-action="submit"]') as HTMLElement).click();
+      expect(mockVscode.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "i2", value: "hello world" }),
+      );
+    });
+
+    it("posts cancelled when cancel is clicked", () => {
+      handleRequest(makeRequest({ id: "i3", method: "input" }));
+      (messagesContainer.querySelector('[data-action="cancel"]') as HTMLElement).click();
+      expect(mockVscode.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "i3", cancelled: true }),
+      );
+    });
+
+    it("submits on Enter key", () => {
+      handleRequest(makeRequest({ id: "i4", method: "input" }));
+      const input = messagesContainer.querySelector(".gsd-ui-input") as HTMLInputElement;
+      input.value = "enter-test";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      expect(mockVscode.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "i4", value: "enter-test" }),
+      );
+    });
+  });
+
+  // ============================================================
+  // dedup
+  // ============================================================
+
+  describe("dedup", () => {
+    it("links duplicate requests to the original dialog", () => {
+      const base = { method: "confirm", title: "Same", message: "msg" };
+      handleRequest({ ...base, id: "d1" });
+      handleRequest({ ...base, id: "d2" }); // duplicate fingerprint
+
+      // Only one dialog rendered
+      const wrappers = messagesContainer.querySelectorAll(".gsd-entry-ui-request");
+      expect(wrappers.length).toBe(1);
+    });
+
+    it("resolves linked duplicates when original is answered", () => {
+      const base = { method: "confirm", title: "Dup", message: "" };
+      handleRequest({ ...base, id: "dup1" });
+      handleRequest({ ...base, id: "dup2" });
+
+      (messagesContainer.querySelector('[data-action="yes"]') as HTMLElement).click();
+
+      // Both primary and linked should have been sent
+      const calls = mockVscode.postMessage.mock.calls.map((c: any[]) => c[0]);
+      expect(calls.some((c: any) => c.id === "dup1" && c.confirmed === true)).toBe(true);
+      expect(calls.some((c: any) => c.id === "dup2" && c.confirmed === true)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // hasPending / expireAllPending
+  // ============================================================
+
+  describe("hasPending", () => {
+    it("returns false when no dialogs exist", () => {
+      expect(hasPending()).toBe(false);
+    });
+
+    it("returns true when a dialog is pending", () => {
+      handleRequest(makeRequest({ id: "p1" }));
+      expect(hasPending()).toBe(true);
+    });
+
+    it("returns false after dialog is resolved", () => {
+      handleRequest(makeRequest({ id: "p2", method: "confirm" }));
+      (messagesContainer.querySelector('[data-action="yes"]') as HTMLElement).click();
+      expect(hasPending()).toBe(false);
+    });
+  });
+
+  describe("expireAllPending", () => {
+    it("clears all pending dialogs", () => {
+      handleRequest(makeRequest({ id: "e1" }));
+      handleRequest(makeRequest({ id: "e2", title: "Different" }));
+      expect(hasPending()).toBe(true);
+      expireAllPending("test");
+      expect(hasPending()).toBe(false);
+    });
+
+    it("marks expired dialogs as resolved", () => {
+      handleRequest(makeRequest({ id: "e3" }));
+      expireAllPending("Agent moved on");
+      const wrapper = messagesContainer.querySelector('[data-ui-id="e3"]') as HTMLElement;
+      expect(wrapper.classList.contains("resolved")).toBe(true);
+    });
+
+    it("sends cancelled response for linked duplicates", () => {
+      const base = { method: "confirm", title: "Exp", message: "" };
+      handleRequest({ ...base, id: "exp1" });
+      handleRequest({ ...base, id: "exp2" });
+      expireAllPending("test");
+      const calls = mockVscode.postMessage.mock.calls.map((c: any[]) => c[0]);
+      expect(calls.some((c: any) => c.id === "exp2" && c.cancelled === true)).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // timeout handling
+  // ============================================================
+
+  describe("timeout handling", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("auto-expires dialog after timeout", () => {
+      handleRequest(makeRequest({ id: "t1", timeout: 5000 }));
+      expect(hasPending()).toBe(true);
+
+      vi.advanceTimersByTime(5000);
+
+      const wrapper = messagesContainer.querySelector('[data-ui-id="t1"]') as HTMLElement;
+      expect(wrapper.classList.contains("resolved")).toBe(true);
+      expect(hasPending()).toBe(false);
+    });
+
+    it("shows countdown element", () => {
+      handleRequest(makeRequest({ id: "t2", timeout: 10000 }));
+      const countdown = messagesContainer.querySelector(".gsd-ui-countdown");
+      expect(countdown).toBeTruthy();
+    });
+  });
+});
