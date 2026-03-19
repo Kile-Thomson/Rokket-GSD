@@ -4,6 +4,20 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Full slash menu for gsd-pi v2.35** — added 21 missing GSD subcommands: `/gsd pause`, `/gsd changelog`, `/gsd triage`, `/gsd dispatch`, `/gsd history`, `/gsd undo`, `/gsd skip`, `/gsd cleanup`, `/gsd hooks`, `/gsd run-hook`, `/gsd skill-health`, `/gsd init`, `/gsd setup`, `/gsd inspect`, `/gsd new-milestone`, `/gsd park`, `/gsd unpark`, `/gsd start`, `/gsd templates`, `/gsd extensions`. Commands are now organised by category (core workflow, visibility, steering, queue, dispatch, templates, export, config, diagnostics, setup, advanced).
+- **Command fallback coverage** — all 21 new subcommands have context-aware fallback prompts for both initialised and uninitialised projects, so RPC-mode wizard limitations are handled gracefully.
+- **Native RPC subcommands** — `/gsd park` and `/gsd unpark` added to the native subcommand list (no fallback needed — they work directly in RPC mode).
+
+### Changed
+- Updated gsd-pi compatibility to v2.35 (from v2.30+).
+- **Slash menu descriptions** — updated `/gsd update` description to "Update GSD to the latest version" (was "Update GSD artifacts and status"), `/gsd queue` to "Queue and reorder future milestones", `/gsd migrate` to "Migrate a v1 .planning directory to .gsd format".
+
+### Removed
+- **`/gsd do` and `/gsd note`** — removed from slash menu. These commands don't exist in gsd-pi and were non-functional.
+
 ## [0.2.55] — 2026-03-19
 
 ### Added
