@@ -137,6 +137,9 @@ export function buildItems(): SlashMenuItem[] {
     { name: "gsd remote", desc: "Remote question channels (Slack, Discord, Telegram)" },
     { name: "gsd do", desc: "Freeform text — routes natural language to the right command" },
     { name: "gsd note", desc: "Quick idea capture (append, list, promote)" },
+    { name: "gsd logs", desc: "Browse activity, debug, and metrics logs", sendOnSelect: true },
+    { name: "gsd keys", desc: "Manage API keys", sendOnSelect: true },
+    { name: "gsd parallel", desc: "Parallel auto-mode orchestration" },
     { name: "gsd update", desc: "Update GSD artifacts and status", sendOnSelect: true },
     { name: "gsd export", desc: "Export milestone report (HTML)" },
   ];
