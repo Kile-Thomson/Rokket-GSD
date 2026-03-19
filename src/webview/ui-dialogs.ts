@@ -39,6 +39,18 @@ export function expireAllPending(reason: string = "Agent moved on"): void {
   }
   pendingDialogs.clear();
   pendingFingerprints.clear();
+  // Don't clear resolvedResponses here — they protect against loops
+  // even across expire cycles
+}
+
+/**
+ * Clear all dialog state — pending, fingerprints, and resolved cache.
+ * Called on new conversation to ensure a clean slate.
+ */
+export function clearAllDialogState(): void {
+  pendingDialogs.clear();
+  pendingFingerprints.clear();
+  resolvedResponses.clear();
 }
 
 /**
@@ -102,15 +114,38 @@ function dialogFingerprint(data: any): string {
 /** Fingerprints of currently pending (unresolved) dialogs */
 const pendingFingerprints = new Map<string, string>(); // fingerprint → request id
 
+/**
+ * Recently resolved dialog responses — keyed by fingerprint.
+ * When gsd-pi re-asks the same question within RESOLVED_TTL_MS (e.g. the
+ * "Interrupted Session Detected" loop), we auto-respond with the same
+ * answer instead of rendering a new dialog. Entries expire after 10 seconds.
+ */
+const resolvedResponses = new Map<string, { response: Record<string, unknown>; expiresAt: number }>();
+const RESOLVED_TTL_MS = 10_000;
+
 export function handleRequest(data: any): void {
   const id = data.id;
   const method = data.method;
 
-  // Dedup: if an identical dialog is already pending, auto-resolve the new one
-  // with the same response the user gives to the original. This prevents the
-  // "triple confirmation" problem where the agent calls ask_user_questions
-  // multiple times for the same question.
   const fp = dialogFingerprint(data);
+
+  // Dedup phase 1: if the same dialog was resolved recently, auto-replay
+  // the user's previous answer. This breaks the loop where gsd-pi keeps
+  // re-asking the same question after receiving a valid response.
+  const cached = resolvedResponses.get(fp);
+  if (cached && Date.now() < cached.expiresAt) {
+    // Replay with this request's ID
+    vscode.postMessage({ ...cached.response, id });
+    return;
+  }
+  // Clean expired entries opportunistically
+  if (cached) resolvedResponses.delete(fp);
+
+  // Dedup phase 2: if an identical dialog is already pending, link this
+  // request to it — when the original is resolved, we'll send the same
+  // response for this one too. This prevents the "triple confirmation"
+  // problem where the agent calls ask_user_questions multiple times for
+  // the same question.
   const existingId = pendingFingerprints.get(fp);
   if (existingId && pendingDialogs.has(existingId)) {
     // Link this request to the existing dialog — when the original is resolved,
@@ -338,10 +373,24 @@ function buildMultiSelect(
 /**
  * Send a UI response for the primary dialog AND all linked duplicate dialogs.
  * Each linked ID gets an identical response (with its own ID substituted).
+ * Also caches the response by fingerprint so repeated identical requests
+ * from gsd-pi are auto-answered without re-rendering.
  */
 function sendResponseWithLinked(wrapper: HTMLElement, primaryId: string, response: Record<string, unknown>): void {
   // Send primary response
   vscode.postMessage(response);
+
+  // Cache this response by fingerprint so re-asks within RESOLVED_TTL_MS
+  // are auto-answered (breaks the gsd-pi "ask same question in a loop" bug)
+  const uiId = wrapper.dataset.uiId;
+  if (uiId) {
+    for (const [fp, fId] of pendingFingerprints) {
+      if (fId === uiId) {
+        resolvedResponses.set(fp, { response, expiresAt: Date.now() + RESOLVED_TTL_MS });
+        break;
+      }
+    }
+  }
 
   // Send responses for any linked duplicate dialogs
   const linkedIds = (wrapper as any).__linkedIds as string[] | undefined;
