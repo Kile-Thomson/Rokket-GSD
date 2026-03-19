@@ -2915,6 +2915,54 @@ html, body {
   opacity: 0.65;
 }
 
+/* ── Widgets (ambient status bars from setWidget) ── */
+
+.gsd-widgets {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.gsd-widgets:empty {
+  display: none;
+}
+
+.gsd-widget {
+  font-size: 10px;
+  padding: 3px 12px;
+  font-family: var(--vscode-editor-fontFamily, 'Cascadia Code', Consolas, monospace);
+  color: var(--vscode-descriptionForeground);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.06));
+}
+
+.gsd-widget-segment {
+  padding: 0 2px;
+}
+
+.gsd-widget-segment.ok {
+  color: var(--vscode-terminal-ansiGreen, #89d185);
+}
+
+.gsd-widget-segment.warning {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.gsd-widget-segment.error {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.gsd-widget-sep {
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.3;
+  padding: 0 4px;
+}
+
 .gsd-footer-line {
   display: flex;
   align-items: center;
@@ -4669,6 +4717,24 @@ html, body {
   opacity: 0.7;
 }
 
+.gsd-auto-progress-health {
+  font-size: 8px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.gsd-auto-progress-health.ok {
+  color: var(--vscode-terminal-ansiGreen, #89d185);
+}
+
+.gsd-auto-progress-health.warning {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.gsd-auto-progress-health.error {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
 .gsd-auto-progress-captures {
   color: var(--vscode-charts-yellow, #e2c08d);
   font-weight: 600;
@@ -5318,4 +5384,63 @@ html, body {
   opacity: 0.5;
   text-transform: uppercase;
   margin-top: 2px;
+}
+
+/* Health Tab */
+.gsd-visualizer-section {
+  padding: 0 4px;
+}
+
+.gsd-visualizer-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.6;
+  margin-bottom: 8px;
+}
+
+.gsd-visualizer-health-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gsd-visualizer-health-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  background: rgba(128, 128, 128, 0.04);
+  border-left: 2px solid transparent;
+}
+
+.gsd-visualizer-health-item.ok {
+  border-left-color: var(--vscode-terminal-ansiGreen, #89d185);
+}
+
+.gsd-visualizer-health-item.warning {
+  border-left-color: var(--vscode-editorWarning-foreground, #cca700);
+  background: rgba(220, 160, 40, 0.04);
+}
+
+.gsd-visualizer-health-item.error {
+  border-left-color: var(--vscode-errorForeground, #f48771);
+  background: rgba(220, 60, 60, 0.04);
+}
+
+.gsd-visualizer-health-item.info {
+  border-left-color: var(--vscode-descriptionForeground);
+}
+
+.gsd-visualizer-health-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.gsd-visualizer-health-text {
+  flex: 1;
+  min-width: 0;
 }

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [0.2.51] — 2026-03-19
 
+### Added
+- **Health widget** — ambient system health bar in the footer showing system status, budget, provider issues, and environment errors. Data comes from gsd-pi's `setWidget` events (requires gsd-pi ≥2.30).
+- **Health tab in visualizer** — new "Health" tab in the `/gsd visualize` overlay showing system health status, budget info, environment warnings, and active model.
+- **Model health indicator** — green/amber/red dot next to the model name in the auto-progress widget, reflecting current system health.
+- **Widget rendering** — generic `setWidget` handler that renders any widget data sent by gsd-pi extensions. Previously these events were silently dropped.
+
 ### Fixed
 - **Agent errors now displayed in chat** — non-retryable errors from the agent (invalid API key, permission denied, malformed requests) were silently swallowed because `message_end` never checked `stopReason: "error"`. These now surface as red system entries in the chat. Retryable errors (rate limits, 502s) also briefly show the error before the retry indicator appears, giving useful context.
 

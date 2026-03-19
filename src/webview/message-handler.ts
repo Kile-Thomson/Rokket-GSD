@@ -529,6 +529,12 @@ function handleMessage(event: MessageEvent): void {
         addSystemEntry(data.message as string, kind);
       } else if (data.method === "setStatus" && data.statusText) {
         // Status text — could update footer
+      } else if (data.method === "setWidget") {
+        renderWidget(
+          (data as any).widgetKey as string,
+          (data as any).widgetLines as string[] | undefined,
+          (data as any).widgetPlacement as string | undefined,
+        );
       } else if (data.method === "set_editor_text" && data.text) {
         promptInput.value = data.text;
         autoResize();
@@ -1004,4 +1010,65 @@ export function addSystemEntry(text: string, kind: "info" | "error" | "warning" 
   state.entries.push(entry);
   renderer.renderNewEntry(entry);
   scrollToBottom(messagesContainer);
+}
+
+// ============================================================
+// Widget rendering — persistent status bars from setWidget events
+// ============================================================
+
+/** Active widget elements keyed by widget key */
+const widgetElements = new Map<string, HTMLElement>();
+
+/**
+ * Render or update a widget from a setWidget extension_ui_request.
+ * Widgets are persistent DOM elements that display ambient status info
+ * (e.g. the gsd-health widget showing system status, budget, provider issues).
+ *
+ * When lines is undefined/empty, the widget is removed (cleanup signal).
+ */
+function renderWidget(key: string, lines: string[] | undefined, _placement?: string): void {
+  const container = document.getElementById("widgetContainer");
+  if (!container) return;
+
+  // Remove signal
+  if (!lines || lines.length === 0) {
+    state.widgetData.delete(key);
+    const existing = widgetElements.get(key);
+    if (existing) {
+      existing.remove();
+      widgetElements.delete(key);
+    }
+    return;
+  }
+
+  // Store for visualizer access
+  state.widgetData.set(key, lines);
+
+  let el = widgetElements.get(key);
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "gsd-widget";
+    el.dataset.widgetKey = key;
+    container.appendChild(el);
+    widgetElements.set(key, el);
+  }
+
+  // Parse the health widget's compact format for styled rendering.
+  // The gsd-health widget sends lines like:
+  //   "  ● System OK  │  Budget: $0.12/$5.00 (2%)  │  Env: 1 warning"
+  // We split on │ and apply status-aware styling.
+  const text = lines.join("\n").trim();
+  if (key === "gsd-health" && text.includes("│")) {
+    const parts = text.split("│").map(p => p.trim()).filter(Boolean);
+    const spans = parts.map(part => {
+      let cls = "gsd-widget-segment";
+      if (/^[✗✘]/.test(part) || /error/i.test(part)) cls += " error";
+      else if (/^⚠/.test(part) || /warning/i.test(part)) cls += " warning";
+      else if (/^●/.test(part) && /OK/i.test(part)) cls += " ok";
+      return `<span class="${cls}">${escapeHtml(part)}</span>`;
+    });
+    el.innerHTML = spans.join('<span class="gsd-widget-sep">│</span>');
+  } else {
+    el.textContent = text;
+  }
 }

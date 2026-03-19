@@ -103,6 +103,8 @@ export interface AppState {
   autoProgress: AutoProgressData | null;
   // Timestamp of last auto_progress message (for stale-data guard)
   autoProgressLastUpdate: number;
+  // Widget data from setWidget events (keyed by widget key)
+  widgetData: Map<string, string[]>;
 }
 
 /** Tool categorization for icons & color accents */
@@ -137,6 +139,7 @@ export const state: AppState = {
   processHealth: "responsive",
   autoProgress: null,
   autoProgressLastUpdate: 0,
+  widgetData: new Map(),
 };
 
 // ============================================================
