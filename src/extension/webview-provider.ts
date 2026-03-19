@@ -576,6 +576,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       try {
         const stats = await client.getSessionStats() as SessionStats | null;
         if (stats) {
+          if (this.lastStatus.cost && this.lastStatus.cost > (stats.cost || 0)) {
+            stats.cost = this.lastStatus.cost;
+          }
           this.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
         }
       } catch {
@@ -694,7 +697,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
             try {
               const rpcState = await existingLaunch.getState();
-              this.postToWebview(webview, { type: "state", data: rpcState } as ExtensionToWebviewMessage);
+              this.postToWebview(webview, { type: "state", data: rpcState } as unknown as ExtensionToWebviewMessage);
             } catch { /* best effort */ }
           } else {
             await this.launchGsd(webview, sessionId, msg.cwd);
@@ -752,6 +755,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               }
               this.output.appendLine(`[${sessionId}] Sending prompt to RPC: "${msg.message.slice(0, 80)}"`);
               this.armGsdFallbackProbe(msg.message.trim(), sessionId, webview);
+              this.getSession(sessionId).lastUserActionTime = Date.now();
 
               await c.prompt(msg.message, images);
               this.output.appendLine(`[${sessionId}] Prompt RPC resolved for: "${msg.message.slice(0, 80)}"`);
@@ -797,6 +801,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         case "steer": {
           const client = this.getSession(sessionId).client;
           if (client) {
+            this.getSession(sessionId).lastUserActionTime = Date.now();
             try {
               // Extension commands (slash commands) can't be steered — they need to run
               // as prompts. Abort the current stream first, then send as a prompt.
@@ -819,6 +824,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         case "follow_up": {
           const client = this.getSession(sessionId).client;
           if (client) {
+            this.getSession(sessionId).lastUserActionTime = Date.now();
             try {
               await client.followUp(msg.message, msg.images?.map((img) => ({
                 type: "image" as const,
@@ -911,6 +917,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                       toolCalls: statsResult.toolCalls as number | undefined,
                       userMessages: statsResult.userMessages as number | undefined,
                     };
+                    if (this.lastStatus.cost && this.lastStatus.cost > (data.stats.cost || 0)) {
+                      data.stats.cost = this.lastStatus.cost;
+                    }
                   }
                 } catch {
                   // Stats not available — that's fine
@@ -969,6 +978,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             try {
               const stats = await client.getSessionStats() as SessionStats | null;
               if (stats) {
+                if (this.lastStatus.cost && this.lastStatus.cost > (stats.cost || 0)) {
+                  stats.cost = this.lastStatus.cost;
+                }
                 this.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
               }
             } catch { /* ignored */ }
@@ -1050,6 +1062,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               // Refresh stats
               const stats = await client.getSessionStats() as SessionStats | null;
               if (stats) {
+                if (this.lastStatus.cost && this.lastStatus.cost > (stats.cost || 0)) {
+                  stats.cost = this.lastStatus.cost;
+                }
                 this.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
               }
             } catch (err: any) {
@@ -1654,11 +1669,6 @@ ${exportOverrides}
     });
 
     try {
-      // Pre-launch: remove stale crash locks that cause infinite wizard loops
-      // when there's no active work to resume (idle state with leftover auto.lock)
-      const { cleanStaleCrashLock } = await import("./file-ops");
-      cleanStaleCrashLock(workingDir, this.output);
-
       await client.start({
         cwd: workingDir,
         gsdPath: processWrapper || undefined,
@@ -1691,7 +1701,7 @@ ${exportOverrides}
       try {
         const rpcState = await client.getState() as RpcStateResult;
         this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
-        this.postToWebview(webview, { type: "state", data: rpcState } as ExtensionToWebviewMessage);
+        this.postToWebview(webview, { type: "state", data: rpcState } as unknown as ExtensionToWebviewMessage);
         if (rpcState?.model) {
           this.emitStatus({ model: rpcState.model.id || rpcState.model.name });
         }
@@ -1781,8 +1791,8 @@ ${exportOverrides}
       // Refresh workflow state after each agent turn
       this.refreshWorkflowState(webview, sessionId);
     } else if (eventType === "message_end") {
-      const msg = event.message;
-      const usage = msg?.usage as { cost?: { total?: number } } | undefined;
+      const msg = event.message as Record<string, unknown> | undefined;
+      const usage = (msg?.usage as { cost?: { total?: number } }) ?? undefined;
       if (msg?.role === "assistant" && usage?.cost?.total) {
         this.emitStatus({ cost: (this.lastStatus.cost || 0) + usage.cost.total });
       }

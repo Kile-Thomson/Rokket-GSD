@@ -152,6 +152,7 @@ Execute T03 for S02
       slice: { id: "S02", title: "Build feature" },
       task: null,
       phase: "build",
+      autoMode: null,
     });
 
     const result = await buildDashboardData(tmpDir);
@@ -187,6 +188,7 @@ Execute T03 for S02
       slice: { id: "S01", title: "Do things" },
       task: { id: "T01", title: "First task" },
       phase: "build",
+      autoMode: null,
     });
 
     const result = await buildDashboardData(tmpDir);
@@ -217,6 +219,7 @@ Execute T03 for S02
       slice: null,
       task: null,
       phase: "plan",
+      autoMode: null,
     });
 
     const result = await buildDashboardData(tmpDir);
@@ -250,6 +253,7 @@ Execute T03 for S02
       slice: null,
       task: null,
       phase: "build",
+      autoMode: null,
     });
 
     const result = await buildDashboardData(tmpDir);

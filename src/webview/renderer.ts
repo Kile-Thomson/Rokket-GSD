@@ -138,6 +138,19 @@ export function ensureCurrentTurnElement(): HTMLElement {
   return currentTurnElement;
 }
 
+/**
+ * Reattach to an existing entry's DOM element for continuation turns.
+ */
+export function reattachTurnElement(entryId: string): void {
+  const el = messagesContainer.querySelector(`[data-entry-id="${entryId}"]`) as HTMLElement | null;
+  if (el) {
+    currentTurnElement = el;
+    el.classList.add("streaming");
+  } else {
+    ensureCurrentTurnElement();
+  }
+}
+
 export function appendToTextSegment(segType: "text" | "thinking", delta: string): void {
   if (!state.currentTurn) return;
 
@@ -208,8 +221,35 @@ export function updateToolSegmentElement(toolCallId: string): void {
 
   // Attempt streaming collapse if tool just completed
   if (!tc.isRunning && targetSegIdx !== null) {
-    tryStreamingCollapse(targetEl, targetSegIdx);
+    if (tc.isSkipped) {
+      tryStreamingSkippedCollapse(targetEl, targetSegIdx);
+    } else {
+      tryStreamingCollapse(targetEl, targetSegIdx);
+    }
   }
+}
+
+/**
+ * Collapse consecutive skipped tools into a single muted summary row.
+ */
+function tryStreamingSkippedCollapse(el: HTMLElement, _segIdx: number): void {
+  const predecessor = el.previousElementSibling as HTMLElement | null;
+  if (predecessor?.classList.contains("gsd-skipped-group")) {
+    const count = parseInt(predecessor.dataset.count || "1", 10) + 1;
+    predecessor.dataset.count = String(count);
+    const labelEl = predecessor.querySelector(".gsd-skipped-label");
+    if (labelEl) {
+      labelEl.textContent = `${count} tool calls skipped — agent redirected`;
+    }
+    el.remove();
+    return;
+  }
+  const skippedEl = document.createElement("div");
+  skippedEl.className = "gsd-skipped-group";
+  skippedEl.dataset.count = "1";
+  skippedEl.innerHTML = `<span class="gsd-skipped-icon">⏭</span>
+    <span class="gsd-skipped-label">1 tool call skipped — agent redirected</span>`;
+  el.replaceWith(skippedEl);
 }
 
 /**
@@ -576,6 +616,7 @@ function buildToolCallHtml(tc: ToolCallState): string {
   const toolIcon = getToolIcon(tc.name, category);
 
   const statusIcon = tc.isRunning ? `<span class="gsd-tool-spinner"></span>` :
+    tc.isSkipped ? `<span class="gsd-tool-icon skipped">⏭</span>` :
     tc.isError ? `<span class="gsd-tool-icon error">✗</span>` :
     `<span class="gsd-tool-icon success">✓</span>`;
 
@@ -588,12 +629,12 @@ function buildToolCallHtml(tc: ToolCallState): string {
     ? `<span class="gsd-tool-duration${tc.isRunning ? " elapsed-live" : ""}">${duration}</span>`
     : "";
 
-  const stateClass = tc.isRunning ? "running" : tc.isError ? "error" : "done";
+  const stateClass = tc.isRunning ? "running" : tc.isSkipped ? "skipped" : tc.isError ? "error" : "done";
   const parallelClass = tc.isParallel ? " parallel" : "";
   const isSubagent = tc.name.toLowerCase() === "subagent";
 
   const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
-  const shouldCollapse = !tc.isRunning && !isSubagent && lines > 5;
+  const shouldCollapse = !tc.isRunning && !isSubagent && (lines > 5 || tc.isSkipped);
   const collapsedClass = shouldCollapse ? "collapsed" : "";
 
   let outputHtml = "";
