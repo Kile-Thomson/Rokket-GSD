@@ -78,56 +78,52 @@ jobs:
           git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
           git push
 
-      - name: Generate changelog
+      - name: Extract changelog from CHANGELOG.md
         id: changelog
         run: |
-          PREV_TAG=$(git tag --sort=-v:refname | grep '^v' | head -1)
-          if [ -z "$PREV_TAG" ]; then
-            PREV_TAG=$(git rev-list --max-parents=0 HEAD)
-          fi
           VERSION="${{ steps.version.outputs.version }}"
 
-          # Write Python script to temp file to avoid heredoc YAML issues
-          cat > /tmp/gen_changelog.py << 'EOF'
-          import subprocess, sys, re
-          prev_tag, version = sys.argv[1], sys.argv[2]
-          result = subprocess.run(
-              ["git", "log", f"{prev_tag}..HEAD", "--no-merges", "--pretty=format:%s%n%b%n---COMMIT_END---"],
-              capture_output=True, text=True
-          )
-          features, fixes, changed, other = [], [], [], []
-          for block in result.stdout.split("---COMMIT_END---"):
-              lines = [l for l in block.strip().splitlines() if l.strip()]
-              if not lines: continue
-              subject = lines[0].strip()
-              body_lines = [l.strip() for l in lines[1:] if l.strip()]
-              if re.match(r"^chore:?\s*bump version", subject, re.I): continue
-              if re.match(r"^chore\(release\)", subject, re.I): continue
-              if subject.startswith("Merge "): continue
-              if re.match(r"^feat", subject, re.I):
-                  clean = re.sub(r"^feat[^:]*:\s*", "", subject); target = features
-              elif re.match(r"^fix", subject, re.I):
-                  clean = re.sub(r"^fix[^:]*:\s*", "", subject); target = fixes
-              elif re.match(r"^refactor|^perf|^style", subject, re.I):
-                  clean = re.sub(r"^[a-z]+[^:]*:\s*", "", subject); target = changed
-              else:
-                  clean = re.sub(r"^[a-z]+[^:]*:\s*", "", subject); target = other
-              entry = f"- **{clean[0].upper() + clean[1:]}**"
-              if body_lines:
-                  desc = " ".join(body_lines)
-                  if len(desc) > 200: desc = desc[:197] + "..."
-                  entry += f" — {desc}"
-              target.append(entry)
-          sections = [f"## v{version}\n"]
-          if features: sections.append("### Added\n" + "\n".join(features))
-          if fixes: sections.append("### Fixed\n" + "\n".join(fixes))
-          if changed: sections.append("### Changed\n" + "\n".join(changed))
-          if other: sections.append("### Other\n" + "\n".join(other))
-          if len(sections) == 1: sections.append("Maintenance release — no notable changes.")
-          with open("/tmp/release-notes.md", "w") as f: f.write("\n\n".join(sections) + "\n")
-          EOF
+          # Extract the section for this version from CHANGELOG.md
+          # Matches "## [X.Y.Z]" or "## [vX.Y.Z]" and grabs everything until the next ## heading
+          cat > /tmp/extract_changelog.py << 'PYEOF'
+          import sys, re
 
-          python3 /tmp/gen_changelog.py "$PREV_TAG" "$VERSION"
+          version = sys.argv[1]
+          changelog_path = "CHANGELOG.md"
+          output_path = "/tmp/release-notes.md"
+
+          try:
+              with open(changelog_path, "r", encoding="utf-8") as f:
+                  content = f.read()
+          except FileNotFoundError:
+              content = ""
+
+          # Match ## [0.2.55] or ## [v0.2.55] with optional trailing text (date, links)
+          pattern = rf"^## \[v?{re.escape(version)}\].*$"
+          match = re.search(pattern, content, re.MULTILINE)
+
+          if match:
+              start = match.end()
+              # Find the next ## heading (next version section)
+              next_heading = re.search(r"^## \[", content[start:], re.MULTILINE)
+              if next_heading:
+                  section = content[start:start + next_heading.start()]
+              else:
+                  section = content[start:]
+              notes = section.strip()
+          else:
+              notes = ""
+
+          if not notes:
+              notes = "Maintenance release — no notable changes."
+
+          with open(output_path, "w", encoding="utf-8") as f:
+              f.write(f"## v{version}\n\n{notes}\n")
+
+          print(f"Extracted {len(notes)} chars for v{version}" if notes != "Maintenance release — no notable changes." else f"No CHANGELOG.md section found for v{version}, using fallback")
+          PYEOF
+
+          python3 /tmp/extract_changelog.py "$VERSION"
           echo "notes_file=/tmp/release-notes.md" >> "$GITHUB_OUTPUT"
 
       - name: Create tag and release
