@@ -5490,6 +5490,19 @@ html, body {
 }
 
 /* ============================================================
+   Pruned Entries Indicator (S01 entry cap)
+   ============================================================ */
+
+.gsd-pruned-indicator {
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+  opacity: 0.8;
+}
+
+/* ============================================================
    Reduced Motion — respect user preference (CSS-003)
    ============================================================ */
 
