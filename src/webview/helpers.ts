@@ -66,6 +66,7 @@ marked.setOptions({
 // HTML / string helpers
 // ============================================================
 
+/** Escape HTML special characters to prevent XSS in rendered output. */
 export function escapeHtml(text: string): string {
   if (typeof text !== "string") text = String(text ?? "");
   return text
@@ -76,6 +77,7 @@ export function escapeHtml(text: string): string {
     .replace(/'/g, "&#039;");
 }
 
+/** Escape a string for use in HTML attributes. Alias of `escapeHtml()`. */
 export function escapeAttr(text: string): string {
   return escapeHtml(text);
 }
@@ -84,11 +86,13 @@ export function escapeAttr(text: string): string {
 // Formatting
 // ============================================================
 
+/** Format a cost value as a dollar string with 3 decimal places (e.g. `"$1.234"`). */
 export function formatCost(cost: number | undefined): string {
   if (cost == null) return "$0.000";
   return `$${cost.toFixed(3)}`;
 }
 
+/** Format a token count with SI suffixes: `1234` → `"1.2k"`, `1500000` → `"1.5M"`. */
 export function formatTokens(count: number): string {
   if (count < 1000) return count.toString();
   if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
@@ -97,6 +101,7 @@ export function formatTokens(count: number): string {
   return `${Math.round(count / 1000000)}M`;
 }
 
+/** Format context window usage as a percentage/window string (e.g. `"42.1%/200k (auto)"`). */
 export function formatContextUsage(stats: SessionStats, model: AppState["model"]): string {
   const contextWindow = stats.contextWindow || model?.contextWindow || 0;
   const pct = stats.contextPercent;
@@ -114,6 +119,7 @@ export function formatContextUsage(stats: SessionStats, model: AppState["model"]
   return "";
 }
 
+/** Shorten a file path for display — keeps the last 2 segments (e.g. `"…/src/types.ts"`). */
 export function shortenPath(p: string): string {
   if (!p) return "";
   const parts = p.replace(/\\/g, "/").split("/").filter(Boolean);
@@ -121,11 +127,13 @@ export function shortenPath(p: string): string {
   return "…/" + parts.slice(-2).join("/");
 }
 
+/** Format a duration in milliseconds as a human-readable string (e.g. `"1.2s"`, `"450ms"`). */
 export function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+/** Truncate a string to `max` characters, taking only the first line and appending "…" if truncated. */
 export function truncateArg(s: string, max: number): string {
   const line = s.split("\n")[0];
   if (line.length <= max) return line;
@@ -136,6 +144,7 @@ export function truncateArg(s: string, max: number): string {
 // Tool helpers
 // ============================================================
 
+/** Classify a tool name into a UI category for grouping and icon selection. */
 export function getToolCategory(name: string): ToolCategory {
   const n = name.toLowerCase();
   if (["read", "write", "edit"].includes(n)) return "file";
@@ -151,6 +160,7 @@ export function getToolCategory(name: string): ToolCategory {
   return "generic";
 }
 
+/** Return an emoji icon for a tool based on its name and category. */
 export function getToolIcon(name: string, category: ToolCategory): string {
   const n = name.toLowerCase();
   if (n === "read") return "📄";
@@ -173,6 +183,7 @@ export function getToolIcon(name: string, category: ToolCategory): string {
   return "⚡";
 }
 
+/** Extract the most informative argument from a tool call for display in the tool header. */
 export function getToolKeyArg(name: string, args: Record<string, unknown>): string {
   const n = name.toLowerCase();
   if ((n === "bash" || n === "async_bash") && args.command) return truncateArg(String(args.command), 80);
@@ -492,6 +503,7 @@ export function parseTokens(tokens: Token[]): string {
   return marked.Parser.parse(tokens, { renderer });
 }
 
+/** Render markdown text to sanitized HTML using marked with custom renderers for links, code blocks, and images. */
 export function renderMarkdown(text: string): string {
   if (!text) return "";
   try {
@@ -516,6 +528,7 @@ export function isLikelyFilePath(s: string): boolean {
 // Time formatting
 // ============================================================
 
+/** Format a Unix timestamp as a relative time string (e.g. `"5s ago"`, `"3m ago"`, `"2h ago"`). */
 export function formatRelativeTime(ts: number): string {
   const diff = Date.now() - ts;
   if (diff < 5000) return "just now";
@@ -584,6 +597,13 @@ let _scrollContainer: HTMLElement | null = null;
 let _scrollHandler: (() => void) | null = null;
 let _programmaticScroll = false;
 
+/**
+ * Initialize intent-based auto-scroll tracking on a container element.
+ *
+ * Attaches a scroll listener that tracks whether the user has actively scrolled
+ * away from the bottom. Auto-scroll is suppressed when `userScrolledUp` is true
+ * and re-enabled when the user scrolls back near the bottom.
+ */
 export function initAutoScroll(container: HTMLElement): void {
   // If already attached to this container, skip
   if (_scrollContainer === container) return;
@@ -627,6 +647,13 @@ export function isAutoScrollSuppressed(): boolean {
   return _userScrolledUp;
 }
 
+/**
+ * Scroll a container to the bottom, respecting user intent.
+ *
+ * When `force` is false (default), only scrolls if the user hasn't actively scrolled up.
+ * When `force` is true, scrolls unconditionally and resets the scroll-up tracking state.
+ * Used for new user messages, session switches, and explicit scroll-to-bottom actions.
+ */
 export function scrollToBottom(container: HTMLElement, force = false): void {
   if (force) {
     _userScrolledUp = false;
