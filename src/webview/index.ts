@@ -11,6 +11,7 @@ import "./styles.css";
 import {
   state,
   nextId,
+  pruneOldEntries,
 } from "./state";
 
 import {
@@ -430,6 +431,7 @@ function sendMessage(): void {
       text: "/gsd status",
       timestamp: Date.now(),
     });
+    pruneOldEntries(messagesContainer);
     welcomeScreen.classList.add('gsd-hidden');
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
     scrollToBottom(messagesContainer, true);
@@ -462,6 +464,7 @@ function sendMessage(): void {
       text: `! ${bashCmd}`,
       timestamp: Date.now(),
     });
+    pruneOldEntries(messagesContainer);
     welcomeScreen.classList.add('gsd-hidden');
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
     scrollToBottom(messagesContainer, true);
@@ -483,6 +486,7 @@ function sendMessage(): void {
       images: state.images.length > 0 ? [...state.images] : undefined,
       timestamp: Date.now(),
     });
+    pruneOldEntries(messagesContainer);
     welcomeScreen.classList.add('gsd-hidden');
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
     scrollToBottom(messagesContainer, true);
@@ -520,6 +524,7 @@ function sendMessage(): void {
       files: state.files.length > 0 ? [...state.files] : undefined,
       timestamp: Date.now(),
     });
+    pruneOldEntries(messagesContainer);
     welcomeScreen.classList.add('gsd-hidden');
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
     scrollToBottom(messagesContainer, true);
