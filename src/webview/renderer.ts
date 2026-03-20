@@ -398,7 +398,7 @@ export function finalizeCurrentTurn(): void {
       currentTurnElement.classList.add("gsd-stale-echo");
       currentTurnElement.innerHTML = buildStaleEchoHtml(turn);
     } else {
-      currentTurnElement.innerHTML = buildTurnHtml(turn);
+      currentTurnElement.innerHTML = buildTurnHtml(turn, currentTurnElement.dataset.entryId);
     }
   }
 
@@ -438,7 +438,7 @@ function createEntryElement(entry: ChatEntry): HTMLElement {
       el.classList.add("gsd-stale-echo");
       el.innerHTML = buildStaleEchoHtml(entry.turn);
     } else {
-      el.innerHTML = buildTurnHtml(entry.turn);
+      el.innerHTML = buildTurnHtml(entry.turn, entry.id);
     }
   } else if (entry.type === "system") {
     el.innerHTML = buildSystemHtml(entry);
@@ -509,10 +509,10 @@ function buildStaleEchoHtml(turn: AssistantTurn): string {
     <span class="gsd-stale-echo-icon">↩</span>
     <span class="gsd-stale-echo-text">${escapeHtml(preview)}</span>
   </div>
-  <div class="gsd-stale-echo-full" id="${escapeAttr(panelId)}" hidden>${buildTurnHtml(turn)}</div>`;
+  <div class="gsd-stale-echo-full" id="${escapeAttr(panelId)}" hidden>${buildTurnHtml(turn, turn.id)}</div>`;
 }
 
-function buildTurnHtml(turn: AssistantTurn): string {
+function buildTurnHtml(turn: AssistantTurn, entryId?: string): string {
   let html = "";
 
   const grouped = groupConsecutiveTools(turn.segments, turn.toolCalls);
@@ -574,6 +574,12 @@ function buildTurnHtml(turn: AssistantTurn): string {
         <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 4h8v8H4V4zm1 1v6h6V5H5zm-3-3h8v1H3v7H2V2h8z"/></svg>
         Copy
       </button>`;
+      if (entryId) {
+        html += `<button class="gsd-fork-btn" data-entry-id="${escapeAttr(entryId)}" title="Fork conversation" aria-label="Fork conversation from here">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 3.25a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0ZM2.75 4.5a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5ZM5 12.75a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-2.25 1.25a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5ZM15.5 12.75a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-2.25 1.25a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5ZM3.25 4.5a.5.5 0 0 1 .5.5v6.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5ZM3.25 8a.5.5 0 0 1 .5-.5h5.5a2.75 2.75 0 0 1 2.75 2.75v1.25a.5.5 0 0 1-1 0v-1.25A1.75 1.75 0 0 0 9.25 8.5H3.75a.5.5 0 0 1-.5-.5Z"/></svg>
+          Fork
+        </button>`;
+      }
       if (turn.timestamp) {
         html += buildTimestampHtml(turn.timestamp);
       }
