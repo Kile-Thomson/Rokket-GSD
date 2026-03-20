@@ -213,6 +213,12 @@ export function handleSaveTempFile(
   msg: { name: string; data: string },
 ): void {
   try {
+    // Security: reject payloads exceeding 50MB (base64 is ~33% larger than raw)
+    if (msg.data.length > 66_666_667) {
+      ctx.output.appendLine(`[${_sessionId}] Blocked save_temp_file: payload exceeds 50MB limit`);
+      ctx.postToWebview(webview, { type: "error", message: "File exceeds 50MB limit" });
+      return;
+    }
     const dir = ctx.ensureTempDir();
     // Sanitize filename — strip path separators
     const safeName = msg.name.replace(/[/\\]/g, "_");
@@ -230,9 +236,30 @@ export async function handleCheckFileAccess(
   _sessionId: string,
   msg: { paths: string[] },
 ): Promise<void> {
+  // Security: validate all paths are within the workspace boundary
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  let realRoot: string | null = null;
+  if (workspaceRoot) {
+    try {
+      realRoot = fs.realpathSync(path.resolve(workspaceRoot));
+    } catch {
+      realRoot = null;
+    }
+  }
+
   const results = await Promise.all(
     msg.paths.map(async (p: string) => {
       try {
+        // If no workspace open or root unresolvable, reject all paths
+        if (!realRoot) {
+          ctx.output.appendLine(`[check_file_access] Blocked: no workspace open`);
+          return { path: p, readable: false };
+        }
+        const realFile = fs.realpathSync(path.resolve(p));
+        if (!realFile.startsWith(realRoot + path.sep) && realFile !== realRoot) {
+          ctx.output.appendLine(`[${_sessionId}] Blocked check_file_access outside workspace: ${realFile}`);
+          return { path: p, readable: false };
+        }
         await fs.promises.access(p, fs.constants.R_OK);
         return { path: p, readable: true };
       } catch {

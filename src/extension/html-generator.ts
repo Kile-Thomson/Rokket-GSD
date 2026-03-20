@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import * as crypto from "crypto";
 
 // ============================================================
 // HTML Generator — webview HTML template and nonce utility
@@ -6,12 +7,7 @@ import * as vscode from "vscode";
 
 /** Generate a cryptographic nonce for Content Security Policy */
 export function getNonce(): string {
-  const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let nonce = "";
-  for (let i = 0; i < 32; i++) {
-    nonce += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return nonce;
+  return crypto.randomBytes(16).toString("base64url");
 }
 
 /** Build the full HTML document for a GSD webview panel or sidebar */

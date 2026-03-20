@@ -85,6 +85,15 @@ Implement five independent security hardening items from audit findings SEC-02/0
 - `rg "50.*MB\|66_666_667\|66666667" src/extension/file-ops.ts` — has hits (size limit present)
 - `rg "DOMPurify" src/webview/helpers.ts` — has hits on line ~530 (formatMarkdownNotes wrap)
 
+## Observability Impact
+
+- **Crypto nonce:** `getNonce()` now returns `crypto.randomBytes(16).toString('base64url')`. CSP nonce visible in webview HTML source (DevTools → Application → Frames). No runtime log change.
+- **Workspace boundary:** New log line `[sessionId] Blocked check_file_access outside workspace: <path>` in Output Channel "Rokket GSD" when a path is rejected. Inspectable via Output panel filter.
+- **File size limit:** New log line `Blocked save_temp_file: payload exceeds 50MB limit` in Output Channel. Webview receives `{ type: "error", message: "File exceeds 50MB limit" }`.
+- **DOMPurify wrap:** No new runtime signal — defense-in-depth sanitization. Failures are silent (DOMPurify strips dangerous content without logging).
+- **Bash validation:** VS Code modal warning dialog appears for destructive patterns. If cancelled, webview receives `{ type: "bash_result", result: { exitCode: 1, stderr: "Cancelled by user" } }`.
+- **Failure visibility:** Workspace boundary rejections and size limit rejections both produce structured log messages and webview error payloads that are testable and inspectable.
+
 ## Inputs
 
 - `src/extension/html-generator.ts` — 45 LOC, extracted by S01. Contains `getNonce()` (line 8) and CSP meta tag (line 33). The CSP change itself happens in T03 — this task only fixes the nonce.
