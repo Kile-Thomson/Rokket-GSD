@@ -24,7 +24,7 @@ vi.mock("../a11y", () => ({
   restoreFocus: () => {},
 }));
 
-import { init, isVisible, show, hide, toggle, render, type ModelPickerDeps } from "../model-picker";
+import { init, isVisible, show, hide, toggle, type ModelPickerDeps } from "../model-picker";
 import { state } from "../state";
 
 // ── Helpers ──────────────────────────────────────────────────────────────

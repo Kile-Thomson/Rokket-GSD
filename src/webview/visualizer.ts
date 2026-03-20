@@ -138,7 +138,7 @@ function ensureOverlayElement(): void {
   if (!overlayEl) {
     overlayEl = document.createElement("div");
     overlayEl.id = "workflowVisualizer";
-    overlayEl.className = "gsd-visualizer-overlay";
+    overlayEl.className = "gsd-visualizer-overlay gsd-hidden";
     overlayEl.setAttribute("role", "dialog");
     overlayEl.setAttribute("aria-label", "Workflow Visualizer");
     const messagesContainer = document.getElementById("messagesContainer");
@@ -574,8 +574,8 @@ function wireClose(): void {
 
 function wireTabs(): void {
   const tabs = overlayEl?.querySelectorAll<HTMLElement>(".gsd-visualizer-tab");
-  const tabNames: Array<"progress" | "metrics" | "health"> = ["progress", "metrics", "health"];
-  tabs?.forEach((tab, i) => {
+  const _tabNames: Array<"progress" | "metrics" | "health"> = ["progress", "metrics", "health"];
+  tabs?.forEach((tab, _i) => {
     const t = tab.dataset.tab as "progress" | "metrics" | "health";
     // Set roving tabindex: active tab gets 0, others get -1
     tab.tabIndex = t === activeTab ? 0 : -1;

@@ -9,7 +9,6 @@ import {
   updateOverlayIndicators,
   updateWorkflowBadge,
   handleModelRouted,
-  updateAllUI,
 } from "../ui-updates";
 import { state } from "../state";
 import type { UIUpdatesDeps } from "../ui-updates";
@@ -24,7 +23,7 @@ vi.mock("../helpers", () => ({
   escapeHtml: (s: string) => s,
   formatCost: (c: number) => `$${c.toFixed(2)}`,
   formatTokens: (n: number) => `${n}`,
-  formatContextUsage: (stats: any, model: any) => {
+  formatContextUsage: (stats: any, _model: any) => {
     if (stats.contextPercent != null && stats.contextPercent > 0) {
       return `${stats.contextPercent}%`;
     }

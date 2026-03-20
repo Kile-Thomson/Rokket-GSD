@@ -42,6 +42,7 @@ let onSendMessage: () => void;
 let onShowHistory: (() => void) | undefined;
 let onCopyLast: (() => void) | undefined;
 let onToggleAutoCompact: (() => void) | undefined;
+let onToggleAutoRetry: (() => void) | undefined;
 
 // ============================================================
 // Public API
@@ -212,6 +213,7 @@ export function buildItems(): SlashMenuItem[] {
     { name: "copy", description: "Copy last assistant message to clipboard", insertText: "", source: "webview" },
     { name: "resume", description: "Resume last session", insertText: "", source: "webview" },
     { name: "auto-compact", description: "Toggle auto-compaction on/off", insertText: "", source: "webview" },
+    { name: "auto-retry", description: "Toggle auto-retry on transient errors", insertText: "", source: "webview" },
   );
 
   return items;
@@ -291,6 +293,11 @@ function selectCommand(idx: number): void {
         onAutoResize();
         onToggleAutoCompact?.();
         break;
+      case "auto-retry":
+        promptInput.value = "";
+        onAutoResize();
+        onToggleAutoRetry?.();
+        break;
     }
     promptInput.focus();
     return;
@@ -329,6 +336,7 @@ export interface SlashMenuDeps {
   onShowHistory?: () => void;
   onCopyLast?: () => void;
   onToggleAutoCompact?: () => void;
+  onToggleAutoRetry?: () => void;
 }
 
 export function init(deps: SlashMenuDeps): void {
@@ -342,4 +350,5 @@ export function init(deps: SlashMenuDeps): void {
   onShowHistory = deps.onShowHistory;
   onCopyLast = deps.onCopyLast;
   onToggleAutoCompact = deps.onToggleAutoCompact;
+  onToggleAutoRetry = deps.onToggleAutoRetry;
 }
