@@ -1,0 +1,411 @@
+/* ============================================================
+   File Path Links
+   ============================================================ */
+
+.gsd-file-link {
+  color: var(--gsd-color-text-link);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.gsd-file-link:hover {
+  text-decoration-style: solid;
+}
+
+/* ============================================================
+   Selection & Copy
+   ============================================================ */
+
+::selection {
+  background: var(--vscode-editor-selectionBackground, rgba(38, 79, 120, 0.7));
+  color: var(--vscode-editor-selectionForeground);
+}
+
+.gsd-assistant-text,
+.gsd-tool-output,
+.gsd-code-block code,
+.gsd-thinking-content {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* ============================================================
+   Update Card
+   ============================================================ */
+
+.gsd-update-card {
+  margin: 8px 4px;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.1));
+  border-radius: var(--gsd-radius-xl);
+  background: var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.95));
+  overflow: hidden;
+  animation: gsd-update-slide-in 0.3s ease-out;
+}
+
+@keyframes gsd-update-slide-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.gsd-update-card.dismissing {
+  animation: gsd-update-slide-out 0.3s ease-in forwards;
+}
+
+@keyframes gsd-update-slide-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
+}
+
+.gsd-update-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--gsd-space-md);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.06));
+}
+
+.gsd-update-icon {
+  font-size: var(--gsd-font-size-xl);
+}
+
+.gsd-update-title {
+  font-size: var(--gsd-font-size-base);
+  font-weight: 600;
+  color: var(--gsd-color-text);
+  flex: 1;
+}
+
+.gsd-update-current {
+  font-size: var(--gsd-font-size-sm);
+  color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.5));
+}
+
+.gsd-update-notes {
+  padding: 10px 14px;
+  font-size: var(--gsd-font-size-md);
+  line-height: 1.5;
+  color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.7));
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.gsd-update-notes h3 {
+  font-size: var(--gsd-font-size-base);
+  font-weight: 600;
+  color: var(--gsd-color-text);
+  margin: 8px 0 4px;
+}
+
+.gsd-update-notes h3:first-child {
+  margin-top: 0;
+}
+
+.gsd-update-notes h4 {
+  font-size: var(--gsd-font-size-md);
+  font-weight: 600;
+  color: var(--gsd-color-text);
+  margin: 6px 0 3px;
+}
+
+.gsd-update-notes ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+
+.gsd-update-notes li {
+  margin: 2px 0;
+}
+
+.gsd-update-notes code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 4px;
+  border-radius: var(--gsd-radius-sm);
+  font-family: var(--gsd-font-family-mono);
+  font-size: var(--gsd-font-size-sm);
+}
+
+.gsd-update-notes strong {
+  color: var(--gsd-color-text);
+  font-weight: 600;
+}
+
+.gsd-update-actions {
+  display: flex;
+  gap: var(--gsd-space-md);
+  padding: 10px 14px;
+  border-top: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.06));
+}
+
+.gsd-update-btn {
+  padding: 5px 12px;
+  border-radius: var(--gsd-radius-md);
+  border: 1px solid var(--vscode-button-border, rgba(255, 255, 255, 0.1));
+  background: transparent;
+  color: var(--gsd-color-text);
+  font-size: var(--gsd-font-size-md);
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.gsd-update-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.gsd-update-btn.primary {
+  background: var(--vscode-button-background, #0078d4);
+  color: var(--vscode-button-foreground, #fff);
+  border-color: transparent;
+  font-weight: 500;
+}
+
+.gsd-update-btn.primary:hover {
+  background: var(--vscode-button-hoverBackground, #1a8cff);
+}
+
+.gsd-update-btn.dismiss {
+  margin-left: auto;
+  opacity: 0.6;
+  border: none;
+}
+
+.gsd-update-btn.dismiss:hover {
+  opacity: 1;
+}
+
+/* ============================================================
+   Header version badge
+   ============================================================ */
+
+.gsd-header-version {
+  font-size: var(--gsd-font-size-sm);
+  color: var(--gsd-color-text-link);
+  cursor: pointer;
+  padding: 1px 6px;
+  border-radius: var(--gsd-radius-md);
+  transition: color 0.15s, background 0.15s;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.gsd-header-version:hover {
+  color: var(--vscode-textLink-activeForeground, #3794ff);
+  background: rgba(255, 255, 255, 0.08);
+  text-decoration-style: solid;
+}
+
+/* ============================================================
+   Focus indicators
+   ============================================================ */
+
+.gsd-action-btn:focus-visible,
+.gsd-header-version:focus-visible,
+.gsd-welcome-chip:focus-visible,
+.gsd-copy-btn:focus-visible,
+.gsd-copy-response-btn:focus-visible,
+.gsd-scroll-fab:focus-visible,
+.gsd-tool-header[role="button"]:focus-visible,
+.gsd-tool-group-header[role="button"]:focus-visible,
+.gsd-slash-item:focus-visible,
+.gsd-stale-echo-bar:focus-visible,
+.gsd-model-picker [role="option"]:focus-visible,
+.gsd-thinking-picker [role="option"]:focus-visible,
+.gsd-ui-option-btn:focus-visible,
+.gsd-session-item:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Streaming: hide copy buttons on incomplete code blocks
+   ============================================================ */
+
+.gsd-entry-assistant.streaming .gsd-copy-btn {
+  display: none;
+}
+
+/* ============================================================
+   Loading spinner
+   ============================================================ */
+
+.gsd-loading-spinner {
+  display: flex;
+  align-items: center;
+  gap: var(--gsd-space-md);
+  padding: 16px 14px;
+  font-size: var(--gsd-font-size-md);
+  color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.5));
+}
+
+.gsd-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.15));
+  border-top-color: var(--gsd-color-text-link);
+  border-radius: var(--gsd-radius-circle);
+  animation: gsd-spin 0.6s linear infinite;
+}
+
+@keyframes gsd-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   What's New Card
+   ============================================================ */
+
+.gsd-whats-new {
+  margin: 8px 4px;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.1));
+  border-radius: var(--gsd-radius-xl);
+  background: var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.95));
+  overflow: hidden;
+  animation: gsd-update-slide-in 0.3s ease-out;
+}
+
+.gsd-whats-new.dismissing {
+  animation: gsd-update-slide-out 0.3s ease-in forwards;
+}
+
+.gsd-whats-new-header {
+  display: flex;
+  align-items: center;
+  gap: var(--gsd-space-md);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.06));
+}
+
+.gsd-whats-new-icon {
+  font-size: var(--gsd-font-size-xl);
+}
+
+.gsd-whats-new-title {
+  font-size: var(--gsd-font-size-base);
+  font-weight: 600;
+  color: var(--gsd-color-text);
+  flex: 1;
+}
+
+.gsd-whats-new-close {
+  background: none;
+  border: none;
+  color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.5));
+  cursor: pointer;
+  font-size: var(--gsd-font-size-lg);
+  padding: 2px 6px;
+  border-radius: var(--gsd-radius-md);
+  line-height: 1;
+}
+
+.gsd-whats-new-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--gsd-color-text);
+}
+
+.gsd-whats-new-notes {
+  padding: 10px 14px;
+  font-size: var(--gsd-font-size-md);
+  line-height: 1.5;
+  color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.7));
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.gsd-whats-new-notes h3,
+.gsd-whats-new-notes h4 {
+  font-weight: 600;
+  color: var(--gsd-color-text);
+}
+
+.gsd-whats-new-notes h3 {
+  font-size: var(--gsd-font-size-base);
+  margin: 8px 0 4px;
+}
+
+.gsd-whats-new-notes h3:first-child {
+  margin-top: 0;
+}
+
+.gsd-whats-new-notes h4 {
+  font-size: var(--gsd-font-size-md);
+  margin: 6px 0 3px;
+}
+
+.gsd-whats-new-notes ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+
+.gsd-whats-new-notes li {
+  margin: 2px 0;
+}
+
+.gsd-whats-new-notes code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 4px;
+  border-radius: var(--gsd-radius-sm);
+  font-family: var(--gsd-font-family-mono);
+  font-size: var(--gsd-font-size-sm);
+}
+
+.gsd-whats-new-notes strong {
+  color: var(--gsd-color-text);
+  font-weight: 600;
+}
+
+/* ============================================================
+   Stale Echo — collapsed background job notification echoes
+   ============================================================ */
+
+.gsd-stale-echo {
+  margin: 2px 0;
+}
+
+.gsd-stale-echo-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--gsd-space-sm);
+  padding: 4px 10px;
+  border-radius: var(--gsd-radius-md);
+  background: var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.1));
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: var(--gsd-font-size-md);
+  color: var(--vscode-descriptionForeground, #888);
+  transition: opacity 0.15s;
+  user-select: none;
+}
+
+.gsd-stale-echo-bar:hover {
+  opacity: 0.9;
+}
+
+.gsd-stale-echo-icon {
+  font-size: var(--gsd-font-size-sm);
+  flex-shrink: 0;
+}
+
+.gsd-stale-echo-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gsd-stale-echo-full {
+  margin-top: 4px;
+}
+
+/* ============================================================
+   Pruned Entries Indicator (S01 entry cap)
+   ============================================================ */
+
+.gsd-pruned-indicator {
+  text-align: center;
+  color: var(--gsd-color-text-muted);
+  font-size: var(--gsd-font-size-md);
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+  opacity: 0.8;
+}
