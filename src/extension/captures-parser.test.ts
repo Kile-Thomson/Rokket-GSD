@@ -1,5 +1,12 @@
-import { describe, it, expect } from "vitest";
-import { countPendingInContent } from "./captures-parser";
+import { describe, it, expect, vi } from "vitest";
+import { countPendingInContent, countPendingCaptures } from "./captures-parser";
+import * as fs from "fs";
+
+vi.mock("fs", () => ({
+  promises: {
+    readFile: vi.fn(),
+  },
+}));
 
 describe("captures-parser", () => {
   it("returns 0 for empty content", () => {
@@ -47,5 +54,19 @@ describe("captures-parser", () => {
 **Status:** Pending
 `;
     expect(countPendingInContent(content)).toBe(1);
+  });
+
+  describe("countPendingCaptures", () => {
+    it("reads captures file and counts pending entries", async () => {
+      vi.mocked(fs.promises.readFile).mockResolvedValue("**Status:** pending\n**Status:** pending\n");
+      const count = await countPendingCaptures("/workspace");
+      expect(count).toBe(2);
+    });
+
+    it("returns 0 when file does not exist", async () => {
+      vi.mocked(fs.promises.readFile).mockRejectedValue(new Error("ENOENT"));
+      const count = await countPendingCaptures("/workspace");
+      expect(count).toBe(0);
+    });
   });
 });
