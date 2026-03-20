@@ -53,7 +53,7 @@
 .gsd-input {
   width: 100%;
   resize: none;
-  border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.25));
+  border: 1px solid var(--gsd-input-border, rgba(128,128,128,0.25));
   border-radius: var(--gsd-radius-xl);
   padding: 8px 12px;
   font-family: var(--gsd-font-family);
