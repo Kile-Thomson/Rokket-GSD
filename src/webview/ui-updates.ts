@@ -258,6 +258,7 @@ export function updateOverlayIndicators(): void {
     parts.push(`<div class="gsd-overlay-indicator retrying">
       <span class="gsd-overlay-spinner"></span>Retrying (${state.retryInfo.attempt}/${state.retryInfo.maxAttempts})…
       <span class="gsd-overlay-detail">${escapeHtml(state.retryInfo.errorMessage)}</span>
+      <button class="gsd-overlay-btn" id="abortRetryBtn">Abort Retry</button>
     </div>`);
   }
 
@@ -311,6 +312,12 @@ export function updateOverlayIndicators(): void {
       vscode.postMessage({ type: "force_kill" });
       state.processHealth = "responsive";
       updateOverlayIndicators();
+    });
+  }
+  const abortRetryBtn = document.getElementById("abortRetryBtn");
+  if (abortRetryBtn) {
+    abortRetryBtn.addEventListener("click", () => {
+      vscode.postMessage({ type: "abort_retry" });
     });
   }
 }

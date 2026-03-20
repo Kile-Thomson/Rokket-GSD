@@ -658,6 +658,30 @@ export async function handleWebviewMessage(
           break;
         }
 
+        case "set_auto_retry": {
+          const client = ctx.getSession(sessionId).client;
+          if (client?.isRunning) {
+            try {
+              await client.setAutoRetry(msg.enabled);
+            } catch (err: any) {
+              ctx.postToWebview(webview, { type: "error", message: err.message });
+            }
+          }
+          break;
+        }
+
+        case "abort_retry": {
+          const client = ctx.getSession(sessionId).client;
+          if (client?.isRunning) {
+            try {
+              await client.abortRetry();
+            } catch (err: any) {
+              ctx.postToWebview(webview, { type: "error", message: err.message });
+            }
+          }
+          break;
+        }
+
         case "set_steering_mode": {
           const client = ctx.getSession(sessionId).client;
           if (client?.isRunning) {
