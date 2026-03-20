@@ -23,7 +23,7 @@ vi.mock("./parallel-status", () => ({
   readBudgetCeiling: (...args: unknown[]) => mockReadBudgetCeiling(...args),
 }));
 
-import { AutoProgressPoller } from "./auto-progress";
+import { AutoProgressPoller } from "./auto-progress-poller";
 
 // ── Helpers ──
 function createMockWebview() {
