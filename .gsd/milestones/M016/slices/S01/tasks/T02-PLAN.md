@@ -88,3 +88,9 @@ This is the riskiest extraction because the switch has zero direct test coverage
 
 - `src/extension/message-dispatch.ts` — new module (~920 lines) with `MessageDispatchContext` interface and `handleWebviewMessage()` function
 - `src/extension/webview-provider.ts` — reduced from ~1,572 to ~650 LOC, with `setupWebviewMessageHandling` as a thin delegation layer
+
+## Observability Impact
+
+- **Signals changed:** Log messages from the switch statement (`[sessionId] Webview -> Extension: ...`, `[sessionId] Sending prompt to RPC: ...`, all `[ERR-xxx]` error IDs) now originate from `message-dispatch.ts` instead of `webview-provider.ts` — the format and content are identical, only the source file changes.
+- **Inspection:** `Output > Rokket GSD` panel still shows the full message dispatch flow with `[sessionId]` prefix. The `MessageDispatchContext` interface is the contract boundary — if wiring breaks, the TypeScript compiler catches missing or mistyped context properties at build time.
+- **Failure visibility:** The try/catch with `[ERR-xxx]` error IDs is preserved verbatim inside `handleWebviewMessage`. Runtime errors surface identically in the output channel. If the context adapter misses a property, esbuild fails at compile time.
