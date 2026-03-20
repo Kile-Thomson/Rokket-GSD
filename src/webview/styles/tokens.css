@@ -1,0 +1,176 @@
+/* ============================================================
+   GSD Design Tokens
+   ============================================================
+   Semantic alias layer between VS Code's --vscode-* system
+   tokens and component CSS. Components reference --gsd-*
+   tokens; themes override only the --gsd-* layer.
+
+   Naming: --gsd-{category}-{variant}  (spacing, sizing, color)
+           --gsd-{component}-{property} (component-specific)
+
+   Every token has a --vscode-* or literal fallback so the UI
+   renders correctly even without a theme override.
+   ============================================================ */
+
+:root {
+  /* ----------------------------------------------------------
+     Spacing
+     ---------------------------------------------------------- */
+  --gsd-space-xxs: 2px;
+  --gsd-space-xs: 4px;
+  --gsd-space-sm: 6px;
+  --gsd-space-md: 8px;
+  --gsd-space-lg: 12px;
+  --gsd-space-xl: 16px;
+  --gsd-space-xxl: 20px;
+
+  /* ----------------------------------------------------------
+     Sizing — border-radius
+     ---------------------------------------------------------- */
+  --gsd-radius-xs: 2px;
+  --gsd-radius-sm: 3px;
+  --gsd-radius-md: 4px;
+  --gsd-radius-lg: 6px;
+  --gsd-radius-xl: 8px;
+  --gsd-radius-pill: 20px;
+  --gsd-radius-circle: 50%;
+
+  /* ----------------------------------------------------------
+     Sizing — border-width
+     ---------------------------------------------------------- */
+  --gsd-border-width: 1px;
+  --gsd-border-width-thick: 2px;
+
+  /* ----------------------------------------------------------
+     Typography
+     ---------------------------------------------------------- */
+  --gsd-font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  --gsd-font-family-mono: var(--vscode-editor-fontFamily, 'Cascadia Code', 'Fira Code', Consolas, monospace);
+  --gsd-font-size-xs: 10px;
+  --gsd-font-size-sm: 11px;
+  --gsd-font-size-md: 12px;
+  --gsd-font-size-base: 13px;
+  --gsd-font-size-lg: 14px;
+  --gsd-font-size-xl: 16px;
+  --gsd-line-height: 1.5;
+  --gsd-line-height-tight: 1.4;
+
+  /* ----------------------------------------------------------
+     Color — semantic surface aliases
+     ---------------------------------------------------------- */
+  --gsd-color-bg: var(--vscode-editor-background);
+  --gsd-color-surface: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  --gsd-color-surface-elevated: var(--vscode-editorWidget-background, var(--vscode-sideBar-background));
+  --gsd-color-surface-hover: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.1));
+  --gsd-color-surface-active: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
+
+  /* ----------------------------------------------------------
+     Color — text
+     ---------------------------------------------------------- */
+  --gsd-color-text: var(--vscode-foreground);
+  --gsd-color-text-muted: var(--vscode-descriptionForeground);
+  --gsd-color-text-link: var(--vscode-textLink-foreground);
+  --gsd-color-text-error: var(--vscode-errorForeground);
+  --gsd-color-text-warning: var(--vscode-editorWarning-foreground);
+
+  /* ----------------------------------------------------------
+     Color — border
+     ---------------------------------------------------------- */
+  --gsd-color-border: var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+  --gsd-color-border-subtle: var(--vscode-widget-border, rgba(128, 128, 128, 0.15));
+  --gsd-color-border-strong: var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(128, 128, 128, 0.3)));
+  --gsd-color-border-focus: var(--vscode-focusBorder);
+
+  /* ----------------------------------------------------------
+     Color — accent & status
+     ---------------------------------------------------------- */
+  --gsd-color-accent: var(--vscode-button-background);
+  --gsd-color-accent-fg: var(--vscode-button-foreground);
+  --gsd-color-accent-hover: var(--vscode-button-hoverBackground);
+  --gsd-color-success: var(--vscode-testing-iconPassed, var(--vscode-charts-green, #4ec9b0));
+  --gsd-color-error: var(--vscode-errorForeground, #f14c4c);
+  --gsd-color-warning: var(--vscode-charts-yellow, #cca700);
+
+  /* ----------------------------------------------------------
+     Color — input
+     ---------------------------------------------------------- */
+  --gsd-input-bg: var(--vscode-input-background);
+  --gsd-input-fg: var(--vscode-input-foreground);
+  --gsd-input-border: var(--vscode-input-border, var(--vscode-panel-border));
+  --gsd-input-placeholder: var(--vscode-input-placeholderForeground);
+
+  /* ----------------------------------------------------------
+     Color — badge
+     ---------------------------------------------------------- */
+  --gsd-badge-bg: var(--vscode-badge-background);
+  --gsd-badge-fg: var(--vscode-badge-foreground);
+
+  /* ----------------------------------------------------------
+     Color — scrollbar
+     ---------------------------------------------------------- */
+  --gsd-scrollbar-bg: var(--vscode-scrollbarSlider-background);
+
+  /* ----------------------------------------------------------
+     Component — header
+     ---------------------------------------------------------- */
+  --gsd-header-bg: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  --gsd-header-border: var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+  --gsd-header-padding: 8px 16px;
+  --gsd-header-gap: 10px;
+
+  /* ----------------------------------------------------------
+     Component — entry
+     ---------------------------------------------------------- */
+  --gsd-entry-radius: 3px;
+  --gsd-entry-gap: 6px;
+  --gsd-entry-padding: 10px 14px;
+
+  /* ----------------------------------------------------------
+     Component — code block
+     ---------------------------------------------------------- */
+  --gsd-code-bg: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1));
+  --gsd-code-radius: 4px;
+  --gsd-code-font-size: 12px;
+
+  /* ----------------------------------------------------------
+     Component — tool block
+     ---------------------------------------------------------- */
+  --gsd-tool-border: var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(128, 128, 128, 0.2)));
+  --gsd-tool-bg: var(--vscode-editorWidget-background, var(--vscode-sideBar-background));
+  --gsd-tool-radius: 3px;
+
+  /* ----------------------------------------------------------
+     Component — overlay / modal
+     ---------------------------------------------------------- */
+  --gsd-overlay-backdrop: rgba(0, 0, 0, 0.5);
+  --gsd-overlay-bg: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  --gsd-overlay-border: var(--vscode-editorWidget-border, var(--vscode-panel-border));
+  --gsd-overlay-radius: 8px;
+  --gsd-overlay-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+
+  /* ----------------------------------------------------------
+     Component — toast
+     ---------------------------------------------------------- */
+  --gsd-toast-bg: var(--vscode-editorWidget-background, #1e1e1e);
+  --gsd-toast-border: var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.2));
+  --gsd-toast-radius: 6px;
+
+  /* ----------------------------------------------------------
+     Component — footer / status bar
+     ---------------------------------------------------------- */
+  --gsd-footer-bg: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  --gsd-footer-border: var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+
+  /* ----------------------------------------------------------
+     Opacity
+     ---------------------------------------------------------- */
+  --gsd-opacity-muted: 0.7;
+  --gsd-opacity-dimmed: 0.5;
+  --gsd-opacity-faint: 0.4;
+
+  /* ----------------------------------------------------------
+     Transition
+     ---------------------------------------------------------- */
+  --gsd-transition-fast: 0.15s ease;
+  --gsd-transition-normal: 0.2s ease;
+}
