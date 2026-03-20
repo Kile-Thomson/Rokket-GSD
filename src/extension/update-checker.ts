@@ -265,6 +265,7 @@ export async function fetchRecentReleases(count = 10): Promise<Array<{ version: 
               }))
           );
         } catch {
+          // JSON parse failed — treat as no releases
           resolve([]);
         }
       });

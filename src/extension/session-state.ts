@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { GsdRpcClient } from "./rpc-client";
-import { AutoProgressPoller } from "./auto-progress";
+import { AutoProgressPoller } from "./auto-progress-poller";
 import type { ProcessHealthStatus } from "../shared/types";
 
 // ============================================================

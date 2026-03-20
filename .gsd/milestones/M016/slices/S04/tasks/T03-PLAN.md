@@ -100,3 +100,9 @@ After all changes: run `npx vitest --run` and `npm run build` to verify.
 - `src/extension/session-state.ts` — import updated
 - `src/extension/webview-provider.ts` — import updated
 - `README.md` — badges updated to 0.2.62 and v2.12–v2.35
+
+## Observability Impact
+
+- **Timer leak detection:** After abort, promptWatchdog/slashWatchdog/gsdFallbackTimer are now explicitly cleared. If timer leaks are suspected, check whether `cleanupSessionState` AND the abort handler both clear timers — the abort handler clears eagerly, cleanup is the safety net.
+- **Catch block diagnostics:** Empty catch blocks now have descriptive comments explaining why the catch is intentional (fallback logic, not swallowed errors). Grep for `// JSON parse failed`, `// Node.js binary not found`, `// gsd-pi binary not found`, or `// get_state failed` to locate documented catch points.
+- **File rename traceability:** If import errors reference `auto-progress`, verify the file has been renamed to `auto-progress-poller.ts` and imports updated. `grep -rn "auto-progress" src/extension/` should show only `auto-progress-poller` references (plus the webview `auto-progress.ts` which is a separate file).
