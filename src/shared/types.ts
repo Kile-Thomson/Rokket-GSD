@@ -38,6 +38,8 @@ export type WebviewToExtensionMessage =
   | { type: "update_dismiss"; version: string }
   | { type: "update_view_release"; htmlUrl: string }
   | { type: "set_auto_compaction"; enabled: boolean }
+  | { type: "set_auto_retry"; enabled: boolean }
+  | { type: "abort_retry" }
   | { type: "set_steering_mode"; mode: "all" | "one-at-a-time" }
   | { type: "set_follow_up_mode"; mode: "all" | "one-at-a-time" }
   | { type: "force_kill" }
