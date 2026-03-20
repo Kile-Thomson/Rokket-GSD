@@ -1,0 +1,218 @@
+/* ============================================================
+   Auto-Mode Progress Widget — sticky bar above input area
+   ============================================================ */
+
+.gsd-auto-progress {
+  display: none;
+  flex-direction: column;
+  padding: 8px 16px;
+  background: var(--gsd-color-surface-elevated);
+  border-top: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(255,255,255,0.08)));
+  border-bottom: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(255,255,255,0.08)));
+  font-size: var(--gsd-font-size-md);
+  gap: var(--gsd-space-xs);
+  animation: gsd-auto-progress-fadein 0.2s ease-out;
+  flex-shrink: 0;
+}
+
+@keyframes gsd-auto-progress-fadein {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.gsd-auto-progress-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gsd-space-xs);
+}
+
+.gsd-auto-progress-row {
+  display: flex;
+  align-items: center;
+  gap: var(--gsd-space-md);
+  min-height: 20px;
+}
+
+/* Pulsing dot — indicates liveness */
+.gsd-auto-progress-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--gsd-radius-circle);
+  background: var(--vscode-charts-green, #4ec9b0);
+  animation: gsd-auto-progress-pulse-anim 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes gsd-auto-progress-pulse-anim {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.gsd-auto-progress-mode {
+  font-size: var(--gsd-font-size-lg);
+  flex-shrink: 0;
+}
+
+.gsd-auto-progress-phase {
+  font-weight: 600;
+  color: var(--vscode-charts-blue, var(--vscode-textLink-foreground));
+  text-transform: uppercase;
+  font-size: var(--gsd-font-size-xs);
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: var(--gsd-radius-sm);
+  background: color-mix(in srgb, var(--vscode-charts-blue, var(--vscode-textLink-foreground)) 15%, transparent);
+}
+
+.gsd-auto-progress-target {
+  color: var(--gsd-color-text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gsd-auto-progress-elapsed {
+  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  font-size: var(--gsd-font-size-sm);
+}
+
+/* Progress bars */
+.gsd-auto-progress-detail {
+  gap: var(--gsd-space-lg);
+  flex-wrap: wrap;
+}
+
+.gsd-auto-progress-bar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gsd-space-sm);
+}
+
+.gsd-auto-progress-bar-label {
+  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  font-size: var(--gsd-font-size-sm);
+  min-width: 36px;
+}
+
+.gsd-auto-progress-bar-track {
+  width: 80px;
+  height: 4px;
+  background: var(--vscode-progressBar-background, rgba(255,255,255,0.1));
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.gsd-auto-progress-bar-fill {
+  height: 100%;
+  background: var(--vscode-charts-green, #4ec9b0);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.gsd-auto-progress-bar-fill--slices {
+  background: var(--vscode-charts-blue, var(--vscode-textLink-foreground));
+}
+
+.gsd-auto-progress-bar-value {
+  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  font-size: var(--gsd-font-size-sm);
+  font-variant-numeric: tabular-nums;
+  min-width: 24px;
+}
+
+/* Stats (cost, model) */
+.gsd-auto-progress-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.gsd-auto-progress-stat {
+  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  font-size: var(--gsd-font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.gsd-auto-progress-model {
+  opacity: 0.7;
+}
+
+.gsd-auto-progress-health {
+  font-size: 8px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.gsd-auto-progress-health.ok {
+  color: var(--vscode-terminal-ansiGreen, #89d185);
+}
+
+.gsd-auto-progress-health.warning {
+  color: var(--gsd-color-text-warning);
+}
+
+.gsd-auto-progress-health.error {
+  color: var(--gsd-color-text-error);
+}
+
+.gsd-auto-progress-captures {
+  color: var(--vscode-charts-yellow, #e2c08d);
+  font-weight: 600;
+}
+
+/* Responsive: collapse to single line on narrow viewports */
+@media (max-width: 400px) {
+  .gsd-auto-progress {
+    padding: 6px 10px;
+  }
+  .gsd-auto-progress-bar-track {
+    width: 50px;
+  }
+  .gsd-auto-progress-stats {
+    display: none;
+  }
+}
+
+/* Discussion-pause state — distinct visual treatment */
+.gsd-auto-progress-discussion {
+  border-left: 3px solid var(--vscode-charts-yellow, #e2c08d);
+  background: color-mix(in srgb, var(--vscode-charts-yellow, #e2c08d) 6%, var(--vscode-editorWidget-background, var(--vscode-sideBar-background)));
+}
+
+.gsd-auto-progress-hint {
+  font-size: var(--gsd-font-size-sm);
+  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  padding: 0 0 0 16px;
+  font-style: italic;
+}
+
+/* ============================================================
+   Model Badge Flash — triggered on dynamic model routing
+   ============================================================ */
+
+.gsd-model-badge-flash {
+  animation: gsd-model-badge-flash-anim 1.5s ease-out;
+}
+
+@keyframes gsd-model-badge-flash-anim {
+  0% {
+    background: var(--vscode-charts-yellow, #e2c08d);
+    color: var(--vscode-editor-background, #1e1e1e);
+    transform: scale(1.15);
+  }
+  30% {
+    background: var(--vscode-charts-yellow, #e2c08d);
+    color: var(--vscode-editor-background, #1e1e1e);
+    transform: scale(1.05);
+  }
+  100% {
+    background: transparent;
+    color: inherit;
+    transform: scale(1);
+  }
+}

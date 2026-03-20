@@ -6,7 +6,23 @@
 import type {
   WebviewToExtensionMessage,
 } from "../shared/types";
-import "./styles.css";
+// CSS modules — import order replicates the original cascade
+import "./styles/tokens.css";
+import "./styles/base.css";
+import "./styles/layout.css";
+import "./styles/entries.css";
+import "./styles/tools.css";
+import "./styles/dashboard.css";
+import "./styles/input.css";
+import "./styles/footer.css";
+import "./styles/overlays.css";
+import "./styles/toasts.css";
+import "./styles/misc.css";
+import "./styles/auto-progress.css";
+import "./styles/parallel.css";
+import "./styles/themes/phosphor.css";
+import "./styles/themes/clarity.css";
+import "./styles/themes/forge.css";
 
 import {
   state,
