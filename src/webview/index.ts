@@ -174,9 +174,9 @@ root.innerHTML = `
     <button class="gsd-scroll-fab" id="scrollFab" title="Scroll to bottom" aria-label="Scroll to bottom">↓</button>
 
     <div class="gsd-toast-container" id="toastContainer"></div>
-    <div class="gsd-slash-menu" id="slashMenu"></div>
-    <div class="gsd-model-picker" id="modelPicker"></div>
-    <div class="gsd-thinking-picker" id="thinkingPicker"></div>
+    <div class="gsd-slash-menu gsd-hidden" id="slashMenu"></div>
+    <div class="gsd-model-picker gsd-hidden" id="modelPicker"></div>
+    <div class="gsd-thinking-picker gsd-hidden" id="thinkingPicker"></div>
     <div class="gsd-session-history gsd-hidden" id="sessionHistory"></div>
 
     <div class="gsd-input-area">
@@ -691,6 +691,13 @@ slashMenu.init({
     vscode.postMessage({ type: "set_auto_compaction", enabled: newValue });
     state.sessionStats.autoCompactionEnabled = newValue;
     messageHandler.addSystemEntry(`Auto-compaction ${newValue ? "enabled" : "disabled"}.`, "info");
+  },
+  onToggleAutoRetry: () => {
+    const current = state.sessionStats.autoRetryEnabled ?? true;
+    const newValue = !current;
+    vscode.postMessage({ type: "set_auto_retry", enabled: newValue });
+    state.sessionStats.autoRetryEnabled = newValue;
+    messageHandler.addSystemEntry(`Auto-retry ${newValue ? "enabled" : "disabled"}.`, "info");
   },
 });
 

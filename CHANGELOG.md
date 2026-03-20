@@ -4,28 +4,31 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.63] — 2026-03-21
 
 ### Added
-- **Steer redirect UX** — skipped tool calls (from agent redirect) render as muted ⏭ summary rows instead of red error ✗ blocks. Consecutive skipped tools collapse into one line: "3 tool calls skipped — agent redirected". Steer note ("⚡ Redirecting agent...") shows once and clears when the agent responds.
-- **Turn coalescing** — rapid async job results that fire back-to-back now flow into the previous assistant entry instead of creating separate chat bubbles. Extension host detects continuation turns (agent_start within 1.5s of previous agent_end with no user action) and marks them with `isContinuation`.
-- **Consecutive assistant separator** — back-to-back assistant entries get a thin border between them for visual distinction.
-- **Full slash menu for gsd-pi v2.35** — added 21 missing GSD subcommands: `/gsd pause`, `/gsd changelog`, `/gsd triage`, `/gsd dispatch`, `/gsd history`, `/gsd undo`, `/gsd skip`, `/gsd cleanup`, `/gsd hooks`, `/gsd run-hook`, `/gsd skill-health`, `/gsd init`, `/gsd setup`, `/gsd inspect`, `/gsd new-milestone`, `/gsd park`, `/gsd unpark`, `/gsd start`, `/gsd templates`, `/gsd extensions`. Commands organised by category.
-- **Command fallback coverage** — all new subcommands have context-aware fallback prompts for both initialised and uninitialised projects.
-- **Event type coverage** — `fallback_provider_switch`, `fallback_provider_restored`, `fallback_chain_exhausted`, `session_shutdown`, `extension_error` added to the message protocol union.
+- **Fork conversation button** — fork/branch icon on every completed assistant turn. Clicking it forks the conversation at that point, creating a new session with the forked messages. Uses server-side entry IDs for correct fork targeting.
+- **Abort Retry button** — retry overlay now includes an "Abort Retry" button to cancel pending auto-retries.
+- **`/auto-retry` slash command** — toggle auto-retry on transient errors from the slash menu, matching the `/auto-compact` pattern.
+- **Streaming abort guards** — switching sessions or starting a new conversation while streaming now cleanly aborts the stream and clears all watchdog timers before proceeding.
+- **Architecture documentation** — `ARCHITECTURE.md` (460 lines, 8 sections) covering three-layer architecture, message flow, module map, CSS token system, RPC protocol, data flow, build config, and testing setup.
+- **Expanded CONTRIBUTING.md** — from 45→203 lines with architecture overview, test guide (mock patterns, jsdom setup), module map, and RPC protocol quick reference.
+- **JSDoc on all public APIs** — 69 JSDoc blocks added across `types.ts`, `helpers.ts`, and `rpc-client.ts`. Every major type, function, and RPC method now has IDE hover documentation.
+- **CI coverage gate** — `npx vitest --run --coverage` enforces ≥60% line coverage on every push/PR. 844 tests across 44 files.
 
 ### Fixed
-- **Session cost persistence** — cost no longer resets after auto-compaction. The extension host maintains an independent running total from `message_end` events and overrides pi's recalculated stats when its total is higher.
-- **Steer note lingers** — the "Redirecting agent..." indicator now clears on `agent_end`, not just on the next `agent_start`.
-- **48 → 16 TypeScript errors** — fixed pre-existing type issues: message_end usage typing, RpcStateResult cast, image renderer null title, NodeListOf iterator, __linkedIds cast, property name mismatches, test mock shapes.
-- **`.vscodeignore`** — excludes `.gsd` symlink (not just `.gsd/**`), `debug.log`, `.dropboxignore`.
+- **Overlay visibility regression** — slash menu, model picker, thinking picker, and visualizer were invisible since M016/S02. The `style.display` → `gsd-hidden` migration left base CSS `display: none` that `classList.remove("gsd-hidden")` couldn't override. Fixed by removing base `display: none` and using `gsd-hidden` class on initial HTML elements.
+- **Command fallback stomping native commands** — `/gsd config`, `/gsd keys`, `/gsd doctor`, and 20+ other subcommands that work natively in RPC mode were triggering the 500ms fallback timer, which would overwrite the native UI with an auto-execute prompt. Expanded `GSD_NATIVE_SUBCOMMANDS` from 11→33 subcommands.
+- **Forge theme visual regression** — M017 theme token refactor dropped ~45 per-element Forge rules (badge colors, action button bevels/borders, tool icon/name colors, welcome chip styling, thinking dots, etc.). Restored all missing rules.
+- **Stream splitting on user messages** — sending a message while the agent was responding would visually split the assistant's turn into fragments with the user bubble inserted in the middle. User messages now appear below the in-progress response without interrupting the assistant's rendering.
+- **Fork entryId mapping** — fork button was sending webview-local IDs (`e-1`, `e-2`) but the server expects 8-char UUID fragments from its session manager. Now fetches server-side entry IDs via `get_fork_messages` RPC and maps them to fork buttons by user message index.
 
 ### Changed
-- Updated gsd-pi compatibility to v2.35.
-- Updated `/gsd update` description, `/gsd queue` description, `/gsd migrate` description.
+- **Test coverage** — 46.71% → 60.45% lines (181 new tests across 12 files covering message-dispatch, dashboard, polling, toasts, model-picker, thinking-picker, file-handling, session-history, slash-menu, html-generator, captures-parser).
+- **`toGsdState()` consolidation** — all 4 state construction sites now use the shared helper, adding 5 previously-dropped fields (`sessionName`, `steeringMode`, `followUpMode`, `cwd`, `pendingMessageCount`).
 
 ### Removed
-- **`/gsd do` and `/gsd note`** — removed from slash menu (never existed in gsd-pi).
+- **Dead RPC methods** — `cycleModel`, `abortBash`, `getLastAssistantText`, `exportHtml` removed from `rpc-client.ts` (zero external references).
 
 ## [0.2.55] — 2026-03-19
 

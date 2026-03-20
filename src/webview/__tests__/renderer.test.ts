@@ -45,7 +45,7 @@ vi.mock("../helpers", () => ({
     // Simple mock lexer: split on double newlines to produce paragraph-like tokens
     if (!text) return Object.assign([], { links: {} });
     const blocks = text.split(/\n\n+/).filter(Boolean);
-    const tokens = blocks.map((b, i) => ({
+    const tokens = blocks.map((b, _i) => ({
       type: "paragraph" as const,
       raw: b,
       text: b,
@@ -193,16 +193,16 @@ describe("renderer", () => {
       expect(el!.textContent).toContain("Alert!");
     });
 
-    it("inserts user message after current streaming element and creates continuation", () => {
+    it("inserts user message after current streaming element without splitting", () => {
       startTurn();
       ensureCurrentTurnElement();
       renderNewEntry(makeUserEntry("Interrupt"));
-      // Should have: streaming element, user bubble, continuation element
+      // Should have: streaming element (unchanged), user bubble after it — no continuation split
       const entries = messagesContainer.querySelectorAll(".gsd-entry");
-      expect(entries.length).toBe(3);
+      expect(entries.length).toBe(2);
+      expect(entries[0].classList.contains("gsd-entry-assistant")).toBe(true);
+      expect(entries[0].classList.contains("streaming")).toBe(true);
       expect(entries[1].classList.contains("gsd-entry-user")).toBe(true);
-      expect(entries[2].classList.contains("gsd-entry-assistant")).toBe(true);
-      expect(entries[2].classList.contains("streaming")).toBe(true);
     });
   });
 
@@ -573,7 +573,7 @@ describe("renderer", () => {
       // Stream first paragraph only — no frozen blocks yet (it's the only token = trailing)
       appendToTextSegment("text", "Para one");
       vi.advanceTimersByTime(16);
-      let el = messagesContainer.querySelector(".gsd-assistant-text")!;
+      const el = messagesContainer.querySelector(".gsd-assistant-text")!;
       expect(el.querySelectorAll("[data-block-idx]").length).toBe(0);
       expect(el.querySelector("[data-block-trailing]")).toBeTruthy();
 
