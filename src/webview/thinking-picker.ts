@@ -71,7 +71,7 @@ export function show(): void {
 
 export function hide(): void {
   visible = false;
-  pickerEl.style.display = "none";
+  pickerEl.classList.add("gsd-hidden");
   pickerEl.innerHTML = "";
   if (triggerEl && typeof triggerEl.focus === "function") {
     triggerEl.focus();
@@ -165,7 +165,7 @@ function render(): void {
 
   html += `</div>`;
 
-  pickerEl.style.display = "block";
+  pickerEl.classList.remove("gsd-hidden");
   pickerEl.innerHTML = html;
 
   // Position relative to the thinking badge
@@ -275,3 +275,4 @@ export function init(deps: ThinkingPickerDeps): void {
     }
   });
 }
+

@@ -381,7 +381,7 @@ export function handleNewConversation(): void {
   renderer.resetStreamingState();
   state.sessionStats = {};
   renderer.clearMessages();
-  welcomeScreen.style.display = "flex";
+  welcomeScreen.classList.remove("gsd-hidden");
   sessionHistory.hide();
   modelPicker.hide();
   updateAllUI();
