@@ -283,6 +283,19 @@ export async function handleWebviewMessage(
           const client = ctx.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
+              // Abort streaming if active before new session (FT-20/FT-25)
+              const sess = ctx.getSession(sessionId);
+              if (sess.isStreaming) {
+                try {
+                  await client.abort();
+                  if (sess.promptWatchdog) { clearTimeout(sess.promptWatchdog.timer); sess.promptWatchdog = null; }
+                  if (sess.slashWatchdog) { clearTimeout(sess.slashWatchdog); sess.slashWatchdog = null; }
+                  if (sess.gsdFallbackTimer) { clearTimeout(sess.gsdFallbackTimer); sess.gsdFallbackTimer = null; }
+                  ctx.output.appendLine(`[${sessionId}] Aborted streaming before new conversation`);
+                } catch (abortErr: any) {
+                  ctx.output.appendLine(`[${sessionId}] Abort before new conversation failed: ${abortErr.message}`);
+                }
+              }
               await client.newSession();
               ctx.getSession(sessionId).accumulatedCost = 0;
               ctx.emitStatus({ cost: 0 });
@@ -581,6 +594,19 @@ export async function handleWebviewMessage(
           const client = ctx.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
+              // Abort streaming if active before session switch (FT-20/FT-25)
+              const sess = ctx.getSession(sessionId);
+              if (sess.isStreaming) {
+                try {
+                  await client.abort();
+                  if (sess.promptWatchdog) { clearTimeout(sess.promptWatchdog.timer); sess.promptWatchdog = null; }
+                  if (sess.slashWatchdog) { clearTimeout(sess.slashWatchdog); sess.slashWatchdog = null; }
+                  if (sess.gsdFallbackTimer) { clearTimeout(sess.gsdFallbackTimer); sess.gsdFallbackTimer = null; }
+                  ctx.output.appendLine(`[${sessionId}] Aborted streaming before session switch`);
+                } catch (abortErr: any) {
+                  ctx.output.appendLine(`[${sessionId}] Abort before session switch failed: ${abortErr.message}`);
+                }
+              }
               const result = await client.switchSession(msg.path) as { cancelled?: boolean } | null;
               if (result?.cancelled) {
                 ctx.output.appendLine(`[${sessionId}] Session switch cancelled`);
