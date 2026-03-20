@@ -32,6 +32,7 @@ import * as dashboard from "./dashboard";
 import * as autoProgress from "./auto-progress";
 import * as visualizer from "./visualizer";
 import * as fileHandling from "./file-handling";
+import { createFocusTrap, saveFocus, restoreFocus } from "./a11y";
 
 // ============================================================
 // Dependencies — set via init()
@@ -1002,23 +1003,50 @@ function showChangelog(entries: Array<{ version: string; notes: string; date: st
   const card = document.createElement("div");
   card.id = "gsd-changelog";
   card.className = "gsd-changelog";
+  card.setAttribute("tabindex", "-1");
   card.innerHTML = `
     <div class="gsd-changelog-header">
       <span class="gsd-changelog-title">📋 Changelog</span>
-      <button class="gsd-changelog-close" title="Close">✕</button>
+      <button class="gsd-changelog-close" aria-label="Close changelog" title="Close">✕</button>
     </div>
     <div class="gsd-changelog-entries">
       ${entriesHtml}
     </div>
   `;
 
-  card.querySelector(".gsd-changelog-close")?.addEventListener("click", () => {
+  // Focus management: trap + Escape handler
+  const trapHandler = createFocusTrap(card);
+  card.addEventListener("keydown", trapHandler);
+
+  const navHandler = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      card.removeEventListener("keydown", trapHandler);
+      card.removeEventListener("keydown", navHandler);
+      card.classList.add("dismissing");
+      setTimeout(() => card.remove(), 300);
+      restoreFocus(null); // focus restore handled by keyboard.ts changelogTriggerEl
+    }
+  };
+  card.addEventListener("keydown", navHandler);
+
+  const closeBtn = card.querySelector<HTMLElement>(".gsd-changelog-close");
+  closeBtn?.addEventListener("click", () => {
+    card.removeEventListener("keydown", trapHandler);
+    card.removeEventListener("keydown", navHandler);
     card.classList.add("dismissing");
     setTimeout(() => card.remove(), 300);
   });
 
   messagesContainer.appendChild(card);
   scrollToBottom(messagesContainer, true);
+
+  // Focus the close button so keyboard users can immediately interact
+  if (closeBtn) {
+    closeBtn.focus();
+  } else {
+    card.focus();
+  }
 }
 
 export function addSystemEntry(text: string, kind: "info" | "error" | "warning" = "info"): void {
