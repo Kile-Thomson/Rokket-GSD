@@ -19,7 +19,6 @@ import type {
 import { toGsdState } from "../shared/types";
 import {
   startPromptWatchdog,
-  clearPromptWatchdog,
   startSlashCommandWatchdog,
   stopActivityMonitor,
   abortAndPrompt,
@@ -551,11 +550,13 @@ export async function handleWebviewMessage(
               ctx.emitStatus({ cost: 0 });
               const state = await client.getState() as RpcStateResult;
               const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
+              const forkResult = await client.getForkMessages() as { messages?: { entryId: string; text: string }[] } | null;
               ctx.output.appendLine(`[${sessionId}] Forked conversation from entry ${msg.entryId}, ${messagesResult?.messages?.length || 0} messages`);
               ctx.postToWebview(webview, {
                 type: "session_switched",
                 state: toGsdState(state),
                 messages: messagesResult?.messages || [],
+                forkEntries: forkResult?.messages || [],
               });
               if (state?.model) {
                 ctx.emitStatus({ model: (state.model as any).id || (state.model as any).name });
@@ -617,11 +618,13 @@ export async function handleWebviewMessage(
               // Get the new state and messages after switch
               const state = await client.getState() as RpcStateResult;
               const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
+              const forkResult = await client.getForkMessages() as { messages?: { entryId: string; text: string }[] } | null;
               ctx.output.appendLine(`[${sessionId}] Switched session, ${messagesResult?.messages?.length || 0} messages`);
               ctx.postToWebview(webview, {
                 type: "session_switched",
                 state: toGsdState(state),
                 messages: messagesResult?.messages || [],
+                forkEntries: forkResult?.messages || [],
               });
               // Update status bar
               if (state?.model) {
@@ -757,11 +760,13 @@ export async function handleWebviewMessage(
               ctx.emitStatus({ cost: 0 });
               const state = await client.getState() as RpcStateResult;
               const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
+              const forkResult = await client.getForkMessages() as { messages?: { entryId: string; text: string }[] } | null;
               ctx.output.appendLine(`[${sessionId}] Resumed last session: ${latest.name || latest.id} (${messagesResult?.messages?.length || 0} messages)`);
               ctx.postToWebview(webview, {
                 type: "session_switched",
                 state: toGsdState(state),
                 messages: messagesResult?.messages || [],
+                forkEntries: forkResult?.messages || [],
               });
               if (state?.model) {
                 ctx.emitStatus({ model: (state.model as any).id || (state.model as any).name });

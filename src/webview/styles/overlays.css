@@ -34,7 +34,6 @@
    ============================================================ */
 
 .gsd-slash-menu {
-  display: none;
   position: relative;
   max-height: 200px;
   overflow-y: auto;
@@ -81,7 +80,6 @@
    ============================================================ */
 
 .gsd-model-picker {
-  display: none;
   position: absolute;
   top: 40px;
   right: 12px;
@@ -239,7 +237,6 @@
    ============================================================ */
 
 .gsd-thinking-picker {
-  display: none;
   position: absolute;
   top: 40px;
   left: 0;
@@ -1121,7 +1118,7 @@
    ============================================================ */
 
 .gsd-visualizer-overlay {
-  display: none;
+  display: flex;
   flex-direction: column;
   position: absolute;
   top: 40px;          /* below header */

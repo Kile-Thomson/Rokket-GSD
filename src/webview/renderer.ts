@@ -112,27 +112,11 @@ export function clearMessages(): void {
 
 export function renderNewEntry(entry: ChatEntry): void {
   const el = createEntryElement(entry);
-  // If streaming, insert the user message AFTER the current streaming content
-  // (not before it) so it appears inline at the correct chronological position.
-  // Then create a new streaming element below the user message for continuation.
+  // If streaming, insert the user message AFTER the current streaming element
+  // without splitting the assistant turn. The assistant continues rendering
+  // in the same element — the user message just appears below the in-progress response.
   if (currentTurnElement && currentTurnElement.parentNode === messagesContainer) {
-    // Insert user bubble after the current streaming element
     currentTurnElement.after(el);
-    // Split the stream: create a new continuation element below the user message
-    const continuation = document.createElement("div");
-    continuation.className = "gsd-entry gsd-entry-assistant streaming";
-    continuation.dataset.entryId = state.currentTurn?.id || "stream";
-    el.after(continuation);
-    // Transfer segment tracking to the new element — new segments will render here
-    currentTurnElement.classList.remove("streaming");
-    priorTurnElements.push(currentTurnElement);
-    currentTurnElement = continuation;
-    // Clear segment element map so new segments create fresh DOM in the continuation
-    segmentElements.clear();
-    incrementalState.clear();
-    _activeSegmentIndex = -1;
-    // Set barrier so text appending creates new segments instead of appending to pre-split ones
-    _splitSegmentBarrier = state.currentTurn ? state.currentTurn.segments.length - 1 : -1;
   } else {
     messagesContainer.appendChild(el);
   }
@@ -164,6 +148,35 @@ export function reattachTurnElement(entryId: string): void {
     el.classList.add("streaming");
   } else {
     ensureCurrentTurnElement();
+  }
+}
+
+/**
+ * Update fork button data-entry-id attributes with server-side entry IDs.
+ * Called when fresh fork entries arrive (e.g. after agent_end).
+ * Matches assistant entries to fork entries by user message index order.
+ */
+export function updateForkEntryIds(): void {
+  const forkEntries = state.forkEntries;
+  if (!forkEntries.length) return;
+
+  // Walk assistant entries in order and assign fork entry IDs
+  let userIdx = 0;
+  for (const entry of state.entries) {
+    if (entry.type === "user") {
+      userIdx++;
+    } else if (entry.type === "assistant") {
+      const forkEntry = forkEntries[userIdx - 1];
+      if (forkEntry) {
+        entry.forkEntryId = forkEntry.entryId;
+        // Update the DOM fork button's data-entry-id
+        const el = messagesContainer.querySelector(`[data-entry-id="${entry.id}"]`) as HTMLElement | null;
+        const forkBtn = el?.querySelector(".gsd-fork-btn") as HTMLElement | null;
+        if (forkBtn) {
+          forkBtn.dataset.entryId = forkEntry.entryId;
+        }
+      }
+    }
   }
 }
 
@@ -438,7 +451,7 @@ function createEntryElement(entry: ChatEntry): HTMLElement {
       el.classList.add("gsd-stale-echo");
       el.innerHTML = buildStaleEchoHtml(entry.turn);
     } else {
-      el.innerHTML = buildTurnHtml(entry.turn, entry.id);
+      el.innerHTML = buildTurnHtml(entry.turn, entry.forkEntryId || entry.id);
     }
   } else if (entry.type === "system") {
     el.innerHTML = buildSystemHtml(entry);

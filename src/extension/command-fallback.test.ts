@@ -135,9 +135,9 @@ describe("command-fallback", () => {
     });
 
     it("does not match non-native subcommands", () => {
-      expect(GSD_NATIVE_SUBCOMMANDS.test("/gsd queue")).toBe(false);
       expect(GSD_NATIVE_SUBCOMMANDS.test("/gsd quick")).toBe(false);
-      expect(GSD_NATIVE_SUBCOMMANDS.test("/gsd forensics")).toBe(false);
+      expect(GSD_NATIVE_SUBCOMMANDS.test("/gsd dispatch")).toBe(false);
+      expect(GSD_NATIVE_SUBCOMMANDS.test("/gsd cleanup")).toBe(false);
     });
   });
 
@@ -178,7 +178,7 @@ describe("command-fallback", () => {
       const session = createMockSession({ client: client as any });
       const ctx = createMockContext(session);
 
-      startGsdFallbackTimer(ctx, "/gsd queue", "s1", FAKE_WEBVIEW);
+      startGsdFallbackTimer(ctx, "/gsd quick", "s1", FAKE_WEBVIEW);
       expect(session.gsdFallbackTimer).not.toBeNull();
     });
 
@@ -209,7 +209,7 @@ describe("command-fallback", () => {
       // Mock fs.promises.readFile to reject (no STATE.md)
       vi.mocked(fs.promises.readFile as any).mockRejectedValue(new Error("ENOENT"));
 
-      startGsdFallbackTimer(ctx, "/gsd queue", "s1", FAKE_WEBVIEW);
+      startGsdFallbackTimer(ctx, "/gsd quick", "s1", FAKE_WEBVIEW);
 
       await vi.advanceTimersByTimeAsync(500);
       // Should have called client.prompt with a fallback prompt
@@ -224,7 +224,7 @@ describe("command-fallback", () => {
       });
       const ctx = createMockContext(session);
 
-      startGsdFallbackTimer(ctx, "/gsd queue", "s1", FAKE_WEBVIEW);
+      startGsdFallbackTimer(ctx, "/gsd quick", "s1", FAKE_WEBVIEW);
 
       // Simulate agent_start arriving before timeout
       session.gsdTurnStarted = true;
@@ -244,7 +244,7 @@ describe("command-fallback", () => {
 
       vi.mocked(fs.promises.readFile as any).mockRejectedValue(new Error("ENOENT"));
 
-      await handleGsdAutoFallback(ctx, client as any, FAKE_WEBVIEW, "s1", "/gsd queue");
+      await handleGsdAutoFallback(ctx, client as any, FAKE_WEBVIEW, "s1", "/gsd quick");
 
       // Should post notification
       expect(ctx.postToWebview).toHaveBeenCalledWith(

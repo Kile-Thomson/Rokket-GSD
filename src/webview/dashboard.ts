@@ -63,7 +63,7 @@ export function renderDashboard(data: DashboardData | null): void {
   }
 
   // data is non-null after the guard above — alias for closure type narrowing
-  const d: NonNullable<DashboardData> = data;
+  const _d: NonNullable<DashboardData> = data;
   const phaseLabels: Record<string, string> = {
     "pre-planning": "Pre-planning",
     "discussing": "Discussing",
@@ -159,7 +159,7 @@ export function renderDashboard(data: DashboardData | null): void {
   }
 
   // Cost & usage section
-  function costSection(stats: typeof d.stats): string {
+  function costSection(stats: typeof _d.stats): string {
     if (!stats) return "";
     const parts: string[] = [];
 

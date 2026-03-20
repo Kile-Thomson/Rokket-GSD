@@ -12,7 +12,7 @@ vi.mock("../state", () => ({
   },
 }));
 
-import { parseDroppedUris, getFileIcon, handleFiles, renderFileChips, renderImagePreviews, addFileAttachments, init, type FileHandlingDeps } from "../file-handling";
+import { parseDroppedUris, getFileIcon, renderFileChips, renderImagePreviews, addFileAttachments, init, type FileHandlingDeps } from "../file-handling";
 import { state } from "../state";
 
 describe("file-handling", () => {
