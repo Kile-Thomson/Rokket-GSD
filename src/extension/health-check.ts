@@ -100,7 +100,7 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
     result.gsdPath = gsdPath;
 
     // Get version from the package.json next to the binary
-    result.gsdVersion = resolveGsdVersion(gsdPath);
+    result.gsdVersion = await resolveGsdVersion(gsdPath);
   } catch {
     if (processWrapper) {
       result.issues.push({
@@ -127,7 +127,7 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
   const authPath = path.join(gsdAgentDir(), "auth.json");
   try {
     if (fs.existsSync(authPath)) {
-      const authData = JSON.parse(fs.readFileSync(authPath, "utf8"));
+      const authData = JSON.parse(await fs.promises.readFile(authPath, "utf8"));
 
       for (const [providerName, entry] of Object.entries(authData)) {
         const e = entry as Record<string, unknown>;
@@ -172,7 +172,7 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
   const settingsPath = path.join(gsdAgentDir(), "settings.json");
   try {
     if (fs.existsSync(settingsPath)) {
-      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      const settings = JSON.parse(await fs.promises.readFile(settingsPath, "utf8"));
       result.defaultProvider = settings.defaultProvider || null;
       result.defaultModel = settings.defaultModel || null;
 
@@ -252,13 +252,13 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
 /**
  * Resolve the gsd-pi version from the package.json near the binary.
  */
-function resolveGsdVersion(gsdPath: string): string | null {
+async function resolveGsdVersion(gsdPath: string): Promise<string | null> {
   try {
     let dir = path.dirname(gsdPath);
     for (let i = 0; i < 4; i++) {
       const pkgPath = path.join(dir, "node_modules", "gsd-pi", "package.json");
       if (fs.existsSync(pkgPath)) {
-        const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+        const pkg = JSON.parse(await fs.promises.readFile(pkgPath, "utf8"));
         return pkg.version || null;
       }
       dir = path.dirname(dir);
