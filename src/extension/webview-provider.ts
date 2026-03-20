@@ -220,6 +220,15 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     this.statusCallback?.(this.lastStatus);
   }
 
+  /** Apply session-scoped cost floor to stats — prevents compaction from lowering reported cost */
+  private applySessionCostFloor(sessionId: string, stats: { cost?: number } | null | undefined): void {
+    if (!stats) return;
+    const sessionCost = this.getSession(sessionId).accumulatedCost;
+    if (sessionCost > (stats.cost || 0)) {
+      stats.cost = sessionCost;
+    }
+  }
+
   // --- Cleanup ---
 
   dispose(): void {
@@ -576,10 +585,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       try {
         const stats = await client.getSessionStats() as SessionStats | null;
         if (stats) {
-          const sessionCost = this.getSession(sessionId).accumulatedCost;
-          if (sessionCost > (stats.cost || 0)) {
-            stats.cost = sessionCost;
-          }
+          this.applySessionCostFloor(sessionId, stats);
           this.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
         }
       } catch {
@@ -869,6 +875,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             try {
               await client.newSession();
               this.getSession(sessionId).accumulatedCost = 0;
+              this.emitStatus({ cost: 0 });
               const state = await client.getState();
               this.postToWebview(webview, { type: "state", data: state } as ExtensionToWebviewMessage);
             } catch (err: any) {
@@ -919,10 +926,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                       toolCalls: statsResult.toolCalls as number | undefined,
                       userMessages: statsResult.userMessages as number | undefined,
                     };
-                    const sessionCost = this.getSession(sessionId).accumulatedCost;
-                    if (sessionCost > (data.stats.cost || 0)) {
-                      data.stats.cost = sessionCost;
-                    }
+                    this.applySessionCostFloor(sessionId, data.stats);
                   }
                 } catch {
                   // Stats not available — that's fine
@@ -981,10 +985,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             try {
               const stats = await client.getSessionStats() as SessionStats | null;
               if (stats) {
-                const sessionCost = this.getSession(sessionId).accumulatedCost;
-                if (sessionCost > (stats.cost || 0)) {
-                  stats.cost = sessionCost;
-                }
+                this.applySessionCostFloor(sessionId, stats);
                 this.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
               }
             } catch { /* ignored */ }
@@ -1066,10 +1067,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               // Refresh stats
               const stats = await client.getSessionStats() as SessionStats | null;
               if (stats) {
-                const sessionCost = this.getSession(sessionId).accumulatedCost;
-                if (sessionCost > (stats.cost || 0)) {
-                  stats.cost = sessionCost;
-                }
+                this.applySessionCostFloor(sessionId, stats);
                 this.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
               }
             } catch (err: any) {
@@ -1214,6 +1212,7 @@ ${exportOverrides}
                 break;
               }
               this.getSession(sessionId).accumulatedCost = 0;
+              this.emitStatus({ cost: 0 });
               // Get the new state and messages after switch
               const state = await client.getState() as RpcStateResult;
               const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
@@ -1340,6 +1339,7 @@ ${exportOverrides}
                 break;
               }
               this.getSession(sessionId).accumulatedCost = 0;
+              this.emitStatus({ cost: 0 });
               const state = await client.getState() as RpcStateResult;
               const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
               this.output.appendLine(`[${sessionId}] Resumed last session: ${latest.name || latest.id} (${messagesResult?.messages?.length || 0} messages)`);
