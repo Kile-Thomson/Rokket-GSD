@@ -59,7 +59,7 @@ export function hide(): void {
   searchText = "";
   highlightIndex = -1;
   renamingSessionId = null;
-  panelEl.style.display = "none";
+  panelEl.classList.add('gsd-hidden');
   panelEl.innerHTML = "";
   if (triggerEl && typeof triggerEl.focus === "function") {
     triggerEl.focus();
@@ -89,7 +89,7 @@ export function updateSessions(items: SessionListItem[]): void {
 export function showError(message: string): void {
   loading = false;
   if (visible) {
-    panelEl.style.display = "block";
+    panelEl.classList.remove('gsd-hidden');
     panelEl.innerHTML = `
       <div class="gsd-session-history-header">
         <span class="gsd-session-history-title">Session History</span>
@@ -222,7 +222,7 @@ function render(): void {
   if (!visible) return;
 
   if (loading) {
-    panelEl.style.display = "block";
+    panelEl.classList.remove('gsd-hidden');
     panelEl.setAttribute("role", "complementary");
     panelEl.setAttribute("aria-label", "Session history");
     panelEl.innerHTML = `
@@ -238,7 +238,7 @@ function render(): void {
     return;
   }
 
-  panelEl.style.display = "block";
+  panelEl.classList.remove('gsd-hidden');
   panelEl.setAttribute("role", "complementary");
   panelEl.setAttribute("aria-label", "Session history");
 
