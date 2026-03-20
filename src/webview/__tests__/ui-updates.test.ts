@@ -100,13 +100,13 @@ describe("ui-updates", () => {
       state.model = { id: "claude-3", name: "Claude 3", provider: "anthropic" };
       updateHeaderUI();
       expect(deps.modelBadge.textContent).toBe("Claude 3");
-      expect(deps.modelBadge.style.display).toBe("inline-flex");
+      expect(deps.modelBadge.classList.contains('gsd-hidden')).toBe(false);
     });
 
     it("hides model badge when model is null", () => {
       state.model = null;
       updateHeaderUI();
-      expect(deps.modelBadge.style.display).toBe("none");
+      expect(deps.modelBadge.classList.contains('gsd-hidden')).toBe(true);
     });
 
     it("uses model id as fallback when name is empty", () => {
@@ -140,21 +140,21 @@ describe("ui-updates", () => {
       state.sessionStats = { cost: 1.5 };
       updateHeaderUI();
       expect(deps.costBadge.textContent).toBe("$1.50");
-      expect(deps.costBadge.style.display).toBe("inline-flex");
+      expect(deps.costBadge.classList.contains('gsd-hidden')).toBe(false);
     });
 
     it("hides cost badge when cost is zero", () => {
       state.model = { id: "x", name: "X", provider: "p" };
       state.sessionStats = { cost: 0 };
       updateHeaderUI();
-      expect(deps.costBadge.style.display).toBe("none");
+      expect(deps.costBadge.classList.contains('gsd-hidden')).toBe(true);
     });
 
     it("shows context badge with warn class above 70%", () => {
       state.model = { id: "x", name: "X", provider: "p" };
       state.sessionStats = { contextPercent: 75 };
       updateHeaderUI();
-      expect(deps.contextBadge.style.display).toBe("inline-flex");
+      expect(deps.contextBadge.classList.contains('gsd-hidden')).toBe(false);
       expect(deps.contextBadge.classList.contains("warn")).toBe(true);
       expect(deps.contextBadge.classList.contains("crit")).toBe(false);
     });
@@ -171,7 +171,7 @@ describe("ui-updates", () => {
       state.sessionStats = { cost: 2 };
       updateHeaderUI();
       // model badge visible (left), cost badge visible (right) → sep visible
-      expect(deps.headerSep1.style.display).toBe("block");
+      expect(deps.headerSep1.classList.contains('gsd-hidden')).toBe(false);
     });
   });
 
@@ -247,7 +247,7 @@ describe("ui-updates", () => {
       state.isCompacting = true;
       updateOverlayIndicators();
       expect(deps.overlayIndicators.innerHTML).toContain("Compacting context");
-      expect(deps.overlayIndicators.style.display).toBe("flex");
+      expect(deps.overlayIndicators.classList.contains('gsd-hidden')).toBe(false);
     });
 
     it("shows retry indicator with attempt info", () => {
@@ -275,7 +275,7 @@ describe("ui-updates", () => {
 
     it("hides indicators when nothing active", () => {
       updateOverlayIndicators();
-      expect(deps.overlayIndicators.style.display).toBe("none");
+      expect(deps.overlayIndicators.classList.contains('gsd-hidden')).toBe(true);
     });
 
     it("force restart button sends message and updates state", () => {

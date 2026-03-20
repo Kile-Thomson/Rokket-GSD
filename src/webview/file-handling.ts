@@ -195,11 +195,11 @@ export function getFileIcon(ext: string): string {
 export function renderFileChips(): void {
   const container = document.getElementById("fileChips")!;
   if (state.files.length === 0) {
-    container.style.display = "none";
+    container.classList.add('gsd-hidden');
     container.innerHTML = "";
     return;
   }
-  container.style.display = "flex";
+  container.classList.remove('gsd-hidden');
   container.innerHTML = state.files.map((f, i) => `
     <div class="gsd-file-chip" title="${escapeHtml(f.path)}">
       <span class="gsd-file-chip-icon">${getFileIcon(f.extension)}</span>
@@ -220,11 +220,11 @@ export function renderFileChips(): void {
 
 export function renderImagePreviews(): void {
   if (state.images.length === 0) {
-    imagePreview.style.display = "none";
+    imagePreview.classList.add('gsd-hidden');
     imagePreview.innerHTML = "";
     return;
   }
-  imagePreview.style.display = "flex";
+  imagePreview.classList.remove('gsd-hidden');
   imagePreview.innerHTML = state.images.map((img, i) => `
     <div class="gsd-image-thumb">
       <img src="data:${img.mimeType};base64,${img.data}" alt="Attached" />

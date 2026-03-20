@@ -87,9 +87,9 @@ export function updateHeaderUI(): void {
   if (state.model) {
     modelBadge.textContent = state.model.name || state.model.id;
     modelBadge.title = `${state.model.provider} / ${state.model.id}`;
-    modelBadge.style.display = "inline-flex";
+    modelBadge.classList.remove('gsd-hidden');
   } else {
-    modelBadge.style.display = "none";
+    modelBadge.classList.add('gsd-hidden');
   }
 
   // Thinking badge — model-aware
@@ -103,13 +103,13 @@ export function updateHeaderUI(): void {
     // Non-reasoning model — show disabled badge
     thinkingBadge.textContent = "🧠 N/A";
     thinkingBadge.title = "Current model does not support extended thinking";
-    thinkingBadge.style.display = "inline-flex";
+    thinkingBadge.classList.remove('gsd-hidden');
     thinkingBadge.classList.add("disabled");
   } else {
     const thinkingLabel = state.thinkingLevel && state.thinkingLevel !== "off" ? state.thinkingLevel : "off";
     thinkingBadge.textContent = `🧠 ${thinkingLabel}`;
     thinkingBadge.title = "Click to select thinking level";
-    thinkingBadge.style.display = "inline-flex";
+    thinkingBadge.classList.remove('gsd-hidden');
     thinkingBadge.classList.remove("disabled");
   }
 
@@ -117,27 +117,31 @@ export function updateHeaderUI(): void {
   const hasCost = stats.cost != null && stats.cost > 0;
   if (hasCost) {
     costBadge.textContent = formatCost(stats.cost);
-    costBadge.style.display = "inline-flex";
+    costBadge.classList.remove('gsd-hidden');
   } else {
-    costBadge.style.display = "none";
+    costBadge.classList.add('gsd-hidden');
   }
 
   const ctx = formatContextUsage(stats, state.model);
   if (ctx) {
     contextBadge.textContent = `◐ ${ctx}`;
-    contextBadge.style.display = "inline-flex";
+    contextBadge.classList.remove('gsd-hidden');
     const pct = stats.contextPercent ?? 0;
     contextBadge.classList.remove("warn", "crit");
     if (pct > 90) contextBadge.classList.add("crit");
     else if (pct > 70) contextBadge.classList.add("warn");
   } else {
-    contextBadge.style.display = "none";
+    contextBadge.classList.add('gsd-hidden');
   }
 
   // Show separator between model/thinking and cost/context groups
-  const hasLeftBadges = modelBadge.style.display !== "none" || thinkingBadge.style.display !== "none";
-  const hasRightBadges = costBadge.style.display !== "none" || contextBadge.style.display !== "none";
-  headerSep1.style.display = hasLeftBadges && hasRightBadges ? "block" : "none";
+  const hasLeftBadges = !modelBadge.classList.contains('gsd-hidden') || !thinkingBadge.classList.contains('gsd-hidden');
+  const hasRightBadges = !costBadge.classList.contains('gsd-hidden') || !contextBadge.classList.contains('gsd-hidden');
+  if (hasLeftBadges && hasRightBadges) {
+    headerSep1.classList.remove('gsd-hidden');
+  } else {
+    headerSep1.classList.add('gsd-hidden');
+  }
 
   // Context usage bar
   updateContextBar();
@@ -146,11 +150,11 @@ export function updateHeaderUI(): void {
 function updateContextBar(): void {
   const pct = state.sessionStats.contextPercent ?? 0;
   if (pct <= 0) {
-    contextBarContainer.style.display = "none";
+    contextBarContainer.classList.add('gsd-hidden');
     return;
   }
 
-  contextBarContainer.style.display = "block";
+  contextBarContainer.classList.remove('gsd-hidden');
   contextBar.style.width = `${Math.min(pct, 100)}%`;
 
   contextBar.classList.remove("ok", "warn", "crit");
@@ -285,7 +289,11 @@ export function updateOverlayIndicators(): void {
   }
 
   overlayIndicators.innerHTML = parts.join("");
-  overlayIndicators.style.display = parts.length > 0 ? "flex" : "none";
+  if (parts.length > 0) {
+    overlayIndicators.classList.remove('gsd-hidden');
+  } else {
+    overlayIndicators.classList.add('gsd-hidden');
+  }
 
   // Wire up force buttons (if rendered)
   const forceRestartBtn = document.getElementById("forceRestartBtn");
@@ -314,7 +322,7 @@ export function updateWorkflowBadge(wf: WorkflowState | null): void {
   if (!wf) {
     badge.textContent = "Self-directed";
     badge.className = "gsd-workflow-badge";
-    badge.style.display = "inline-flex";
+    badge.classList.remove('gsd-hidden');
     return;
   }
 
@@ -378,7 +386,7 @@ export function updateWorkflowBadge(wf: WorkflowState | null): void {
   else if (wf.autoMode) extraClass = " auto";
 
   badge.className = `gsd-workflow-badge${extraClass}`;
-  badge.style.display = "inline-flex";
+  badge.classList.remove('gsd-hidden');
 }
 
 /**
