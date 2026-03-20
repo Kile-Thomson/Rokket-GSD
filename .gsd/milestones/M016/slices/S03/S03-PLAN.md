@@ -24,7 +24,7 @@
 
 ## Tasks
 
-- [ ] **T01: Add minification and tree-shaking flags to esbuild build scripts** `est:20m`
+- [x] **T01: Add minification and tree-shaking flags to esbuild build scripts** `est:20m`
   - Why: R005 — extension ships at 159KB and webview at 345KB unminified. Adding esbuild flags drops both under targets with zero code changes.
   - Files: `package.json`, `.vscodeignore`
   - Do: Add `--minify --tree-shaking=true` to `build:extension` and `build:webview` scripts. Add `--metafile=dist/meta-extension.json` and `--metafile=dist/meta-webview.json` respectively. Do NOT modify watch scripts. Add `dist/meta-*.json` to `.vscodeignore`. Run build, verify sizes. Run full test suite.
@@ -37,6 +37,14 @@
   - Do: (1) Hot paths: make `countPendingCaptures` async, make `readParallelWorkers` async, make `readBudgetCeiling` async, make `findFile` helper in dashboard-parser async, convert remaining `readFileSync` in `buildDashboardData` to `await fs.promises.readFile`. Update `auto-progress.ts` call sites to `await`. (2) Cold paths: convert `readFileSync` in command-fallback, file-ops, health-check, metrics-parser, rpc-client, webview-provider to `fs.promises.readFile`. Make their containing functions async where needed and update callers (including `message-dispatch.ts` for `loadMetricsLedger`). (3) Convert `readdirSync` in dashboard-parser `findFile` and parallel-status to `fs.promises.readdir`. (4) Convert `existsSync` guard in captures-parser to try/catch on the read (no `fs.promises.exists`). (5) Update test mocks: `auto-progress.test.ts` mock for `countPendingCaptures` returns Promise; `file-ops.test.ts` awaits async `cleanStaleCrashLock`. (6) Run full test suite.
   - Verify: `rg "readFileSync|readdirSync" src/extension/ --type ts | grep -v test` returns zero results AND `npm test` passes all 618+ tests
   - Done when: Zero sync file reads in non-test extension source. All tests pass. Build succeeds.
+
+## Observability / Diagnostics
+
+- **Bundle size inspection:** After `npm run build`, run `node -e "const fs=require('fs'); console.log('ext:', fs.statSync('dist/extension.js').size, 'web:', fs.statSync('dist/webview/index.js').size)"` to see current sizes. The `dist/meta-extension.json` and `dist/meta-webview.json` metafiles provide per-module size breakdowns for identifying bloat sources.
+- **Sync I/O detection:** `rg "readFileSync|readdirSync" src/extension/ --type ts | grep -v test` should return zero results after T02 completes. Any matches indicate remaining blocking I/O.
+- **Build failure visibility:** `npm run build` will surface esbuild errors to stderr. Metafile generation failures will also appear here.
+- **Test regression detection:** `npm test` with vitest outputs pass/fail counts and specific failure details. Any sync-to-async conversion regressions will show as test failures with clear stack traces.
+- **Redaction:** No secrets or user data in build artifacts or metafiles — they contain only module paths and byte sizes.
 
 ## Files Likely Touched
 

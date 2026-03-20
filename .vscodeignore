@@ -6,6 +6,7 @@ eslint.config.mjs
 vitest.config.ts
 .gitignore
 **/*.map
+dist/meta-*.json
 .gsd
 .gsd/**
 .bg-shell/**
