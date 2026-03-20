@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { TurnSegment, ToolCallState } from "./state";
+import { escapeHtml } from "./helpers";
 
 // ============================================================
 // Types
@@ -185,9 +186,9 @@ export function collapseToolIntoGroup(
 
   group.dataset.toolGroup = String(count);
   group.dataset.toolCount = String(count);
-  group.innerHTML = `<summary class="gsd-tool-group-header" role="button" tabindex="0" aria-label="Toggle ${escapeHtmlBasic(label)}" aria-expanded="false">
+  group.innerHTML = `<summary class="gsd-tool-group-header" role="button" tabindex="0" aria-label="Toggle ${escapeHtml(label)}" aria-expanded="false">
       <span class="gsd-tool-group-icon"><span class="gsd-tool-icon success">✓</span></span>
-      <span class="gsd-tool-group-label">${escapeHtmlBasic(label)}</span>
+      <span class="gsd-tool-group-label">${escapeHtml(label)}</span>
       <span class="gsd-tool-group-count">${count}</span>
       <span class="gsd-tool-chevron">▸</span>
     </summary>
@@ -242,11 +243,6 @@ function updateGroupLabel(groupEl: HTMLElement, toolNames: string[]): void {
   if (labelEl) labelEl.textContent = buildGroupSummaryLabel(toolNames);
   const countEl = groupEl.querySelector(".gsd-tool-group-count");
   if (countEl) countEl.textContent = String(count);
-}
-
-/** Minimal HTML escape for generated labels (avoids importing helpers in this module) */
-function escapeHtmlBasic(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 // ============================================================
