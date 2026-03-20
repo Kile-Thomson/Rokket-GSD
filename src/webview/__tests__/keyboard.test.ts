@@ -238,7 +238,7 @@ describe("keyboard", () => {
     it("resets state and shows welcome screen", () => {
       state.entries = [{ id: "1", type: "user", text: "hi", timestamp: 1 }];
       state.sessionStats = { cost: 5 };
-      deps.welcomeScreen.style.display = "none";
+      deps.welcomeScreen.classList.add("gsd-hidden");
 
       handleNewConversation();
 
@@ -246,7 +246,7 @@ describe("keyboard", () => {
       expect(state.entries).toEqual([]);
       expect(state.currentTurn).toBeNull();
       expect(state.sessionStats).toEqual({});
-      expect(deps.welcomeScreen.style.display).toBe("flex");
+      expect(deps.welcomeScreen.classList.contains("gsd-hidden")).toBe(false);
       expect(mockUpdateAllUI).toHaveBeenCalled();
     });
   });

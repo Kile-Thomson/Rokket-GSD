@@ -27,7 +27,7 @@ html, body {
 }
 
 /* ============================================================
-   Utility: hidden toggle (replaces all inline style.display)
+   Utility: hidden toggle (replaces all inline display toggles)
    ============================================================ */
 
 .gsd-hidden {
@@ -5422,6 +5422,10 @@ html, body {
   opacity: 0.5;
   text-transform: uppercase;
   margin-top: 2px;
+}
+
+.gsd-viz-section-spaced {
+  margin-top: 12px;
 }
 
 /* Health Tab */
