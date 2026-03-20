@@ -175,6 +175,7 @@
 		"watch:webview": "esbuild src/webview/index.ts --bundle --outfile=dist/webview/index.js --format=iife --platform=browser --sourcemap --loader:.css=css --define:process.env.NODE_ENV=\\\"production\\\" --watch",
 		"package": "vsce package",
 		"test": "vitest run",
+		"test:coverage": "vitest run --coverage",
 		"lint": "eslint src/"
 	},
 	"devDependencies": {
@@ -182,6 +183,7 @@
 		"@types/dompurify": "^3.0.5",
 		"@types/node": "^20.11.0",
 		"@types/vscode": "^1.94.0",
+		"@vitest/coverage-v8": "^4.1.0",
 		"@vscode/vsce": "^3.0.0",
 		"concurrently": "^8.2.0",
 		"esbuild": "^0.27.0",

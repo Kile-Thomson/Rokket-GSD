@@ -37,10 +37,11 @@
 - `! grep -q "0\.2\.49" README.md` — DOC-01 done
 - `test -f src/extension/auto-progress-poller.ts` — CQ-019 done
 - `! test -f src/extension/auto-progress.ts` — old file removed
+- `npx vitest --run --coverage 2>&1 | grep -c "FAIL"` — returns 0 (no test failures in coverage run)
 
 ## Tasks
 
-- [ ] **T01: Configure Vitest v8 coverage reporting** `est:20m`
+- [x] **T01: Configure Vitest v8 coverage reporting** `est:20m`
   - Why: R008 — no coverage data exists. Must establish baseline measurement before code changes so coverage threshold can be set per D023 strategy.
   - Files: `package.json`, `vitest.config.ts`
   - Do: Install `@vitest/coverage-v8@^4.1.0`, add coverage provider config to vitest.config.ts (provider: 'v8', reporter: ['text', 'text-summary'], reportsDirectory: './coverage'), add `test:coverage` script to package.json. Run `npx vitest --run --coverage` to measure baseline.
@@ -60,6 +61,14 @@
   - Do: (1) FT-17/FT-22: In the `interrupt`/`cancel_request` case of message-dispatch.ts, after `client.abort()` succeeds (before the catch), clear session timers: `const s = ctx.getSession(sessionId); if (s.promptWatchdog) { clearTimeout(s.promptWatchdog.timer); s.promptWatchdog = null; } if (s.slashWatchdog) { clearTimeout(s.slashWatchdog); s.slashWatchdog = null; } if (s.gsdFallbackTimer) { clearTimeout(s.gsdFallbackTimer); s.gsdFallbackTimer = null; }`. (2) CQ-017: Add `console.warn` logging to the 6 flagged empty catch blocks — health-check.ts lines ~77, ~104; update-checker.ts lines ~77, ~97, ~228, ~267. Keep existing justified catches untouched. Use pattern: `} catch (err) { console.warn("context description:", err); }`. For rpc-client.ts line ~698, this is a `ping()` health check — catch returning false is the correct behavior, just add a one-line comment. (3) CQ-019: Rename `src/extension/auto-progress.ts` → `src/extension/auto-progress-poller.ts` and `src/extension/auto-progress.test.ts` → `src/extension/auto-progress-poller.test.ts`. Update imports in session-state.ts, webview-provider.ts, and auto-progress-poller.test.ts. Run `npm run build` immediately after to catch missed imports. (4) CQ-021: Add `@internal` JSDoc to test-only exports beyond the 2 already tagged (renderer.ts, slash-menu.ts). Scan for exported functions/constants only used in test files. (5) DOC-01: Update README.md badges from `0.2.49` → `0.2.62` and `v2.12--v2.28` → `v2.12--v2.35`.
   - Verify: `npx vitest --run && npm run build` — all tests pass, build succeeds. `test -f src/extension/auto-progress-poller.ts && ! test -f src/extension/auto-progress.ts`. `! grep -q "0.2.49" README.md`.
   - Done when: Abort handler clears all 3 timer types, empty catches have logging/comments, file renamed with all imports updated, README badges current, build and tests green
+
+## Observability / Diagnostics
+
+- **Coverage report output:** `npx vitest --run --coverage` prints per-file line/branch/function percentages to stdout. The `coverage/` directory stores detailed reports locally.
+- **Build diagnostics:** `npm run build` emits esbuild metafiles at `dist/meta-extension.json` and `dist/meta-webview.json` for bundle analysis. Non-zero exit code indicates build failure.
+- **Test failure visibility:** Vitest prints failing test names, assertion diffs, and stack traces to stderr. Exit code 1 on any failure.
+- **Grep verification:** Each quick-win resolution is verifiable via grep commands in the Verification section — absence of removed patterns and presence of added patterns are the primary signals.
+- **Failure path check:** `npx vitest --run --coverage 2>&1 | grep -E "FAIL|Error"` surfaces any test failures or coverage errors in a single pass.
 
 ## Files Likely Touched
 
