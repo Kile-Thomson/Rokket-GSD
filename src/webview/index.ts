@@ -353,7 +353,7 @@ scrollFab.addEventListener("click", () => {
 
 function refreshTimestamps(): void {
   const els = messagesContainer.querySelectorAll<HTMLElement>(".gsd-timestamp");
-  for (const el of els) {
+  for (const el of Array.from(els)) {
     const ts = parseInt(el.dataset.ts || "0", 10);
     if (ts) el.textContent = formatRelativeTime(ts);
   }
@@ -485,6 +485,16 @@ function sendMessage(): void {
     });
     welcomeScreen.style.display = "none";
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
+    scrollToBottom(messagesContainer, true);
+
+    // Show steer note (only one at a time)
+    const existingNote = messagesContainer.querySelector(".gsd-steer-note");
+    if (!existingNote) {
+      const steerNote = document.createElement("div");
+      steerNote.className = "gsd-steer-note";
+      steerNote.textContent = "⚡ Redirecting agent...";
+      messagesContainer.appendChild(steerNote);
+    }
     scrollToBottom(messagesContainer, true);
 
     vscode.postMessage({
@@ -686,7 +696,7 @@ sessionHistory.init({
   panelEl: sessionHistoryEl,
   historyBtn,
   vscode,
-  onSessionSwitched: () => {
+  _onSessionSwitched: () => {
     updateAllUI();
   },
   onNewConversation: keyboard.handleNewConversation,

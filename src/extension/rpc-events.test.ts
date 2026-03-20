@@ -42,6 +42,9 @@ function createMockSession(overrides: Partial<SessionState> = {}): SessionState 
     autoModeState: null,
     gsdTurnStarted: false,
     lastEventTime: 0,
+    lastAgentEndTime: 0,
+    lastUserActionTime: 0,
+    accumulatedCost: 0,
     isStreaming: false,
     isRestarting: false,
     autoProgressPoller: null,
@@ -66,11 +69,11 @@ function createCtx(session?: SessionState): {
       lastStatus: { isStreaming: false, cost: 0 },
       output: { appendLine: vi.fn() } as any,
       watchdogCtx: {
-        sessions: new Map(),
+        getSession: vi.fn(() => s),
         output: { appendLine: vi.fn() } as any,
         postToWebview: vi.fn(),
         emitStatus: vi.fn(),
-        promptWatchdogNonce: 0,
+        nextPromptWatchdogNonce: vi.fn(() => 1),
       },
       refreshWorkflowState: vi.fn().mockResolvedValue(undefined),
       isWebviewVisible: vi.fn(() => true),
@@ -135,8 +138,8 @@ describe("rpc-events", () => {
     });
 
     it("message_end: accumulates cost from assistant usage", () => {
-      const { ctx } = createCtx();
-      (ctx.lastStatus as any).cost = 1.5;
+      const { ctx, session } = createCtx();
+      session.accumulatedCost = 1.5;
       handleRpcEvent(ctx, webview, sid, {
         type: "message_end",
         message: { role: "assistant", usage: { cost: { total: 0.25 } } },

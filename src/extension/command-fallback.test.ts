@@ -40,6 +40,9 @@ function createMockSession(overrides: Partial<SessionState> = {}): SessionState 
     autoModeState: null,
     gsdTurnStarted: false,
     lastEventTime: 0,
+    lastAgentEndTime: 0,
+    lastUserActionTime: 0,
+    accumulatedCost: 0,
     isStreaming: false,
     isRestarting: false,
     autoProgressPoller: null,
@@ -96,7 +99,14 @@ describe("command-fallback", () => {
     });
 
     it("matches /gsd with known subcommands", () => {
-      const subs = ["auto", "next", "stop", "status", "queue", "quick", "mode", "help", "forensics", "doctor"];
+      const subs = [
+        "auto", "next", "stop", "pause", "status", "queue", "quick", "mode", "help",
+        "forensics", "doctor", "discuss", "visualize", "capture", "steer", "knowledge",
+        "config", "prefs", "migrate", "remote", "changelog", "triage", "dispatch",
+        "history", "undo", "skip", "cleanup", "hooks", "run-hook", "skill-health",
+        "init", "setup", "inspect", "new-milestone", "parallel", "park", "unpark",
+        "start", "templates", "extensions", "export", "keys", "logs",
+      ];
       for (const sub of subs) {
         expect(GSD_COMMAND_RE.test(`/gsd ${sub}`)).toBe(true);
       }
@@ -115,7 +125,7 @@ describe("command-fallback", () => {
 
   describe("GSD_NATIVE_SUBCOMMANDS", () => {
     it("matches native subcommands", () => {
-      const native = ["auto", "stop", "pause", "next", "status", "steer", "remote", "prefs", "parallel"];
+      const native = ["auto", "stop", "pause", "next", "status", "steer", "remote", "prefs", "parallel", "park", "unpark"];
       for (const sub of native) {
         expect(GSD_NATIVE_SUBCOMMANDS.test(`/gsd ${sub}`)).toBe(true);
       }
@@ -281,7 +291,12 @@ describe("command-fallback", () => {
     });
 
     it("handles different subcommands with unique prompts", async () => {
-      const subcommands = ["auto", "status", "queue", "quick", "help", "forensics", "doctor", "mode"];
+      const subcommands = [
+        "auto", "status", "queue", "quick", "help", "forensics", "doctor", "mode",
+        "changelog", "triage", "dispatch", "history", "undo", "skip", "cleanup",
+        "hooks", "run-hook", "skill-health", "init", "setup", "inspect",
+        "new-milestone", "start", "templates", "extensions", "export", "logs", "keys",
+      ];
       for (const sub of subcommands) {
         const client = createMockClient();
         const session = createMockSession();

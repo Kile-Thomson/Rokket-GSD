@@ -23,6 +23,8 @@ export interface ToolCallState {
   resultText: string;
   isError: boolean;
   isRunning: boolean;
+  /** True when tool was skipped due to a steer/redirect */
+  isSkipped?: boolean;
   startTime: number;
   endTime?: number;
   /** Structured details from tool (e.g. subagent per-agent results) */

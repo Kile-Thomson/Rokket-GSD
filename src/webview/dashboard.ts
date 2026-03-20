@@ -62,6 +62,8 @@ export function renderDashboard(data: DashboardData | null): void {
     return;
   }
 
+  // data is non-null after the guard above — alias for closure type narrowing
+  const d: NonNullable<DashboardData> = data;
   const phaseLabels: Record<string, string> = {
     "pre-planning": "Pre-planning",
     "discussing": "Discussing",
@@ -140,7 +142,7 @@ export function renderDashboard(data: DashboardData | null): void {
   }
 
   // Milestone registry
-  function milestoneList(entries: typeof data.milestoneRegistry): string {
+  function milestoneList(entries: typeof d.milestoneRegistry): string {
     if (entries.length === 0) return "";
     return `
       <div class="gsd-dash-section">
@@ -157,7 +159,7 @@ export function renderDashboard(data: DashboardData | null): void {
   }
 
   // Cost & usage section
-  function costSection(stats: typeof data.stats): string {
+  function costSection(stats: typeof d.stats): string {
     if (!stats) return "";
     const parts: string[] = [];
 
