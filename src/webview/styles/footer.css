@@ -1,0 +1,102 @@
+/* ============================================================
+   Footer / Status Bar
+   ============================================================ */
+
+.gsd-footer {
+  display: flex;
+  flex-direction: column;
+  padding: 3px 12px;
+  font-size: var(--gsd-font-size-xs);
+  color: var(--gsd-color-text-muted);
+  border-top: var(--gsd-border-width) solid var(--gsd-color-border-subtle);
+  background: var(--gsd-color-surface);
+  flex-shrink: 0;
+  overflow: hidden;
+  font-family: var(--gsd-font-family-mono);
+  line-height: 1.6;
+  opacity: 0.65;
+}
+
+/* ── Widgets (ambient status bars from setWidget) ── */
+
+.gsd-widgets {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.gsd-widgets:empty {
+  display: none;
+}
+
+.gsd-widget {
+  font-size: var(--gsd-font-size-xs);
+  padding: 3px 12px;
+  font-family: var(--gsd-font-family-mono);
+  color: var(--gsd-color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.06));
+}
+
+.gsd-widget-segment {
+  padding: 0 2px;
+}
+
+.gsd-widget-segment.ok {
+  color: var(--vscode-terminal-ansiGreen, #89d185);
+}
+
+.gsd-widget-segment.warning {
+  color: var(--gsd-color-text-warning);
+}
+
+.gsd-widget-segment.error {
+  color: var(--gsd-color-text-error);
+}
+
+.gsd-widget-sep {
+  color: var(--gsd-color-text-muted);
+  opacity: 0.3;
+  padding: 0 4px;
+}
+
+.gsd-footer-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gsd-space-md);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.gsd-footer-cwd {
+  cursor: default;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.gsd-footer-brand {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  opacity: 0.25;
+  flex-shrink: 0;
+  font-family: var(--gsd-font-family-mono);
+}
+
+.gsd-footer-stats {
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gsd-footer-right {
+  flex-shrink: 0;
+  text-align: right;
+}

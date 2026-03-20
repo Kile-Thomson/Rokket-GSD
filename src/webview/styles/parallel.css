@@ -1,0 +1,129 @@
+/* ============================================================
+   Parallel Worker Cards
+   ============================================================ */
+
+.gsd-auto-progress-workers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gsd-space-sm);
+  padding: 6px 8px 4px;
+  border-top: 1px solid var(--vscode-widget-border, rgba(255,255,255,0.1));
+}
+
+.gsd-auto-progress-worker-card {
+  flex: 1 1 140px;
+  min-width: 120px;
+  max-width: 200px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--vscode-widget-border, rgba(255,255,255,0.1));
+  border-radius: var(--gsd-radius-md);
+  padding: 6px 8px;
+  font-size: var(--gsd-font-size-sm);
+  line-height: 1.4;
+}
+
+.gsd-auto-progress-worker-card.stale {
+  opacity: 0.5;
+}
+
+.gsd-worker-header {
+  display: flex;
+  align-items: center;
+  gap: var(--gsd-space-sm);
+  margin-bottom: 2px;
+}
+
+.gsd-worker-id {
+  font-weight: 600;
+  color: var(--vscode-foreground, #ccc);
+}
+
+.gsd-worker-state {
+  font-size: var(--gsd-font-size-xs);
+  padding: 1px 5px;
+  border-radius: var(--gsd-radius-sm);
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.gsd-worker-state-running {
+  background: var(--vscode-charts-green, #89d185);
+  color: var(--vscode-editor-background, #1e1e1e);
+}
+
+.gsd-worker-state-paused {
+  background: var(--vscode-charts-yellow, #e2c08d);
+  color: var(--vscode-editor-background, #1e1e1e);
+}
+
+.gsd-worker-state-stopped {
+  background: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  color: var(--vscode-editor-background, #1e1e1e);
+}
+
+.gsd-worker-state-error {
+  background: var(--vscode-charts-red, #f48771);
+  color: var(--vscode-editor-background, #1e1e1e);
+}
+
+.gsd-worker-stale-label {
+  font-size: var(--gsd-font-size-xs);
+  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  font-style: italic;
+}
+
+.gsd-worker-unit {
+  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  font-size: var(--gsd-font-size-xs);
+  margin-bottom: 2px;
+}
+
+.gsd-worker-cost {
+  color: var(--vscode-foreground, #ccc);
+  font-size: var(--gsd-font-size-sm);
+  margin-bottom: 2px;
+}
+
+.gsd-worker-budget {
+  display: flex;
+  align-items: center;
+  gap: var(--gsd-space-xs);
+}
+
+.gsd-worker-budget-track {
+  flex: 1;
+  height: 4px;
+  background: var(--vscode-widget-border, rgba(255,255,255,0.1));
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.gsd-worker-budget-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.gsd-worker-budget-fill.gsd-budget-ok {
+  background: var(--vscode-charts-green, #89d185);
+}
+
+.gsd-worker-budget-fill.gsd-budget-warn {
+  background: var(--vscode-charts-orange, #d18616);
+}
+
+.gsd-worker-budget-fill.gsd-budget-over {
+  background: var(--vscode-charts-red, #f48771);
+}
+
+.gsd-worker-budget-label {
+  font-size: var(--gsd-font-size-xs);
+  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  min-width: 28px;
+  text-align: right;
+}
+
+.gsd-auto-progress-budget-alert {
+  color: var(--vscode-charts-orange, #d18616) !important;
+  font-weight: 600;
+}
