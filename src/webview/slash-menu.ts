@@ -152,7 +152,7 @@ export function buildItems(): SlashMenuItem[] {
     { name: "gsd templates", desc: "List available workflow templates", sendOnSelect: true },
 
     // ── Export & cleanup ──────────────────────────────────────────────
-    { name: "gsd export", desc: "Export milestone report (HTML)" },
+    { name: "gsd export", desc: "Export milestone report as HTML (via gsd-pi)" },
     { name: "gsd cleanup", desc: "Remove merged branches or snapshots" },
 
     // ── Configuration ─────────────────────────────────────────────────
@@ -204,7 +204,7 @@ export function buildItems(): SlashMenuItem[] {
 
   items.push(
     { name: "compact", description: "Compact context to reduce token usage", insertText: "", source: "webview" },
-    { name: "export", description: "Export conversation as HTML", insertText: "", source: "webview" },
+    { name: "export", description: "Export current conversation as HTML file", insertText: "", source: "webview" },
     { name: "model", description: "Change AI model", insertText: "", source: "webview" },
     { name: "thinking", description: "Cycle thinking level", insertText: "", source: "webview" },
     { name: "new", description: "Start a new conversation", insertText: "", source: "webview" },

@@ -742,6 +742,10 @@ function handleMessage(event: MessageEvent): void {
       scrollToBottom(messagesContainer, true);
       break;
     }
+
+    default:
+      console.warn("[gsd-webview] Unrecognized message type:", (msg as any).type);
+      break;
   }
 
   } catch (err: any) {
