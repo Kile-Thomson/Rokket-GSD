@@ -140,9 +140,93 @@
 
 /* Settings active dot: accent glow */
 .gsd-app[data-theme="forge"] .gsd-settings-option.active .gsd-settings-option-dot { box-shadow: var(--forge-accent-glow); }
+.gsd-app[data-theme="forge"] .gsd-settings-option:hover { background: var(--forge-elevated); }
 
 /* Context bar fill: gradient */
-.gsd-app[data-theme="forge"] .gsd-context-bar-fill { background: linear-gradient(90deg, var(--forge-accent), rgba(200, 135, 90, 0.7)); }
+.gsd-app[data-theme="forge"] .gsd-context-bar { background: var(--forge-recessed); border-radius: 2px; box-shadow: var(--forge-inset); }
+.gsd-app[data-theme="forge"] .gsd-context-bar-fill { background: linear-gradient(90deg, var(--forge-accent), rgba(200, 135, 90, 0.7)); border-radius: 2px; }
 
-/* Scrollbar hover */
+/* Scrollbar */
+.gsd-app[data-theme="forge"] .gsd-messages::-webkit-scrollbar-thumb { background: rgba(200, 135, 90, 0.12); border-radius: 2px; }
 .gsd-app[data-theme="forge"] .gsd-messages::-webkit-scrollbar-thumb:hover { background: rgba(200, 135, 90, 0.2); }
+
+/* -----------------------------------------------------------
+   Restored rules — lost during M017/S02 token refactor
+   These provide per-element color/background specificity that
+   tokens alone don't cascade to.
+   ----------------------------------------------------------- */
+
+/* Badge text colors */
+.gsd-app[data-theme="forge"] .gsd-model-badge,
+.gsd-app[data-theme="forge"] .gsd-thinking-badge,
+.gsd-app[data-theme="forge"] .gsd-cost-badge,
+.gsd-app[data-theme="forge"] .gsd-context-badge { color: var(--forge-text-dim); }
+
+/* Workflow badge: accent-tinted with inset */
+.gsd-app[data-theme="forge"] .gsd-workflow-badge {
+  background: var(--forge-accent-bg); color: var(--forge-accent);
+  border: 1px solid rgba(200, 135, 90, 0.15); border-radius: 3px;
+}
+
+/* Messages background */
+.gsd-app[data-theme="forge"] .gsd-messages { background: var(--forge-bg); }
+
+/* Assistant text + link colors */
+.gsd-app[data-theme="forge"] .gsd-assistant-text { color: var(--forge-text); }
+.gsd-app[data-theme="forge"] .gsd-assistant-text a { color: var(--forge-accent) !important; }
+.gsd-app[data-theme="forge"] .gsd-entry-assistant.streaming .gsd-assistant-text > *:last-child::after { color: var(--forge-accent); }
+
+/* Tool details: icon, name, spinner, output */
+.gsd-app[data-theme="forge"] .gsd-tool-header:hover { background-color: var(--forge-elevated); }
+.gsd-app[data-theme="forge"] .gsd-tool-icon { color: var(--forge-accent-dim); }
+.gsd-app[data-theme="forge"] .gsd-tool-name { color: var(--forge-accent); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3); }
+.gsd-app[data-theme="forge"] .gsd-tool-spinner { border-color: rgba(200, 135, 90, 0.2); border-top-color: var(--forge-accent); }
+.gsd-app[data-theme="forge"] .gsd-tool-output { background: var(--forge-recessed); border: none; border-radius: 0 0 2px 2px; }
+
+/* Code details */
+.gsd-app[data-theme="forge"] .gsd-code-lang { color: var(--forge-accent-dim); }
+.gsd-app[data-theme="forge"] .gsd-copy-btn { color: var(--forge-text-dim); }
+.gsd-app[data-theme="forge"] .gsd-assistant-text code { color: var(--forge-accent-dim); }
+
+/* Thinking details */
+.gsd-app[data-theme="forge"] .gsd-thinking-content { color: var(--forge-text-dim); }
+.gsd-app[data-theme="forge"] .gsd-thinking-dots span { background: var(--forge-accent); }
+
+/* Input explicit */
+.gsd-app[data-theme="forge"] .gsd-input { background: var(--forge-recessed); border: 1px solid var(--forge-border); border-radius: 4px; color: var(--forge-text); box-shadow: var(--forge-inset); }
+.gsd-app[data-theme="forge"] .gsd-input::placeholder { color: var(--forge-text-dim); }
+
+/* Send button explicit */
+.gsd-app[data-theme="forge"] .gsd-send-btn {
+  background: var(--forge-elevated); background-image: var(--forge-plate);
+  color: var(--forge-accent); border: 1px solid var(--forge-border); border-radius: 4px;
+}
+
+/* Action buttons: raised plate with border */
+.gsd-app[data-theme="forge"] .gsd-action-btn { border: 1px solid var(--forge-border); border-radius: 3px; color: var(--forge-text-dim); background: var(--forge-elevated); background-image: var(--forge-plate); }
+.gsd-app[data-theme="forge"] .gsd-action-btn:hover { color: var(--forge-text); border-color: rgba(255, 255, 255, 0.08); }
+.gsd-app[data-theme="forge"] .gsd-action-btn.primary { background-color: var(--forge-accent-bg); border-color: rgba(200, 135, 90, 0.15); color: var(--forge-accent); }
+.gsd-app[data-theme="forge"] .gsd-action-btn.primary:hover { box-shadow: var(--forge-raised), var(--forge-accent-glow); }
+
+/* Welcome explicit */
+.gsd-app[data-theme="forge"] .gsd-welcome-ascii { color: var(--forge-accent); }
+.gsd-app[data-theme="forge"] .gsd-welcome-title { color: var(--forge-text); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5); }
+.gsd-app[data-theme="forge"] .gsd-welcome-chip { border: 1px solid var(--forge-border); border-radius: 3px; color: var(--forge-text-dim); background: var(--forge-elevated); background-image: var(--forge-plate); }
+.gsd-app[data-theme="forge"] .gsd-welcome-chip:hover { color: var(--forge-text); border-color: rgba(200, 135, 90, 0.15); }
+
+/* Scroll FAB explicit */
+.gsd-app[data-theme="forge"] .gsd-scroll-fab { background: var(--forge-elevated); background-image: var(--forge-plate); border: 1px solid var(--forge-border); border-radius: 3px; color: var(--forge-text-dim); }
+.gsd-app[data-theme="forge"] .gsd-scroll-fab:hover { color: var(--forge-accent); }
+
+/* Slash menu items */
+.gsd-app[data-theme="forge"] .gsd-slash-item.active { background: var(--forge-accent-bg); }
+.gsd-app[data-theme="forge"] .gsd-slash-name { color: var(--forge-accent); }
+.gsd-app[data-theme="forge"] .gsd-slash-desc { color: var(--forge-text-dim); }
+
+/* Tables */
+.gsd-app[data-theme="forge"] .gsd-assistant-text table { border-color: var(--forge-border); }
+.gsd-app[data-theme="forge"] .gsd-assistant-text td { border-color: var(--forge-border); }
+
+/* Misc */
+.gsd-app[data-theme="forge"] .gsd-resize-handle::after { background: var(--forge-border); border-radius: 1px; }
+.gsd-app[data-theme="forge"] .gsd-timestamp { color: var(--forge-text-dim); }

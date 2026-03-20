@@ -91,6 +91,16 @@ export function handleRpcEvent(
     }
     // Refresh workflow state after each agent turn
     ctx.refreshWorkflowState(webview, sessionId);
+    // Refresh fork entries so newly completed turns get correct server entry IDs
+    const agentEndClient = ctx.getSession(sessionId).client;
+    if (agentEndClient?.isRunning) {
+      agentEndClient.getForkMessages()
+        .then((result: unknown) => {
+          const forkResult = result as { messages?: { entryId: string; text: string }[] } | null;
+          ctx.postToWebview(webview, { type: "fork_entries", entries: forkResult?.messages || [] });
+        })
+        .catch(() => { /* non-critical — fork buttons will lack server IDs until next session switch */ });
+    }
   } else if (eventType === "message_end") {
     const msg = event.message as Record<string, unknown> | undefined;
     const usage = (msg?.usage as { cost?: { total?: number } }) ?? undefined;

@@ -84,6 +84,7 @@ function createMockClient(overrides: Record<string, unknown> = {}) {
       autoCompactionEnabled: false,
     }),
     getMessages: vi.fn().mockResolvedValue({ messages: [{ role: "user", text: "hello" }] }),
+    getForkMessages: vi.fn().mockResolvedValue({ messages: [{ entryId: "abc123", text: "hello" }] }),
     getCommands: vi.fn().mockResolvedValue({ commands: [{ name: "/test" }] }),
     getAvailableModels: vi.fn().mockResolvedValue({ models: [] }),
     getSessionStats: vi.fn().mockResolvedValue({ cost: 0.01, tokens: { input: 100, output: 200, cacheRead: 0, cacheWrite: 0, total: 300 } }),
@@ -229,6 +230,26 @@ describe("message-dispatch: handleWebviewMessage", () => {
 
       expect(session.accumulatedCost).toBe(0);
       expect(ctx.emitStatus).toHaveBeenCalledWith({ cost: 0 });
+    });
+
+    it("includes forkEntries from getForkMessages in session_switched payload", async () => {
+      const forkEntries = [{ entryId: "srv-1", text: "first" }, { entryId: "srv-2", text: "second" }];
+      const client = createMockClient({
+        getForkMessages: vi.fn().mockResolvedValue({ messages: forkEntries }),
+      });
+      const session = createMockSession({ client: client as any });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "fork_conversation",
+        entryId: "entry-1",
+      } as WebviewToExtensionMessage);
+
+      expect(client.getForkMessages).toHaveBeenCalled();
+      expect(ctx.postToWebview).toHaveBeenCalledWith(
+        webview,
+        expect.objectContaining({ type: "session_switched", forkEntries }),
+      );
     });
 
     it("posts error when fork throws", async () => {
@@ -378,6 +399,26 @@ describe("message-dispatch: handleWebviewMessage", () => {
       expect(ctx.postToWebview).toHaveBeenCalledWith(
         webview,
         expect.objectContaining({ type: "session_switched" }),
+      );
+    });
+
+    it("includes forkEntries in session_switched payload", async () => {
+      const forkEntries = [{ entryId: "x1", text: "msg1" }];
+      const client = createMockClient({
+        getForkMessages: vi.fn().mockResolvedValue({ messages: forkEntries }),
+      });
+      const session = createMockSession({ client: client as any });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "switch_session",
+        path: "/sessions/other.jsonl",
+      } as WebviewToExtensionMessage);
+
+      expect(client.getForkMessages).toHaveBeenCalled();
+      expect(ctx.postToWebview).toHaveBeenCalledWith(
+        webview,
+        expect.objectContaining({ type: "session_switched", forkEntries }),
       );
     });
 

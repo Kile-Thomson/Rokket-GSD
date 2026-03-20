@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
-import { state, nextId } from "../state";
+import { state } from "../state";
 
 // ============================================================
 // Mock cross-module imports
@@ -77,7 +77,7 @@ vi.mock("../helpers", () => ({
 import { init, addSystemEntry } from "../message-handler";
 import * as renderer from "../renderer";
 import * as uiDialogs from "../ui-dialogs";
-import * as sessionHistory from "../session-history";
+// session-history imported transitively via message-handler
 import * as autoProgress from "../auto-progress";
 import * as dashboard from "../dashboard";
 import * as toasts from "../toasts";
