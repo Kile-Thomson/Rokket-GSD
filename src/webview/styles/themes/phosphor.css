@@ -6,7 +6,11 @@
    are shell executions. Zero border-radius anywhere.
    ============================================================ */
 
+/* -----------------------------------------------------------
+   Token overrides — all color/surface/border theming via tokens
+   ----------------------------------------------------------- */
 .gsd-app[data-theme="phosphor"] {
+  /* Theme palette (internal references) */
   --phosphor: #00ff41;
   --phosphor-dim: rgba(0, 255, 65, 0.6);
   --phosphor-faint: rgba(0, 255, 65, 0.08);
@@ -15,7 +19,55 @@
   --phosphor-surface: #0a0d0a;
   --phosphor-border: rgba(0, 255, 65, 0.1);
   --phosphor-text: #b8c4b8;
+
+  /* Semantic token overrides */
+  --gsd-color-bg: var(--phosphor-bg);
+  --gsd-color-surface: var(--phosphor-bg);
+  --gsd-color-surface-elevated: var(--phosphor-surface);
+  --gsd-color-surface-hover: var(--phosphor-faint);
+  --gsd-color-surface-active: rgba(0, 255, 65, 0.06);
+  --gsd-color-text: var(--phosphor-text);
+  --gsd-color-text-muted: var(--phosphor-dim);
+  --gsd-color-text-link: var(--phosphor);
+  --gsd-color-border: var(--phosphor-border);
+  --gsd-color-border-subtle: var(--phosphor-border);
+  --gsd-color-border-strong: rgba(0, 255, 65, 0.15);
+  --gsd-color-border-focus: var(--phosphor);
+  --gsd-color-accent: var(--phosphor);
+  --gsd-color-accent-fg: var(--phosphor-bg);
+  --gsd-color-accent-hover: rgba(0, 255, 65, 0.8);
+
+  /* Component token overrides */
+  --gsd-header-bg: var(--phosphor-bg);
+  --gsd-header-border: var(--phosphor-border);
+  --gsd-footer-bg: var(--phosphor-bg);
+  --gsd-footer-border: var(--phosphor-border);
+  --gsd-input-bg: transparent;
+  --gsd-input-fg: var(--phosphor);
+  --gsd-input-border: var(--phosphor-border);
+  --gsd-input-placeholder: rgba(0, 255, 65, 0.2);
+  --gsd-code-bg: rgba(0, 255, 65, 0.02);
+  --gsd-tool-bg: rgba(0, 255, 65, 0.02);
+  --gsd-tool-border: rgba(0, 255, 65, 0.2);
+  --gsd-overlay-bg: var(--phosphor-bg);
+  --gsd-overlay-border: var(--phosphor-border);
+  --gsd-overlay-shadow: 0 0 20px rgba(0, 255, 65, 0.05);
+  --gsd-toast-bg: var(--phosphor-bg);
+  --gsd-toast-border: var(--phosphor-border);
+  --gsd-scrollbar-bg: rgba(0, 255, 65, 0.15);
+  --gsd-badge-bg: var(--phosphor-faint);
+  --gsd-badge-fg: var(--phosphor-dim);
+
+  /* Radius: zero everywhere for terminal aesthetic */
+  --gsd-radius-xs: 0;  --gsd-radius-sm: 0;  --gsd-radius-md: 0;
+  --gsd-radius-lg: 0;  --gsd-radius-xl: 0;  --gsd-radius-pill: 0;
+  --gsd-entry-radius: 0;  --gsd-code-radius: 0;  --gsd-tool-radius: 0;
+  --gsd-overlay-radius: 0;  --gsd-toast-radius: 0;
 }
+
+/* -----------------------------------------------------------
+   Structural overrides — visual effects that can't be tokens
+   ----------------------------------------------------------- */
 
 /* Scanline overlay */
 .gsd-app[data-theme="phosphor"]::before {
@@ -24,208 +76,81 @@
   top: 0; left: 0; right: 0; bottom: 0;
   pointer-events: none;
   z-index: 9999;
-  background: repeating-linear-gradient(
-    0deg, transparent, transparent 2px,
-    rgba(0, 0, 0, 0.08) 2px, rgba(0, 0, 0, 0.08) 4px
-  );
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.08) 2px, rgba(0, 0, 0, 0.08) 4px);
 }
 
 /* All text monospace */
-.gsd-app[data-theme="phosphor"],
-.gsd-app[data-theme="phosphor"] * {
+.gsd-app[data-theme="phosphor"], .gsd-app[data-theme="phosphor"] * {
   font-family: var(--vscode-editor-fontFamily, 'Cascadia Code', 'Fira Code', Consolas, monospace) !important;
 }
 
-.gsd-app[data-theme="phosphor"] .gsd-header {
-  background: var(--phosphor-bg);
-  border-bottom: 1px solid var(--phosphor-border);
-  box-shadow: 0 1px 0 rgba(0, 255, 65, 0.05);
-}
-
+/* Title: phosphor glow + wide letter-spacing */
 .gsd-app[data-theme="phosphor"] .gsd-title {
   color: var(--phosphor);
   text-shadow: var(--phosphor-glow), 0 0 20px rgba(0, 255, 65, 0.15);
   letter-spacing: 3px;
 }
 
+/* Logo working glow override */
 .gsd-app[data-theme="phosphor"] .gsd-logo.working::after {
   background: radial-gradient(circle, rgba(0, 255, 65, 0.6) 0%, rgba(0, 255, 65, 0.2) 50%, transparent 70%);
 }
 
-.gsd-app[data-theme="phosphor"] .gsd-model-badge,
-.gsd-app[data-theme="phosphor"] .gsd-thinking-badge,
-.gsd-app[data-theme="phosphor"] .gsd-cost-badge,
-.gsd-app[data-theme="phosphor"] .gsd-context-badge {
-  color: var(--phosphor-dim);
-}
-
-.gsd-app[data-theme="phosphor"] .gsd-workflow-badge {
-  background: var(--phosphor-faint);
-  color: var(--phosphor-dim);
-  border: 1px solid var(--phosphor-border);
-  text-shadow: 0 0 4px rgba(0, 255, 65, 0.2);
-}
-
-.gsd-app[data-theme="phosphor"] .gsd-messages { background: var(--phosphor-bg); }
-
-/* User messages: right-aligned but terminal-styled */
+/* User messages: right border terminal command style */
 .gsd-app[data-theme="phosphor"] .gsd-user-bubble {
-  background: transparent;
-  color: var(--phosphor);
-  border: none;
-  border-radius: 0;
-  border-right: 2px solid var(--phosphor);
-  padding: 4px 12px;
-  text-shadow: 0 0 4px rgba(0, 255, 65, 0.15);
+  background: transparent; border: none; border-right: 2px solid var(--phosphor);
+  padding: 4px 12px; text-shadow: 0 0 4px rgba(0, 255, 65, 0.15);
 }
 
-/* Assistant text */
-.gsd-app[data-theme="phosphor"] .gsd-assistant-text { color: var(--phosphor-text); }
-
-.gsd-app[data-theme="phosphor"] .gsd-assistant-text h1,
-.gsd-app[data-theme="phosphor"] .gsd-assistant-text h2,
-.gsd-app[data-theme="phosphor"] .gsd-assistant-text h3 {
-  color: var(--phosphor-dim);
+/* Heading glow */
+.gsd-app[data-theme="phosphor"] .gsd-assistant-text h1, .gsd-app[data-theme="phosphor"] .gsd-assistant-text h2, .gsd-app[data-theme="phosphor"] .gsd-assistant-text h3 {
   text-shadow: 0 0 6px rgba(0, 255, 65, 0.1);
-  border-color: var(--phosphor-border);
 }
 
-.gsd-app[data-theme="phosphor"] .gsd-assistant-text a {
-  color: var(--phosphor) !important;
-  text-decoration: none;
-  border-bottom: 1px dashed var(--phosphor-dim);
-}
+/* Link: dashed underline */
+.gsd-app[data-theme="phosphor"] .gsd-assistant-text a { text-decoration: none; border-bottom: 1px dashed var(--phosphor-dim); }
 
-.gsd-app[data-theme="phosphor"] .gsd-entry-assistant.streaming .gsd-assistant-text > *:last-child::after {
-  color: var(--phosphor);
-  text-shadow: var(--phosphor-glow);
-}
+/* Streaming cursor glow */
+.gsd-app[data-theme="phosphor"] .gsd-entry-assistant.streaming .gsd-assistant-text > *:last-child::after { text-shadow: var(--phosphor-glow); }
 
-/* Tool blocks: shell execution style — left border, no radius */
-.gsd-app[data-theme="phosphor"] .gsd-tool-block {
-  border: none; border-left: 2px solid rgba(0, 255, 65, 0.2);
-  border-radius: 0; margin-left: 8px;
-}
-
-.gsd-app[data-theme="phosphor"] .gsd-tool-block.running {
-  border-left-color: var(--phosphor);
-  box-shadow: none; background: none; animation: none;
-}
-
-.gsd-app[data-theme="phosphor"] .gsd-tool-block.running .gsd-tool-header {
-  animation: gsd-phosphor-pulse 2s ease-in-out infinite;
-}
+/* Tool blocks: left-border shell style */
+.gsd-app[data-theme="phosphor"] .gsd-tool-block { border: none; border-left: 2px solid rgba(0, 255, 65, 0.2); margin-left: 8px; }
+.gsd-app[data-theme="phosphor"] .gsd-tool-block.running { border-left-color: var(--phosphor); box-shadow: none; background: none; animation: none; }
+.gsd-app[data-theme="phosphor"] .gsd-tool-block.running .gsd-tool-header { animation: gsd-phosphor-pulse 2s ease-in-out infinite; }
 
 @keyframes gsd-phosphor-pulse {
   0%, 100% { background: rgba(0, 255, 65, 0.02); }
   50% { background: rgba(0, 255, 65, 0.06); }
 }
 
-.gsd-app[data-theme="phosphor"] .gsd-tool-header {
-  background: rgba(0, 255, 65, 0.02); border: none;
-}
-.gsd-app[data-theme="phosphor"] .gsd-tool-header:hover { background: rgba(0, 255, 65, 0.05); }
-
-.gsd-app[data-theme="phosphor"] .gsd-tool-icon { color: var(--phosphor-dim); }
-
-.gsd-app[data-theme="phosphor"] .gsd-tool-name {
-  color: var(--phosphor);
-  text-shadow: 0 0 4px rgba(0, 255, 65, 0.15);
-}
-
+/* Tool name: shell prompt prefix + glow */
+.gsd-app[data-theme="phosphor"] .gsd-tool-name { text-shadow: 0 0 4px rgba(0, 255, 65, 0.15); }
 .gsd-app[data-theme="phosphor"] .gsd-tool-name::before { content: '$ '; opacity: 0.4; }
 
-.gsd-app[data-theme="phosphor"] .gsd-tool-arg { color: rgba(0, 255, 65, 0.35); }
+/* Strip borders from tool/code/thinking elements, use dashed separators */
+.gsd-app[data-theme="phosphor"] .gsd-tool-header, .gsd-app[data-theme="phosphor"] .gsd-thinking-header, .gsd-app[data-theme="phosphor"] .gsd-thinking-block { border: none; }
+.gsd-app[data-theme="phosphor"] .gsd-tool-output, .gsd-app[data-theme="phosphor"] .gsd-code-header { border: none; border-top: 1px dashed rgba(0, 255, 65, 0.1); }
 
-.gsd-app[data-theme="phosphor"] .gsd-tool-spinner {
-  border-color: rgba(0, 255, 65, 0.2); border-top-color: var(--phosphor);
-}
+/* Code blocks: left border, no box borders */
+.gsd-app[data-theme="phosphor"] .gsd-code-block { border: none; border-left: 2px solid rgba(0, 255, 65, 0.15); }
+.gsd-app[data-theme="phosphor"] pre, .gsd-app[data-theme="phosphor"] code { border: none !important; }
 
-.gsd-app[data-theme="phosphor"] .gsd-tool-output {
-  background: var(--phosphor-bg); border: none;
-  border-top: 1px dashed rgba(0, 255, 65, 0.1); border-radius: 0;
-}
+/* Thinking block: thin left border */
+.gsd-app[data-theme="phosphor"] .gsd-thinking-block { border-left: 1px solid rgba(0, 255, 65, 0.08); }
 
-/* Code blocks: pure terminal */
-.gsd-app[data-theme="phosphor"] .gsd-code-block {
-  border: none; border-left: 2px solid rgba(0, 255, 65, 0.15); border-radius: 0;
-}
+/* Glow on focus/hover for interactive elements */
+.gsd-app[data-theme="phosphor"] .gsd-input:focus, .gsd-app[data-theme="phosphor"] .gsd-send-btn:hover, .gsd-app[data-theme="phosphor"] .gsd-scroll-fab:hover { box-shadow: var(--phosphor-glow); }
 
-.gsd-app[data-theme="phosphor"] pre,
-.gsd-app[data-theme="phosphor"] code {
-  background: rgba(0, 255, 65, 0.02) !important; border: none !important; color: var(--phosphor-text);
-}
+/* Text glow on hover */
+.gsd-app[data-theme="phosphor"] .gsd-action-btn:hover, .gsd-app[data-theme="phosphor"] .gsd-welcome-chip:hover, .gsd-app[data-theme="phosphor"] .gsd-workflow-badge { text-shadow: 0 0 4px rgba(0, 255, 65, 0.15); }
 
-.gsd-app[data-theme="phosphor"] .gsd-code-header {
-  background: rgba(0, 255, 65, 0.03); border: none;
-  border-bottom: 1px dashed rgba(0, 255, 65, 0.1); border-radius: 0;
-}
+/* Glow effects on misc elements */
+.gsd-app[data-theme="phosphor"] .gsd-welcome-ascii { text-shadow: var(--phosphor-glow); }
+.gsd-app[data-theme="phosphor"] .gsd-context-bar-fill { box-shadow: 0 0 6px rgba(0, 255, 65, 0.3); }
+.gsd-app[data-theme="phosphor"] .gsd-settings-option.active .gsd-settings-option-dot { box-shadow: var(--phosphor-glow); }
 
-.gsd-app[data-theme="phosphor"] .gsd-code-lang { color: var(--phosphor-dim); }
-.gsd-app[data-theme="phosphor"] .gsd-copy-btn { color: var(--phosphor-dim); }
-
-/* Thinking */
-.gsd-app[data-theme="phosphor"] .gsd-thinking-block {
-  border: none; border-left: 1px solid rgba(0, 255, 65, 0.08); border-radius: 0;
-}
-.gsd-app[data-theme="phosphor"] .gsd-thinking-header { border: none; color: rgba(0, 255, 65, 0.3); }
-.gsd-app[data-theme="phosphor"] .gsd-thinking-content { color: rgba(0, 255, 65, 0.25); }
-.gsd-app[data-theme="phosphor"] .gsd-thinking-dots span { background: var(--phosphor); }
-
-/* Input */
-.gsd-app[data-theme="phosphor"] .gsd-input-area { background: var(--phosphor-bg); border-top: 1px solid var(--phosphor-border); }
-
-.gsd-app[data-theme="phosphor"] .gsd-input {
-  background: transparent; border: 1px solid var(--phosphor-border);
-  border-radius: 0; color: var(--phosphor);
-}
-.gsd-app[data-theme="phosphor"] .gsd-input:focus { border-color: var(--phosphor); box-shadow: var(--phosphor-glow); }
-.gsd-app[data-theme="phosphor"] .gsd-input::placeholder { color: rgba(0, 255, 65, 0.2); }
-
-.gsd-app[data-theme="phosphor"] .gsd-send-btn {
-  background: transparent; color: var(--phosphor);
-  border: 1px solid var(--phosphor-border); border-radius: 0;
-}
-.gsd-app[data-theme="phosphor"] .gsd-send-btn:hover { background: var(--phosphor-faint); box-shadow: var(--phosphor-glow); }
-
-/* Footer */
-.gsd-app[data-theme="phosphor"] .gsd-footer { background: var(--phosphor-bg); border-top: 1px solid var(--phosphor-border); color: rgba(0, 255, 65, 0.25); }
-
-/* Buttons */
-.gsd-app[data-theme="phosphor"] .gsd-action-btn { border: 1px solid var(--phosphor-border); color: var(--phosphor-dim); border-radius: 0; }
-.gsd-app[data-theme="phosphor"] .gsd-action-btn:hover { background: var(--phosphor-faint); border-color: rgba(0, 255, 65, 0.25); text-shadow: 0 0 4px rgba(0, 255, 65, 0.15); }
-.gsd-app[data-theme="phosphor"] .gsd-action-btn.primary { background: var(--phosphor-faint); border-color: rgba(0, 255, 65, 0.25); color: var(--phosphor); }
-
-/* Welcome */
-.gsd-app[data-theme="phosphor"] .gsd-welcome-ascii { color: var(--phosphor); text-shadow: var(--phosphor-glow); }
-.gsd-app[data-theme="phosphor"] .gsd-welcome-title { color: var(--phosphor-dim); }
-.gsd-app[data-theme="phosphor"] .gsd-welcome-chip { border: 1px solid var(--phosphor-border); color: var(--phosphor-dim); border-radius: 0; }
-.gsd-app[data-theme="phosphor"] .gsd-welcome-chip:hover { background: var(--phosphor-faint); border-color: rgba(0, 255, 65, 0.3); text-shadow: 0 0 4px rgba(0, 255, 65, 0.15); }
-
-/* Scroll FAB */
-.gsd-app[data-theme="phosphor"] .gsd-scroll-fab { background: var(--phosphor-bg); border: 1px solid var(--phosphor-border); color: var(--phosphor-dim); border-radius: 0; }
-.gsd-app[data-theme="phosphor"] .gsd-scroll-fab:hover { background: var(--phosphor-faint); box-shadow: var(--phosphor-glow); }
-
-/* Slash menu */
-.gsd-app[data-theme="phosphor"] .gsd-slash-menu { background: var(--phosphor-bg); border: 1px solid var(--phosphor-border); border-radius: 0; box-shadow: 0 0 20px rgba(0, 255, 65, 0.05); }
-.gsd-app[data-theme="phosphor"] .gsd-slash-item.active { background: var(--phosphor-faint); }
-.gsd-app[data-theme="phosphor"] .gsd-slash-name { color: var(--phosphor); }
-.gsd-app[data-theme="phosphor"] .gsd-slash-desc { color: rgba(0, 255, 65, 0.3); }
-
-/* Settings dropdown */
-.gsd-app[data-theme="phosphor"] .gsd-settings-dropdown { background: var(--phosphor-bg); border: 1px solid var(--phosphor-border); border-radius: 0; }
-.gsd-app[data-theme="phosphor"] .gsd-settings-option.active .gsd-settings-option-dot { background: var(--phosphor); border-color: var(--phosphor); box-shadow: var(--phosphor-glow); }
-
-/* Context bar */
-.gsd-app[data-theme="phosphor"] .gsd-context-bar { background: rgba(0, 255, 65, 0.04); border-radius: 0; }
-.gsd-app[data-theme="phosphor"] .gsd-context-bar-fill { background: var(--phosphor); border-radius: 0; box-shadow: 0 0 6px rgba(0, 255, 65, 0.3); }
-
-/* Misc */
-.gsd-app[data-theme="phosphor"] .gsd-timestamp { color: rgba(0, 255, 65, 0.15); }
-.gsd-app[data-theme="phosphor"] .gsd-messages::-webkit-scrollbar-thumb { background: rgba(0, 255, 65, 0.15); }
+/* Scrollbar hover */
 .gsd-app[data-theme="phosphor"] .gsd-messages::-webkit-scrollbar-thumb:hover { background: rgba(0, 255, 65, 0.25); }
-.gsd-app[data-theme="phosphor"] .gsd-assistant-text code { background: rgba(0, 255, 65, 0.06) !important; color: var(--phosphor-dim); }
-.gsd-app[data-theme="phosphor"] .gsd-assistant-text table { border-color: var(--phosphor-border); }
-.gsd-app[data-theme="phosphor"] .gsd-assistant-text th { background: rgba(0, 255, 65, 0.04); color: var(--phosphor-dim); border-color: var(--phosphor-border); }
-.gsd-app[data-theme="phosphor"] .gsd-assistant-text td { border-color: var(--phosphor-border); }
-.gsd-app[data-theme="phosphor"] .gsd-resize-handle::after { background: var(--phosphor-border); }
+
+/* Inline code tinted bg */
+.gsd-app[data-theme="phosphor"] .gsd-assistant-text code { background: rgba(0, 255, 65, 0.06) !important; }

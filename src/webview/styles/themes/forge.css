@@ -7,7 +7,11 @@
    Buttons depress on click. The UI weighs something.
    ============================================================ */
 
+/* -----------------------------------------------------------
+   Token overrides — all color/surface/border theming via tokens
+   ----------------------------------------------------------- */
 .gsd-app[data-theme="forge"] {
+  /* Theme palette (internal references) */
   --forge-bg: #121416;
   --forge-surface: #191c20;
   --forge-elevated: #21252b;
@@ -24,159 +28,121 @@
   --forge-accent-glow: 0 0 8px rgba(200, 135, 90, 0.15);
   --forge-text: #b8b4ae;
   --forge-text-dim: rgba(184, 180, 174, 0.4);
+
+  /* Semantic token overrides */
+  --gsd-color-bg: var(--forge-bg);
+  --gsd-color-surface: var(--forge-surface);
+  --gsd-color-surface-elevated: var(--forge-elevated);
+  --gsd-color-surface-hover: var(--forge-elevated);
+  --gsd-color-surface-active: #282c34;
+  --gsd-color-text: var(--forge-text);
+  --gsd-color-text-muted: var(--forge-text-dim);
+  --gsd-color-text-link: var(--forge-accent);
+  --gsd-color-border: var(--forge-border);
+  --gsd-color-border-subtle: var(--forge-border);
+  --gsd-color-border-strong: rgba(255, 255, 255, 0.08);
+  --gsd-color-border-focus: rgba(200, 135, 90, 0.3);
+  --gsd-color-accent: var(--forge-accent);
+  --gsd-color-accent-fg: #121416;
+  --gsd-color-accent-hover: rgba(200, 135, 90, 0.7);
+
+  /* Component token overrides */
+  --gsd-header-bg: var(--forge-surface);
+  --gsd-header-border: var(--forge-border);
+  --gsd-footer-bg: var(--forge-surface);
+  --gsd-footer-border: var(--forge-border);
+  --gsd-input-bg: var(--forge-recessed);
+  --gsd-input-fg: var(--forge-text);
+  --gsd-input-border: var(--forge-border);
+  --gsd-input-placeholder: var(--forge-text-dim);
+  --gsd-code-bg: var(--forge-recessed);
+  --gsd-tool-bg: var(--forge-recessed);
+  --gsd-tool-border: var(--forge-border);
+  --gsd-tool-radius: 3px;  --gsd-code-radius: 3px;
+  --gsd-overlay-bg: var(--forge-surface);
+  --gsd-overlay-border: var(--forge-border);
+  --gsd-overlay-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --gsd-overlay-radius: 3px;
+  --gsd-toast-bg: var(--forge-surface);
+  --gsd-toast-border: var(--forge-border);
+  --gsd-toast-radius: 3px;
+  --gsd-scrollbar-bg: rgba(200, 135, 90, 0.12);
+  --gsd-badge-bg: var(--forge-accent-bg);
+  --gsd-badge-fg: var(--forge-accent-dim);
+
+  /* Tight radii for industrial aesthetic */
+  --gsd-radius-sm: 2px;  --gsd-radius-md: 3px;  --gsd-radius-lg: 3px;
+  --gsd-radius-xl: 4px;  --gsd-radius-pill: 3px;  --gsd-entry-radius: 3px;
 }
 
-/* Header: heavy top plate */
-.gsd-app[data-theme="forge"] .gsd-header {
-  background: var(--forge-surface); background-image: var(--forge-plate);
-  border-bottom: 1px solid var(--forge-border);
-  box-shadow: var(--forge-raised), 0 2px 4px rgba(0, 0, 0, 0.2);
-}
+/* -----------------------------------------------------------
+   Structural overrides — bevel system & plate textures
+   ----------------------------------------------------------- */
 
-.gsd-app[data-theme="forge"] .gsd-title {
-  color: var(--forge-text); font-weight: 900; letter-spacing: 2px;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
-}
+/* Raised plate surfaces: header, tool/code/thinking headers, send btn, action btns, welcome chips, scroll FAB, slash menu, settings, user bubble, table headers */
+.gsd-app[data-theme="forge"] .gsd-header, .gsd-app[data-theme="forge"] .gsd-tool-header, .gsd-app[data-theme="forge"] .gsd-code-header, .gsd-app[data-theme="forge"] .gsd-thinking-header, .gsd-app[data-theme="forge"] .gsd-send-btn, .gsd-app[data-theme="forge"] .gsd-action-btn, .gsd-app[data-theme="forge"] .gsd-welcome-chip, .gsd-app[data-theme="forge"] .gsd-scroll-fab, .gsd-app[data-theme="forge"] .gsd-user-bubble, .gsd-app[data-theme="forge"] .gsd-assistant-text th { background-image: var(--forge-plate); box-shadow: var(--forge-raised); }
 
-.gsd-app[data-theme="forge"] .gsd-logo.working::after {
-  background: radial-gradient(circle, rgba(200, 135, 90, 0.5) 0%, rgba(200, 135, 90, 0.15) 50%, transparent 70%);
-}
+/* Overlay raised plates: extra deep shadow */
+.gsd-app[data-theme="forge"] .gsd-slash-menu, .gsd-app[data-theme="forge"] .gsd-settings-dropdown { background-image: var(--forge-plate); box-shadow: var(--forge-raised), 0 8px 24px rgba(0, 0, 0, 0.5); }
 
-.gsd-app[data-theme="forge"] .gsd-model-badge,
-.gsd-app[data-theme="forge"] .gsd-thinking-badge,
-.gsd-app[data-theme="forge"] .gsd-cost-badge,
-.gsd-app[data-theme="forge"] .gsd-context-badge { color: var(--forge-text-dim); }
+/* Recessed inset elements: tool blocks, code blocks, thinking, input, context bar, workflow badge */
+.gsd-app[data-theme="forge"] .gsd-tool-block, .gsd-app[data-theme="forge"] .gsd-code-block, .gsd-app[data-theme="forge"] .gsd-thinking-block, .gsd-app[data-theme="forge"] .gsd-input, .gsd-app[data-theme="forge"] .gsd-context-bar, .gsd-app[data-theme="forge"] .gsd-workflow-badge { box-shadow: var(--forge-inset); }
 
-.gsd-app[data-theme="forge"] .gsd-workflow-badge {
-  background: var(--forge-accent-bg); color: var(--forge-accent);
-  border: 1px solid rgba(200, 135, 90, 0.15); border-radius: 3px;
-  box-shadow: var(--forge-inset); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
-}
+/* Header: deeper shadow than standard raised */
+.gsd-app[data-theme="forge"] .gsd-header { box-shadow: var(--forge-raised), 0 2px 4px rgba(0, 0, 0, 0.2); }
 
-.gsd-app[data-theme="forge"] .gsd-messages { background: var(--forge-bg); }
+/* Scroll FAB: raised with drop shadow */
+.gsd-app[data-theme="forge"] .gsd-scroll-fab { box-shadow: var(--forge-raised), 0 4px 12px rgba(0, 0, 0, 0.3); }
 
-/* User messages: embossed plate */
-.gsd-app[data-theme="forge"] .gsd-user-bubble {
-  background: var(--forge-elevated); background-image: var(--forge-plate);
-  color: var(--forge-text); border: 1px solid var(--forge-border);
-  border-radius: 4px 4px 2px 4px; box-shadow: var(--forge-raised);
-}
+/* Title: heavy weight, industrial text-shadow */
+.gsd-app[data-theme="forge"] .gsd-title { font-weight: 900; letter-spacing: 2px; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5); }
 
-.gsd-app[data-theme="forge"] .gsd-assistant-text { color: var(--forge-text); }
+/* Logo working glow */
+.gsd-app[data-theme="forge"] .gsd-logo.working::after { background: radial-gradient(circle, rgba(200, 135, 90, 0.5) 0%, rgba(200, 135, 90, 0.15) 50%, transparent 70%); }
 
-.gsd-app[data-theme="forge"] .gsd-assistant-text h1,
-.gsd-app[data-theme="forge"] .gsd-assistant-text h2,
-.gsd-app[data-theme="forge"] .gsd-assistant-text h3 {
-  color: var(--forge-accent); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3); border-color: var(--forge-border);
-}
+/* User bubble: asymmetric radius */
+.gsd-app[data-theme="forge"] .gsd-user-bubble { border-radius: 4px 4px 2px 4px; }
 
-.gsd-app[data-theme="forge"] .gsd-assistant-text a { color: var(--forge-accent) !important; }
-.gsd-app[data-theme="forge"] .gsd-entry-assistant.streaming .gsd-assistant-text > *:last-child::after { color: var(--forge-accent); }
+/* Headings + tool name + welcome title + workflow badge: industrial text-shadow */
+.gsd-app[data-theme="forge"] .gsd-assistant-text h1, .gsd-app[data-theme="forge"] .gsd-assistant-text h2, .gsd-app[data-theme="forge"] .gsd-assistant-text h3, .gsd-app[data-theme="forge"] .gsd-tool-name, .gsd-app[data-theme="forge"] .gsd-welcome-title, .gsd-app[data-theme="forge"] .gsd-workflow-badge { text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3); }
 
-/* Tool blocks: recessed slots punched into the surface */
-.gsd-app[data-theme="forge"] .gsd-tool-block {
-  border: 1px solid var(--forge-border); border-radius: 3px;
-  background: var(--forge-recessed); box-shadow: var(--forge-inset);
-}
+/* Headings: copper accent color */
+.gsd-app[data-theme="forge"] .gsd-assistant-text h1, .gsd-app[data-theme="forge"] .gsd-assistant-text h2, .gsd-app[data-theme="forge"] .gsd-assistant-text h3 { color: var(--forge-accent); }
 
-.gsd-app[data-theme="forge"] .gsd-tool-block.running {
-  border-color: rgba(200, 135, 90, 0.2);
-  animation: gsd-forge-glow 2.5s ease-in-out infinite;
-  background: var(--forge-recessed);
-}
+/* Tool running animation */
+.gsd-app[data-theme="forge"] .gsd-tool-block.running { border-color: rgba(200, 135, 90, 0.2); animation: gsd-forge-glow 2.5s ease-in-out infinite; }
 
 @keyframes gsd-forge-glow {
   0%, 100% { box-shadow: var(--forge-inset); }
   50% { box-shadow: var(--forge-inset), 0 0 8px rgba(200, 135, 90, 0.08); }
 }
 
-.gsd-app[data-theme="forge"] .gsd-tool-header {
-  background: var(--forge-surface); background-image: var(--forge-plate);
-  border-bottom: 1px solid var(--forge-border);
-  box-shadow: var(--forge-raised); border-radius: 2px 2px 0 0;
-}
-.gsd-app[data-theme="forge"] .gsd-tool-header:hover { background-color: var(--forge-elevated); }
-.gsd-app[data-theme="forge"] .gsd-tool-icon { color: var(--forge-accent-dim); }
-.gsd-app[data-theme="forge"] .gsd-tool-name { color: var(--forge-accent); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3); }
-.gsd-app[data-theme="forge"] .gsd-tool-spinner { border-color: rgba(200, 135, 90, 0.2); border-top-color: var(--forge-accent); }
-.gsd-app[data-theme="forge"] .gsd-tool-output { background: var(--forge-recessed); border: none; border-radius: 0 0 2px 2px; }
+/* Code: no inner borders */
+.gsd-app[data-theme="forge"] pre, .gsd-app[data-theme="forge"] code { border: none !important; }
 
-/* Code blocks: inset trays */
-.gsd-app[data-theme="forge"] .gsd-code-block { border: 1px solid var(--forge-border); border-radius: 3px; box-shadow: var(--forge-inset); }
-.gsd-app[data-theme="forge"] pre, .gsd-app[data-theme="forge"] code { background: var(--forge-recessed) !important; border: none !important; }
-.gsd-app[data-theme="forge"] .gsd-code-header {
-  background: var(--forge-surface); background-image: var(--forge-plate);
-  border: none; border-bottom: 1px solid var(--forge-border); border-radius: 2px 2px 0 0;
-  box-shadow: var(--forge-raised);
-}
-.gsd-app[data-theme="forge"] .gsd-code-lang { color: var(--forge-accent-dim); }
-.gsd-app[data-theme="forge"] .gsd-copy-btn { color: var(--forge-text-dim); }
-.gsd-app[data-theme="forge"] .gsd-assistant-text code { background: var(--forge-recessed) !important; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3); border-radius: 3px; color: var(--forge-accent-dim); }
+/* Inline code: recessed shadow */
+.gsd-app[data-theme="forge"] .gsd-assistant-text code { box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3); }
 
-/* Thinking: stamped recess */
-.gsd-app[data-theme="forge"] .gsd-thinking-block { border: 1px solid var(--forge-border); border-radius: 3px; background: var(--forge-recessed); box-shadow: var(--forge-inset); }
-.gsd-app[data-theme="forge"] .gsd-thinking-header { border: none; color: var(--forge-text-dim); background: var(--forge-surface); background-image: var(--forge-plate); box-shadow: var(--forge-raised); }
-.gsd-app[data-theme="forge"] .gsd-thinking-content { color: var(--forge-text-dim); }
-.gsd-app[data-theme="forge"] .gsd-thinking-dots span { background: var(--forge-accent); }
+/* Input focus: inset + accent glow */
+.gsd-app[data-theme="forge"] .gsd-input:focus { box-shadow: var(--forge-inset), var(--forge-accent-glow); }
 
-/* Input: punched-in slot */
-.gsd-app[data-theme="forge"] .gsd-input-area { background: var(--forge-surface); background-image: var(--forge-plate); border-top: 1px solid var(--forge-border); box-shadow: inset 0 1px 0 var(--forge-bevel-light); }
-.gsd-app[data-theme="forge"] .gsd-input { background: var(--forge-recessed); border: 1px solid var(--forge-border); border-radius: 4px; color: var(--forge-text); box-shadow: var(--forge-inset); }
-.gsd-app[data-theme="forge"] .gsd-input:focus { border-color: rgba(200, 135, 90, 0.3); box-shadow: var(--forge-inset), var(--forge-accent-glow); }
-.gsd-app[data-theme="forge"] .gsd-input::placeholder { color: var(--forge-text-dim); }
+/* Input area + footer: plate with top bevel */
+.gsd-app[data-theme="forge"] .gsd-input-area, .gsd-app[data-theme="forge"] .gsd-footer { background-image: var(--forge-plate); box-shadow: inset 0 1px 0 var(--forge-bevel-light); }
 
-/* Send button: raised, depresses on click */
-.gsd-app[data-theme="forge"] .gsd-send-btn {
-  background: var(--forge-elevated); background-image: var(--forge-plate);
-  color: var(--forge-accent); border: 1px solid var(--forge-border); border-radius: 4px;
-  box-shadow: var(--forge-raised);
-}
-.gsd-app[data-theme="forge"] .gsd-send-btn:hover { background-color: var(--forge-accent-bg); box-shadow: var(--forge-raised), var(--forge-accent-glow); }
-.gsd-app[data-theme="forge"] .gsd-send-btn:active { box-shadow: var(--forge-inset); transform: translateY(1px); }
+/* Hover glow effects */
+.gsd-app[data-theme="forge"] .gsd-send-btn:hover, .gsd-app[data-theme="forge"] .gsd-action-btn.primary:hover, .gsd-app[data-theme="forge"] .gsd-scroll-fab:hover { box-shadow: var(--forge-raised), var(--forge-accent-glow); }
 
-/* Footer: bottom plate */
-.gsd-app[data-theme="forge"] .gsd-footer { background: var(--forge-surface); background-image: var(--forge-plate); border-top: 1px solid var(--forge-border); color: var(--forge-text-dim); box-shadow: inset 0 1px 0 var(--forge-bevel-light); }
+/* Active/press: depress into inset */
+.gsd-app[data-theme="forge"] .gsd-send-btn:active, .gsd-app[data-theme="forge"] .gsd-action-btn:active, .gsd-app[data-theme="forge"] .gsd-welcome-chip:active { box-shadow: var(--forge-inset); transform: translateY(1px); }
 
-/* Buttons: raised bolted plates, depress on click */
-.gsd-app[data-theme="forge"] .gsd-action-btn { border: 1px solid var(--forge-border); border-radius: 3px; color: var(--forge-text-dim); background: var(--forge-elevated); background-image: var(--forge-plate); box-shadow: var(--forge-raised); }
-.gsd-app[data-theme="forge"] .gsd-action-btn:hover { color: var(--forge-text); border-color: rgba(255, 255, 255, 0.08); }
-.gsd-app[data-theme="forge"] .gsd-action-btn:active { box-shadow: var(--forge-inset); transform: translateY(1px); }
-.gsd-app[data-theme="forge"] .gsd-action-btn.primary { background-color: var(--forge-accent-bg); border-color: rgba(200, 135, 90, 0.15); color: var(--forge-accent); }
-.gsd-app[data-theme="forge"] .gsd-action-btn.primary:hover { box-shadow: var(--forge-raised), var(--forge-accent-glow); }
+/* Welcome ASCII: subtle */
+.gsd-app[data-theme="forge"] .gsd-welcome-ascii { opacity: 0.4; }
 
-/* Welcome */
-.gsd-app[data-theme="forge"] .gsd-welcome-ascii { color: var(--forge-accent); opacity: 0.4; }
-.gsd-app[data-theme="forge"] .gsd-welcome-title { color: var(--forge-text); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5); }
-.gsd-app[data-theme="forge"] .gsd-welcome-chip { border: 1px solid var(--forge-border); border-radius: 3px; color: var(--forge-text-dim); background: var(--forge-elevated); background-image: var(--forge-plate); box-shadow: var(--forge-raised); }
-.gsd-app[data-theme="forge"] .gsd-welcome-chip:hover { color: var(--forge-text); border-color: rgba(200, 135, 90, 0.15); }
-.gsd-app[data-theme="forge"] .gsd-welcome-chip:active { box-shadow: var(--forge-inset); transform: translateY(1px); }
+/* Settings active dot: accent glow */
+.gsd-app[data-theme="forge"] .gsd-settings-option.active .gsd-settings-option-dot { box-shadow: var(--forge-accent-glow); }
 
-/* Scroll FAB */
-.gsd-app[data-theme="forge"] .gsd-scroll-fab { background: var(--forge-elevated); background-image: var(--forge-plate); border: 1px solid var(--forge-border); border-radius: 3px; box-shadow: var(--forge-raised), 0 4px 12px rgba(0, 0, 0, 0.3); color: var(--forge-text-dim); }
-.gsd-app[data-theme="forge"] .gsd-scroll-fab:hover { color: var(--forge-accent); box-shadow: var(--forge-raised), var(--forge-accent-glow); }
+/* Context bar fill: gradient */
+.gsd-app[data-theme="forge"] .gsd-context-bar-fill { background: linear-gradient(90deg, var(--forge-accent), rgba(200, 135, 90, 0.7)); }
 
-/* Slash menu */
-.gsd-app[data-theme="forge"] .gsd-slash-menu { background: var(--forge-surface); background-image: var(--forge-plate); border: 1px solid var(--forge-border); border-radius: 3px; box-shadow: var(--forge-raised), 0 8px 24px rgba(0, 0, 0, 0.5); }
-.gsd-app[data-theme="forge"] .gsd-slash-item.active { background: var(--forge-accent-bg); }
-.gsd-app[data-theme="forge"] .gsd-slash-name { color: var(--forge-accent); }
-.gsd-app[data-theme="forge"] .gsd-slash-desc { color: var(--forge-text-dim); }
-
-/* Settings */
-.gsd-app[data-theme="forge"] .gsd-settings-dropdown { background: var(--forge-surface); background-image: var(--forge-plate); border: 1px solid var(--forge-border); border-radius: 3px; box-shadow: var(--forge-raised), 0 8px 24px rgba(0, 0, 0, 0.5); }
-.gsd-app[data-theme="forge"] .gsd-settings-option:hover { background: var(--forge-elevated); }
-.gsd-app[data-theme="forge"] .gsd-settings-option.active .gsd-settings-option-dot { background: var(--forge-accent); border-color: var(--forge-accent); box-shadow: var(--forge-accent-glow); }
-
-/* Context bar */
-.gsd-app[data-theme="forge"] .gsd-context-bar { background: var(--forge-recessed); border-radius: 2px; box-shadow: var(--forge-inset); }
-.gsd-app[data-theme="forge"] .gsd-context-bar-fill { background: linear-gradient(90deg, var(--forge-accent), rgba(200, 135, 90, 0.7)); border-radius: 2px; }
-
-/* Scrollbar */
-.gsd-app[data-theme="forge"] .gsd-messages::-webkit-scrollbar-thumb { background: rgba(200, 135, 90, 0.12); border-radius: 2px; }
+/* Scrollbar hover */
 .gsd-app[data-theme="forge"] .gsd-messages::-webkit-scrollbar-thumb:hover { background: rgba(200, 135, 90, 0.2); }
-
-/* Tables */
-.gsd-app[data-theme="forge"] .gsd-assistant-text table { border-color: var(--forge-border); }
-.gsd-app[data-theme="forge"] .gsd-assistant-text th { background: var(--forge-surface); background-image: var(--forge-plate); color: var(--forge-accent-dim); border-color: var(--forge-border); box-shadow: var(--forge-raised); }
-.gsd-app[data-theme="forge"] .gsd-assistant-text td { border-color: var(--forge-border); }
-.gsd-app[data-theme="forge"] .gsd-resize-handle::after { background: var(--forge-border); border-radius: 1px; }
-.gsd-app[data-theme="forge"] .gsd-timestamp { color: var(--forge-text-dim); }

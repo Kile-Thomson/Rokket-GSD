@@ -272,7 +272,7 @@
 
 .gsd-code-block {
   margin: 10px 0;
-  border-radius: var(--gsd-radius-lg);
+  border-radius: var(--gsd-code-radius);
   border: var(--gsd-border-width) solid var(--gsd-color-border-subtle);
   overflow: hidden;
 }

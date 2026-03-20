@@ -8,8 +8,8 @@
   padding: 3px 12px;
   font-size: var(--gsd-font-size-xs);
   color: var(--gsd-color-text-muted);
-  border-top: var(--gsd-border-width) solid var(--gsd-color-border-subtle);
-  background: var(--gsd-color-surface);
+  border-top: var(--gsd-border-width) solid var(--gsd-footer-border);
+  background: var(--gsd-footer-bg);
   flex-shrink: 0;
   overflow: hidden;
   font-family: var(--gsd-font-family-mono);
