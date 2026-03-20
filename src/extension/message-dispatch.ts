@@ -534,8 +534,22 @@ export async function handleWebviewMessage(
           if (client?.isRunning) {
             try {
               await client.fork(msg.entryId);
+              ctx.getSession(sessionId).accumulatedCost = 0;
+              ctx.emitStatus({ cost: 0 });
+              const state = await client.getState() as RpcStateResult;
+              const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
+              ctx.output.appendLine(`[${sessionId}] Forked conversation from entry ${msg.entryId}, ${messagesResult?.messages?.length || 0} messages`);
+              ctx.postToWebview(webview, {
+                type: "session_switched",
+                state: toGsdState(state),
+                messages: messagesResult?.messages || [],
+              });
+              if (state?.model) {
+                ctx.emitStatus({ model: (state.model as any).id || (state.model as any).name });
+              }
             } catch (err: any) {
-              ctx.postToWebview(webview, { type: "error", message: err.message });
+              ctx.output.appendLine(`[${sessionId}] Fork failed: ${err.message}`);
+              ctx.postToWebview(webview, { type: "error", message: `Fork failed: ${err.message}` });
             }
           }
           break;
@@ -578,19 +592,9 @@ export async function handleWebviewMessage(
               const state = await client.getState() as RpcStateResult;
               const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
               ctx.output.appendLine(`[${sessionId}] Switched session, ${messagesResult?.messages?.length || 0} messages`);
-              const gsdState = {
-                model: state?.model || null,
-                thinkingLevel: (state?.thinkingLevel || "off") as import("../shared/types").ThinkingLevel,
-                isStreaming: state?.isStreaming || false,
-                isCompacting: state?.isCompacting || false,
-                sessionFile: (state?.sessionFile as string) || null,
-                sessionId: (state?.sessionId as string) || null,
-                messageCount: (state?.messageCount as number) || 0,
-                autoCompactionEnabled: state?.autoCompactionEnabled || false,
-              };
               ctx.postToWebview(webview, {
                 type: "session_switched",
-                state: gsdState,
+                state: toGsdState(state),
                 messages: messagesResult?.messages || [],
               });
               // Update status bar
@@ -704,19 +708,9 @@ export async function handleWebviewMessage(
               const state = await client.getState() as RpcStateResult;
               const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
               ctx.output.appendLine(`[${sessionId}] Resumed last session: ${latest.name || latest.id} (${messagesResult?.messages?.length || 0} messages)`);
-              const gsdState = {
-                model: state?.model || null,
-                thinkingLevel: (state?.thinkingLevel || "off") as import("../shared/types").ThinkingLevel,
-                isStreaming: state?.isStreaming || false,
-                isCompacting: state?.isCompacting || false,
-                sessionFile: (state?.sessionFile as string) || null,
-                sessionId: (state?.sessionId as string) || null,
-                messageCount: (state?.messageCount as number) || 0,
-                autoCompactionEnabled: state?.autoCompactionEnabled || false,
-              };
               ctx.postToWebview(webview, {
                 type: "session_switched",
-                state: gsdState,
+                state: toGsdState(state),
                 messages: messagesResult?.messages || [],
               });
               if (state?.model) {
