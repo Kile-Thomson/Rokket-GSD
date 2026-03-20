@@ -19,6 +19,7 @@ import type {
   RpcModelsResult,
   RpcThinkingResult,
   RpcStateResult,
+  toGsdState,
   BashResult,
   AgentMessage,
 } from "../shared/types";
@@ -704,7 +705,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
             try {
               const rpcState = await existingLaunch.getState();
-              this.postToWebview(webview, { type: "state", data: rpcState } as unknown as ExtensionToWebviewMessage);
+              this.postToWebview(webview, { type: "state", data: toGsdState(rpcState as RpcStateResult) } as ExtensionToWebviewMessage);
             } catch { /* best effort */ }
           } else {
             await this.launchGsd(webview, sessionId, msg.cwd);
@@ -1708,7 +1709,7 @@ ${exportOverrides}
       try {
         const rpcState = await client.getState() as RpcStateResult;
         this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
-        this.postToWebview(webview, { type: "state", data: rpcState } as unknown as ExtensionToWebviewMessage);
+        this.postToWebview(webview, { type: "state", data: toGsdState(rpcState) } as ExtensionToWebviewMessage);
         if (rpcState?.model) {
           this.emitStatus({ model: rpcState.model.id || rpcState.model.name });
         }

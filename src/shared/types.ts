@@ -268,6 +268,25 @@ export interface RpcStateResult {
   [key: string]: unknown;
 }
 
+/** Convert loose RPC state to the structured GsdState the webview expects */
+export function toGsdState(rpc: RpcStateResult): GsdState {
+  return {
+    model: rpc.model || null,
+    thinkingLevel: (rpc.thinkingLevel || "off") as ThinkingLevel,
+    isStreaming: rpc.isStreaming || false,
+    isCompacting: rpc.isCompacting || false,
+    sessionFile: (rpc.sessionFile as string) || null,
+    sessionId: (rpc.sessionId as string) || null,
+    sessionName: rpc.sessionName as string | undefined,
+    messageCount: (rpc.messageCount as number) || 0,
+    pendingMessageCount: rpc.pendingMessageCount as number | undefined,
+    autoCompactionEnabled: rpc.autoCompactionEnabled || false,
+    steeringMode: rpc.steeringMode as GsdState["steeringMode"],
+    followUpMode: rpc.followUpMode as GsdState["followUpMode"],
+    cwd: rpc.cwd,
+  };
+}
+
 // --- Dashboard Data (parsed from .gsd/ project files) ---
 
 export interface DashboardSlice {
