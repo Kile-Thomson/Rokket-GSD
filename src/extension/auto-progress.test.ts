@@ -15,6 +15,14 @@ vi.mock("./captures-parser", () => ({
   countPendingCaptures: (...args: unknown[]) => mockCountPendingCaptures(...args),
 }));
 
+// ── Mock parallel-status ──
+const mockReadParallelWorkers = vi.fn();
+const mockReadBudgetCeiling = vi.fn();
+vi.mock("./parallel-status", () => ({
+  readParallelWorkers: (...args: unknown[]) => mockReadParallelWorkers(...args),
+  readBudgetCeiling: (...args: unknown[]) => mockReadBudgetCeiling(...args),
+}));
+
 import { AutoProgressPoller } from "./auto-progress";
 
 // ── Helpers ──
@@ -86,7 +94,9 @@ describe("AutoProgressPoller", () => {
         milestones: { done: 0, total: 1 },
       },
     });
-    mockCountPendingCaptures.mockReturnValue(0);
+    mockCountPendingCaptures.mockResolvedValue(0);
+    mockReadParallelWorkers.mockResolvedValue(null);
+    mockReadBudgetCeiling.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -106,7 +116,8 @@ describe("AutoProgressPoller", () => {
     poller.onAutoModeChanged("auto");
     expect(poller.isActive).toBe(true);
 
-    // Immediate poll fires synchronously on start
+    // Flush async poll() — multiple awaits need multiple microtask flushes
+    await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(mockBuildDashboardData).toHaveBeenCalledWith("/mock/cwd");
@@ -246,6 +257,8 @@ describe("AutoProgressPoller", () => {
     const { poller, webview } = createPoller({ client });
 
     poller.onAutoModeChanged("auto");
+    // Flush async poll() — multiple awaits in poll() need multiple microtask flushes
+    await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(0);
 
     const lastCall = webview.postMessage.mock.calls.at(-1)?.[0];
