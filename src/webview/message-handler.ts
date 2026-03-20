@@ -855,7 +855,7 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
 
   // Show messages area, hide welcome
   if (state.entries.length > 0) {
-    welcomeScreen.style.display = "none";
+    welcomeScreen.classList.add("gsd-hidden");
   }
 }
 

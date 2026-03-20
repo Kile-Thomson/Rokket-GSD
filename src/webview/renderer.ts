@@ -135,7 +135,7 @@ export function ensureCurrentTurnElement(): HTMLElement {
     el.dataset.entryId = state.currentTurn?.id || "stream";
     messagesContainer.appendChild(el);
     currentTurnElement = el;
-    welcomeScreen.style.display = "none";
+    welcomeScreen.classList.add("gsd-hidden");
   }
   return currentTurnElement;
 }

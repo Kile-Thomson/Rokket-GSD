@@ -50,7 +50,7 @@ export function show(): void {
 
 export function hide(): void {
   visible = false;
-  pickerEl.style.display = "none";
+  pickerEl.classList.add("gsd-hidden");
   pickerEl.innerHTML = "";
   if (triggerEl && typeof triggerEl.focus === "function") {
     triggerEl.focus();
@@ -66,7 +66,7 @@ export function render(): void {
   const currentProvider = state.model?.provider;
 
   if (models.length === 0) {
-    pickerEl.style.display = "block";
+    pickerEl.classList.remove("gsd-hidden");
     pickerEl.innerHTML = `<div class="gsd-model-picker-loading">
       <span class="gsd-tool-spinner"></span> Loading models…
     </div>`;
@@ -127,7 +127,7 @@ export function render(): void {
     html += `</div></div>`;
   }
 
-  pickerEl.style.display = "block";
+  pickerEl.classList.remove("gsd-hidden");
   pickerEl.innerHTML = html;
 
   pickerEl.querySelector("#modelPickerClose")?.addEventListener("click", hide);

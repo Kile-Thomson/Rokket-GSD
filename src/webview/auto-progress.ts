@@ -41,8 +41,7 @@ export function init(): void {
     // Create and insert before input area
     widgetEl = document.createElement("div");
     widgetEl.id = "autoProgressWidget";
-    widgetEl.className = "gsd-auto-progress";
-    widgetEl.style.display = "none";
+    widgetEl.className = "gsd-auto-progress gsd-hidden";
     widgetEl.setAttribute("role", "status");
     widgetEl.setAttribute("aria-live", "polite");
     widgetEl.setAttribute("aria-label", "Auto-mode progress");
@@ -115,7 +114,7 @@ function render(): void {
   const data = state.autoProgress;
 
   if (!data) {
-    widgetEl.style.display = "none";
+    widgetEl.classList.add("gsd-hidden");
     widgetEl.innerHTML = "";
     if (elapsedTimer) {
       clearInterval(elapsedTimer);
@@ -124,7 +123,7 @@ function render(): void {
     return;
   }
 
-  widgetEl.style.display = "flex";
+  widgetEl.classList.remove("gsd-hidden");
 
   // Detect discussion-pause state
   const isDiscussionPause = data.autoState === "paused" && data.phase === "needs-discussion";
@@ -196,6 +195,11 @@ function render(): void {
     </div>
   `;
 
+  // Set progress/budget bar fill widths via JS (CSP-safe — no inline styles in HTML)
+  widgetEl.querySelectorAll<HTMLElement>("[data-fill-pct]").forEach((fill) => {
+    fill.style.width = `${fill.dataset.fillPct}%`;
+  });
+
   updateElapsedDisplay();
 }
 
@@ -209,7 +213,7 @@ function buildProgressBar(data: AutoProgressData): string {
       <span class="gsd-auto-progress-bar-group">
         <span class="gsd-auto-progress-bar-label">Tasks</span>
         <span class="gsd-auto-progress-bar-track">
-          <span class="gsd-auto-progress-bar-fill" style="width: ${pct}%"></span>
+          <span class="gsd-auto-progress-bar-fill" data-fill-pct="${pct}"></span>
         </span>
         <span class="gsd-auto-progress-bar-value">${data.tasks.done}/${data.tasks.total}</span>
       </span>
@@ -223,7 +227,7 @@ function buildProgressBar(data: AutoProgressData): string {
       <span class="gsd-auto-progress-bar-group">
         <span class="gsd-auto-progress-bar-label">Slices</span>
         <span class="gsd-auto-progress-bar-track">
-          <span class="gsd-auto-progress-bar-fill gsd-auto-progress-bar-fill--slices" style="width: ${pct}%"></span>
+          <span class="gsd-auto-progress-bar-fill gsd-auto-progress-bar-fill--slices" data-fill-pct="${pct}"></span>
         </span>
         <span class="gsd-auto-progress-bar-value">${data.slices.done}/${data.slices.total}</span>
       </span>
@@ -335,7 +339,7 @@ function buildWorkerBudgetBar(percent: number): string {
   return `
     <div class="gsd-worker-budget">
       <div class="gsd-worker-budget-track">
-        <div class="gsd-worker-budget-fill ${colorClass}" style="width: ${fillWidth}%"></div>
+        <div class="gsd-worker-budget-fill ${colorClass}" data-fill-pct="${fillWidth}"></div>
       </div>
       <span class="gsd-worker-budget-label">${Math.round(percent)}%</span>
     </div>
