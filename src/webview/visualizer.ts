@@ -100,6 +100,32 @@ export function handleKeyDown(e: KeyboardEvent): boolean {
     hide();
     return true;
   }
+  // Arrow key tab switching (roving tabindex)
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    const tabs = overlayEl?.querySelectorAll<HTMLElement>(".gsd-visualizer-tab");
+    if (!tabs || tabs.length === 0) return false;
+    const tabNames: Array<"progress" | "metrics" | "health"> = ["progress", "metrics", "health"];
+    let currentIdx = tabNames.indexOf(activeTab);
+    if (currentIdx === -1) currentIdx = 0;
+
+    if (e.key === "ArrowRight") {
+      currentIdx = (currentIdx + 1) % tabs.length;
+    } else {
+      currentIdx = (currentIdx - 1 + tabs.length) % tabs.length;
+    }
+    e.preventDefault();
+    activeTab = tabNames[currentIdx];
+    render();
+    // After render, focus the newly active tab
+    const newTabs = overlayEl?.querySelectorAll<HTMLElement>(".gsd-visualizer-tab");
+    if (newTabs) {
+      newTabs.forEach((tab, i) => {
+        tab.tabIndex = i === currentIdx ? 0 : -1;
+        if (i === currentIdx) tab.focus();
+      });
+    }
+    return true;
+  }
   return false;
 }
 
@@ -531,7 +557,11 @@ function getPhaseClass(phase: string): string {
 }
 
 function wireClose(): void {
-  overlayEl?.querySelector("#vizClose")?.addEventListener("click", hide);
+  const closeBtn = overlayEl?.querySelector<HTMLElement>("#vizClose");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", hide);
+    closeBtn.tabIndex = 0;
+  }
   // Attach focus trap (remove old one first to avoid duplicates on re-render)
   if (overlayEl) {
     if (focusTrapHandler) {
@@ -543,10 +573,15 @@ function wireClose(): void {
 }
 
 function wireTabs(): void {
-  const tabs = overlayEl?.querySelectorAll(".gsd-visualizer-tab");
-  tabs?.forEach(tab => {
+  const tabs = overlayEl?.querySelectorAll<HTMLElement>(".gsd-visualizer-tab");
+  const tabNames: Array<"progress" | "metrics" | "health"> = ["progress", "metrics", "health"];
+  tabs?.forEach((tab, i) => {
+    const t = tab.dataset.tab as "progress" | "metrics" | "health";
+    // Set roving tabindex: active tab gets 0, others get -1
+    tab.tabIndex = t === activeTab ? 0 : -1;
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", String(t === activeTab));
     tab.addEventListener("click", () => {
-      const t = (tab as HTMLElement).dataset.tab as "progress" | "metrics" | "health";
       if (t && t !== activeTab) {
         activeTab = t;
         render();

@@ -38,8 +38,10 @@ let _autoResize: () => void;
 
 // Focus trap state for settings dropdown and changelog
 let settingsTrapHandler: ((e: KeyboardEvent) => void) | null = null;
+let settingsNavHandler: ((e: KeyboardEvent) => void) | null = null;
 let settingsTriggerEl: HTMLElement | null = null;
 let changelogTrapHandler: ((e: KeyboardEvent) => void) | null = null;
+let changelogNavHandler: ((e: KeyboardEvent) => void) | null = null;
 let changelogTriggerEl: HTMLElement | null = null;
 
 export interface KeyboardDeps {
@@ -193,19 +195,29 @@ function setupKeyboardHandlers(): void {
 // ============================================================
 
 function setupClickHandlers(): void {
+  /** Dismiss the changelog overlay, clean up listeners, restore focus */
+  function dismissChangelog(): void {
+    const el = document.getElementById("gsd-changelog");
+    if (!el) return;
+    if (changelogTrapHandler) {
+      el.removeEventListener("keydown", changelogTrapHandler);
+      changelogTrapHandler = null;
+    }
+    if (changelogNavHandler) {
+      el.removeEventListener("keydown", changelogNavHandler);
+      changelogNavHandler = null;
+    }
+    el.classList.add("dismissing");
+    setTimeout(() => el.remove(), 300);
+    restoreFocus(changelogTriggerEl);
+    changelogTriggerEl = null;
+  }
+
   // Version badge click → changelog
   headerVersion.addEventListener("click", () => {
     const existing = document.getElementById("gsd-changelog");
     if (existing) {
-      // Dismiss changelog — remove focus trap and restore focus
-      if (changelogTrapHandler) {
-        existing.removeEventListener("keydown", changelogTrapHandler);
-        changelogTrapHandler = null;
-      }
-      existing.classList.add("dismissing");
-      setTimeout(() => existing.remove(), 300);
-      restoreFocus(changelogTriggerEl);
-      changelogTriggerEl = null;
+      dismissChangelog();
     } else {
       // Save focus before opening changelog
       changelogTriggerEl = saveFocus();
@@ -214,9 +226,11 @@ function setupClickHandlers(): void {
       const loader = document.createElement("div");
       loader.id = "gsd-changelog";
       loader.className = "gsd-changelog";
+      loader.setAttribute("tabindex", "-1");
       loader.innerHTML = `
         <div class="gsd-changelog-header">
           <span class="gsd-changelog-title">📋 Changelog</span>
+          <button class="gsd-changelog-close" aria-label="Close changelog">✕</button>
         </div>
         <div class="gsd-loading-spinner"><div class="gsd-spinner"></div> Loading...</div>
       `;
@@ -225,8 +239,28 @@ function setupClickHandlers(): void {
       changelogTrapHandler = createFocusTrap(loader);
       loader.addEventListener("keydown", changelogTrapHandler);
 
+      // Keyboard navigation: Escape to close
+      changelogNavHandler = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          dismissChangelog();
+        }
+      };
+      loader.addEventListener("keydown", changelogNavHandler);
+
+      // Close button click
+      loader.querySelector(".gsd-changelog-close")?.addEventListener("click", dismissChangelog);
+
+      // Focus the close button (or the container if no close button)
+      const closeBtn = loader.querySelector<HTMLElement>(".gsd-changelog-close");
       messagesContainer.appendChild(loader);
       scrollToBottom(messagesContainer, true);
+      if (closeBtn) {
+        closeBtn.focus();
+      } else {
+        loader.focus();
+      }
+
       vscode.postMessage({ type: "get_changelog" } as WebviewToExtensionMessage);
     }
   });
@@ -352,35 +386,32 @@ function setupButtonHandlers(): void {
   const settingsDropdown = document.getElementById("settingsDropdown");
   const settingsWrapper = document.getElementById("settingsWrapper");
   if (settingsBtn && settingsDropdown && settingsWrapper) {
-    settingsBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const isOpen = settingsDropdown.classList.toggle("open");
-      settingsBtn.setAttribute("aria-expanded", String(isOpen));
-      if (isOpen) {
-        // Save focus and apply focus trap
-        settingsTriggerEl = saveFocus();
-        settingsTrapHandler = createFocusTrap(settingsDropdown);
-        settingsDropdown.addEventListener("keydown", settingsTrapHandler);
-      } else {
-        // Remove focus trap and restore focus
-        if (settingsTrapHandler) {
-          settingsDropdown.removeEventListener("keydown", settingsTrapHandler);
-          settingsTrapHandler = null;
-        }
-        restoreFocus(settingsTriggerEl);
-        settingsTriggerEl = null;
+    /** Close settings dropdown: remove listeners and restore focus */
+    function closeSettingsDropdown(): void {
+      settingsDropdown!.classList.remove("open");
+      settingsBtn!.setAttribute("aria-expanded", "false");
+      if (settingsTrapHandler) {
+        settingsDropdown!.removeEventListener("keydown", settingsTrapHandler);
+        settingsTrapHandler = null;
       }
-    });
+      if (settingsNavHandler) {
+        settingsDropdown!.removeEventListener("keydown", settingsNavHandler);
+        settingsNavHandler = null;
+      }
+      restoreFocus(settingsTriggerEl);
+      settingsTriggerEl = null;
+    }
 
-    // Theme option clicks
-    settingsDropdown.addEventListener("click", (e) => {
-      const option = (e.target as HTMLElement).closest("[data-theme]") as HTMLElement | null;
-      if (!option) return;
+    /** Select a theme option: update state, apply theme, close dropdown */
+    function selectSettingsOption(option: HTMLElement): void {
       const theme = option.dataset.theme!;
-      if (theme === state.theme) return;
+      if (theme === state.theme) {
+        closeSettingsDropdown();
+        return;
+      }
 
       // Update active state
-      settingsDropdown.querySelectorAll(".gsd-settings-option").forEach(el => {
+      settingsDropdown!.querySelectorAll(".gsd-settings-option").forEach(el => {
         el.classList.remove("active");
         el.setAttribute("aria-checked", "false");
       });
@@ -392,28 +423,81 @@ function setupButtonHandlers(): void {
       document.querySelector(".gsd-app")?.setAttribute("data-theme", theme);
       vscode.postMessage({ type: "set_theme", theme } as WebviewToExtensionMessage);
 
-      // Close dropdown
-      settingsDropdown.classList.remove("open");
-      settingsBtn.setAttribute("aria-expanded", "false");
-      if (settingsTrapHandler) {
-        settingsDropdown.removeEventListener("keydown", settingsTrapHandler);
-        settingsTrapHandler = null;
+      closeSettingsDropdown();
+    }
+
+    settingsBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isOpen = settingsDropdown.classList.toggle("open");
+      settingsBtn.setAttribute("aria-expanded", String(isOpen));
+      if (isOpen) {
+        // Save focus and apply focus trap
+        settingsTriggerEl = saveFocus();
+        settingsTrapHandler = createFocusTrap(settingsDropdown);
+        settingsDropdown.addEventListener("keydown", settingsTrapHandler);
+
+        // Keyboard navigation: roving tabindex on options
+        const options = settingsDropdown.querySelectorAll<HTMLElement>(".gsd-settings-option");
+        if (options.length > 0) {
+          // Find the active (checked) option index, default to 0
+          let activeIndex = 0;
+          options.forEach((el, i) => {
+            if (el.classList.contains("active") || el.getAttribute("aria-checked") === "true") {
+              activeIndex = i;
+            }
+          });
+
+          function focusOption(index: number): void {
+            options.forEach((el, i) => {
+              el.tabIndex = i === index ? 0 : -1;
+              if (i === index) {
+                el.classList.add("focused");
+                el.focus();
+              } else {
+                el.classList.remove("focused");
+              }
+            });
+          }
+
+          // Set initial tabindex and focus the active option
+          focusOption(activeIndex);
+
+          settingsNavHandler = (e: KeyboardEvent) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              activeIndex = (activeIndex + 1) % options.length;
+              focusOption(activeIndex);
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              activeIndex = (activeIndex - 1 + options.length) % options.length;
+              focusOption(activeIndex);
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              const focused = options[activeIndex];
+              if (focused) selectSettingsOption(focused);
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              closeSettingsDropdown();
+            }
+          };
+          settingsDropdown.addEventListener("keydown", settingsNavHandler);
+        }
+      } else {
+        closeSettingsDropdown();
       }
-      restoreFocus(settingsTriggerEl);
-      settingsTriggerEl = null;
+    });
+
+    // Theme option clicks
+    settingsDropdown.addEventListener("click", (e) => {
+      const option = (e.target as HTMLElement).closest("[data-theme]") as HTMLElement | null;
+      if (!option) return;
+      selectSettingsOption(option);
     });
 
     // Close dropdown when clicking outside
     document.addEventListener("click", (e) => {
       if (!settingsWrapper.contains(e.target as Node)) {
-        settingsDropdown.classList.remove("open");
-        settingsBtn.setAttribute("aria-expanded", "false");
-        if (settingsTrapHandler) {
-          settingsDropdown.removeEventListener("keydown", settingsTrapHandler);
-          settingsTrapHandler = null;
-        }
-        restoreFocus(settingsTriggerEl);
-        settingsTriggerEl = null;
+        closeSettingsDropdown();
       }
     });
   }
