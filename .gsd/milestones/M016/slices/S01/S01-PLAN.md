@@ -44,7 +44,7 @@
 
 ## Tasks
 
-- [ ] **T01: Wire watchdogs, command-fallback, rpc-events, and file-ops into webview-provider** `est:1h`
+- [x] **T01: Wire watchdogs, command-fallback, rpc-events, and file-ops into webview-provider** `est:1h`
   - Why: Four modules with 86 tests are completely extracted but zero-imported — provider has ~667 lines of inline duplicates. Wiring them is the single largest LOC reduction and the safest extraction since every module already has a `Context` interface and full test coverage.
   - Files: `src/extension/webview-provider.ts`, `src/extension/watchdogs.ts`, `src/extension/command-fallback.ts`, `src/extension/rpc-events.ts`, `src/extension/file-ops.ts`
   - Do: (1) Add imports for all four modules. (2) Create context adapter objects using arrow functions to preserve `this` binding — `WatchdogContext`, `CommandFallbackContext`, `RpcEventContext`, `FileOpsContext`. (3) Replace inline method calls with calls to imported functions, passing the context adapter. Wire in dependency order: watchdogs first (leaf), command-fallback (leaf), rpc-events (depends on watchdogCtx), file-ops (standalone). (4) Delete all inline duplicate method bodies (~667 lines). Remove the provider's `GSD_COMMAND_RE` and `GSD_NATIVE_SUBCOMMANDS` statics (use command-fallback's exports). (5) Compare each inline method signature against the extracted module's version before replacing — the research warns about parameter drift. (6) Ensure `_doLaunchGsd` event handlers delegate to imported `handleRpcEvent` with the context adapter, and cleanup handlers call imported `clearPromptWatchdog`/`stopActivityMonitor`. (7) Run `npx vitest --run` and `npm run build` after wiring.
