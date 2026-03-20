@@ -868,6 +868,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           if (client?.isRunning) {
             try {
               await client.newSession();
+              this.getSession(sessionId).accumulatedCost = 0;
               const state = await client.getState();
               this.postToWebview(webview, { type: "state", data: state } as ExtensionToWebviewMessage);
             } catch (err: any) {
@@ -1212,6 +1213,7 @@ ${exportOverrides}
                 this.output.appendLine(`[${sessionId}] Session switch cancelled`);
                 break;
               }
+              this.getSession(sessionId).accumulatedCost = 0;
               // Get the new state and messages after switch
               const state = await client.getState() as RpcStateResult;
               const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
@@ -1337,6 +1339,7 @@ ${exportOverrides}
                 this.output.appendLine(`[${sessionId}] Resume cancelled`);
                 break;
               }
+              this.getSession(sessionId).accumulatedCost = 0;
               const state = await client.getState() as RpcStateResult;
               const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
               this.output.appendLine(`[${sessionId}] Resumed last session: ${latest.name || latest.id} (${messagesResult?.messages?.length || 0} messages)`);
