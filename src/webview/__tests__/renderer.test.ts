@@ -108,7 +108,6 @@ describe("renderer", () => {
     messagesContainer.id = "messages";
     welcomeScreen = document.createElement("div");
     welcomeScreen.id = "welcome";
-    welcomeScreen.style.display = "block";
     document.body.appendChild(messagesContainer);
     document.body.appendChild(welcomeScreen);
 
@@ -199,7 +198,7 @@ describe("renderer", () => {
     it("hides welcome screen", () => {
       startTurn();
       ensureCurrentTurnElement();
-      expect(welcomeScreen.style.display).toBe("none");
+      expect(welcomeScreen.classList.contains("gsd-hidden")).toBe(true);
     });
 
     it("returns the same element on repeated calls (idempotent)", () => {

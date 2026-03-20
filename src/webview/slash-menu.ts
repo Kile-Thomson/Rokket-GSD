@@ -84,7 +84,7 @@ export function show(filter: string): void {
 
 export function hide(): void {
   slashMenuVisible = false;
-  slashMenuEl.style.display = "none";
+  slashMenuEl.classList.add("gsd-hidden");
   slashMenuEl.innerHTML = "";
   // Restore focus to prompt input (slash menu is always triggered from input)
   promptInput?.focus();
@@ -218,7 +218,7 @@ export function buildItems(): SlashMenuItem[] {
 }
 
 function render(): void {
-  slashMenuEl.style.display = "block";
+  slashMenuEl.classList.remove("gsd-hidden");
   slashMenuEl.setAttribute("role", "listbox");
   slashMenuEl.setAttribute("aria-label", "Slash commands");
   slashMenuEl.innerHTML = filteredItems.map((item, i) => `

@@ -78,7 +78,7 @@ describe("visualizer", () => {
     expect(visualizer.isVisible()).toBe(true);
     const overlay = document.getElementById("workflowVisualizer");
     expect(overlay).not.toBeNull();
-    expect(overlay!.style.display).toBe("flex");
+    expect(overlay!.classList.contains("gsd-hidden")).toBe(false);
   });
 
   it("hides on hide()", () => {
@@ -86,7 +86,7 @@ describe("visualizer", () => {
     visualizer.hide();
     expect(visualizer.isVisible()).toBe(false);
     const overlay = document.getElementById("workflowVisualizer");
-    expect(overlay!.style.display).toBe("none");
+    expect(overlay!.classList.contains("gsd-hidden")).toBe(true);
   });
 
   it("renders loading state on show()", () => {

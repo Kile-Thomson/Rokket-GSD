@@ -65,7 +65,7 @@ export function hide(): void {
     refreshTimer = null;
   }
   if (overlayEl) {
-    overlayEl.style.display = "none";
+    overlayEl.classList.add("gsd-hidden");
     overlayEl.innerHTML = "";
   }
 }
@@ -110,7 +110,7 @@ function ensureOverlayElement(): void {
       messagesContainer.parentElement.insertBefore(overlayEl, messagesContainer);
     }
   }
-  overlayEl.style.display = "flex";
+  overlayEl.classList.remove("gsd-hidden");
 }
 
 // ============================================================
@@ -183,6 +183,11 @@ function render(): void {
 
   wireClose();
   wireTabs();
+
+  // Set progress bar fill widths via JS (CSP-safe — no inline styles in HTML)
+  overlayEl.querySelectorAll<HTMLElement>("[data-fill-pct]").forEach((fill) => {
+    fill.style.width = `${fill.dataset.fillPct}%`;
+  });
 }
 
 // ============================================================
@@ -319,7 +324,7 @@ function renderProgressBar(label: string, done: number, total: number, level: st
     <div class="gsd-viz-progress-row">
       <span class="gsd-viz-progress-label">${escapeHtml(label)}</span>
       <div class="gsd-viz-progress-track">
-        <div class="gsd-viz-progress-fill gsd-viz-progress-fill--${level}" style="width: ${fillPct}%"></div>
+        <div class="gsd-viz-progress-fill gsd-viz-progress-fill--${level}" data-fill-pct="${fillPct}"></div>
       </div>
       <span class="gsd-viz-progress-pct">${pct}%</span>
       <span class="gsd-viz-progress-ratio">${done}/${total}</span>
@@ -423,7 +428,7 @@ function renderMetricsTab(data: DashboardData): string {
         <div class="gsd-viz-progress-row">
           <span class="gsd-viz-progress-label">Usage</span>
           <div class="gsd-viz-progress-track">
-            <div class="gsd-viz-progress-fill gsd-viz-progress-fill--context" style="width: ${pct}%"></div>
+            <div class="gsd-viz-progress-fill gsd-viz-progress-fill--context" data-fill-pct="${pct}"></div>
           </div>
           <span class="gsd-viz-progress-pct">${pct}%</span>
           <span class="gsd-viz-progress-ratio">${formatTokens(sessionStats.contextTokens)}/${formatTokens(sessionStats.contextWindow)}</span>
@@ -474,7 +479,7 @@ function renderHealthTab(): string {
   // Model info from auto-progress
   const autoData = state.autoProgress;
   if (autoData?.model) {
-    html += '<div class="gsd-visualizer-section-title" style="margin-top: 12px;">Active Model</div>';
+    html += '<div class="gsd-visualizer-section-title gsd-viz-section-spaced">Active Model</div>';
     html += `<div class="gsd-visualizer-health-item info">`;
     html += `<span class="gsd-visualizer-health-icon">🤖</span>`;
     html += `<span class="gsd-visualizer-health-text">${escapeHtml(autoData.model.provider)}/${escapeHtml(autoData.model.id)}</span>`;

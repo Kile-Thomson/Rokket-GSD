@@ -51,20 +51,20 @@ describe("auto-progress widget", () => {
   it("creates widget element on init", () => {
     const widget = document.getElementById("autoProgressWidget");
     expect(widget).toBeTruthy();
-    expect(widget!.style.display).toBe("none");
+    expect(widget!.classList.contains("gsd-hidden")).toBe(true);
   });
 
   it("shows widget when progress data is received", () => {
     autoProgress.update(makeProgressData());
     const widget = document.getElementById("autoProgressWidget");
-    expect(widget!.style.display).toBe("flex");
+    expect(widget!.classList.contains("gsd-hidden")).toBe(false);
   });
 
   it("hides widget when null is received", () => {
     autoProgress.update(makeProgressData());
     autoProgress.update(null);
     const widget = document.getElementById("autoProgressWidget");
-    expect(widget!.style.display).toBe("none");
+    expect(widget!.classList.contains("gsd-hidden")).toBe(true);
   });
 
   it("displays task info correctly", () => {
@@ -234,7 +234,7 @@ describe("auto-progress widget", () => {
     it("widget remains visible during discussion pause", () => {
       autoProgress.update(discussionData());
       const widget = document.getElementById("autoProgressWidget");
-      expect(widget!.style.display).toBe("flex");
+      expect(widget!.classList.contains("gsd-hidden")).toBe(false);
     });
   });
 
