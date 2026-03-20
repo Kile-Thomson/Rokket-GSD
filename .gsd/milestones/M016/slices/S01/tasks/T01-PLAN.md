@@ -90,6 +90,12 @@ The modules have established `Context` interfaces for dependency injection. The 
 - `npm run build` — esbuild succeeds
 - `rg "private startPromptWatchdog|private clearPromptWatchdog|private startSlashCommandWatchdog|private startActivityMonitor|private stopActivityMonitor|private abortAndPrompt|private handleRpcEvent|private handleExtensionUiRequest|private armGsdFallbackProbe|private startGsdFallbackTimer|private handleGsdAutoFallback" src/extension/webview-provider.ts` — zero matches
 
+## Observability Impact
+
+- **Signals changed:** No new log signals — the same `[sessionId]` prefixed log lines originate from extracted module functions instead of inline methods. Log format and content are identical.
+- **Inspection surface:** `Output > Rokket GSD` panel still shows all message dispatch and RPC events. Test suite (86 module-level tests) validates the wiring contracts.
+- **Failure visibility:** If context adapter wiring is wrong (e.g., arrow-function binding issue), tests catch it immediately. Runtime failures surface as `[ERR-xxx]` in the output channel. A broken `watchdogCtx` adapter would cause prompt watchdog timeouts to silently fail — the 22 watchdog tests cover all escalation paths.
+
 ## Inputs
 
 - `src/extension/webview-provider.ts` — the 2,239-LOC god-file with inline duplicates
