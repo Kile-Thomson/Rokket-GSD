@@ -52,3 +52,10 @@ Install `@vitest/coverage-v8` and configure Vitest to generate coverage reports.
 - `vitest.config.ts` — updated with coverage provider configuration
 - `package.json` — updated with `@vitest/coverage-v8` devDependency and `test:coverage` script
 - Coverage report baseline percentages recorded (informational, no threshold enforcement yet)
+
+## Observability Impact
+
+- **New signal:** `npx vitest --run --coverage` now emits per-file line/branch/function/statement percentages to stdout via the `text` and `text-summary` reporters. Previously, no coverage data was available.
+- **Inspection surface:** Run `npm run test:coverage` to regenerate the coverage report at any time. The `coverage/` directory contains detailed data (gitignored, ephemeral).
+- **Failure visibility:** If the coverage provider fails to load, Vitest prints a clear error: `Error: Failed to load coverage provider`. A missing `@vitest/coverage-v8` dependency produces: `Cannot find module '@vitest/coverage-v8'`.
+- **Future agent use:** Baseline percentages recorded in the task summary establish the "measure first" anchor for D023's CI gate threshold.
