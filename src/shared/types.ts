@@ -4,6 +4,16 @@
 
 // --- Messages FROM webview TO extension ---
 
+/**
+ * Union of all messages the webview can send to the extension host via `postMessage()`.
+ *
+ * Each variant is discriminated by the `type` field. The extension's `message-dispatch.ts`
+ * routes incoming messages to handlers based on this type. Key message types include:
+ * - `"prompt"` / `"steer"` / `"follow_up"` — user text input to the agent
+ * - `"get_state"` / `"get_session_stats"` — state polling requests
+ * - `"switch_session"` / `"new_conversation"` — session lifecycle
+ * - `"set_model"` / `"set_thinking_level"` — configuration changes
+ */
 export type WebviewToExtensionMessage =
   | { type: "launch_gsd"; cwd?: string }
   | { type: "prompt"; message: string; images?: ImageAttachment[] }
@@ -53,6 +63,17 @@ export type WebviewToExtensionMessage =
 
 // --- Messages FROM extension TO webview ---
 
+/**
+ * Union of all messages the extension host can send to the webview via `panel.webview.postMessage()`.
+ *
+ * Each variant is discriminated by the `type` field. The webview's `message-handler.ts`
+ * dispatches incoming messages to update `AppState` and trigger re-renders. Key message types:
+ * - `"state"` — full GsdState snapshot (model, streaming status, session info)
+ * - `"message_start"` / `"message_update"` / `"message_end"` — streaming message lifecycle
+ * - `"tool_execution_start"` / `"tool_execution_end"` — tool call progress
+ * - `"error"` / `"process_exit"` — error and lifecycle notifications
+ * - `"session_switched"` — session change with new state + messages
+ */
 export type ExtensionToWebviewMessage =
   | { type: "state"; data: GsdState }
   | { type: "session_stats"; data: SessionStats }
@@ -120,16 +141,20 @@ export interface SessionListItem {
 
 // --- Shared Data Types ---
 
+/** Process lifecycle status reported by the extension's process watchdog. */
 export type ProcessStatus = "starting" | "running" | "crashed" | "restarting" | "stopped";
 
+/** Health status from the periodic ping-based health check. */
 export type ProcessHealthStatus = "responsive" | "unresponsive" | "recovered";
 
+/** A base64-encoded image attached to a user message. */
 export interface ImageAttachment {
   type: "image";
   data: string; // base64
   mimeType: string;
 }
 
+/** A workspace file attached to a user message (not yet base64-encoded). */
 export interface FileAttachment {
   type: "file";
   path: string;
@@ -137,8 +162,16 @@ export interface FileAttachment {
   extension: string;
 }
 
+/** Thinking budget level controlling extended thinking depth. Maps to gsd-pi's thinking budget parameter. */
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
+/**
+ * Core UI state sent from the extension to the webview via `{ type: "state" }` messages.
+ *
+ * Represents the authoritative snapshot of the current session: which model is active,
+ * whether the agent is streaming, session identity, and user preferences. The webview
+ * uses this to drive header displays, input state, and status indicators.
+ */
 export interface GsdState {
   model: ModelInfo | null;
   thinkingLevel: ThinkingLevel;
@@ -155,6 +188,14 @@ export interface GsdState {
   cwd?: string;
 }
 
+/**
+ * Session cost, token usage, and context metrics — merged from `getSessionStats()`
+ * and `getContextUsage()` RPC responses.
+ *
+ * The extension merges data from two RPC calls into this single structure before
+ * sending it to the webview. Fields from `getContextUsage()` are prefixed with `context*`.
+ * Legacy fields (`contextUsed`, `totalTokensIn`, etc.) are kept for backward compatibility.
+ */
 export interface SessionStats {
   // From getSessionStats() RPC response
   userMessages?: number;
@@ -186,6 +227,7 @@ export interface SessionStats {
   duration?: number;
 }
 
+/** Model identity and metadata used for display and context window calculations. */
 export interface ModelInfo {
   id: string;
   name: string;
@@ -193,6 +235,15 @@ export interface ModelInfo {
   contextWindow?: number;
 }
 
+/**
+ * A single conversation entry — user prompt, assistant response, tool result, or bash execution.
+ *
+ * The `content` field is intentionally `unknown` because its shape varies by role:
+ * - `"user"`: string or array of content blocks (text + images)
+ * - `"assistant"`: array of content blocks (text, thinking, tool_use)
+ * - `"toolResult"`: tool execution output
+ * - `"bashExecution"`: bash command + result
+ */
 export interface AgentMessage {
   role: "user" | "assistant" | "toolResult" | "bashExecution";
   content: unknown;
@@ -200,6 +251,14 @@ export interface AgentMessage {
   [key: string]: unknown;
 }
 
+/**
+ * A streaming update delta received during an assistant turn.
+ *
+ * Emitted as `"message_update"` events during streaming. The `type` field indicates
+ * the kind of delta (e.g. `"text"`, `"thinking"`, `"tool_use"`), and `delta` contains
+ * the incremental text content. Tool call deltas include the `toolCall` field with
+ * the tool's name and partial arguments.
+ */
 export interface StreamDelta {
   type: string;
   contentIndex?: number;
@@ -213,11 +272,13 @@ export interface StreamDelta {
   [key: string]: unknown;
 }
 
+/** Tool execution output — an array of content blocks (text, images, etc.) with metadata. */
 export interface ToolResult {
   content: Array<{ type: string; text?: string; [key: string]: unknown }>;
   details: Record<string, unknown>;
 }
 
+/** Metadata for a slash command available in the agent. */
 export interface CommandInfo {
   name: string;
   description?: string;
@@ -226,6 +287,7 @@ export interface CommandInfo {
   path?: string;
 }
 
+/** A model available for selection, as returned by `get_available_models` RPC. */
 export interface AvailableModelInfo {
   id: string;
   name?: string;
@@ -234,6 +296,7 @@ export interface AvailableModelInfo {
   contextWindow?: number;
 }
 
+/** Result of a `run_bash` command execution returned to the webview. */
 export interface BashResult {
   stdout?: string;
   stderr?: string;
@@ -244,18 +307,28 @@ export interface BashResult {
 
 // --- RPC response types ---
 
+/** RPC response payload for the `get_commands` method. */
 export interface RpcCommandsResult {
   commands?: CommandInfo[];
 }
 
+/** RPC response payload for the `get_available_models` method. */
 export interface RpcModelsResult {
   models?: AvailableModelInfo[];
 }
 
+/** RPC response payload for `cycle_thinking_level`. */
 export interface RpcThinkingResult {
   level?: ThinkingLevel;
 }
 
+/**
+ * Raw RPC response from `get_state` — the unstructured state payload from gsd-pi.
+ *
+ * This is the "loose" shape before conversion. Use `toGsdState()` to convert it
+ * into the structured `GsdState` the webview expects. The index signature allows
+ * for additional fields that gsd-pi may add without requiring a types.ts update.
+ */
 export interface RpcStateResult {
   model?: ModelInfo;
   thinkingLevel?: ThinkingLevel;
@@ -287,6 +360,7 @@ export function toGsdState(rpc: RpcStateResult): GsdState {
 
 // --- Dashboard Data (parsed from .gsd/ project files) ---
 
+/** A slice within a milestone, with its tasks and completion state. */
 export interface DashboardSlice {
   id: string;
   title: string;
@@ -297,6 +371,7 @@ export interface DashboardSlice {
   taskProgress?: { done: number; total: number };
 }
 
+/** A task within a slice, with completion state and optional time estimate. */
 export interface DashboardTask {
   id: string;
   title: string;
@@ -305,6 +380,7 @@ export interface DashboardTask {
   estimate?: string;
 }
 
+/** An entry in the milestone registry — tracks all milestones across the project. */
 export interface MilestoneRegistryEntry {
   id: string;
   title: string;
@@ -312,6 +388,12 @@ export interface MilestoneRegistryEntry {
   active: boolean;
 }
 
+/**
+ * Complete dashboard payload parsed from `.gsd/` project files and sent to the webview.
+ *
+ * Includes milestone/slice/task hierarchy, progress counters, blockers, and
+ * optionally merged session stats and per-unit metrics.
+ */
 export interface DashboardData {
   hasProject: boolean;
   hasMilestone: boolean;
@@ -341,6 +423,10 @@ export interface DashboardData {
 
 // --- Metrics data for dashboard (from metrics.json) ---
 
+/**
+ * Aggregated metrics from `.gsd/metrics.json` — cost, tokens, and duration
+ * broken down by phase, slice, and model. Used for the dashboard cost projections.
+ */
 export interface DashboardMetrics {
   totals: {
     units: number;
@@ -391,11 +477,13 @@ export interface DashboardMetrics {
 
 // --- Workflow State (parsed from .gsd/STATE.md) ---
 
+/** Reference to a workflow entity (milestone, slice, or task) by ID and title. */
 export interface WorkflowStateRef {
   id: string;
   title: string;
 }
 
+/** Current workflow state parsed from `.gsd/STATE.md` — active milestone, slice, task, and phase. */
 export interface WorkflowState {
   milestone: WorkflowStateRef | null;
   slice: WorkflowStateRef | null;
@@ -406,6 +494,7 @@ export interface WorkflowState {
 
 // --- Parallel Worker Progress ---
 
+/** Progress data for a single parallel worker process in auto-mode. */
 export interface WorkerProgress {
   /** Milestone ID this worker is executing */
   id: string;
@@ -429,6 +518,12 @@ export interface WorkerProgress {
 
 // --- Auto-Mode Progress Data ---
 
+/**
+ * Live auto-mode progress data sent to the webview for the progress overlay.
+ *
+ * Includes the current auto-mode state, active milestone/slice/task,
+ * progress counters, optional parallel worker data, and budget alerts.
+ */
 export interface AutoProgressData {
   /** Auto-mode state: "auto" | "next" | "paused" */
   autoState: string;
