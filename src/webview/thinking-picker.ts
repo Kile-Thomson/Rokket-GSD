@@ -4,6 +4,7 @@
 
 import { state } from "./state";
 import { escapeHtml } from "./helpers";
+import { createFocusTrap, saveFocus, restoreFocus } from "./a11y";
 import type { ThinkingLevel } from "../shared/types";
 
 // ============================================================
@@ -32,6 +33,7 @@ const THINKING_OPTIONS: ThinkingOption[] = [
 let visible = false;
 let triggerEl: HTMLElement | null = null;
 let activeIndex = -1;
+let focusTrapHandler: ((e: KeyboardEvent) => void) | null = null;
 
 // ============================================================
 // Dependencies injected via init()
@@ -63,7 +65,7 @@ export function show(): void {
   if (!currentModelSupportsReasoning()) {
     return;
   }
-  triggerEl = document.activeElement as HTMLElement | null;
+  triggerEl = saveFocus();
   visible = true;
   activeIndex = -1;
   render();
@@ -71,12 +73,14 @@ export function show(): void {
 
 export function hide(): void {
   visible = false;
+  if (focusTrapHandler) {
+    pickerEl.removeEventListener("keydown", focusTrapHandler);
+    focusTrapHandler = null;
+  }
   pickerEl.classList.add("gsd-hidden");
   pickerEl.innerHTML = "";
-  if (triggerEl && typeof triggerEl.focus === "function") {
-    triggerEl.focus();
-    triggerEl = null;
-  }
+  restoreFocus(triggerEl);
+  triggerEl = null;
 }
 
 /** Re-render if visible (called when thinking level changes externally) */
@@ -167,6 +171,13 @@ function render(): void {
 
   pickerEl.classList.remove("gsd-hidden");
   pickerEl.innerHTML = html;
+
+  // Attach focus trap (remove old one first to avoid duplicates on re-render)
+  if (focusTrapHandler) {
+    pickerEl.removeEventListener("keydown", focusTrapHandler);
+  }
+  focusTrapHandler = createFocusTrap(pickerEl);
+  pickerEl.addEventListener("keydown", focusTrapHandler);
 
   // Position relative to the thinking badge
   const badgeRect = thinkingBadgeEl.getBoundingClientRect();

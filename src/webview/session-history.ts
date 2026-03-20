@@ -4,6 +4,7 @@
 
 import type { SessionListItem } from "../shared/types";
 import { escapeHtml } from "./helpers";
+import { createFocusTrap, saveFocus, restoreFocus } from "./a11y";
 
 // ============================================================
 // Module state
@@ -17,6 +18,7 @@ let searchText = "";
 let highlightIndex = -1;
 let renamingSessionId: string | null = null;
 let triggerEl: HTMLElement | null = null;
+let focusTrapHandler: ((e: KeyboardEvent) => void) | null = null;
 
 // ============================================================
 // Dependencies injected via init()
@@ -44,7 +46,7 @@ export function toggle(): void {
 }
 
 export function show(): void {
-  triggerEl = document.activeElement as HTMLElement | null;
+  triggerEl = saveFocus();
   loading = true;
   visible = true;
   searchText = "";
@@ -59,12 +61,14 @@ export function hide(): void {
   searchText = "";
   highlightIndex = -1;
   renamingSessionId = null;
+  if (focusTrapHandler) {
+    panelEl.removeEventListener("keydown", focusTrapHandler);
+    focusTrapHandler = null;
+  }
   panelEl.classList.add('gsd-hidden');
   panelEl.innerHTML = "";
-  if (triggerEl && typeof triggerEl.focus === "function") {
-    triggerEl.focus();
-    triggerEl = null;
-  }
+  restoreFocus(triggerEl);
+  triggerEl = null;
 }
 
 export function setCurrentSessionId(id: string | null): void {
@@ -262,6 +266,13 @@ function render(): void {
   html += `<div class="gsd-session-history-list" id="sessionHistoryList"></div>`;
 
   panelEl.innerHTML = html;
+
+  // Attach focus trap (remove old one first to avoid duplicates on re-render)
+  if (focusTrapHandler) {
+    panelEl.removeEventListener("keydown", focusTrapHandler);
+  }
+  focusTrapHandler = createFocusTrap(panelEl);
+  panelEl.addEventListener("keydown", focusTrapHandler);
 
   // Wire close button
   panelEl.querySelector("#sessionHistoryClose")?.addEventListener("click", hide);
