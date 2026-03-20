@@ -355,6 +355,32 @@
   flex-shrink: 0;
 }
 
+.gsd-fork-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--gsd-space-xs);
+  border: none;
+  background: transparent;
+  color: var(--gsd-color-text-muted);
+  cursor: pointer;
+  font-size: var(--gsd-font-size-xs);
+  padding: 2px 8px;
+  border-radius: var(--gsd-radius-sm);
+  transition: background 0.15s, color 0.15s;
+  font-family: var(--gsd-font-family-mono);
+  opacity: 0.6;
+}
+
+.gsd-fork-btn:hover {
+  opacity: 1;
+  background: var(--gsd-color-surface-active);
+  color: var(--gsd-color-text);
+}
+
+.gsd-fork-btn svg {
+  flex-shrink: 0;
+}
+
 .gsd-turn-actions .gsd-timestamp {
   margin-top: 0;
 }
