@@ -13,7 +13,16 @@ import {
   resetStreamingState,
 } from "../renderer";
 
-import { state, nextId, type ChatEntry, type ToolCallState, type AssistantTurn } from "../state";
+import {
+  state,
+  nextId,
+  MAX_ENTRIES,
+  pruneOldEntries,
+  resetState as resetFullState,
+  type ChatEntry,
+  type ToolCallState,
+  type AssistantTurn,
+} from "../state";
 
 // ============================================================
 // Mock cross-module imports
@@ -579,6 +588,152 @@ describe("renderer", () => {
       vi.advanceTimersByTime(16);
       expect(el.querySelectorAll("[data-block-idx]").length).toBe(2);
       expect(el.querySelector("[data-block-trailing]")!.innerHTML).toContain("Para three");
+    });
+  });
+
+  // ============================================================
+  // Entry cap (pruneOldEntries + MAX_ENTRIES)
+  // ============================================================
+
+  describe("entry cap", () => {
+    // Reset the real totalPrunedCount between entry cap tests
+    beforeEach(() => {
+      resetFullState();
+    });
+
+    /**
+     * Helper: push N entries into state and create corresponding DOM elements
+     * in the messagesContainer. Returns the array of generated entry IDs.
+     */
+    function pushEntries(count: number): string[] {
+      const ids: string[] = [];
+      for (let i = 0; i < count; i++) {
+        const entry = makeUserEntry(`Message ${i}`);
+        state.entries.push(entry);
+        const el = document.createElement("div");
+        el.className = "gsd-entry gsd-entry-user";
+        el.setAttribute("data-entry-id", entry.id);
+        el.textContent = entry.text!;
+        messagesContainer.appendChild(el);
+        ids.push(entry.id);
+      }
+      return ids;
+    }
+
+    it("does not prune when exactly at the cap (300 entries)", () => {
+      pushEntries(MAX_ENTRIES); // 300
+      expect(state.entries.length).toBe(MAX_ENTRIES);
+
+      const pruned = pruneOldEntries(messagesContainer);
+
+      expect(pruned).toBe(0);
+      expect(state.entries.length).toBe(MAX_ENTRIES);
+      // No indicator should be present
+      expect(messagesContainer.querySelector(".gsd-pruned-indicator")).toBeNull();
+    });
+
+    it("removes the oldest entry when one over the cap (301 entries)", () => {
+      const ids = pushEntries(MAX_ENTRIES + 1); // 301
+      expect(state.entries.length).toBe(MAX_ENTRIES + 1);
+
+      const pruned = pruneOldEntries(messagesContainer);
+
+      expect(pruned).toBe(1);
+      expect(state.entries.length).toBe(MAX_ENTRIES);
+      // The first entry (ids[0]) should be gone; the new first is ids[1]
+      expect(state.entries[0].id).toBe(ids[1]);
+      // DOM element for the removed entry should be gone
+      expect(messagesContainer.querySelector(`[data-entry-id="${ids[0]}"]`)).toBeNull();
+      // DOM element for the second entry should still exist
+      expect(messagesContainer.querySelector(`[data-entry-id="${ids[1]}"]`)).toBeTruthy();
+      // Indicator shows 1 pruned
+      const indicator = messagesContainer.querySelector(".gsd-pruned-indicator");
+      expect(indicator).toBeTruthy();
+      expect(indicator!.textContent).toContain("1 earlier messages removed");
+    });
+
+    it("prunes 100 entries when 400 are pushed, indicator shows correct count", () => {
+      pushEntries(400);
+      expect(state.entries.length).toBe(400);
+
+      const pruned = pruneOldEntries(messagesContainer);
+
+      expect(pruned).toBe(100);
+      expect(state.entries.length).toBe(MAX_ENTRIES);
+      // The 101st original entry (index 100) should now be the first
+      const indicator = messagesContainer.querySelector(".gsd-pruned-indicator");
+      expect(indicator).toBeTruthy();
+      expect(indicator!.textContent).toBe("100 earlier messages removed to improve performance");
+      // First 100 DOM elements should be gone
+      expect(messagesContainer.querySelectorAll(".gsd-entry").length).toBe(MAX_ENTRIES);
+    });
+
+    it("adjusts scrollTop by the total height of pruned DOM elements", () => {
+      // Set up a container with known element heights via a mock
+      const MOCK_HEIGHT = 50;
+      pushEntries(MAX_ENTRIES + 5); // 5 over cap
+
+      // Mock offsetHeight for all entry elements
+      const entries = messagesContainer.querySelectorAll(".gsd-entry");
+      entries.forEach((el) => {
+        Object.defineProperty(el, "offsetHeight", { value: MOCK_HEIGHT, configurable: true });
+      });
+
+      // Set an initial scrollTop
+      const initialScroll = 1000;
+      messagesContainer.scrollTop = initialScroll;
+
+      const pruned = pruneOldEntries(messagesContainer);
+
+      expect(pruned).toBe(5);
+      // scrollTop should be reduced by 5 * MOCK_HEIGHT = 250
+      expect(messagesContainer.scrollTop).toBe(initialScroll - 5 * MOCK_HEIGHT);
+    });
+
+    it("accumulates pruned count across multiple prune calls", () => {
+      // First batch: push 310 → prune 10
+      pushEntries(310);
+      pruneOldEntries(messagesContainer);
+      let indicator = messagesContainer.querySelector(".gsd-pruned-indicator");
+      expect(indicator!.textContent).toContain("10 earlier messages removed");
+
+      // Second batch: push 20 more → 320 total, prune 20
+      pushEntries(20);
+      pruneOldEntries(messagesContainer);
+      indicator = messagesContainer.querySelector(".gsd-pruned-indicator");
+      // Cumulative: 10 + 20 = 30
+      expect(indicator!.textContent).toBe("30 earlier messages removed to improve performance");
+      expect(state.entries.length).toBe(MAX_ENTRIES);
+    });
+
+    it("resetState() clears pruned state and removes indicator from DOM", () => {
+      // Push over cap and prune to create indicator
+      pushEntries(MAX_ENTRIES + 10);
+      pruneOldEntries(messagesContainer);
+      expect(messagesContainer.querySelector(".gsd-pruned-indicator")).toBeTruthy();
+
+      // Reset full state (the real resetState from state.ts)
+      resetFullState();
+
+      // totalPrunedCount is now 0 — verify by pushing over cap again
+      // and checking the indicator shows only the new prune count
+      pushEntries(MAX_ENTRIES + 5);
+      pruneOldEntries(messagesContainer);
+      const indicator = messagesContainer.querySelector(".gsd-pruned-indicator");
+      // Should show only 5, not 15 (10 + 5), since resetState cleared the counter
+      expect(indicator!.textContent).toBe("5 earlier messages removed to improve performance");
+    });
+
+    it("logs console.warn when entries are pruned", () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      pushEntries(MAX_ENTRIES + 3);
+
+      pruneOldEntries(messagesContainer);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        `GSD: Pruned 3 oldest entries to maintain ${MAX_ENTRIES}-entry cap`
+      );
+      warnSpy.mockRestore();
     });
   });
 });
