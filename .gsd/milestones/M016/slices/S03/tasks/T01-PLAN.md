@@ -58,6 +58,13 @@ Watch scripts must NOT be modified — minification adds rebuild latency that hu
 - `npm test` — all tests pass
 - Confirm watch scripts don't contain `--minify`: `grep "watch:" package.json | grep -c "minify"` returns 0
 
+## Observability Impact
+
+- **New diagnostic artifacts:** `dist/meta-extension.json` and `dist/meta-webview.json` are esbuild metafiles generated on every production build. They contain per-module input/output byte sizes — use `node -e "const m=require('./dist/meta-extension.json'); console.log(Object.entries(m.outputs).map(([k,v])=>k+': '+v.bytes+'B').join('\\n'))"` to inspect.
+- **Bundle size verification:** `node -e "const fs=require('fs'); console.log('ext:', fs.statSync('dist/extension.js').size, 'web:', fs.statSync('dist/webview/index.js').size)"` — reports actual byte sizes after build.
+- **Failure visibility:** If minification breaks runtime behavior, tests will fail with specific error messages. If bundle size regresses above targets, the size check script exits non-zero with the actual sizes printed.
+- **No runtime signals changed:** This task only affects build-time flags. No new logs, no new error shapes, no runtime behavior changes.
+
 ## Inputs
 
 - `package.json` — current build scripts without minification flags
