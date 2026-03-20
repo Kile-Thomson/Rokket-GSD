@@ -491,6 +491,29 @@ export async function handleWebviewMessage(
         case "run_bash": {
           const client = ctx.getSession(sessionId).client;
           if (client?.isRunning) {
+            // Security: check for destructive shell patterns before execution
+            const destructivePatterns = [
+              /\brm\s+(-[a-zA-Z]*f|-[a-zA-Z]*r|--force|--recursive)\b/,
+              /\bformat\b/i,
+              /\bmkfs\b/,
+              /\bdd\b\s+/,
+              /\b(chmod|chown)\s+.*-R/,
+            ];
+            const isDestructive = destructivePatterns.some((p) => p.test(msg.command));
+            if (isDestructive) {
+              const choice = await vscode.window.showWarningMessage(
+                `This command may be destructive: ${msg.command.slice(0, 100)}`,
+                { modal: true },
+                "Run Anyway",
+              );
+              if (choice !== "Run Anyway") {
+                ctx.postToWebview(webview, {
+                  type: "bash_result",
+                  result: { exitCode: 1, stdout: "", stderr: "Cancelled by user" } as BashResult,
+                });
+                break;
+              }
+            }
             try {
               const result = await client.executeBash(msg.command) as BashResult;
               ctx.postToWebview(webview, { type: "bash_result", result });
