@@ -33,6 +33,7 @@
 - `rg "unsafe-inline" src/` — zero hits
 - `rg "Math\.random" src/extension/html-generator.ts` — zero hits
 - `npx vsce package --no-dependencies` — VSIX packages cleanly
+- `npx vitest --run src/extension/file-ops.test.ts` — workspace boundary rejection and size limit rejection tests pass (diagnostic/failure-path coverage)
 
 ## Observability / Diagnostics
 
@@ -49,7 +50,7 @@
 
 ## Tasks
 
-- [ ] **T01: Harden security functions — crypto nonce, workspace boundary, file size limit, DOMPurify, bash validation** `est:45m`
+- [x] **T01: Harden security functions — crypto nonce, workspace boundary, file size limit, DOMPurify, bash validation** `est:45m`
   - Why: Delivers R003 (security hardening) — five independent fixes across extension-side and webview code. Each addresses a specific audit finding (SEC-02/03/04/05/10). Independent of the inline style work.
   - Files: `src/extension/html-generator.ts`, `src/extension/file-ops.ts`, `src/extension/message-dispatch.ts`, `src/webview/helpers.ts`, `src/extension/file-ops.test.ts`
   - Do: (1) Replace `Math.random` nonce with `crypto.randomBytes(16).toString('base64url')` in `getNonce()`. (2) Add workspace boundary check to `handleCheckFileAccess` using the same pattern as `handleOpenFile` (lines 68-78 of file-ops.ts — `realpathSync` + `startsWith`). (3) Add 50MB size limit check in `handleSaveTempFile` before `Buffer.from`. (4) Wrap `formatMarkdownNotes` return through `DOMPurify.sanitize()`. (5) Add destructive pattern detection + confirmation dialog in `run_bash` case of message-dispatch.ts. Add/update unit tests for each change.

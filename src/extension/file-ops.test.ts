@@ -232,24 +232,84 @@ describe("file-ops", () => {
       handleSaveTempFile(ctx, webview, sid, { name: "x.bin", data: "AA==" });
       expect(ctx.postToWebview).toHaveBeenCalledWith(webview, expect.objectContaining({ type: "error" }));
     });
+
+    it("rejects payloads exceeding 50MB limit", () => {
+      const ctx = createCtx();
+      // Create a string slightly over the 66_666_667 base64 threshold
+      const oversizedData = "A".repeat(66_666_668);
+      handleSaveTempFile(ctx, webview, sid, { name: "huge.bin", data: oversizedData });
+      expect(fs.writeFileSync).not.toHaveBeenCalled();
+      expect(ctx.postToWebview).toHaveBeenCalledWith(webview, {
+        type: "error",
+        message: "File exceeds 50MB limit",
+      });
+      expect(ctx.output.appendLine).toHaveBeenCalledWith(
+        expect.stringContaining("Blocked save_temp_file: payload exceeds 50MB limit"),
+      );
+    });
+
+    it("allows payloads under 50MB limit", () => {
+      (fs.writeFileSync as any).mockImplementation(() => {});
+      const ctx = createCtx();
+      const normalData = "A".repeat(1000);
+      handleSaveTempFile(ctx, webview, sid, { name: "small.bin", data: normalData });
+      expect(fs.writeFileSync).toHaveBeenCalled();
+      expect(ctx.postToWebview).toHaveBeenCalledWith(webview, expect.objectContaining({ type: "temp_file_saved" }));
+    });
   });
 
   // ─── handleCheckFileAccess ─────────────────────────────────────────
 
   describe("handleCheckFileAccess", () => {
-    it("checks readability and posts results", async () => {
+    it("checks readability and posts results for workspace-internal paths", async () => {
+      (fs.realpathSync as any).mockImplementation((p: string) => p);
       (fs.promises.access as any)
         .mockResolvedValueOnce(undefined)
         .mockRejectedValueOnce(new Error("ENOENT"));
       const ctx = createCtx();
-      await handleCheckFileAccess(ctx, webview, sid, { paths: ["/a.txt", "/b.txt"] });
+      await handleCheckFileAccess(ctx, webview, sid, {
+        paths: ["/mock/workspace/a.txt", "/mock/workspace/b.txt"],
+      });
       expect(ctx.postToWebview).toHaveBeenCalledWith(webview, {
         type: "file_access_result",
         results: [
-          { path: "/a.txt", readable: true },
-          { path: "/b.txt", readable: false },
+          { path: "/mock/workspace/a.txt", readable: true },
+          { path: "/mock/workspace/b.txt", readable: false },
         ],
       });
+    });
+
+    it("blocks paths outside the workspace boundary", async () => {
+      (fs.realpathSync as any).mockImplementation((p: string) => p);
+      const ctx = createCtx();
+      await handleCheckFileAccess(ctx, webview, sid, {
+        paths: ["/etc/passwd", "/mock/workspace/ok.txt"],
+      });
+      expect(ctx.postToWebview).toHaveBeenCalledWith(webview, {
+        type: "file_access_result",
+        results: [
+          { path: "/etc/passwd", readable: false },
+          { path: "/mock/workspace/ok.txt", readable: true },
+        ],
+      });
+      expect(ctx.output.appendLine).toHaveBeenCalledWith(
+        expect.stringContaining("Blocked check_file_access outside workspace"),
+      );
+    });
+
+    it("rejects all paths when no workspace is open", async () => {
+      vsc.workspace.workspaceFolders = null as any;
+      const ctx = createCtx();
+      await handleCheckFileAccess(ctx, webview, sid, {
+        paths: ["/any/file.txt"],
+      });
+      expect(ctx.postToWebview).toHaveBeenCalledWith(webview, {
+        type: "file_access_result",
+        results: [{ path: "/any/file.txt", readable: false }],
+      });
+      expect(ctx.output.appendLine).toHaveBeenCalledWith(
+        expect.stringContaining("no workspace open"),
+      );
     });
   });
 

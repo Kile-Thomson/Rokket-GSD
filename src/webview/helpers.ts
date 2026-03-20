@@ -515,7 +515,7 @@ export function formatRelativeTime(ts: number): string {
  */
 export function formatMarkdownNotes(md: string): string {
   if (!md.trim()) return "<p>No details available.</p>";
-  return escapeHtml(md)
+  const result = escapeHtml(md)
     .replace(/^### (.+)$/gm, '<h4>$1</h4>')
     .replace(/^## (.+)$/gm, '<h3>$1</h3>')
     .replace(/^# (.+)$/gm, '<h3>$1</h3>')
@@ -526,6 +526,7 @@ export function formatMarkdownNotes(md: string): string {
     .replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`)
     .replace(/\n{2,}/g, '<br>')
     .replace(/\n/g, ' ');
+  return DOMPurify.sanitize(result);
 }
 
 /**
