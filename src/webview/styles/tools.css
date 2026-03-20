@@ -182,8 +182,8 @@
 
 .gsd-tool-block {
   margin: 6px 0;
-  border-radius: 5px;
-  border: var(--gsd-border-width) solid var(--gsd-color-border-subtle);
+  border-radius: var(--gsd-tool-radius);
+  border: var(--gsd-border-width) solid var(--gsd-tool-border);
   overflow: hidden;
   font-size: var(--gsd-font-size-md);
   transition: border-color 0.2s;
