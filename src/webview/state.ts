@@ -113,6 +113,52 @@ export interface AppState {
 export type ToolCategory = "file" | "shell" | "browser" | "search" | "agent" | "process" | "generic";
 
 // ============================================================
+// Entry cap — maximum number of entries kept in state/DOM
+// ============================================================
+
+export const MAX_ENTRIES = 300;
+
+/** Running total of entries pruned during this session (for the indicator) */
+let totalPrunedCount = 0;
+
+/**
+ * Enforce the entry cap by removing oldest entries from both state and DOM.
+ * Adjusts container.scrollTop to preserve the user's visual scroll position.
+ * Returns the number of entries pruned (0 if under cap).
+ */
+export function pruneOldEntries(container: HTMLElement): number {
+  if (state.entries.length <= MAX_ENTRIES) return 0;
+
+  const excess = state.entries.length - MAX_ENTRIES;
+  const removed = state.entries.splice(0, excess);
+
+  let totalPrunedHeight = 0;
+  for (const entry of removed) {
+    const el = container.querySelector(`[data-entry-id="${entry.id}"]`) as HTMLElement | null;
+    if (el) {
+      totalPrunedHeight += el.offsetHeight;
+      el.remove();
+    }
+  }
+
+  // Adjust scroll position to prevent visual jump
+  container.scrollTop -= totalPrunedHeight;
+
+  // Update running total and show/update indicator
+  totalPrunedCount += excess;
+  let indicator = container.querySelector(".gsd-pruned-indicator") as HTMLElement | null;
+  if (!indicator) {
+    indicator = document.createElement("div");
+    indicator.className = "gsd-pruned-indicator";
+    container.insertBefore(indicator, container.firstChild);
+  }
+  indicator.textContent = `${totalPrunedCount} earlier messages removed to improve performance`;
+
+  console.warn(`GSD: Pruned ${excess} oldest entries to maintain ${MAX_ENTRIES}-entry cap`);
+  return excess;
+}
+
+// ============================================================
 // Shared mutable state
 // ============================================================
 
@@ -187,4 +233,6 @@ export function resetState(): void {
   state.autoProgressLastUpdate = 0;
   state.widgetData.clear();
   entryIdCounter = 0;
+  // Reset pruned-entries indicator state
+  totalPrunedCount = 0;
 }

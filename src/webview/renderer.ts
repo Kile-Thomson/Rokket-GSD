@@ -8,6 +8,7 @@ import {
   type AssistantTurn,
   type ToolCallState,
   type TurnSegment,
+  pruneOldEntries,
 } from "./state";
 
 import {
@@ -104,6 +105,8 @@ export function clearMessages(): void {
   els.forEach((el) => el.remove());
   // Also clean up steer notes that live outside entries
   messagesContainer.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
+  // Remove pruned-entries indicator
+  messagesContainer.querySelector(".gsd-pruned-indicator")?.remove();
   resetAutoScroll();
 }
 
@@ -374,6 +377,7 @@ export function finalizeCurrentTurn(): void {
       turn,
       timestamp: turn.timestamp,
     });
+    pruneOldEntries(messagesContainer);
   }
 
   if (currentTurnElement) {
