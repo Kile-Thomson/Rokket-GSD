@@ -40,7 +40,7 @@ export function init(deps: DashboardDeps): void {
 // ============================================================
 
 export function renderDashboard(data: DashboardData | null): void {
-  welcomeScreen.style.display = "none";
+  welcomeScreen.classList.add('gsd-hidden');
 
   // Remove any existing dashboard
   const existing = document.querySelector(".gsd-dashboard");
@@ -101,7 +101,7 @@ export function renderDashboard(data: DashboardData | null): void {
       <div class="gsd-dash-progress-row">
         <span class="gsd-dash-progress-label">${escapeHtml(label)}</span>
         <div class="gsd-dash-progress-track">
-          <div class="gsd-dash-progress-fill" style="width: ${fillPct}%"></div>
+          <div class="gsd-dash-progress-fill" data-fill-pct="${fillPct}"></div>
         </div>
         <span class="gsd-dash-progress-pct">${pct}%</span>
         <span class="gsd-dash-progress-ratio">${done}/${total}</span>
@@ -258,6 +258,12 @@ export function renderDashboard(data: DashboardData | null): void {
   `;
 
   messagesContainer.appendChild(el);
+
+  // Set progress bar fill widths via JS (CSP-safe — no inline styles in HTML)
+  el.querySelectorAll<HTMLElement>(".gsd-dash-progress-fill[data-fill-pct]").forEach((fill) => {
+    fill.style.width = `${fill.dataset.fillPct}%`;
+  });
+
   scrollToBottom(messagesContainer, true);
 }
 
@@ -425,10 +431,10 @@ export function updateWelcomeScreen(): void {
     e => e.type === "user" || e.type === "assistant"
   );
   if (hasConversation) {
-    welcomeScreen.style.display = "none";
+    welcomeScreen.classList.add('gsd-hidden');
     return;
   }
-  welcomeScreen.style.display = "flex";
+  welcomeScreen.classList.remove('gsd-hidden');
 
   welcomeVersion.textContent = state.version ? `v${state.version}` : "";
 
@@ -456,9 +462,9 @@ export function updateWelcomeScreen(): void {
       modelStr += ` • 🧠 ${state.thinkingLevel}`;
     }
     welcomeModel.textContent = modelStr;
-    welcomeModel.style.display = "block";
+    welcomeModel.classList.remove('gsd-hidden');
   } else {
-    welcomeModel.style.display = "none";
+    welcomeModel.classList.add('gsd-hidden');
   }
 
   if (state.processStatus === "running") {
@@ -469,18 +475,18 @@ export function updateWelcomeScreen(): void {
       `<span>Esc to interrupt</span>`,
       `<span>/ for commands</span>`,
     ].join('<span class="gsd-hint-sep">•</span>');
-    welcomeHints.style.display = "flex";
+    welcomeHints.classList.remove('gsd-hidden');
 
     // Show resume button when process is ready
     const resumeChip = document.querySelector(".gsd-resume-chip") as HTMLElement | null;
     if (resumeChip) {
-      resumeChip.style.display = "";
+      resumeChip.classList.remove('gsd-hidden');
     }
   } else {
-    welcomeHints.style.display = "none";
+    welcomeHints.classList.add('gsd-hidden');
     const resumeChip = document.querySelector(".gsd-resume-chip") as HTMLElement | null;
     if (resumeChip) {
-      resumeChip.style.display = "none";
+      resumeChip.classList.add('gsd-hidden');
     }
   }
 }

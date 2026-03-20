@@ -27,6 +27,14 @@ html, body {
 }
 
 /* ============================================================
+   Utility: hidden toggle (replaces all inline style.display)
+   ============================================================ */
+
+.gsd-hidden {
+  display: none !important;
+}
+
+/* ============================================================
    Layout
    ============================================================ */
 
@@ -103,7 +111,7 @@ html, body {
 }
 
 .gsd-workflow-badge {
-  display: none;
+  display: inline-flex;
   align-items: center;
   font-size: 13px;
   padding: 3px 10px;
@@ -154,7 +162,7 @@ html, body {
 .gsd-thinking-badge,
 .gsd-cost-badge,
 .gsd-context-badge {
-  display: none;
+  display: inline-flex;
   align-items: center;
   font-size: 13px;
   padding: 3px 10px;
@@ -317,7 +325,7 @@ html, body {
    ============================================================ */
 
 .gsd-context-bar-container {
-  display: none;
+  display: block;
   height: 3px;
   background: rgba(128,128,128,0.08);
   flex-shrink: 0;
@@ -354,7 +362,7 @@ html, body {
    ============================================================ */
 
 .gsd-overlay-indicators {
-  display: none;
+  display: flex;
   flex-direction: column;
   gap: 0;
   flex-shrink: 0;
@@ -572,7 +580,7 @@ html, body {
 }
 
 .gsd-welcome-hints {
-  display: none;
+  display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 3px;
@@ -2416,7 +2424,7 @@ html, body {
    ============================================================ */
 
 .gsd-session-history {
-  display: none;
+  display: block;
   position: absolute;
   top: 40px;
   right: 12px;
@@ -2738,7 +2746,7 @@ html, body {
 
 /* File chips — input area (pre-send) */
 .gsd-file-chips {
-  display: none;
+  display: flex;
   flex-wrap: wrap;
   gap: 6px;
   padding: 6px 8px 0;
@@ -2881,7 +2889,7 @@ html, body {
    ============================================================ */
 
 .gsd-image-preview {
-  display: none;
+  display: flex;
   flex-wrap: wrap;
   gap: 6px;
   padding-bottom: 6px;
