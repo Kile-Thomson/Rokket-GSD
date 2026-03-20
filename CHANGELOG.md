@@ -4,6 +4,29 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Steer redirect UX** — skipped tool calls (from agent redirect) render as muted ⏭ summary rows instead of red error ✗ blocks. Consecutive skipped tools collapse into one line: "3 tool calls skipped — agent redirected". Steer note ("⚡ Redirecting agent...") shows once and clears when the agent responds.
+- **Turn coalescing** — rapid async job results that fire back-to-back now flow into the previous assistant entry instead of creating separate chat bubbles. Extension host detects continuation turns (agent_start within 1.5s of previous agent_end with no user action) and marks them with `isContinuation`.
+- **Consecutive assistant separator** — back-to-back assistant entries get a thin border between them for visual distinction.
+- **Full slash menu for gsd-pi v2.35** — added 21 missing GSD subcommands: `/gsd pause`, `/gsd changelog`, `/gsd triage`, `/gsd dispatch`, `/gsd history`, `/gsd undo`, `/gsd skip`, `/gsd cleanup`, `/gsd hooks`, `/gsd run-hook`, `/gsd skill-health`, `/gsd init`, `/gsd setup`, `/gsd inspect`, `/gsd new-milestone`, `/gsd park`, `/gsd unpark`, `/gsd start`, `/gsd templates`, `/gsd extensions`. Commands organised by category.
+- **Command fallback coverage** — all new subcommands have context-aware fallback prompts for both initialised and uninitialised projects.
+- **Event type coverage** — `fallback_provider_switch`, `fallback_provider_restored`, `fallback_chain_exhausted`, `session_shutdown`, `extension_error` added to the message protocol union.
+
+### Fixed
+- **Session cost persistence** — cost no longer resets after auto-compaction. The extension host maintains an independent running total from `message_end` events and overrides pi's recalculated stats when its total is higher.
+- **Steer note lingers** — the "Redirecting agent..." indicator now clears on `agent_end`, not just on the next `agent_start`.
+- **48 → 16 TypeScript errors** — fixed pre-existing type issues: message_end usage typing, RpcStateResult cast, image renderer null title, NodeListOf iterator, __linkedIds cast, property name mismatches, test mock shapes.
+- **`.vscodeignore`** — excludes `.gsd` symlink (not just `.gsd/**`), `debug.log`, `.dropboxignore`.
+
+### Changed
+- Updated gsd-pi compatibility to v2.35.
+- Updated `/gsd update` description, `/gsd queue` description, `/gsd migrate` description.
+
+### Removed
+- **`/gsd do` and `/gsd note`** — removed from slash menu (never existed in gsd-pi).
+
 ## [0.2.55] — 2026-03-19
 
 ### Added

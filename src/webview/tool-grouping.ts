@@ -211,7 +211,7 @@ function collectGroupToolNames(
 ): string[] {
   const toolEls = groupEl.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]");
   const names: string[] = [];
-  for (const el of toolEls) {
+  for (const el of Array.from(toolEls)) {
     const tc = toolCalls.get(el.dataset.toolId!);
     if (tc) names.push(tc.name);
   }

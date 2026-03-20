@@ -45,6 +45,12 @@ export interface SessionState {
   isStreaming: boolean;
   isRestarting: boolean;
 
+  // --- Turn coalescing ---
+  lastAgentEndTime: number;
+  lastUserActionTime: number;
+  /** Running cost total — independent of pi's message-derived stats */
+  accumulatedCost: number;
+
   // --- Auto-mode progress ---
   autoProgressPoller: AutoProgressPoller | null;
 
@@ -80,6 +86,9 @@ export function createSessionState(): SessionState {
     lastEventTime: 0,
     isStreaming: false,
     isRestarting: false,
+    lastAgentEndTime: 0,
+    lastUserActionTime: 0,
+    accumulatedCost: 0,
     autoProgressPoller: null,
     launchPromise: null,
     messageHandlerDisposable: null,
@@ -115,6 +124,9 @@ export function cleanupSessionState(session: SessionState): void {
   session.lastEventTime = 0;
   session.isStreaming = false;
   session.isRestarting = false;
+  session.lastAgentEndTime = 0;
+  session.lastUserActionTime = 0;
+  session.accumulatedCost = 0;
   session.launchPromise = null;
 
   // Clean up auto-progress poller

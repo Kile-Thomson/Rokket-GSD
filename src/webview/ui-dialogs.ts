@@ -127,11 +127,11 @@ export function handleRequest(data: any): void {
   const id = data.id;
   const method = data.method;
 
-  const fp = dialogFingerprint(data);
-
   // Dedup phase 1: if the same dialog was resolved recently, auto-replay
   // the user's previous answer. This breaks the loop where gsd-pi keeps
   // re-asking the same question after receiving a valid response.
+  const fp = dialogFingerprint(data);
+
   const cached = resolvedResponses.get(fp);
   if (cached && Date.now() < cached.expiresAt) {
     // Replay with this request's ID
@@ -151,7 +151,7 @@ export function handleRequest(data: any): void {
     // Link this request to the existing dialog — when the original is resolved,
     // we'll send the same response for this one too.
     const existing = pendingDialogs.get(existingId)!;
-    if (!existing.__linkedIds) existing.__linkedIds = [];
+    if (!(existing as any).__linkedIds) (existing as any).__linkedIds = [];
     (existing as any).__linkedIds.push(id);
     return;
   }

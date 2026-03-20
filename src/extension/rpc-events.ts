@@ -70,9 +70,18 @@ export function handleRpcEvent(
     startActivityMonitor(ctx.watchdogCtx, webview, sessionId, client);
     // Mark that a real agent turn started (used by /gsd fallback detection)
     ctx.getSession(sessionId).gsdTurnStarted = true;
+    // Turn coalescing: detect rapid-fire agent_start after agent_end with no user action
+    const session = ctx.getSession(sessionId);
+    const timeSinceEnd = Date.now() - session.lastAgentEndTime;
+    const timeSinceUser = Date.now() - session.lastUserActionTime;
+    if (timeSinceEnd < 1500 && timeSinceUser > timeSinceEnd) {
+      (event as any).isContinuation = true;
+      ctx.output.appendLine(`[${sessionId}] Turn coalescing: agent_start is a continuation (${timeSinceEnd}ms since last end, ${timeSinceUser}ms since user action)`);
+    }
   } else if (eventType === "agent_end") {
     ctx.emitStatus({ isStreaming: false });
     ctx.getSession(sessionId).isStreaming = false;
+    ctx.getSession(sessionId).lastAgentEndTime = Date.now();
     stopActivityMonitor(ctx.watchdogCtx, sessionId);
     // Cancel /gsd fallback — the command completed (even without agent_start)
     const gsdTimer = ctx.getSession(sessionId).gsdFallbackTimer;
@@ -83,10 +92,12 @@ export function handleRpcEvent(
     // Refresh workflow state after each agent turn
     ctx.refreshWorkflowState(webview, sessionId);
   } else if (eventType === "message_end") {
-    const msg = event.message;
-    const usage = msg?.usage as { cost?: { total?: number } } | undefined;
+    const msg = event.message as Record<string, unknown> | undefined;
+    const usage = (msg?.usage as { cost?: { total?: number } }) ?? undefined;
     if (msg?.role === "assistant" && usage?.cost?.total) {
-      ctx.emitStatus({ cost: (ctx.lastStatus.cost || 0) + usage.cost.total });
+      const session = ctx.getSession(sessionId);
+      session.accumulatedCost += usage.cost.total;
+      ctx.emitStatus({ cost: session.accumulatedCost });
     }
   } else if (eventType === "fallback_provider_switch") {
     const to = (event as any).to as string || "";

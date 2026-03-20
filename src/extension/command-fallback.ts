@@ -15,14 +15,14 @@ import type { ExtensionToWebviewMessage } from "../shared/types";
 
 /** Matches `/gsd` with optional recognised subcommand. */
 export const GSD_COMMAND_RE =
-  /^\/gsd(?:\s+(auto|next|stop|status|queue|quick|mode|help|forensics|doctor|discuss|visualize|capture|steer|knowledge|config|prefs|migrate|remote|do|note))?(?:\s|$)/;
+  /^\/gsd(?:\s+(auto|next|stop|pause|status|queue|quick|mode|help|forensics|doctor|discuss|visualize|capture|steer|knowledge|config|prefs|migrate|remote|changelog|triage|dispatch|history|undo|skip|cleanup|hooks|run-hook|skill-health|init|setup|inspect|new-milestone|parallel|park|unpark|start|templates|extensions|export|keys|logs))?(?:\s|$)/;
 
 /**
  * Subcommands that work natively in RPC mode (auto, stop, pause, next,
  * status, steer, remote, prefs, parallel) — they don't need fallbacks.
  */
 export const GSD_NATIVE_SUBCOMMANDS =
-  /^\s*\/gsd\s+(auto|stop|pause|next|status|steer|remote|prefs|parallel)\b/i;
+  /^\s*\/gsd\s+(auto|stop|pause|next|status|steer|remote|prefs|parallel|park|unpark)\b/i;
 
 // ── Context interface ───────────────────────────────────────────────────
 
@@ -153,6 +153,94 @@ export async function handleGsdAutoFallback(
           fallbackNotice = "ℹ️ Loading workflow modes...";
           fallbackPrompt = `The user ran "${originalCommand}". Show available workflow modes (solo, team) and let the user choose. Do not execute new work.`;
           break;
+        case "changelog":
+          fallbackNotice = "ℹ️ Fetching release notes...";
+          fallbackPrompt = `The user ran "${originalCommand}". Fetch and display the recent GSD changelog / release notes. Do not execute new work.`;
+          break;
+        case "triage":
+          fallbackNotice = "ℹ️ Triaging captures...";
+          fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet. Report that there are no captures to triage because GSD has not been initialised.`;
+          break;
+        case "dispatch":
+          fallbackNotice = "ℹ️ Dispatching phase...";
+          fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet. Report that there is nothing to dispatch because GSD has not been initialised.`;
+          break;
+        case "history":
+          fallbackNotice = "ℹ️ Loading execution history...";
+          fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet. Report that there is no execution history because GSD has not been initialised.`;
+          break;
+        case "undo":
+          fallbackNotice = "ℹ️ Reverting last unit...";
+          fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet. Report that there is nothing to undo because GSD has not been initialised.`;
+          break;
+        case "skip":
+          fallbackNotice = "ℹ️ Skipping unit...";
+          fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet. Report that there is nothing to skip because GSD has not been initialised.`;
+          break;
+        case "cleanup":
+          fallbackNotice = "ℹ️ Running cleanup...";
+          fallbackPrompt = `The user ran "${originalCommand}". Clean up merged GSD branches and old snapshots. Report what was cleaned up.`;
+          break;
+        case "hooks":
+          fallbackNotice = "ℹ️ Loading hooks...";
+          fallbackPrompt = `The user ran "${originalCommand}". Show configured post-unit and pre-dispatch hooks from GSD preferences.`;
+          break;
+        case "run-hook":
+          fallbackNotice = "ℹ️ Running hook...";
+          fallbackPrompt = `The user ran "${originalCommand}". Manually trigger a specific GSD hook. Show available hooks and let the user choose.`;
+          break;
+        case "skill-health":
+          fallbackNotice = "ℹ️ Loading skill health...";
+          fallbackPrompt = `The user ran "${originalCommand}". Show the skill lifecycle dashboard — which skills are installed, their status, and any issues.`;
+          break;
+        case "init":
+          fallbackNotice = "ℹ️ Starting project init...";
+          fallbackPrompt = `The user ran "${originalCommand}". Run the GSD project initialization wizard — detect project type, configure settings, and bootstrap the .gsd/ directory.`;
+          break;
+        case "setup":
+          fallbackNotice = "ℹ️ Loading setup status...";
+          fallbackPrompt = `The user ran "${originalCommand}". Show global GSD setup status and configuration — installed version, provider status, API keys.`;
+          break;
+        case "inspect":
+          fallbackNotice = "ℹ️ Running DB inspection...";
+          fallbackPrompt = `The user ran "${originalCommand}". Show SQLite database diagnostics for the .gsd/ project database.`;
+          break;
+        case "new-milestone":
+          fallbackNotice = "ℹ️ Creating milestone...";
+          fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet. Initialise GSD first, then help the user create their first milestone from a specification.`;
+          break;
+        case "park":
+          fallbackNotice = "ℹ️ Parking milestone...";
+          fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet. Report that there is no active milestone to park because GSD has not been initialised.`;
+          break;
+        case "unpark":
+          fallbackNotice = "ℹ️ Unparking milestone...";
+          fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet. Report that there are no parked milestones because GSD has not been initialised.`;
+          break;
+        case "start":
+          fallbackNotice = "ℹ️ Starting workflow template...";
+          fallbackPrompt = `The user ran "${originalCommand}". Show available workflow templates (bugfix, spike, feature, etc.) and help the user start one.`;
+          break;
+        case "templates":
+          fallbackNotice = "ℹ️ Loading templates...";
+          fallbackPrompt = `The user ran "${originalCommand}". List all available GSD workflow templates with descriptions. Do not execute new work.`;
+          break;
+        case "extensions":
+          fallbackNotice = "ℹ️ Loading extensions...";
+          fallbackPrompt = `The user ran "${originalCommand}". List installed GSD extensions and their status. Do not execute new work.`;
+          break;
+        case "export":
+          fallbackNotice = "ℹ️ Exporting report...";
+          fallbackPrompt = `The user ran "${originalCommand}". There is no .gsd/STATE.md yet. Report that there is nothing to export because GSD has not been initialised.`;
+          break;
+        case "logs":
+          fallbackNotice = "ℹ️ Loading logs...";
+          fallbackPrompt = `The user ran "${originalCommand}". Browse activity, debug, and metrics logs from .gsd/activity/ and .gsd/debug/. Report what's available.`;
+          break;
+        case "keys":
+          fallbackNotice = "ℹ️ Loading API keys...";
+          fallbackPrompt = `The user ran "${originalCommand}". Show the API key manager — list configured keys, their status, and available actions.`;
+          break;
         default:
           fallbackNotice = "ℹ️ The /gsd interactive menu isn't available yet — reading project state and continuing automatically...";
           fallbackPrompt = `The user ran "${originalCommand}" but the interactive wizard couldn't display. There is no .gsd/STATE.md yet, so this project needs GSD initialization. Read the GSD workflow documentation and help the user set up their first milestone. Start by understanding what the project is and what they want to accomplish.`;
@@ -198,6 +286,94 @@ export async function handleGsdAutoFallback(
         case "mode":
           fallbackNotice = "ℹ️ Loading workflow modes...";
           fallbackPrompt = statePrefix + `Show available workflow modes (solo, team) and the current mode. Let the user choose a mode if they want to switch.`;
+          break;
+        case "changelog":
+          fallbackNotice = "ℹ️ Fetching release notes...";
+          fallbackPrompt = statePrefix + `Fetch and display the recent GSD changelog / release notes. Do not execute new work.`;
+          break;
+        case "triage":
+          fallbackNotice = "ℹ️ Triaging captures...";
+          fallbackPrompt = statePrefix + `Manually trigger triage of pending captures. Read .gsd/captures/ and process any unresolved items. Report what was triaged.`;
+          break;
+        case "dispatch":
+          fallbackNotice = "ℹ️ Dispatching phase...";
+          fallbackPrompt = statePrefix + `The user wants to dispatch a specific phase directly. Determine the available phases and either dispatch the one specified or let the user choose.`;
+          break;
+        case "history":
+          fallbackNotice = "ℹ️ Loading execution history...";
+          fallbackPrompt = statePrefix + `Show the execution history. Read .gsd/activity/ logs and present a summary of recent units, their outcomes, costs, and durations.`;
+          break;
+        case "undo":
+          fallbackNotice = "ℹ️ Reverting last unit...";
+          fallbackPrompt = statePrefix + `The user wants to undo the last completed unit. Identify the most recent completed unit and revert it safely (git revert, state update). Confirm before acting.`;
+          break;
+        case "skip":
+          fallbackNotice = "ℹ️ Skipping unit...";
+          fallbackPrompt = statePrefix + `The user wants to skip a unit from auto-mode dispatch. Identify the current or next pending unit and mark it as skipped so auto-mode won't dispatch it.`;
+          break;
+        case "cleanup":
+          fallbackNotice = "ℹ️ Running cleanup...";
+          fallbackPrompt = statePrefix + `Clean up merged GSD branches and old snapshots. Report what was cleaned up.`;
+          break;
+        case "hooks":
+          fallbackNotice = "ℹ️ Loading hooks...";
+          fallbackPrompt = statePrefix + `Show configured post-unit and pre-dispatch hooks from GSD preferences. Read .gsd/preferences.md and report hook configuration.`;
+          break;
+        case "run-hook":
+          fallbackNotice = "ℹ️ Running hook...";
+          fallbackPrompt = statePrefix + `Manually trigger a specific GSD hook. Show available hooks and let the user choose which to run.`;
+          break;
+        case "skill-health":
+          fallbackNotice = "ℹ️ Loading skill health...";
+          fallbackPrompt = statePrefix + `Show the skill lifecycle dashboard — which skills are installed, their status, and any issues.`;
+          break;
+        case "init":
+          fallbackNotice = "ℹ️ Starting project init...";
+          fallbackPrompt = statePrefix + `Run the GSD project initialization wizard. Since .gsd/ already exists, check if reconfiguration is needed.`;
+          break;
+        case "setup":
+          fallbackNotice = "ℹ️ Loading setup status...";
+          fallbackPrompt = statePrefix + `Show global GSD setup status and configuration — installed version, provider status, API keys.`;
+          break;
+        case "inspect":
+          fallbackNotice = "ℹ️ Running DB inspection...";
+          fallbackPrompt = statePrefix + `Show SQLite database diagnostics for the .gsd/ project database. Report table counts, integrity, and any anomalies.`;
+          break;
+        case "new-milestone":
+          fallbackNotice = "ℹ️ Creating milestone...";
+          fallbackPrompt = statePrefix + `The user wants to create a new milestone from a specification. Help them provide context (a spec document or description) and create the milestone with proper GSD structure.`;
+          break;
+        case "park":
+          fallbackNotice = "ℹ️ Parking milestone...";
+          fallbackPrompt = statePrefix + `The user wants to park a milestone (skip without deleting). Identify the target milestone and park it with a reason.`;
+          break;
+        case "unpark":
+          fallbackNotice = "ℹ️ Unparking milestone...";
+          fallbackPrompt = statePrefix + `The user wants to reactivate a parked milestone. List parked milestones and let the user choose which to unpark.`;
+          break;
+        case "start":
+          fallbackNotice = "ℹ️ Starting workflow template...";
+          fallbackPrompt = statePrefix + `Show available workflow templates (bugfix, spike, feature, etc.) and help the user start one. Templates provide pre-configured milestone structure for common tasks.`;
+          break;
+        case "templates":
+          fallbackNotice = "ℹ️ Loading templates...";
+          fallbackPrompt = statePrefix + `List all available GSD workflow templates with descriptions. Do not execute new work.`;
+          break;
+        case "extensions":
+          fallbackNotice = "ℹ️ Loading extensions...";
+          fallbackPrompt = statePrefix + `List installed GSD extensions and their status (enabled/disabled). Show extension info. Do not execute new work.`;
+          break;
+        case "export":
+          fallbackNotice = "ℹ️ Exporting report...";
+          fallbackPrompt = statePrefix + `Export the current milestone as an HTML report. Generate a self-contained HTML file with metrics, progress, and timeline.`;
+          break;
+        case "logs":
+          fallbackNotice = "ℹ️ Loading logs...";
+          fallbackPrompt = statePrefix + `Browse activity, debug, and metrics logs from .gsd/activity/ and .gsd/debug/. Report recent activity summaries.`;
+          break;
+        case "keys":
+          fallbackNotice = "ℹ️ Loading API keys...";
+          fallbackPrompt = statePrefix + `Show the API key manager — list configured keys, their status, and available actions (add, remove, test, rotate).`;
           break;
         default:
           // /gsd or /gsd next — step mode

@@ -218,24 +218,33 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "agent_start": {
-      // Expire any pending UI dialogs from a previous turn — the backend's
-      // abort signal has already auto-resolved them, so user interaction
-      // would go nowhere.
       if (uiDialogs.hasPending()) {
         uiDialogs.expireAllPending("New turn started");
       }
       state.isStreaming = true;
-      state.currentTurn = {
-        id: nextId(),
-        segments: [],
-        toolCalls: new Map(),
-        isComplete: false,
-        timestamp: Date.now(),
-      };
-      renderer.resetStreamingState();
-      updateInputUI();
-      renderer.ensureCurrentTurnElement();
-      announceToScreenReader("Assistant is responding...");
+      const isContinuation = !!(msg as any).isContinuation && state.currentTurn === null;
+      const lastEntry = state.entries[state.entries.length - 1];
+      if (isContinuation && lastEntry?.type === "assistant" && lastEntry.turn) {
+        state.currentTurn = lastEntry.turn;
+        state.currentTurn.isComplete = false;
+        renderer.resetStreamingState();
+        updateInputUI();
+        renderer.reattachTurnElement(lastEntry.id);
+        announceToScreenReader("Assistant is continuing...");
+      } else {
+        state.currentTurn = {
+          id: nextId(),
+          segments: [],
+          toolCalls: new Map(),
+          isComplete: false,
+          timestamp: Date.now(),
+        };
+        renderer.resetStreamingState();
+        updateInputUI();
+        renderer.ensureCurrentTurnElement();
+        announceToScreenReader("Assistant is responding...");
+      }
+      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
       break;
     }
 
@@ -249,6 +258,7 @@ function handleMessage(event: MessageEvent): void {
       if (uiDialogs.hasPending()) {
         uiDialogs.expireAllPending("Agent finished");
       }
+      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
       renderer.finalizeCurrentTurn();
       updateInputUI();
       updateOverlayIndicators();
@@ -307,8 +317,8 @@ function handleMessage(event: MessageEvent): void {
           addSystemEntry(errorMessage, "error");
         }
 
-        if (endMsg.usage) {
-          const u = endMsg.usage;
+        if ((endMsg as any).usage) {
+          const u = (endMsg as any).usage as { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } };
           if (!state.sessionStats.tokens) {
             state.sessionStats.tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
           }
@@ -409,6 +419,11 @@ function handleMessage(event: MessageEvent): void {
             .join("\n");
           if (text) tc.resultText = text;
           if (data.result.details) tc.details = data.result.details;
+        }
+        // Detect skipped-due-to-steer: downgrade from error to skip
+        if (tc.isError && tc.resultText && /skipped due to queued user message/i.test(tc.resultText)) {
+          tc.isSkipped = true;
+          tc.isError = false;
         }
       }
       renderer.updateToolSegmentElement(data.toolCallId);
