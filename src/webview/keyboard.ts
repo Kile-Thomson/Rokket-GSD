@@ -5,6 +5,7 @@
 import type { WebviewToExtensionMessage } from "../shared/types";
 import { scrollToBottom, sanitizeUrl } from "./helpers";
 import { state } from "./state";
+import { createFocusTrap, saveFocus, restoreFocus } from "./a11y";
 import * as slashMenu from "./slash-menu";
 import * as modelPicker from "./model-picker";
 import * as thinkingPicker from "./thinking-picker";
@@ -34,6 +35,12 @@ let thinkingBadge: HTMLElement;
 let sendMessage: () => void;
 let updateAllUI: () => void;
 let _autoResize: () => void;
+
+// Focus trap state for settings dropdown and changelog
+let settingsTrapHandler: ((e: KeyboardEvent) => void) | null = null;
+let settingsTriggerEl: HTMLElement | null = null;
+let changelogTrapHandler: ((e: KeyboardEvent) => void) | null = null;
+let changelogTriggerEl: HTMLElement | null = null;
 
 export interface KeyboardDeps {
   vscode: { postMessage(msg: unknown): void };
@@ -190,9 +197,19 @@ function setupClickHandlers(): void {
   headerVersion.addEventListener("click", () => {
     const existing = document.getElementById("gsd-changelog");
     if (existing) {
+      // Dismiss changelog — remove focus trap and restore focus
+      if (changelogTrapHandler) {
+        existing.removeEventListener("keydown", changelogTrapHandler);
+        changelogTrapHandler = null;
+      }
       existing.classList.add("dismissing");
       setTimeout(() => existing.remove(), 300);
+      restoreFocus(changelogTriggerEl);
+      changelogTriggerEl = null;
     } else {
+      // Save focus before opening changelog
+      changelogTriggerEl = saveFocus();
+
       // Show loading spinner while fetching
       const loader = document.createElement("div");
       loader.id = "gsd-changelog";
@@ -203,6 +220,11 @@ function setupClickHandlers(): void {
         </div>
         <div class="gsd-loading-spinner"><div class="gsd-spinner"></div> Loading...</div>
       `;
+
+      // Apply focus trap to changelog
+      changelogTrapHandler = createFocusTrap(loader);
+      loader.addEventListener("keydown", changelogTrapHandler);
+
       messagesContainer.appendChild(loader);
       scrollToBottom(messagesContainer, true);
       vscode.postMessage({ type: "get_changelog" } as WebviewToExtensionMessage);
@@ -334,6 +356,20 @@ function setupButtonHandlers(): void {
       e.stopPropagation();
       const isOpen = settingsDropdown.classList.toggle("open");
       settingsBtn.setAttribute("aria-expanded", String(isOpen));
+      if (isOpen) {
+        // Save focus and apply focus trap
+        settingsTriggerEl = saveFocus();
+        settingsTrapHandler = createFocusTrap(settingsDropdown);
+        settingsDropdown.addEventListener("keydown", settingsTrapHandler);
+      } else {
+        // Remove focus trap and restore focus
+        if (settingsTrapHandler) {
+          settingsDropdown.removeEventListener("keydown", settingsTrapHandler);
+          settingsTrapHandler = null;
+        }
+        restoreFocus(settingsTriggerEl);
+        settingsTriggerEl = null;
+      }
     });
 
     // Theme option clicks
@@ -359,6 +395,12 @@ function setupButtonHandlers(): void {
       // Close dropdown
       settingsDropdown.classList.remove("open");
       settingsBtn.setAttribute("aria-expanded", "false");
+      if (settingsTrapHandler) {
+        settingsDropdown.removeEventListener("keydown", settingsTrapHandler);
+        settingsTrapHandler = null;
+      }
+      restoreFocus(settingsTriggerEl);
+      settingsTriggerEl = null;
     });
 
     // Close dropdown when clicking outside
@@ -366,6 +408,12 @@ function setupButtonHandlers(): void {
       if (!settingsWrapper.contains(e.target as Node)) {
         settingsDropdown.classList.remove("open");
         settingsBtn.setAttribute("aria-expanded", "false");
+        if (settingsTrapHandler) {
+          settingsDropdown.removeEventListener("keydown", settingsTrapHandler);
+          settingsTrapHandler = null;
+        }
+        restoreFocus(settingsTriggerEl);
+        settingsTriggerEl = null;
       }
     });
   }
