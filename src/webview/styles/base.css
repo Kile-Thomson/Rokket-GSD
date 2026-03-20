@@ -1,0 +1,73 @@
+/* ============================================================
+   GSD Base — Resets, utilities, accessibility
+   ============================================================
+   Imported immediately after tokens.css, before any component
+   CSS. Contains global resets, utility classes, and the
+   reduced-motion media query.
+   ============================================================ */
+
+/* ----------------------------------------------------------
+   Global resets
+   ---------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--gsd-font-family);
+  font-size: var(--vscode-font-size, 13px);
+  color: var(--gsd-color-text);
+  background: var(--gsd-color-bg);
+  line-height: var(--gsd-line-height);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  height: 100%;
+}
+
+/* ----------------------------------------------------------
+   Utility: hidden toggle (replaces all inline display toggles)
+   ---------------------------------------------------------- */
+
+.gsd-hidden {
+  display: none !important;
+}
+
+/* ----------------------------------------------------------
+   Utility: screen-reader-only
+   ---------------------------------------------------------- */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ----------------------------------------------------------
+   Reduced Motion — respect user preference (CSS-003)
+   ---------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
