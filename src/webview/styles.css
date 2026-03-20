@@ -89,10 +89,10 @@ html, body {
 }
 
 .gsd-logo.working::after {
-  animation: rocket-glow 1.8s ease-in-out infinite;
+  animation: gsd-rocket-glow 1.8s ease-in-out infinite;
 }
 
-@keyframes rocket-glow {
+@keyframes gsd-rocket-glow {
   0%, 100% {
     opacity: 0.5;
     transform: scale(1);
@@ -349,10 +349,10 @@ html, body {
 
 .gsd-context-bar.crit {
   background: rgba(220, 70, 60, 0.7);
-  animation: contextPulse 2s ease-in-out infinite;
+  animation: gsd-context-pulse 2s ease-in-out infinite;
 }
 
-@keyframes contextPulse {
+@keyframes gsd-context-pulse {
   0%, 100% { opacity: 0.7; }
   50% { opacity: 1; }
 }
@@ -418,7 +418,7 @@ html, body {
   border: 1.5px solid currentColor;
   border-top-color: transparent;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: gsd-spin 0.8s linear infinite;
   flex-shrink: 0;
 }
 
@@ -1064,10 +1064,10 @@ html, body {
 
 .gsd-entry {
   margin-bottom: 16px;
-  animation: entryIn 0.2s ease-out;
+  animation: gsd-entry-in 0.2s ease-out;
 }
 
-@keyframes entryIn {
+@keyframes gsd-entry-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
@@ -1142,14 +1142,14 @@ html, body {
 /* Streaming cursor */
 .gsd-entry-assistant.streaming .gsd-assistant-text > *:last-child::after {
   content: "▊";
-  animation: cursorPulse 1.2s ease-in-out infinite;
+  animation: gsd-cursor-pulse 1.2s ease-in-out infinite;
   opacity: 0.5;
   margin-left: 1px;
   font-size: 0.85em;
   color: var(--vscode-textLink-foreground, #3794ff);
 }
 
-@keyframes cursorPulse {
+@keyframes gsd-cursor-pulse {
   0%, 100% { opacity: 0.15; }
   50% { opacity: 0.55; }
 }
@@ -1595,7 +1595,7 @@ html, body {
   border-radius: 50%;
   background: var(--vscode-textLink-foreground, #3794ff);
   opacity: 0.25;
-  animation: dotPulse 1.4s ease-in-out infinite;
+  animation: gsd-dot-pulse 1.4s ease-in-out infinite;
 }
 
 .gsd-thinking-dots span:nth-child(2) {
@@ -1606,7 +1606,7 @@ html, body {
   animation-delay: 0.4s;
 }
 
-@keyframes dotPulse {
+@keyframes gsd-dot-pulse {
   0%, 80%, 100% { opacity: 0.15; transform: scale(0.8); }
   40% { opacity: 0.7; transform: scale(1.1); }
 }
@@ -1634,19 +1634,19 @@ html, body {
     transparent 100%
   );
   background-size: 200% 100%;
-  animation: toolShimmer 2s ease-in-out infinite;
+  animation: gsd-tool-shimmer 2s ease-in-out infinite;
 }
 
-@keyframes toolShimmer {
+@keyframes gsd-tool-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
 
 .gsd-tool-block.done {
-  animation: toolComplete 0.3s ease-out;
+  animation: gsd-tool-complete 0.3s ease-out;
 }
 
-@keyframes toolComplete {
+@keyframes gsd-tool-complete {
   from { border-color: rgba(55, 148, 255, 0.4); }
   to { border-color: var(--vscode-panel-border, rgba(128,128,128,0.15)); }
 }
@@ -1678,12 +1678,8 @@ html, body {
   border: 1.5px solid rgba(55, 148, 255, 0.3);
   border-top-color: var(--vscode-textLink-foreground, #3794ff);
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: gsd-spin 0.8s linear infinite;
   flex-shrink: 0;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 .gsd-tool-icon {
@@ -1758,10 +1754,10 @@ html, body {
 }
 
 .gsd-tool-block.parallel.running .gsd-tool-parallel-badge {
-  animation: parallel-pulse 1.5s ease-in-out infinite;
+  animation: gsd-parallel-pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes parallel-pulse {
+@keyframes gsd-parallel-pulse {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
 }
@@ -3672,7 +3668,13 @@ html, body {
 .gsd-copy-response-btn:focus-visible,
 .gsd-scroll-fab:focus-visible,
 .gsd-tool-header[role="button"]:focus-visible,
-.gsd-tool-group-header[role="button"]:focus-visible {
+.gsd-tool-group-header[role="button"]:focus-visible,
+.gsd-slash-item:focus-visible,
+.gsd-stale-echo-bar:focus-visible,
+.gsd-model-picker [role="option"]:focus-visible,
+.gsd-thinking-picker [role="option"]:focus-visible,
+.gsd-ui-option-btn:focus-visible,
+.gsd-session-item:focus-visible {
   outline: 2px solid var(--vscode-focusBorder, #007fd4);
   outline-offset: 2px;
 }
@@ -4130,10 +4132,10 @@ html, body {
 }
 
 .gsd-app[data-theme="phosphor"] .gsd-tool-block.running .gsd-tool-header {
-  animation: phosphorPulse 2s ease-in-out infinite;
+  animation: gsd-phosphor-pulse 2s ease-in-out infinite;
 }
 
-@keyframes phosphorPulse {
+@keyframes gsd-phosphor-pulse {
   0%, 100% { background: rgba(0, 255, 65, 0.02); }
   50% { background: rgba(0, 255, 65, 0.06); }
 }
@@ -4332,10 +4334,10 @@ html, body {
 .gsd-app[data-theme="clarity"] .gsd-tool-block.running {
   box-shadow: 0 0 0 1px var(--clarity-accent-soft);
   background: var(--clarity-surface);
-  animation: clarityShimmer 2.5s ease-in-out infinite;
+  animation: gsd-clarity-shimmer 2.5s ease-in-out infinite;
 }
 
-@keyframes clarityShimmer {
+@keyframes gsd-clarity-shimmer {
   0%, 100% { box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.1); }
   50% { box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.25), 0 0 12px rgba(129, 140, 248, 0.05); }
 }
@@ -4511,11 +4513,11 @@ html, body {
 
 .gsd-app[data-theme="forge"] .gsd-tool-block.running {
   border-color: rgba(200, 135, 90, 0.2);
-  animation: forgeGlow 2.5s ease-in-out infinite;
+  animation: gsd-forge-glow 2.5s ease-in-out infinite;
   background: var(--forge-recessed);
 }
 
-@keyframes forgeGlow {
+@keyframes gsd-forge-glow {
   0%, 100% { box-shadow: var(--forge-inset); }
   50% { box-shadow: var(--forge-inset), 0 0 8px rgba(200, 135, 90, 0.08); }
 }
@@ -5485,4 +5487,18 @@ html, body {
 .gsd-visualizer-health-text {
   flex: 1;
   min-width: 0;
+}
+
+/* ============================================================
+   Reduced Motion — respect user preference (CSS-003)
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

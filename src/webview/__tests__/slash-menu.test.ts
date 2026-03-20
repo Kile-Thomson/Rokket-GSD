@@ -15,7 +15,7 @@ describe("slash-menu buildItems", () => {
     const items = buildItems();
     const exp = items.find((i) => i.name === "gsd export");
     expect(exp).toBeDefined();
-    expect(exp!.description).toBe("Export milestone report (HTML)");
+    expect(exp!.description).toBe("Export milestone report as HTML (via gsd-pi)");
     expect(exp!.sendOnSelect).toBeUndefined();
   });
 });

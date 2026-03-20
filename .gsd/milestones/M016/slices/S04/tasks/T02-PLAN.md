@@ -111,3 +111,11 @@ After all changes: run `npx vitest --run` and `npm run build` to verify nothing 
 - `src/webview/state.ts` — exports `resetState()` function
 - `src/webview/slash-menu.ts` — clarified export descriptions
 - `src/shared/types.ts` — `RpcExportResult` removed
+
+## Observability Impact
+
+- **FT-10 — default switch case:** Unrecognized message types now emit `console.warn("[gsd-webview] Unrecognized message type:", ...)` to the browser console. Future agents debugging message delivery issues can filter devtools for `[gsd-webview]` to detect extension→webview protocol mismatches.
+- **TEST-06 — resetState:** The `resetState()` export enables test isolation; when a test suite fails due to state leakage, calling `resetState()` in beforeEach/afterEach narrows the cause.
+- **CSS-003 — prefers-reduced-motion:** Users with reduced-motion preferences will see near-zero animation durations. If animations appear to "not work" in bug reports, check `prefers-reduced-motion` media query match.
+- **CSS-014 — animation prefixing:** All `@keyframes` are now `gsd-*` prefixed, eliminating collision risk with VS Code host or other extensions. If an animation breaks, verify the `animation:` property references the `gsd-*` name.
+- **SEC-07 — escapeHtml consolidation:** Tool grouping labels now use the same `escapeHtml` helper as the rest of the webview, ensuring consistent XSS protection. If label rendering changes, check `helpers.ts` `escapeHtml` (single source of truth).
