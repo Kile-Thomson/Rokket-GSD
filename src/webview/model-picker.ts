@@ -4,6 +4,7 @@
 
 import { state, type AvailableModel } from "./state";
 import { escapeHtml, escapeAttr, formatTokens } from "./helpers";
+import { createFocusTrap, saveFocus, restoreFocus } from "./a11y";
 
 // ============================================================
 // Module state
@@ -12,6 +13,7 @@ import { escapeHtml, escapeAttr, formatTokens } from "./helpers";
 let visible = false;
 let triggerEl: HTMLElement | null = null;
 let activeIndex = -1;
+let focusTrapHandler: ((e: KeyboardEvent) => void) | null = null;
 
 // ============================================================
 // Dependencies injected via init()
@@ -42,7 +44,7 @@ export function show(): void {
   if (!state.modelsLoaded) {
     vscode.postMessage({ type: "get_available_models" });
   }
-  triggerEl = document.activeElement as HTMLElement | null;
+  triggerEl = saveFocus();
   visible = true;
   activeIndex = -1;
   render();
@@ -50,12 +52,14 @@ export function show(): void {
 
 export function hide(): void {
   visible = false;
+  if (focusTrapHandler) {
+    pickerEl.removeEventListener("keydown", focusTrapHandler);
+    focusTrapHandler = null;
+  }
   pickerEl.classList.add("gsd-hidden");
   pickerEl.innerHTML = "";
-  if (triggerEl && typeof triggerEl.focus === "function") {
-    triggerEl.focus();
-    triggerEl = null;
-  }
+  restoreFocus(triggerEl);
+  triggerEl = null;
 }
 
 export function render(): void {
@@ -129,6 +133,13 @@ export function render(): void {
 
   pickerEl.classList.remove("gsd-hidden");
   pickerEl.innerHTML = html;
+
+  // Attach focus trap (remove old one first to avoid duplicates on re-render)
+  if (focusTrapHandler) {
+    pickerEl.removeEventListener("keydown", focusTrapHandler);
+  }
+  focusTrapHandler = createFocusTrap(pickerEl);
+  pickerEl.addEventListener("keydown", focusTrapHandler);
 
   pickerEl.querySelector("#modelPickerClose")?.addEventListener("click", hide);
 

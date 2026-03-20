@@ -9,6 +9,7 @@
 import type { DashboardData, DashboardSlice } from "../shared/types";
 import { escapeHtml, formatTokens } from "./helpers";
 import { state } from "./state";
+import { createFocusTrap, saveFocus, restoreFocus } from "./a11y";
 
 // ============================================================
 // Module state
@@ -20,6 +21,8 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null;
 let currentData: DashboardData | null = null;
 let vscode: { postMessage(msg: unknown): void };
 let activeTab: "progress" | "metrics" | "health" = "progress";
+let triggerEl: HTMLElement | null = null;
+let focusTrapHandler: ((e: KeyboardEvent) => void) | null = null;
 
 /** Refresh interval — 5 seconds when visible */
 const REFRESH_INTERVAL_MS = 5_000;
@@ -42,6 +45,7 @@ export function isVisible(): boolean {
 
 export function show(): void {
   if (visible) return;
+  triggerEl = saveFocus();
   visible = true;
   activeTab = "progress";
   ensureOverlayElement();
@@ -64,10 +68,16 @@ export function hide(): void {
     clearInterval(refreshTimer);
     refreshTimer = null;
   }
+  if (focusTrapHandler && overlayEl) {
+    overlayEl.removeEventListener("keydown", focusTrapHandler);
+    focusTrapHandler = null;
+  }
   if (overlayEl) {
     overlayEl.classList.add("gsd-hidden");
     overlayEl.innerHTML = "";
   }
+  restoreFocus(triggerEl);
+  triggerEl = null;
 }
 
 /**
@@ -522,6 +532,14 @@ function getPhaseClass(phase: string): string {
 
 function wireClose(): void {
   overlayEl?.querySelector("#vizClose")?.addEventListener("click", hide);
+  // Attach focus trap (remove old one first to avoid duplicates on re-render)
+  if (overlayEl) {
+    if (focusTrapHandler) {
+      overlayEl.removeEventListener("keydown", focusTrapHandler);
+    }
+    focusTrapHandler = createFocusTrap(overlayEl);
+    overlayEl.addEventListener("keydown", focusTrapHandler);
+  }
 }
 
 function wireTabs(): void {
