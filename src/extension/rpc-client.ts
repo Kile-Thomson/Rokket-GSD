@@ -613,12 +613,6 @@ export class GsdRpcClient extends EventEmitter {
     return await this.request({ type: "cycle_thinking_level" });
   }
 
-  async exportHtml(outputPath?: string): Promise<unknown> {
-    const cmd: Record<string, unknown> = { type: "export_html" };
-    if (outputPath) cmd.outputPath = outputPath;
-    return await this.request(cmd);
-  }
-
   async executeBash(command: string): Promise<unknown> {
     return await this.request({ type: "bash", command });
   }
@@ -635,10 +629,6 @@ export class GsdRpcClient extends EventEmitter {
     return await this.request({ type: "fork", entryId });
   }
 
-  async cycleModel(): Promise<unknown> {
-    return await this.request({ type: "cycle_model" });
-  }
-
   async setAutoCompaction(enabled: boolean): Promise<void> {
     await this.request({ type: "set_auto_compaction", enabled });
   }
@@ -649,14 +639,6 @@ export class GsdRpcClient extends EventEmitter {
 
   async abortRetry(): Promise<void> {
     await this.request({ type: "abort_retry" });
-  }
-
-  async abortBash(): Promise<void> {
-    await this.request({ type: "abort_bash" });
-  }
-
-  async getLastAssistantText(): Promise<unknown> {
-    return await this.request({ type: "get_last_assistant_text" });
   }
 
   async setSteeringMode(mode: "all" | "one-at-a-time"): Promise<void> {
