@@ -125,7 +125,7 @@ describe("Loading States", () => {
     const models: unknown[] = [];
 
     if (models.length === 0) {
-      pickerEl.style.display = "block";
+      pickerEl.classList.remove('gsd-hidden');
       pickerEl.innerHTML = `<div class="gsd-model-picker-loading">
         <span class="gsd-tool-spinner"></span> Loading models…
       </div>`;

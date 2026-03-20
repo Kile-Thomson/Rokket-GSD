@@ -101,3 +101,9 @@ Establish the `.gsd-hidden` CSS utility class and replace all `style.display` to
 - `src/webview/file-handling.ts` — zero `style.display`
 - `src/webview/__tests__/ui-updates.test.ts` — assertions use classList instead of style.display
 - `src/webview/__tests__/loading-states.test.ts` — assertion uses classList
+
+## Observability Impact
+
+- **CSP violations**: If any inline `style.display` toggling remains, CSP violations will be logged in the browser DevTools console once `'unsafe-inline'` is removed in T03. This task eliminates 37 of 52 sites.
+- **Flash of content**: If `gsd-hidden` class is missing from initially-hidden HTML elements, they will flash visible on load. Inspect via DevTools → Elements on webview open.
+- **Failure visibility**: No new runtime signals. The `.gsd-hidden` class is a CSS-only mechanism — failures manifest as visual bugs (elements not hiding/showing), detectable by inspecting class lists in DevTools.

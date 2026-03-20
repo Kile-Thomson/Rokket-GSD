@@ -57,13 +57,13 @@ root.innerHTML = `
         <span class="gsd-title">Rokket GSD</span>
         <span class="gsd-header-version" id="headerVersion" title="View changelog" role="button" tabindex="0" aria-label="View changelog"></span>
       </div>
-      <span class="gsd-workflow-badge" id="workflowBadge" title="GSD workflow state" role="status" aria-label="Workflow state"></span>
+      <span class="gsd-workflow-badge gsd-hidden" id="workflowBadge" title="GSD workflow state" role="status" aria-label="Workflow state"></span>
       <div class="gsd-header-info" role="status" aria-label="Session info">
-        <span class="gsd-model-badge" id="modelBadge" title="Model" aria-label="Current model"></span>
-        <span class="gsd-thinking-badge" id="thinkingBadge" title="Thinking level" aria-label="Thinking level"></span>
-        <span class="gsd-header-sep" id="headerSep1" aria-hidden="true"></span>
-        <span class="gsd-cost-badge" id="costBadge" title="Session cost" aria-label="Session cost"></span>
-        <span class="gsd-context-badge" id="contextBadge" title="Context usage" aria-label="Context usage"></span>
+        <span class="gsd-model-badge gsd-hidden" id="modelBadge" title="Model" aria-label="Current model"></span>
+        <span class="gsd-thinking-badge gsd-hidden" id="thinkingBadge" title="Thinking level" aria-label="Thinking level"></span>
+        <span class="gsd-header-sep gsd-hidden" id="headerSep1" aria-hidden="true"></span>
+        <span class="gsd-cost-badge gsd-hidden" id="costBadge" title="Session cost" aria-label="Session cost"></span>
+        <span class="gsd-context-badge gsd-hidden" id="contextBadge" title="Context usage" aria-label="Context usage"></span>
       </div>
       <div class="gsd-header-actions" role="toolbar" aria-label="Actions">
         <button class="gsd-action-btn" id="compactBtn" title="Compact context — reduce token usage" aria-label="Compact context">
@@ -120,11 +120,11 @@ root.innerHTML = `
       </div>
     </header>
 
-    <div class="gsd-context-bar-container" id="contextBarContainer">
+    <div class="gsd-context-bar-container gsd-hidden" id="contextBarContainer">
       <div class="gsd-context-bar" id="contextBar"></div>
     </div>
 
-    <div class="gsd-overlay-indicators" id="overlayIndicators"></div>
+    <div class="gsd-overlay-indicators gsd-hidden" id="overlayIndicators"></div>
 
     <main class="gsd-messages" id="messagesContainer" role="log" aria-label="Chat messages" aria-live="polite" aria-relevant="additions">
       <div class="gsd-welcome" id="welcomeScreen">
@@ -140,12 +140,12 @@ root.innerHTML = `
         <div class="gsd-welcome-title">Get Shit Done <span class="gsd-welcome-version" id="welcomeVersion"></span></div>
         <div class="gsd-welcome-sub" id="welcomeProcess">Initializing...</div>
         <div class="gsd-welcome-model" id="welcomeModel"></div>
-        <div class="gsd-welcome-hints" id="welcomeHints"></div>
+        <div class="gsd-welcome-hints gsd-hidden" id="welcomeHints"></div>
         <div class="gsd-welcome-actions" id="welcomeActions">
           <button class="gsd-welcome-chip" data-prompt="/gsd auto">▶ Auto</button>
           <button class="gsd-welcome-chip" data-prompt="/gsd status">📊 Status</button>
           <button class="gsd-welcome-chip" data-prompt="Review this project and tell me what you see.">🔍 Review</button>
-          <button class="gsd-welcome-chip gsd-resume-chip" data-action="resume_last" style="display:none">↩ Resume</button>
+          <button class="gsd-welcome-chip gsd-resume-chip gsd-hidden" data-action="resume_last">↩ Resume</button>
         </div>
         <div class="gsd-welcome-attribution">
           <span class="gsd-rokketek-mark">▲ ROKKETEK</span>
@@ -160,12 +160,12 @@ root.innerHTML = `
     <div class="gsd-slash-menu" id="slashMenu"></div>
     <div class="gsd-model-picker" id="modelPicker"></div>
     <div class="gsd-thinking-picker" id="thinkingPicker"></div>
-    <div class="gsd-session-history" id="sessionHistory"></div>
+    <div class="gsd-session-history gsd-hidden" id="sessionHistory"></div>
 
     <div class="gsd-input-area">
       <div class="gsd-resize-handle" id="resizeHandle" title="Drag to resize"></div>
-      <div class="gsd-file-chips" id="fileChips"></div>
-      <div class="gsd-image-preview" id="imagePreview"></div>
+      <div class="gsd-file-chips gsd-hidden" id="fileChips"></div>
+      <div class="gsd-image-preview gsd-hidden" id="imagePreview"></div>
       <div class="gsd-input-row">
         <button class="gsd-attach-btn" id="attachBtn" title="Attach files">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M10.404 2.318a2.5 2.5 0 0 0-3.536 0L3.343 5.843a4 4 0 1 0 5.657 5.657l3.525-3.525-.707-.707-3.525 3.525a3 3 0 1 1-4.243-4.243l3.525-3.525a1.5 1.5 0 0 1 2.122 2.121L6.172 8.672a.5.5 0 0 1-.708-.708l3.025-3.025-.707-.707-3.025 3.025a1.5 1.5 0 0 0 2.122 2.121l3.525-3.525a2.5 2.5 0 0 0 0-3.535z"/></svg>
@@ -430,7 +430,7 @@ function sendMessage(): void {
       text: "/gsd status",
       timestamp: Date.now(),
     });
-    welcomeScreen.style.display = "none";
+    welcomeScreen.classList.add('gsd-hidden');
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
     scrollToBottom(messagesContainer, true);
     promptInput.value = "";
@@ -462,7 +462,7 @@ function sendMessage(): void {
       text: `! ${bashCmd}`,
       timestamp: Date.now(),
     });
-    welcomeScreen.style.display = "none";
+    welcomeScreen.classList.add('gsd-hidden');
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
     scrollToBottom(messagesContainer, true);
 
@@ -483,7 +483,7 @@ function sendMessage(): void {
       images: state.images.length > 0 ? [...state.images] : undefined,
       timestamp: Date.now(),
     });
-    welcomeScreen.style.display = "none";
+    welcomeScreen.classList.add('gsd-hidden');
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
     scrollToBottom(messagesContainer, true);
 
@@ -520,7 +520,7 @@ function sendMessage(): void {
       files: state.files.length > 0 ? [...state.files] : undefined,
       timestamp: Date.now(),
     });
-    welcomeScreen.style.display = "none";
+    welcomeScreen.classList.add('gsd-hidden');
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
     scrollToBottom(messagesContainer, true);
   }
