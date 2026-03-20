@@ -92,6 +92,8 @@ function stopElapsedTimer(): void {
 export function clearMessages(): void {
   const els = messagesContainer.querySelectorAll(".gsd-entry");
   els.forEach((el) => el.remove());
+  // Also clean up steer notes that live outside entries
+  messagesContainer.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
   resetAutoScroll();
 }
 
@@ -352,12 +354,16 @@ export function finalizeCurrentTurn(): void {
   const isStaleEcho = detectStaleEcho(turn);
   turn.isStaleEcho = isStaleEcho;
 
-  state.entries.push({
-    id: turn.id,
-    type: "assistant",
-    turn,
-    timestamp: turn.timestamp,
-  });
+  // Only push a new entry if this turn isn't already in entries (continuation turns reuse the previous entry)
+  const existingEntry = state.entries.find(e => e.type === "assistant" && e.turn === turn);
+  if (!existingEntry) {
+    state.entries.push({
+      id: turn.id,
+      type: "assistant",
+      turn,
+      timestamp: turn.timestamp,
+    });
+  }
 
   if (currentTurnElement) {
     currentTurnElement.classList.remove("streaming");
@@ -501,12 +507,34 @@ function buildTurnHtml(turn: AssistantTurn): string {
     }
   }
 
+  let skippedCount = 0;
+
   for (const item of grouped) {
     if (item.type === "group") {
+      if (skippedCount > 0) {
+        html += buildSkippedGroupHtml(skippedCount);
+        skippedCount = 0;
+      }
       html += buildToolGroupHtml(item.segments, item.toolNames, turn.toolCalls);
     } else {
+      // Check if this is a skipped tool — collapse consecutive skipped tools
+      const seg = item.segment;
+      if (seg.type === "tool") {
+        const tc = turn.toolCalls.get(seg.toolCallId);
+        if (tc?.isSkipped) {
+          skippedCount++;
+          continue;
+        }
+      }
+      if (skippedCount > 0) {
+        html += buildSkippedGroupHtml(skippedCount);
+        skippedCount = 0;
+      }
       html += buildSegmentHtml(item.segment, turn.toolCalls);
     }
+  }
+  if (skippedCount > 0) {
+    html += buildSkippedGroupHtml(skippedCount);
   }
 
   if (!turn.isComplete) {
@@ -539,6 +567,16 @@ function buildTurnHtml(turn: AssistantTurn): string {
   }
 
   return html;
+}
+
+function buildSkippedGroupHtml(count: number): string {
+  const label = count === 1
+    ? "1 tool call skipped — agent redirected"
+    : `${count} tool calls skipped — agent redirected`;
+  return `<div class="gsd-skipped-group">
+    <span class="gsd-skipped-icon">⏭</span>
+    <span class="gsd-skipped-label">${escapeHtml(label)}</span>
+  </div>`;
 }
 
 function buildSegmentHtml(seg: TurnSegment, toolCalls: Map<string, ToolCallState>): string {

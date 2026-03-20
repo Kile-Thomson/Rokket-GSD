@@ -95,7 +95,9 @@ export function handleRpcEvent(
     const msg = event.message as Record<string, unknown> | undefined;
     const usage = (msg?.usage as { cost?: { total?: number } }) ?? undefined;
     if (msg?.role === "assistant" && usage?.cost?.total) {
-      ctx.emitStatus({ cost: (ctx.lastStatus.cost || 0) + usage.cost.total });
+      const session = ctx.getSession(sessionId);
+      session.accumulatedCost += usage.cost.total;
+      ctx.emitStatus({ cost: session.accumulatedCost });
     }
   } else if (eventType === "fallback_provider_switch") {
     const to = (event as any).to as string || "";

@@ -576,8 +576,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       try {
         const stats = await client.getSessionStats() as SessionStats | null;
         if (stats) {
-          if (this.lastStatus.cost && this.lastStatus.cost > (stats.cost || 0)) {
-            stats.cost = this.lastStatus.cost;
+          const sessionCost = this.getSession(sessionId).accumulatedCost;
+          if (sessionCost > (stats.cost || 0)) {
+            stats.cost = sessionCost;
           }
           this.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
         }
@@ -917,8 +918,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                       toolCalls: statsResult.toolCalls as number | undefined,
                       userMessages: statsResult.userMessages as number | undefined,
                     };
-                    if (this.lastStatus.cost && this.lastStatus.cost > (data.stats.cost || 0)) {
-                      data.stats.cost = this.lastStatus.cost;
+                    const sessionCost = this.getSession(sessionId).accumulatedCost;
+                    if (sessionCost > (data.stats.cost || 0)) {
+                      data.stats.cost = sessionCost;
                     }
                   }
                 } catch {
@@ -978,8 +980,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             try {
               const stats = await client.getSessionStats() as SessionStats | null;
               if (stats) {
-                if (this.lastStatus.cost && this.lastStatus.cost > (stats.cost || 0)) {
-                  stats.cost = this.lastStatus.cost;
+                const sessionCost = this.getSession(sessionId).accumulatedCost;
+                if (sessionCost > (stats.cost || 0)) {
+                  stats.cost = sessionCost;
                 }
                 this.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
               }
@@ -1062,8 +1065,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               // Refresh stats
               const stats = await client.getSessionStats() as SessionStats | null;
               if (stats) {
-                if (this.lastStatus.cost && this.lastStatus.cost > (stats.cost || 0)) {
-                  stats.cost = this.lastStatus.cost;
+                const sessionCost = this.getSession(sessionId).accumulatedCost;
+                if (sessionCost > (stats.cost || 0)) {
+                  stats.cost = sessionCost;
                 }
                 this.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
               }
@@ -1794,7 +1798,9 @@ ${exportOverrides}
       const msg = event.message as Record<string, unknown> | undefined;
       const usage = (msg?.usage as { cost?: { total?: number } }) ?? undefined;
       if (msg?.role === "assistant" && usage?.cost?.total) {
-        this.emitStatus({ cost: (this.lastStatus.cost || 0) + usage.cost.total });
+        const session = this.getSession(sessionId);
+        session.accumulatedCost += usage.cost.total;
+        this.emitStatus({ cost: session.accumulatedCost });
       }
     } else if (eventType === "fallback_provider_switch") {
       const to = (event as any).to as string || "";

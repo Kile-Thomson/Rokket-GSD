@@ -42,6 +42,7 @@ function createMockSession(overrides: Partial<SessionState> = {}): SessionState 
     lastEventTime: 0,
     lastAgentEndTime: 0,
     lastUserActionTime: 0,
+    accumulatedCost: 0,
     isStreaming: false,
     isRestarting: false,
     autoProgressPoller: null,

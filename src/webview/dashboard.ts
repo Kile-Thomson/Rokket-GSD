@@ -62,7 +62,8 @@ export function renderDashboard(data: DashboardData | null): void {
     return;
   }
 
-  const d = data;
+  // data is non-null after the guard above — alias for closure type narrowing
+  const d: NonNullable<DashboardData> = data;
   const phaseLabels: Record<string, string> = {
     "pre-planning": "Pre-planning",
     "discussing": "Discussing",
