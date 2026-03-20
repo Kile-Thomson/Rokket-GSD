@@ -696,6 +696,7 @@ export class GsdRpcClient extends EventEmitter {
       await this.request({ type: "get_state" }, timeoutMs);
       return true;
     } catch {
+      // get_state failed — process is not responding
       return false;
     }
   }

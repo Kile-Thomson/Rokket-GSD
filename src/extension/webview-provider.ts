@@ -4,7 +4,7 @@ import * as path from "path";
 import * as os from "os";
 import { GsdRpcClient } from "./rpc-client";
 import { fetchReleaseNotes } from "./update-checker";
-import { AutoProgressPoller } from "./auto-progress";
+import { AutoProgressPoller } from "./auto-progress-poller";
 import { createSessionState, cleanupSessionState, type SessionState } from "./session-state";
 import type { ExtensionToWebviewMessage, RpcCommandsResult, RpcStateResult } from "../shared/types";
 import { toGsdState } from "../shared/types";

@@ -256,6 +256,11 @@ export async function handleWebviewMessage(
           if (client) {
             try {
               await client.abort();
+              // Clear watchdog/fallback timers on abort (FT-17/FT-22)
+              const sess = ctx.getSession(sessionId);
+              if (sess.promptWatchdog) { clearTimeout(sess.promptWatchdog.timer); sess.promptWatchdog = null; }
+              if (sess.slashWatchdog) { clearTimeout(sess.slashWatchdog); sess.slashWatchdog = null; }
+              if (sess.gsdFallbackTimer) { clearTimeout(sess.gsdFallbackTimer); sess.gsdFallbackTimer = null; }
             } catch (err: any) {
               ctx.output.appendLine(`[${sessionId}] Interrupt/abort failed: ${err.message}`);
               // If abort fails, force-clear streaming state on the webview side

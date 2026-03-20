@@ -157,6 +157,7 @@ export function nextId(): string {
 /**
  * Reset all shared mutable state to initial values.
  * Intended for test isolation — call between test cases to prevent state leakage.
+ * @internal — exported for testing
  */
 export function resetState(): void {
   state.entries = [];

@@ -75,6 +75,7 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
       });
     }
   } catch {
+    // Node.js binary not found or not executable
     result.issues.push({
       severity: "error",
       message: "Node.js not found in PATH.",
@@ -102,6 +103,7 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
     // Get version from the package.json next to the binary
     result.gsdVersion = await resolveGsdVersion(gsdPath);
   } catch {
+    // gsd-pi binary not found or version unreadable
     if (processWrapper) {
       result.issues.push({
         severity: "error",
