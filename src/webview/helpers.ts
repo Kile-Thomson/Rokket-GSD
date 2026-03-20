@@ -2,7 +2,7 @@
 // Webview Helpers — pure functions, formatting, markdown, tools
 // ============================================================
 
-import { marked } from "marked";
+import { marked, type Token } from "marked";
 import DOMPurify from "dompurify";
 import type { SessionStats } from "../shared/types";
 import type { AppState, ToolCategory, ToolCallState } from "./state";
@@ -449,29 +449,54 @@ export function buildSubagentOutputHtml(tc: ToolCallState): string {
 // Markdown rendering
 // ============================================================
 
+/**
+ * Sanitize HTML and apply post-processing: DOMPurify sanitize, table wrapping,
+ * and file-path link detection. Reusable for both full-document and per-block rendering.
+ */
+export function sanitizeAndPostProcess(html: string): string {
+  // Sanitize HTML output — strips script tags, event handlers, dangerous attributes
+  let result = DOMPurify.sanitize(html, {
+    ADD_TAGS: ["details", "summary"],
+    ADD_ATTR: ["class", "data-code-id", "data-path", "data-idx", "data-value", "data-action", "title"],
+  });
+
+  // Wrap bare <table> elements in a scrollable container
+  result = result.replace(/<table>/g, '<div class="gsd-table-wrapper"><table>');
+  result = result.replace(/<\/table>/g, '</table></div>');
+  // Detect file paths in <code> blocks and make them clickable
+  result = result.replace(/<code>([^<]+)<\/code>/g, (_match, content: string) => {
+    const decoded = content.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#039;/g, "'");
+    if (isLikelyFilePath(decoded)) {
+      return `<code class="gsd-file-link" data-path="${escapeAttr(decoded)}">${content}</code>`;
+    }
+    return `<code>${content}</code>`;
+  });
+  return result;
+}
+
+/**
+ * Tokenize markdown text into block-level tokens using marked's Lexer.
+ * Returns the token array with the `links` property preserved for Parser use.
+ */
+export function lexMarkdown(text: string): Token[] {
+  const lexer = new marked.Lexer({ breaks: true, gfm: true });
+  return lexer.lex(text);
+}
+
+/**
+ * Parse a subset of block tokens into HTML using marked's Parser.
+ * The `tokens` array must have a `links` property (from the original lex result).
+ * Uses the same custom renderer as `renderMarkdown()` for consistent output.
+ */
+export function parseTokens(tokens: Token[]): string {
+  return marked.Parser.parse(tokens, { renderer });
+}
+
 export function renderMarkdown(text: string): string {
   if (!text) return "";
   try {
-    let html = marked.parse(text, { renderer }) as string;
-
-    // Sanitize HTML output — strips script tags, event handlers, dangerous attributes
-    html = DOMPurify.sanitize(html, {
-      ADD_TAGS: ["details", "summary"],
-      ADD_ATTR: ["class", "data-code-id", "data-path", "data-idx", "data-value", "data-action", "title"],
-    });
-
-    // Wrap bare <table> elements in a scrollable container
-    html = html.replace(/<table>/g, '<div class="gsd-table-wrapper"><table>');
-    html = html.replace(/<\/table>/g, '</table></div>');
-    // Detect file paths in <code> blocks and make them clickable
-    html = html.replace(/<code>([^<]+)<\/code>/g, (_match, content: string) => {
-      const decoded = content.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#039;/g, "'");
-      if (isLikelyFilePath(decoded)) {
-        return `<code class="gsd-file-link" data-path="${escapeAttr(decoded)}">${content}</code>`;
-      }
-      return `<code>${content}</code>`;
-    });
-    return html;
+    const html = marked.parse(text, { renderer }) as string;
+    return sanitizeAndPostProcess(html);
   } catch {
     return `<p>${escapeHtml(text)}</p>`;
   }

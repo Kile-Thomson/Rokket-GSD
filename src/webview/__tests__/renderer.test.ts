@@ -31,6 +31,20 @@ vi.mock("../helpers", () => ({
   formatToolResult: (_n: string, t: string) => t,
   buildSubagentOutputHtml: () => "<div>subagent</div>",
   renderMarkdown: (t: string) => `<p>${t}</p>`,
+  sanitizeAndPostProcess: (html: string) => html,
+  lexMarkdown: (text: string) => {
+    // Simple mock lexer: split on double newlines to produce paragraph-like tokens
+    if (!text) return Object.assign([], { links: {} });
+    const blocks = text.split(/\n\n+/).filter(Boolean);
+    const tokens = blocks.map((b, i) => ({
+      type: "paragraph" as const,
+      raw: b,
+      text: b,
+      tokens: [{ type: "text", raw: b, text: b }],
+    }));
+    return Object.assign(tokens, { links: {} });
+  },
+  parseTokens: (tokens: any[]) => tokens.map((t: any) => `<p>${t.text || t.raw || ""}</p>`).join("\n"),
   scrollToBottom: vi.fn(),
   resetAutoScroll: vi.fn(),
 }));
