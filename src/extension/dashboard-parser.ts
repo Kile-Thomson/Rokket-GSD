@@ -121,9 +121,9 @@ function parseNextAction(content: string): string | null {
 /**
  * Find a file matching a pattern in a directory.
  */
-function findFile(dir: string, suffix: string): string | null {
+async function findFile(dir: string, suffix: string): Promise<string | null> {
   try {
-    const files = fs.readdirSync(dir);
+    const files = await fs.promises.readdir(dir);
     const match = files.find(f => f.toUpperCase().endsWith(suffix.toUpperCase()));
     return match ? path.join(dir, match) : null;
   } catch {
@@ -185,11 +185,11 @@ export async function buildDashboardData(cwd: string): Promise<DashboardData | n
   const milestoneDir = path.join(gsdDir, "milestones", mid);
 
   // Parse roadmap
-  const roadmapFile = findFile(milestoneDir, "-ROADMAP.md");
+  const roadmapFile = await findFile(milestoneDir, "-ROADMAP.md");
   const slices: DashboardSlice[] = [];
 
   if (roadmapFile) {
-    const content = fs.readFileSync(roadmapFile, "utf-8");
+    const content = await fs.promises.readFile(roadmapFile, "utf-8");
     const rawSlices = parseRoadmapSlices(content);
 
     for (const rs of rawSlices) {
@@ -203,9 +203,9 @@ export async function buildDashboardData(cwd: string): Promise<DashboardData | n
       // If this is the active slice, parse its plan for tasks
       if (isActive) {
         const sliceDir = path.join(milestoneDir, "slices", rs.id);
-        const planFile = findFile(sliceDir, "-PLAN.md");
+        const planFile = await findFile(sliceDir, "-PLAN.md");
         if (planFile) {
-          const planContent = fs.readFileSync(planFile, "utf-8");
+          const planContent = await fs.promises.readFile(planFile, "utf-8");
           const rawTasks = parsePlanTasks(planContent);
           sliceEntry.tasks = rawTasks.map(t => ({
             id: t.id,

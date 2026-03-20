@@ -103,7 +103,7 @@ export async function handleGsdAutoFallback(
     if (cwd) {
       const statePath = path.join(cwd, ".gsd", "STATE.md");
       try {
-        stateContent = fs.readFileSync(statePath, "utf8");
+        stateContent = await fs.promises.readFile(statePath, "utf8");
       } catch {
         // No STATE.md — project has no GSD setup yet
       }

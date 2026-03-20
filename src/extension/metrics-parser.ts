@@ -247,10 +247,10 @@ export function formatDuration(ms: number): string {
  * Load and parse .gsd/metrics.json from a project directory.
  * Returns null if the file doesn't exist, is malformed, or has an unexpected version.
  */
-export function loadMetricsLedger(cwd: string): MetricsLedger | null {
+export async function loadMetricsLedger(cwd: string): Promise<MetricsLedger | null> {
   const metricsPath = path.join(cwd, ".gsd", "metrics.json");
   try {
-    const raw = fs.readFileSync(metricsPath, "utf-8");
+    const raw = await fs.promises.readFile(metricsPath, "utf-8");
     const parsed = JSON.parse(raw);
     if (parsed && parsed.version === 1 && Array.isArray(parsed.units)) {
       return parsed as MetricsLedger;

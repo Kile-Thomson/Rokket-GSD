@@ -105,10 +105,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     private readonly context: vscode.ExtensionContext
   ) {
     this.output = vscode.window.createOutputChannel("Rokket GSD");
-    this.gsdVersion = this.resolveGsdVersion();
+    this.resolveGsdVersionAsync().then(v => { this.gsdVersion = v; });
   }
 
-  private resolveGsdVersion(): string | undefined {
+  private async resolveGsdVersionAsync(): Promise<string | undefined> {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { execSync } = require("child_process");
@@ -120,7 +120,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         for (let i = 0; i < 4; i++) {
           const pkgPath = path.join(dir, "node_modules", "gsd-pi", "package.json");
           if (fs.existsSync(pkgPath)) {
-            return JSON.parse(fs.readFileSync(pkgPath, "utf8")).version;
+            const raw = await fs.promises.readFile(pkgPath, "utf8");
+            return JSON.parse(raw).version;
           }
           dir = path.dirname(dir);
         }
