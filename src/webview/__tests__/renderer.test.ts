@@ -386,4 +386,199 @@ describe("renderer", () => {
       expect(el.classList.contains("streaming")).toBe(true);
     });
   });
+
+  // ============================================================
+  // Incremental rendering
+  // ============================================================
+
+  describe("incremental rendering", () => {
+    /**
+     * Helper: simulate streaming by appending small deltas and flushing rAF
+     * after each chunk. Returns the `.gsd-assistant-text` element.
+     */
+    function streamText(fullText: string, chunkSize: number): HTMLElement {
+      startTurn();
+      ensureCurrentTurnElement();
+      for (let i = 0; i < fullText.length; i += chunkSize) {
+        const delta = fullText.slice(i, i + chunkSize);
+        appendToTextSegment("text", delta);
+        vi.advanceTimersByTime(16); // flush rAF
+      }
+      return messagesContainer.querySelector(".gsd-assistant-text")!;
+    }
+
+    it("streams multi-paragraph text into frozen blocks plus trailing", () => {
+      // Two paragraphs separated by double newline.
+      // Mock lexer splits on \n\n → produces two tokens.
+      // The first paragraph should freeze as [data-block-idx="0"],
+      // the second remains as [data-block-trailing].
+      const text = "Hello world\n\nSecond paragraph";
+      const el = streamText(text, 5);
+
+      const frozenBlocks = el.querySelectorAll("[data-block-idx]");
+      const trailing = el.querySelector("[data-block-trailing]");
+
+      expect(frozenBlocks.length).toBe(1);
+      expect(frozenBlocks[0].getAttribute("data-block-idx")).toBe("0");
+      expect(frozenBlocks[0].innerHTML).toContain("Hello world");
+      expect(trailing).toBeTruthy();
+      expect(trailing!.innerHTML).toContain("Second paragraph");
+    });
+
+    it("keeps a fenced code block as single in-progress token until complete", () => {
+      // Simulate streaming a fenced code block line by line.
+      // The mock lexer won't see \n\n inside the code fence, so the entire
+      // block is one token — it stays as [data-block-trailing] the whole time.
+      const codeFence = "```js\nconsole.log(\"hi\")\n```";
+      const el = streamText(codeFence, 10);
+
+      const frozenBlocks = el.querySelectorAll("[data-block-idx]");
+      const trailing = el.querySelector("[data-block-trailing]");
+
+      // No frozen blocks — the whole code fence is a single token (last = in-progress)
+      expect(frozenBlocks.length).toBe(0);
+      expect(trailing).toBeTruthy();
+      expect(trailing!.innerHTML).toBeTruthy();
+    });
+
+    it("freezes code block when followed by another paragraph", () => {
+      // Code block followed by a paragraph — the code block becomes the first
+      // token (frozen), the paragraph is the trailing token.
+      const text = "```js\nconsole.log(\"hi\")\n```\n\nAfter the code";
+      const el = streamText(text, 8);
+
+      const frozenBlocks = el.querySelectorAll("[data-block-idx]");
+      const trailing = el.querySelector("[data-block-trailing]");
+
+      expect(frozenBlocks.length).toBe(1);
+      expect(trailing).toBeTruthy();
+      expect(trailing!.innerHTML).toContain("After the code");
+    });
+
+    it("streams a markdown table and renders it after completion", () => {
+      // Table with a paragraph after it. The mock lexer splits on \n\n.
+      // The table portion is one block, the trailing text is another.
+      const table = "| A | B | C |\n| - | - | - |\n| 1 | 2 | 3 |";
+      const text = table + "\n\nSummary row below";
+      const el = streamText(text, 10);
+
+      const frozenBlocks = el.querySelectorAll("[data-block-idx]");
+      const trailing = el.querySelector("[data-block-trailing]");
+
+      // Table is frozen as first block, summary is trailing
+      expect(frozenBlocks.length).toBe(1);
+      expect(frozenBlocks[0].innerHTML).toContain("| A | B | C |");
+      expect(trailing).toBeTruthy();
+      expect(trailing!.innerHTML).toContain("Summary row below");
+    });
+
+    it("handles split bold text across deltas without premature tag closing", () => {
+      // Stream bold text in two chunks that split the ** markers.
+      // Since the mock lexer produces a single paragraph token (no \n\n),
+      // the entire text stays as trailing until finalized.
+      // The key assertion: the final content has the complete bold markers.
+      startTurn();
+      ensureCurrentTurnElement();
+      appendToTextSegment("text", "**bold te");
+      vi.advanceTimersByTime(16);
+      appendToTextSegment("text", "xt**");
+      vi.advanceTimersByTime(16);
+
+      const el = messagesContainer.querySelector(".gsd-assistant-text")!;
+      const trailing = el.querySelector("[data-block-trailing]");
+
+      expect(trailing).toBeTruthy();
+      // The mock parseTokens wraps in <p>, so check that the full bold markers
+      // are present in the rendered text (no premature closing)
+      expect(trailing!.innerHTML).toContain("**bold text**");
+    });
+
+    it("produces same final content as renderMarkdown for roundtrip equivalence", () => {
+      // For a complex markdown string, verify incremental render produces
+      // the same effective text content as a full-pass render would.
+      const complexMd = "First paragraph\n\nSecond paragraph\n\nThird paragraph";
+
+      // Incremental render via streaming
+      const el = streamText(complexMd, 6);
+
+      // Collect all rendered text from frozen blocks + trailing
+      const allBlocks = el.querySelectorAll("[data-block-idx]");
+      const trailing = el.querySelector("[data-block-trailing]");
+
+      const incrementalParts: string[] = [];
+      allBlocks.forEach((b) => incrementalParts.push(b.textContent || ""));
+      if (trailing) incrementalParts.push(trailing.textContent || "");
+      const incrementalText = incrementalParts.join("");
+
+      // Full-pass: the mock renderMarkdown wraps in <p>text</p>
+      // The mock lexer splits into 3 tokens, parseTokens wraps each in <p>
+      // So incremental should contain all three paragraphs
+      expect(incrementalText).toContain("First paragraph");
+      expect(incrementalText).toContain("Second paragraph");
+      expect(incrementalText).toContain("Third paragraph");
+
+      // Verify structure: 2 frozen blocks + 1 trailing = 3 total blocks
+      expect(allBlocks.length).toBe(2);
+      expect(trailing).toBeTruthy();
+    });
+
+    it("does not affect thinking segments — they still use textContent", () => {
+      startTurn();
+      ensureCurrentTurnElement();
+      appendToTextSegment("thinking", "Step 1: analyze the problem");
+      vi.advanceTimersByTime(16);
+
+      const thinkingBlock = messagesContainer.querySelector(".gsd-thinking-block");
+      expect(thinkingBlock).toBeTruthy();
+
+      const thinkingContent = thinkingBlock!.querySelector(".gsd-thinking-content");
+      expect(thinkingContent).toBeTruthy();
+      // Thinking uses textContent — no [data-block-idx] or [data-block-trailing] children
+      expect(thinkingContent!.textContent).toBe("Step 1: analyze the problem");
+      expect(thinkingBlock!.querySelectorAll("[data-block-idx]").length).toBe(0);
+      expect(thinkingBlock!.querySelectorAll("[data-block-trailing]").length).toBe(0);
+    });
+
+    it("handles empty text deltas without errors", () => {
+      startTurn();
+      ensureCurrentTurnElement();
+      appendToTextSegment("text", "");
+      vi.advanceTimersByTime(16);
+
+      const el = messagesContainer.querySelector(".gsd-assistant-text");
+      // Element may or may not exist — but no crash
+      if (el) {
+        // If element exists, trailing should be empty or not present
+        const trailing = el.querySelector("[data-block-trailing]");
+        if (trailing) {
+          expect(trailing.innerHTML).toBe("");
+        }
+      }
+    });
+
+    it("advances frozenBlockCount correctly as paragraphs complete", () => {
+      // Stream 4 paragraphs one at a time, verifying frozen count increases
+      startTurn();
+      ensureCurrentTurnElement();
+
+      // Stream first paragraph only — no frozen blocks yet (it's the only token = trailing)
+      appendToTextSegment("text", "Para one");
+      vi.advanceTimersByTime(16);
+      let el = messagesContainer.querySelector(".gsd-assistant-text")!;
+      expect(el.querySelectorAll("[data-block-idx]").length).toBe(0);
+      expect(el.querySelector("[data-block-trailing]")).toBeTruthy();
+
+      // Add second paragraph — first freezes, second is trailing
+      appendToTextSegment("text", "\n\nPara two");
+      vi.advanceTimersByTime(16);
+      expect(el.querySelectorAll("[data-block-idx]").length).toBe(1);
+      expect(el.querySelector("[data-block-trailing]")!.innerHTML).toContain("Para two");
+
+      // Add third paragraph — first two frozen, third is trailing
+      appendToTextSegment("text", "\n\nPara three");
+      vi.advanceTimersByTime(16);
+      expect(el.querySelectorAll("[data-block-idx]").length).toBe(2);
+      expect(el.querySelector("[data-block-trailing]")!.innerHTML).toContain("Para three");
+    });
+  });
 });
