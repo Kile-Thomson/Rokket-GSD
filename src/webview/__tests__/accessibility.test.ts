@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
+import { createFocusTrap, saveFocus, restoreFocus } from "../a11y";
+import * as fs from "fs";
+import * as path from "path";
 
 // ============================================================
 // Tests for rendered content ARIA attributes (from T01)
@@ -213,5 +216,380 @@ describe("Focus trap cycling", () => {
     expect(document.activeElement).toBe(btn3);
 
     document.body.removeChild(container);
+  });
+});
+
+// ============================================================
+// createFocusTrap() from shared a11y.ts — unit tests (T03)
+// ============================================================
+
+describe("createFocusTrap (shared a11y.ts)", () => {
+  let container: HTMLDivElement;
+
+  afterEach(() => {
+    if (container && container.parentNode) {
+      container.parentNode.removeChild(container);
+    }
+  });
+
+  it("Tab on last focusable wraps to first", () => {
+    container = document.createElement("div");
+    container.innerHTML = `
+      <button id="a">A</button>
+      <button id="b">B</button>
+      <button id="c">C</button>
+    `;
+    document.body.appendChild(container);
+    const trap = createFocusTrap(container);
+
+    const btnA = container.querySelector("#a") as HTMLButtonElement;
+    const btnC = container.querySelector("#c") as HTMLButtonElement;
+    btnC.focus();
+    expect(document.activeElement).toBe(btnC);
+
+    // Tab on last → should wrap to first
+    let prevented = false;
+    const tabEvt = new KeyboardEvent("keydown", { key: "Tab", bubbles: true });
+    Object.defineProperty(tabEvt, "preventDefault", { value: () => { prevented = true; } });
+    trap(tabEvt);
+
+    expect(document.activeElement).toBe(btnA);
+    expect(prevented).toBe(true);
+  });
+
+  it("Shift+Tab on first focusable wraps to last", () => {
+    container = document.createElement("div");
+    container.innerHTML = `
+      <button id="a">A</button>
+      <button id="b">B</button>
+      <button id="c">C</button>
+    `;
+    document.body.appendChild(container);
+    const trap = createFocusTrap(container);
+
+    const btnA = container.querySelector("#a") as HTMLButtonElement;
+    const btnC = container.querySelector("#c") as HTMLButtonElement;
+    btnA.focus();
+    expect(document.activeElement).toBe(btnA);
+
+    // Shift+Tab on first → should wrap to last
+    let prevented = false;
+    const shiftTabEvt = new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true });
+    Object.defineProperty(shiftTabEvt, "preventDefault", { value: () => { prevented = true; } });
+    trap(shiftTabEvt);
+
+    expect(document.activeElement).toBe(btnC);
+    expect(prevented).toBe(true);
+  });
+
+  it("non-Tab keys are not intercepted (no preventDefault)", () => {
+    container = document.createElement("div");
+    container.innerHTML = `<button id="a">A</button><button id="b">B</button>`;
+    document.body.appendChild(container);
+    const trap = createFocusTrap(container);
+
+    const btnA = container.querySelector("#a") as HTMLButtonElement;
+    btnA.focus();
+
+    // ArrowDown, Enter, Escape — none should call preventDefault
+    for (const key of ["ArrowDown", "Enter", "Escape", "a"]) {
+      let prevented = false;
+      const evt = new KeyboardEvent("keydown", { key, bubbles: true });
+      Object.defineProperty(evt, "preventDefault", { value: () => { prevented = true; } });
+      trap(evt);
+      expect(prevented).toBe(false);
+    }
+  });
+
+  it("skips disabled buttons in focus cycle", () => {
+    container = document.createElement("div");
+    container.innerHTML = `
+      <button id="a">A</button>
+      <button id="b" disabled>B</button>
+      <button id="c">C</button>
+    `;
+    document.body.appendChild(container);
+    const trap = createFocusTrap(container);
+
+    const btnC = container.querySelector("#c") as HTMLButtonElement;
+    btnC.focus();
+
+    // Tab on last enabled → should wrap to first enabled (skipping disabled #b)
+    const tabEvt = new KeyboardEvent("keydown", { key: "Tab", bubbles: true });
+    Object.defineProperty(tabEvt, "preventDefault", { value: () => {} });
+    trap(tabEvt);
+
+    const btnA = container.querySelector("#a") as HTMLButtonElement;
+    expect(document.activeElement).toBe(btnA);
+  });
+});
+
+// ============================================================
+// saveFocus / restoreFocus — unit tests (T03)
+// ============================================================
+
+describe("saveFocus / restoreFocus (shared a11y.ts)", () => {
+  it("saveFocus captures the active element and restoreFocus returns it", () => {
+    const btn = document.createElement("button");
+    btn.textContent = "trigger";
+    document.body.appendChild(btn);
+    btn.focus();
+
+    const saved = saveFocus();
+    expect(saved).toBe(btn);
+
+    // Move focus away
+    const other = document.createElement("input");
+    document.body.appendChild(other);
+    other.focus();
+    expect(document.activeElement).toBe(other);
+
+    // Restore
+    restoreFocus(saved);
+    expect(document.activeElement).toBe(btn);
+
+    document.body.removeChild(btn);
+    document.body.removeChild(other);
+  });
+});
+
+// ============================================================
+// Settings dropdown keyboard navigation — tests (T03)
+// ============================================================
+
+describe("Settings dropdown keyboard navigation", () => {
+  let dropdown: HTMLDivElement;
+
+  afterEach(() => {
+    if (dropdown && dropdown.parentNode) {
+      dropdown.parentNode.removeChild(dropdown);
+    }
+  });
+
+  /**
+   * Build a settings dropdown DOM with roving tabindex, matching
+   * the structure created by keyboard.ts.
+   */
+  function createDropdown(): {
+    dropdown: HTMLDivElement;
+    options: HTMLButtonElement[];
+    focusOption: (idx: number) => void;
+    handler: (e: KeyboardEvent) => void;
+    closed: boolean;
+  } {
+    dropdown = document.createElement("div");
+    dropdown.id = "settingsDropdown";
+    dropdown.classList.add("open");
+    dropdown.innerHTML = `
+      <button class="gsd-settings-option active" data-theme="default" aria-checked="true" tabindex="0">Default</button>
+      <button class="gsd-settings-option" data-theme="clarity" aria-checked="false" tabindex="-1">Clarity</button>
+      <button class="gsd-settings-option" data-theme="forge" aria-checked="false" tabindex="-1">Forge</button>
+    `;
+    document.body.appendChild(dropdown);
+
+    const options = Array.from(dropdown.querySelectorAll<HTMLButtonElement>(".gsd-settings-option"));
+    let activeIndex = 0;
+    let closed = false;
+
+    function focusOption(index: number): void {
+      options.forEach((el, i) => {
+        el.tabIndex = i === index ? 0 : -1;
+        if (i === index) {
+          el.classList.add("focused");
+          el.focus();
+        } else {
+          el.classList.remove("focused");
+        }
+      });
+    }
+
+    // Initial focus
+    focusOption(activeIndex);
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        activeIndex = (activeIndex + 1) % options.length;
+        focusOption(activeIndex);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        activeIndex = (activeIndex - 1 + options.length) % options.length;
+        focusOption(activeIndex);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        // Simulate option selection
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        dropdown.classList.remove("open");
+        closed = true;
+      }
+    };
+
+    dropdown.addEventListener("keydown", handler);
+
+    return {
+      dropdown,
+      options,
+      focusOption,
+      handler,
+      get closed() { return closed; },
+    };
+  }
+
+  it("ArrowDown moves focus to next option", () => {
+    const ctx = createDropdown();
+    expect(document.activeElement).toBe(ctx.options[0]);
+
+    const evt = new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true });
+    Object.defineProperty(evt, "preventDefault", { value: () => {} });
+    ctx.dropdown.dispatchEvent(evt);
+
+    expect(document.activeElement).toBe(ctx.options[1]);
+  });
+
+  it("ArrowDown wraps from last to first", () => {
+    const ctx = createDropdown();
+    // Advance to last option via handler (so internal index stays in sync)
+    for (let i = 0; i < ctx.options.length - 1; i++) {
+      const evt = new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true });
+      Object.defineProperty(evt, "preventDefault", { value: () => {} });
+      ctx.handler(evt);
+    }
+    expect(document.activeElement).toBe(ctx.options[2]);
+
+    // One more ArrowDown should wrap to first
+    const wrapEvt = new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true });
+    Object.defineProperty(wrapEvt, "preventDefault", { value: () => {} });
+    ctx.handler(wrapEvt);
+
+    expect(document.activeElement).toBe(ctx.options[0]);
+  });
+
+  it("ArrowUp at first option wraps to last", () => {
+    const ctx = createDropdown();
+    expect(document.activeElement).toBe(ctx.options[0]);
+
+    const evt = new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true });
+    Object.defineProperty(evt, "preventDefault", { value: () => {} });
+    ctx.handler(evt);
+
+    expect(document.activeElement).toBe(ctx.options[2]);
+  });
+
+  it("Escape closes the dropdown", () => {
+    const ctx = createDropdown();
+    expect(ctx.dropdown.classList.contains("open")).toBe(true);
+
+    const evt = new KeyboardEvent("keydown", { key: "Escape", bubbles: true });
+    Object.defineProperty(evt, "preventDefault", { value: () => {} });
+    ctx.handler(evt);
+
+    expect(ctx.dropdown.classList.contains("open")).toBe(false);
+  });
+
+  it("roving tabindex: only focused option has tabindex=0", () => {
+    const ctx = createDropdown();
+    // Initially first option is focused
+    expect(ctx.options[0].tabIndex).toBe(0);
+    expect(ctx.options[1].tabIndex).toBe(-1);
+    expect(ctx.options[2].tabIndex).toBe(-1);
+
+    // Move to second
+    ctx.focusOption(1);
+    expect(ctx.options[0].tabIndex).toBe(-1);
+    expect(ctx.options[1].tabIndex).toBe(0);
+    expect(ctx.options[2].tabIndex).toBe(-1);
+
+    // Move to third
+    ctx.focusOption(2);
+    expect(ctx.options[0].tabIndex).toBe(-1);
+    expect(ctx.options[1].tabIndex).toBe(-1);
+    expect(ctx.options[2].tabIndex).toBe(0);
+  });
+
+  it("Enter on focused option does not throw", () => {
+    const ctx = createDropdown();
+    const evt = new KeyboardEvent("keydown", { key: "Enter", bubbles: true });
+    Object.defineProperty(evt, "preventDefault", { value: () => {} });
+    // Should not throw
+    expect(() => ctx.handler(evt)).not.toThrow();
+  });
+});
+
+// ============================================================
+// R015 validation: @keyframes prefixes and reduced-motion (T03)
+// ============================================================
+
+describe("R015: prefers-reduced-motion covers all @keyframes", () => {
+  const stylesDir = path.resolve(__dirname, "..", "styles");
+
+  /**
+   * Recursively read all .css files under a directory and collect
+   * @keyframes names.
+   */
+  function collectKeyframeNames(dir: string): string[] {
+    const names: string[] = [];
+    const regex = /@keyframes\s+([\w-]+)/g;
+
+    function walk(d: string) {
+      const entries = fs.readdirSync(d, { withFileTypes: true });
+      for (const entry of entries) {
+        const full = path.join(d, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+        } else if (entry.name.endsWith(".css")) {
+          const content = fs.readFileSync(full, "utf-8");
+          let match: RegExpExecArray | null;
+          while ((match = regex.exec(content)) !== null) {
+            names.push(match[1]);
+          }
+        }
+      }
+    }
+
+    walk(dir);
+    return names;
+  }
+
+  it("has ≥20 @keyframes declarations", () => {
+    const names = collectKeyframeNames(stylesDir);
+    expect(names.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it("all @keyframes names use gsd-* prefix", () => {
+    const names = collectKeyframeNames(stylesDir);
+    const nonPrefixed = names.filter((n) => !n.startsWith("gsd-"));
+    expect(nonPrefixed).toEqual([]);
+  });
+
+  it("base.css has blanket prefers-reduced-motion rule targeting *, *::before, *::after", () => {
+    const baseCss = fs.readFileSync(path.join(stylesDir, "base.css"), "utf-8");
+
+    // Verify the media query exists
+    expect(baseCss).toContain("@media (prefers-reduced-motion: reduce)");
+
+    // Verify it targets the universal selector and pseudo-elements
+    // The rule block should contain *, *::before, *::after
+    const reducedMotionBlock = baseCss.match(
+      /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\}/
+    );
+    expect(reducedMotionBlock).toBeTruthy();
+    const ruleContent = reducedMotionBlock![1];
+    expect(ruleContent).toContain("*");
+    expect(ruleContent).toContain("*::before");
+    expect(ruleContent).toContain("*::after");
+
+    // Verify animation-duration is zeroed
+    expect(ruleContent).toContain("animation-duration");
+    expect(ruleContent).toContain("animation-iteration-count");
+  });
+
+  it("reduced-motion rule also covers transitions", () => {
+    const baseCss = fs.readFileSync(path.join(stylesDir, "base.css"), "utf-8");
+    const reducedMotionBlock = baseCss.match(
+      /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\}/
+    );
+    expect(reducedMotionBlock).toBeTruthy();
+    expect(reducedMotionBlock![1]).toContain("transition-duration");
   });
 });
