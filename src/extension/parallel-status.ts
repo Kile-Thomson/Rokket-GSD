@@ -32,7 +32,7 @@ const STALE_THRESHOLD_MS = 30_000;
  * Returns null if the directory doesn't exist or is empty.
  * Skips corrupt/malformed files and Dropbox conflicted copies.
  */
-export function readParallelWorkers(cwd: string): Array<{
+export async function readParallelWorkers(cwd: string): Promise<Array<{
   id: string;
   pid: number;
   state: "running" | "paused" | "stopped" | "error";
@@ -41,12 +41,12 @@ export function readParallelWorkers(cwd: string): Array<{
   cost: number;
   lastHeartbeat: number;
   stale: boolean;
-}> | null {
+}> | null> {
   const dir = path.join(cwd, ".gsd", "parallel");
 
   let entries: string[];
   try {
-    entries = fs.readdirSync(dir);
+    entries = await fs.promises.readdir(dir);
   } catch {
     return null; // Directory doesn't exist
   }
@@ -69,7 +69,7 @@ export function readParallelWorkers(cwd: string): Array<{
 
   for (const file of statusFiles) {
     try {
-      const raw = fs.readFileSync(path.join(dir, file), "utf-8");
+      const raw = await fs.promises.readFile(path.join(dir, file), "utf-8");
       const data: RawWorkerStatus = JSON.parse(raw);
 
       const validStates = ["running", "paused", "stopped", "error"];
@@ -106,12 +106,12 @@ export function readParallelWorkers(cwd: string): Array<{
  * Read budget_ceiling from .gsd/preferences.md.
  * Returns null if file doesn't exist or key not found.
  */
-export function readBudgetCeiling(cwd: string): number | null {
+export async function readBudgetCeiling(cwd: string): Promise<number | null> {
   const filePath = path.join(cwd, ".gsd", "preferences.md");
 
   let content: string;
   try {
-    content = fs.readFileSync(filePath, "utf-8");
+    content = await fs.promises.readFile(filePath, "utf-8");
   } catch {
     return null;
   }

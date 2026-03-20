@@ -132,7 +132,7 @@ export class AutoProgressPoller {
           }
         }
 
-        const pendingCaptures = countPendingCaptures(cwd);
+        const pendingCaptures = await countPendingCaptures(cwd);
 
         const progress: AutoProgressData = {
           autoState: "paused",
@@ -234,10 +234,10 @@ export class AutoProgressPoller {
       const dashData = await buildDashboardData(cwd);
 
       // 4. Count pending captures
-      const pendingCaptures = countPendingCaptures(cwd);
+      const pendingCaptures = await countPendingCaptures(cwd);
 
       // 5. Read parallel worker status
-      const rawWorkers = readParallelWorkers(cwd);
+      const rawWorkers = await readParallelWorkers(cwd);
       let workers: WorkerProgress[] | null = null;
       let budgetAlert = false;
 
@@ -245,7 +245,7 @@ export class AutoProgressPoller {
         // Refresh budget ceiling cache if stale
         const now = Date.now();
         if (now - this.budgetCeilingReadAt > this.BUDGET_CEILING_TTL_MS) {
-          this.budgetCeiling = readBudgetCeiling(cwd);
+          this.budgetCeiling = await readBudgetCeiling(cwd);
           this.budgetCeilingReadAt = now;
         }
 

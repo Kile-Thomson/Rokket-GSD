@@ -25,7 +25,7 @@ export interface FileOpsContext {
  * This pre-launch cleanup removes the lock when STATE.md indicates idle
  * (no active work to resume), breaking the loop before it starts.
  */
-export function cleanStaleCrashLock(cwd: string, output: vscode.OutputChannel): void {
+export async function cleanStaleCrashLock(cwd: string, output: vscode.OutputChannel): Promise<void> {
   try {
     const lockPath = path.join(cwd, ".gsd", "auto.lock");
     if (!fs.existsSync(lockPath)) return;
@@ -38,7 +38,7 @@ export function cleanStaleCrashLock(cwd: string, output: vscode.OutputChannel): 
       return;
     }
 
-    const stateContent = fs.readFileSync(statePath, "utf-8");
+    const stateContent = await fs.promises.readFile(statePath, "utf-8");
     const phaseMatch = stateContent.match(/\*\*Phase:\*\*\s*(\S+)/);
     const activeMatch = stateContent.match(/\*\*Active Milestone:\*\*\s*(\S+)/);
     const phase = phaseMatch?.[1] || "unknown";
