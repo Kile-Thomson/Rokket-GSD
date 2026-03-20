@@ -82,3 +82,9 @@ Two small self-contained concerns remain in the provider after T01 (module wirin
 - `src/extension/polling.ts` — new module (~100 lines) with polling orchestration
 - `src/extension/html-generator.ts` — new module (~45 lines) with HTML template and nonce generation
 - `src/extension/webview-provider.ts` — ≤500 LOC, all concerns extracted, only class scaffolding, lifecycle methods, `launchGsd` orchestration, and context adapter wiring remain
+
+## Observability Impact
+
+- **What signals change:** No new runtime signals — polling functions (`startStatsPolling`, `startHealthMonitoring`, `refreshWorkflowState`, `startWorkflowPolling`) continue to log to the `Rokket GSD` output channel with `[sessionId]` prefix, just originating from `polling.ts` instead of inline in the provider. HTML generation is pure and produces no runtime signals.
+- **How to inspect this task's work:** `Output > Rokket GSD` panel in VS Code shows stats polling, health check, and workflow state refresh logs. The `PollingContext` interface enforces compile-time contracts — missing or mistyped properties fail the build. New `stopAllPolling` consolidates timer cleanup for the exit handler.
+- **Failure visibility:** If polling wiring breaks, stats/health/workflow messages stop appearing in the webview and the output channel. If HTML generation breaks, the webview will not render (blank panel). Both are immediately visible at runtime. The 607 test suite catches contract violations at build time.
