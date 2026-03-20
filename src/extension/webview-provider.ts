@@ -19,6 +19,7 @@ import type {
   RpcModelsResult,
   RpcThinkingResult,
   RpcStateResult,
+  toGsdState,
   BashResult,
   AgentMessage,
 } from "../shared/types";
@@ -218,6 +219,15 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private emitStatus(update: Partial<StatusBarUpdate>): void {
     this.lastStatus = { ...this.lastStatus, ...update };
     this.statusCallback?.(this.lastStatus);
+  }
+
+  /** Apply session-scoped cost floor to stats — prevents compaction from lowering reported cost */
+  private applySessionCostFloor(sessionId: string, stats: { cost?: number } | null | undefined): void {
+    if (!stats) return;
+    const sessionCost = this.getSession(sessionId).accumulatedCost;
+    if (sessionCost > (stats.cost || 0)) {
+      stats.cost = sessionCost;
+    }
   }
 
   // --- Cleanup ---
@@ -576,6 +586,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       try {
         const stats = await client.getSessionStats() as SessionStats | null;
         if (stats) {
+          this.applySessionCostFloor(sessionId, stats);
           this.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
         }
       } catch {
@@ -694,7 +705,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
             try {
               const rpcState = await existingLaunch.getState();
-              this.postToWebview(webview, { type: "state", data: rpcState } as ExtensionToWebviewMessage);
+              this.postToWebview(webview, { type: "state", data: toGsdState(rpcState as RpcStateResult) } as ExtensionToWebviewMessage);
             } catch { /* best effort */ }
           } else {
             await this.launchGsd(webview, sessionId, msg.cwd);
@@ -752,6 +763,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               }
               this.output.appendLine(`[${sessionId}] Sending prompt to RPC: "${msg.message.slice(0, 80)}"`);
               this.armGsdFallbackProbe(msg.message.trim(), sessionId, webview);
+              this.getSession(sessionId).lastUserActionTime = Date.now();
 
               await c.prompt(msg.message, images);
               this.output.appendLine(`[${sessionId}] Prompt RPC resolved for: "${msg.message.slice(0, 80)}"`);
@@ -797,6 +809,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         case "steer": {
           const client = this.getSession(sessionId).client;
           if (client) {
+            this.getSession(sessionId).lastUserActionTime = Date.now();
             try {
               // Extension commands (slash commands) can't be steered — they need to run
               // as prompts. Abort the current stream first, then send as a prompt.
@@ -819,6 +832,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         case "follow_up": {
           const client = this.getSession(sessionId).client;
           if (client) {
+            this.getSession(sessionId).lastUserActionTime = Date.now();
             try {
               await client.followUp(msg.message, msg.images?.map((img) => ({
                 type: "image" as const,
@@ -861,6 +875,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           if (client?.isRunning) {
             try {
               await client.newSession();
+              this.getSession(sessionId).accumulatedCost = 0;
+              this.emitStatus({ cost: 0 });
               const state = await client.getState();
               this.postToWebview(webview, { type: "state", data: state } as ExtensionToWebviewMessage);
             } catch (err: any) {
@@ -911,6 +927,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
                       toolCalls: statsResult.toolCalls as number | undefined,
                       userMessages: statsResult.userMessages as number | undefined,
                     };
+                    this.applySessionCostFloor(sessionId, data.stats);
                   }
                 } catch {
                   // Stats not available — that's fine
@@ -969,6 +986,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
             try {
               const stats = await client.getSessionStats() as SessionStats | null;
               if (stats) {
+                this.applySessionCostFloor(sessionId, stats);
                 this.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
               }
             } catch { /* ignored */ }
@@ -1050,6 +1068,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
               // Refresh stats
               const stats = await client.getSessionStats() as SessionStats | null;
               if (stats) {
+                this.applySessionCostFloor(sessionId, stats);
                 this.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
               }
             } catch (err: any) {
@@ -1193,6 +1212,8 @@ ${exportOverrides}
                 this.output.appendLine(`[${sessionId}] Session switch cancelled`);
                 break;
               }
+              this.getSession(sessionId).accumulatedCost = 0;
+              this.emitStatus({ cost: 0 });
               // Get the new state and messages after switch
               const state = await client.getState() as RpcStateResult;
               const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
@@ -1318,6 +1339,8 @@ ${exportOverrides}
                 this.output.appendLine(`[${sessionId}] Resume cancelled`);
                 break;
               }
+              this.getSession(sessionId).accumulatedCost = 0;
+              this.emitStatus({ cost: 0 });
               const state = await client.getState() as RpcStateResult;
               const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
               this.output.appendLine(`[${sessionId}] Resumed last session: ${latest.name || latest.id} (${messagesResult?.messages?.length || 0} messages)`);
@@ -1654,11 +1677,6 @@ ${exportOverrides}
     });
 
     try {
-      // Pre-launch: remove stale crash locks that cause infinite wizard loops
-      // when there's no active work to resume (idle state with leftover auto.lock)
-      const { cleanStaleCrashLock } = await import("./file-ops");
-      cleanStaleCrashLock(workingDir, this.output);
-
       await client.start({
         cwd: workingDir,
         gsdPath: processWrapper || undefined,
@@ -1691,7 +1709,7 @@ ${exportOverrides}
       try {
         const rpcState = await client.getState() as RpcStateResult;
         this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
-        this.postToWebview(webview, { type: "state", data: rpcState } as ExtensionToWebviewMessage);
+        this.postToWebview(webview, { type: "state", data: toGsdState(rpcState) } as ExtensionToWebviewMessage);
         if (rpcState?.model) {
           this.emitStatus({ model: rpcState.model.id || rpcState.model.name });
         }
@@ -1781,10 +1799,12 @@ ${exportOverrides}
       // Refresh workflow state after each agent turn
       this.refreshWorkflowState(webview, sessionId);
     } else if (eventType === "message_end") {
-      const msg = event.message;
-      const usage = msg?.usage as { cost?: { total?: number } } | undefined;
+      const msg = event.message as Record<string, unknown> | undefined;
+      const usage = (msg?.usage as { cost?: { total?: number } }) ?? undefined;
       if (msg?.role === "assistant" && usage?.cost?.total) {
-        this.emitStatus({ cost: (this.lastStatus.cost || 0) + usage.cost.total });
+        const session = this.getSession(sessionId);
+        session.accumulatedCost += usage.cost.total;
+        this.emitStatus({ cost: session.accumulatedCost });
       }
     } else if (eventType === "fallback_provider_switch") {
       const to = (event as any).to as string || "";

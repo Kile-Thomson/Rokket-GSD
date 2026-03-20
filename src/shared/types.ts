@@ -90,7 +90,12 @@ export type ExtensionToWebviewMessage =
   | { type: "whats_new"; version: string; notes: string }
   | { type: "changelog"; entries: Array<{ version: string; notes: string; date: string }> }
   | { type: "auto_progress"; data: AutoProgressData | null }
-  | { type: "model_routed"; oldModel: { id: string; provider: string } | null; newModel: { id: string; provider: string } | null };
+  | { type: "model_routed"; oldModel: { id: string; provider: string } | null; newModel: { id: string; provider: string } | null }
+  | { type: "fallback_provider_switch"; from: string; to: string; reason: string }
+  | { type: "fallback_provider_restored"; provider: string; reason: string }
+  | { type: "fallback_chain_exhausted"; reason: string }
+  | { type: "session_shutdown" }
+  | { type: "extension_error"; extensionPath: string; event: string; error: string };
 
 // --- Session List Types ---
 
@@ -261,6 +266,25 @@ export interface RpcStateResult {
   autoCompactionEnabled?: boolean;
   cwd?: string;
   [key: string]: unknown;
+}
+
+/** Convert loose RPC state to the structured GsdState the webview expects */
+export function toGsdState(rpc: RpcStateResult): GsdState {
+  return {
+    model: rpc.model || null,
+    thinkingLevel: (rpc.thinkingLevel || "off") as ThinkingLevel,
+    isStreaming: rpc.isStreaming || false,
+    isCompacting: rpc.isCompacting || false,
+    sessionFile: (rpc.sessionFile as string) || null,
+    sessionId: (rpc.sessionId as string) || null,
+    sessionName: rpc.sessionName as string | undefined,
+    messageCount: (rpc.messageCount as number) || 0,
+    pendingMessageCount: rpc.pendingMessageCount as number | undefined,
+    autoCompactionEnabled: rpc.autoCompactionEnabled || false,
+    steeringMode: rpc.steeringMode as GsdState["steeringMode"],
+    followUpMode: rpc.followUpMode as GsdState["followUpMode"],
+    cwd: rpc.cwd,
+  };
 }
 
 // --- Dashboard Data (parsed from .gsd/ project files) ---

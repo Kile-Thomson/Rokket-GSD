@@ -53,7 +53,7 @@ renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
   </div>`;
 };
 
-renderer.image = ({ href, title, text }: { href: string; title?: string; text: string }) => {
+renderer.image = ({ href, title, text }: { href: string; title?: string | null; text: string }) => {
   return `<img src="${escapeAttr(href)}" alt="${escapeAttr(text)}" title="${escapeAttr(title || "")}" class="gsd-md-image" />`;
 };
 

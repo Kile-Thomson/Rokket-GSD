@@ -7,7 +7,7 @@ describe("slash-menu buildItems", () => {
     const items = buildItems();
     const update = items.find((i) => i.name === "gsd update");
     expect(update).toBeDefined();
-    expect(update!.description).toBe("Update GSD artifacts and status");
+    expect(update!.description).toBe("Update GSD to the latest version");
     expect(update!.sendOnSelect).toBe(true);
   });
 

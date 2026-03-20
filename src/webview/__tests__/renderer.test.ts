@@ -260,7 +260,7 @@ describe("renderer", () => {
       appendToolSegmentElement(tc, 0);
       const toolEl = messagesContainer.querySelector(".gsd-tool-segment");
       expect(toolEl).toBeTruthy();
-      expect(toolEl!.dataset.toolId).toBe("tc-1");
+      expect((toolEl as HTMLElement)!.dataset.toolId).toBe("tc-1");
     });
   });
 

@@ -114,34 +114,72 @@ export function buildItems(): SlashMenuItem[] {
   const items: SlashMenuItem[] = [];
 
   const gsdSubcommands: Array<{ name: string; desc: string; sendOnSelect?: boolean }> = [
+    // ── Core workflow ─────────────────────────────────────────────────
     { name: "gsd", desc: "Contextual wizard — pick the next action", sendOnSelect: true },
     { name: "gsd next", desc: "Execute the next task", sendOnSelect: true },
     { name: "gsd auto", desc: "Auto-execute tasks (fresh context per task)", sendOnSelect: true },
     { name: "gsd stop", desc: "Stop auto-mode", sendOnSelect: true },
+    { name: "gsd pause", desc: "Pause auto-mode (preserves state, /gsd auto to resume)", sendOnSelect: true },
+    { name: "gsd quick", desc: "Execute ad-hoc task with GSD guarantees" },
+    { name: "gsd discuss", desc: "Discuss without executing", sendOnSelect: true },
 
+    // ── Visibility ────────────────────────────────────────────────────
     { name: "gsd status", desc: "Project dashboard — milestones, slices, tasks", sendOnSelect: true },
     { name: "gsd visualize", desc: "Open workflow visualizer overlay", sendOnSelect: true },
+    { name: "gsd help", desc: "Categorized command reference", sendOnSelect: true },
+    { name: "gsd changelog", desc: "Show categorized release notes", sendOnSelect: true },
+
+    // ── Steering & capture ────────────────────────────────────────────
     { name: "gsd capture", desc: "Capture a thought during auto-mode" },
     { name: "gsd steer", desc: "Redirect auto-mode priorities" },
+    { name: "gsd triage", desc: "Manually trigger triage of pending captures", sendOnSelect: true },
     { name: "gsd knowledge", desc: "View or add to project knowledge base", sendOnSelect: true },
-    { name: "gsd config", desc: "View or modify GSD configuration", sendOnSelect: true },
-    { name: "gsd queue", desc: "Queue future milestones", sendOnSelect: true },
-    { name: "gsd discuss", desc: "Discuss without executing", sendOnSelect: true },
-    { name: "gsd quick", desc: "Execute ad-hoc task with GSD guarantees" },
-    { name: "gsd mode", desc: "Switch workflow mode (solo/team)" },
-    { name: "gsd help", desc: "Categorized command reference", sendOnSelect: true },
-    { name: "gsd forensics", desc: "Post-mortem analysis of auto-mode failures", sendOnSelect: true },
-    { name: "gsd prefs", desc: "View or set preferences" },
-    { name: "gsd doctor", desc: "Diagnose and fix issues", sendOnSelect: true },
-    { name: "gsd migrate", desc: "Migrate project artifacts" },
-    { name: "gsd remote", desc: "Remote question channels (Slack, Discord, Telegram)" },
-    { name: "gsd do", desc: "Freeform text — routes natural language to the right command" },
-    { name: "gsd note", desc: "Quick idea capture (append, list, promote)" },
-    { name: "gsd logs", desc: "Browse activity, debug, and metrics logs", sendOnSelect: true },
-    { name: "gsd keys", desc: "Manage API keys", sendOnSelect: true },
-    { name: "gsd parallel", desc: "Parallel auto-mode orchestration" },
-    { name: "gsd update", desc: "Update GSD artifacts and status", sendOnSelect: true },
+
+    // ── Queue & milestones ────────────────────────────────────────────
+    { name: "gsd queue", desc: "Queue and reorder future milestones", sendOnSelect: true },
+    { name: "gsd new-milestone", desc: "Create a milestone from a specification document", sendOnSelect: true },
+    { name: "gsd park", desc: "Park a milestone — skip without deleting" },
+    { name: "gsd unpark", desc: "Reactivate a parked milestone" },
+
+    // ── Dispatch & history ────────────────────────────────────────────
+    { name: "gsd dispatch", desc: "Dispatch a specific phase directly" },
+    { name: "gsd history", desc: "View execution history", sendOnSelect: true },
+    { name: "gsd undo", desc: "Revert last completed unit" },
+    { name: "gsd skip", desc: "Prevent a unit from auto-mode dispatch" },
+
+    // ── Workflow templates ────────────────────────────────────────────
+    { name: "gsd start", desc: "Start a workflow template (bugfix, spike, feature, etc.)" },
+    { name: "gsd templates", desc: "List available workflow templates", sendOnSelect: true },
+
+    // ── Export & cleanup ──────────────────────────────────────────────
     { name: "gsd export", desc: "Export milestone report (HTML)" },
+    { name: "gsd cleanup", desc: "Remove merged branches or snapshots" },
+
+    // ── Configuration ─────────────────────────────────────────────────
+    { name: "gsd config", desc: "View or modify GSD configuration", sendOnSelect: true },
+    { name: "gsd prefs", desc: "View or set preferences" },
+    { name: "gsd mode", desc: "Switch workflow mode (solo/team)" },
+    { name: "gsd keys", desc: "Manage API keys", sendOnSelect: true },
+    { name: "gsd hooks", desc: "Show configured post-unit and pre-dispatch hooks", sendOnSelect: true },
+    { name: "gsd run-hook", desc: "Manually trigger a specific hook" },
+    { name: "gsd extensions", desc: "Manage extensions (list, enable, disable, info)", sendOnSelect: true },
+
+    // ── Diagnostics ───────────────────────────────────────────────────
+    { name: "gsd doctor", desc: "Diagnose and fix issues", sendOnSelect: true },
+    { name: "gsd forensics", desc: "Post-mortem analysis of auto-mode failures", sendOnSelect: true },
+    { name: "gsd logs", desc: "Browse activity, debug, and metrics logs", sendOnSelect: true },
+    { name: "gsd inspect", desc: "Show SQLite DB diagnostics", sendOnSelect: true },
+    { name: "gsd skill-health", desc: "Skill lifecycle dashboard", sendOnSelect: true },
+
+    // ── Setup & maintenance ───────────────────────────────────────────
+    { name: "gsd init", desc: "Project init wizard — detect, configure, bootstrap .gsd/" },
+    { name: "gsd setup", desc: "Global setup status and configuration", sendOnSelect: true },
+    { name: "gsd migrate", desc: "Migrate a v1 .planning directory to .gsd format" },
+    { name: "gsd update", desc: "Update GSD to the latest version", sendOnSelect: true },
+
+    // ── Advanced ──────────────────────────────────────────────────────
+    { name: "gsd remote", desc: "Remote question channels (Slack, Discord, Telegram)" },
+    { name: "gsd parallel", desc: "Parallel auto-mode orchestration" },
   ];
 
   for (const sub of gsdSubcommands) {

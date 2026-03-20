@@ -32,6 +32,9 @@ function createMockSession(overrides: Partial<SessionState> = {}): SessionState 
     autoModeState: null,
     gsdTurnStarted: false,
     lastEventTime: 0,
+    lastAgentEndTime: 0,
+    lastUserActionTime: 0,
+    accumulatedCost: 0,
     isStreaming: false,
     isRestarting: false,
     autoProgressPoller: null,
@@ -191,6 +194,9 @@ describe("watchdogs", () => {
       const session = createMockSession({
         client: client as any,
         lastEventTime: 0,
+    lastAgentEndTime: 0,
+    lastUserActionTime: 0,
+    accumulatedCost: 0,
       });
       const ctx = createMockContext(session);
 
@@ -218,6 +224,9 @@ describe("watchdogs", () => {
       const session = createMockSession({
         client: client as any,
         lastEventTime: 0,
+    lastAgentEndTime: 0,
+    lastUserActionTime: 0,
+    accumulatedCost: 0,
       });
       const ctx = createMockContext(session);
 
