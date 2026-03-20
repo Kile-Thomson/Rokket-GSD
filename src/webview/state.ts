@@ -153,3 +153,37 @@ let entryIdCounter = 0;
 export function nextId(): string {
   return `e-${++entryIdCounter}`;
 }
+
+/**
+ * Reset all shared mutable state to initial values.
+ * Intended for test isolation — call between test cases to prevent state leakage.
+ */
+export function resetState(): void {
+  state.entries = [];
+  state.isStreaming = false;
+  state.isCompacting = false;
+  state.isRetrying = false;
+  state.retryInfo = undefined;
+  state.model = null;
+  state.thinkingLevel = "off";
+  state.processStatus = "stopped";
+  state.images = [];
+  state.files = [];
+  state.useCtrlEnterToSend = false;
+  state.theme = "forge";
+  state.cwd = "";
+  state.version = "";
+  state.extensionVersion = "";
+  state.sessionStats = {};
+  state.commands = [];
+  state.commandsLoaded = false;
+  state.availableModels = [];
+  state.modelsLoaded = false;
+  state.modelsRequested = false;
+  state.currentTurn = null;
+  state.processHealth = "responsive";
+  state.autoProgress = null;
+  state.autoProgressLastUpdate = 0;
+  state.widgetData.clear();
+  entryIdCounter = 0;
+}

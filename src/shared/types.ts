@@ -254,10 +254,6 @@ export interface RpcThinkingResult {
   level?: ThinkingLevel;
 }
 
-export interface RpcExportResult {
-  path?: string;
-}
-
 export interface RpcStateResult {
   model?: ModelInfo;
   thinkingLevel?: ThinkingLevel;

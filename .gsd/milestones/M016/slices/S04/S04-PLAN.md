@@ -48,7 +48,7 @@
   - Verify: `npx vitest --run --coverage` generates report with per-file percentages, all tests pass
   - Done when: Coverage report prints to console showing line/branch/function percentages per file
 
-- [ ] **T02: Resolve CSS and webview-side quick-wins** `est:45m`
+- [x] **T02: Resolve CSS and webview-side quick-wins** `est:45m`
   - Why: 8 of the 12 remaining quick-wins are webview-side changes — grouping them avoids context switching between extension and webview code.
   - Files: `src/webview/styles.css`, `src/webview/tool-grouping.ts`, `src/webview/message-handler.ts`, `src/webview/state.ts`, `src/webview/slash-menu.ts`, `src/shared/types.ts`
   - Do: (1) CSS-003: Add `@media (prefers-reduced-motion: reduce)` block disabling all 21 animations. (2) CSS-007: Add `:focus-visible` for `.gsd-slash-item`, `.gsd-stale-echo-bar`, model-picker `[role="option"]`, thinking-picker `[role="option"]`, `.gsd-ui-option-btn`, session-history items. (3) CSS-014: Rename 12 non-prefixed `@keyframes` to `gsd-*`, update all `animation:` references, remove duplicate `@keyframes spin`. (4) SEC-07: Replace `escapeHtmlBasic` in tool-grouping.ts with imported `escapeHtml` from helpers.ts, delete the local function. (5) FT-10: Add `default: console.warn("Unrecognized message type:", (msg as any).type);` to message-handler.ts switch. (6) TEST-06: Add `resetState()` export to state.ts that restores all fields to initial values and resets `entryIdCounter`. (7) FT-26: Differentiate `/gsd export` (milestone report) and `/export` (conversation) descriptions. (8) FT-29: Delete `RpcExportResult` interface from shared/types.ts. PITFALL: CSS-014 partial rename silently breaks animations — grep both `@keyframes` and all `animation:` references after renaming.
