@@ -22,6 +22,9 @@ import {
   formatToolResult,
   buildSubagentOutputHtml,
   renderMarkdown,
+  sanitizeAndPostProcess,
+  lexMarkdown,
+  parseTokens,
   scrollToBottom,
   resetAutoScroll,
 } from "./helpers";
@@ -52,6 +55,13 @@ let _splitSegmentBarrier = -1;
 const segmentElements = new Map<number, HTMLElement>();
 let _activeSegmentIndex = -1;
 let pendingTextRender: number | null = null;
+
+/**
+ * Per-segment incremental rendering state.
+ * Tracks how many block-level tokens have been "frozen" (fully rendered and
+ * inserted into the DOM as immutable divs) for each text segment.
+ */
+const incrementalState = new Map<number, { frozenBlockCount: number }>();
 
 /**
  * Live elapsed timer — refreshes running tool cards every second so the
@@ -116,6 +126,7 @@ export function renderNewEntry(entry: ChatEntry): void {
     currentTurnElement = continuation;
     // Clear segment element map so new segments create fresh DOM in the continuation
     segmentElements.clear();
+    incrementalState.clear();
     _activeSegmentIndex = -1;
     // Set barrier so text appending creates new segments instead of appending to pre-split ones
     _splitSegmentBarrier = state.currentTurn ? state.currentTurn.segments.length - 1 : -1;
@@ -392,6 +403,7 @@ export function finalizeCurrentTurn(): void {
   priorTurnElements = [];
   _splitSegmentBarrier = -1;
   segmentElements.clear();
+  incrementalState.clear();
   _activeSegmentIndex = -1;
 }
 
@@ -401,6 +413,7 @@ export function resetStreamingState(): void {
   priorTurnElements = [];
   _splitSegmentBarrier = -1;
   segmentElements.clear();
+  incrementalState.clear();
   _activeSegmentIndex = -1;
   stopElapsedTimer();
 }
@@ -732,6 +745,7 @@ function renderTextSegment(segIdx: number): void {
   const fullText = seg.chunks.join("");
 
   if (seg.type === "thinking") {
+    // Thinking segments use textContent — no incremental markdown needed
     if (!el) {
       el = document.createElement("details");
       el.className = "gsd-thinking-block";
@@ -752,13 +766,81 @@ function renderTextSegment(segIdx: number): void {
     const linesEl = el.querySelector(".gsd-thinking-lines");
     if (linesEl) linesEl.textContent = `${lineCount} line${lineCount !== 1 ? "s" : ""}`;
   } else {
+    // Text segment — incremental block-level rendering
     if (!el) {
       el = document.createElement("div");
       el.className = "gsd-assistant-text";
       insertSegmentElement(container, segIdx, el);
       segmentElements.set(segIdx, el);
     }
-    el.innerHTML = renderMarkdown(fullText);
+
+    if (!fullText) {
+      // Empty text — clear trailing element if any
+      const trailing = el.querySelector("[data-block-trailing]");
+      if (trailing) trailing.innerHTML = "";
+      return;
+    }
+
+    // Lex the full text into block tokens
+    const tokens = lexMarkdown(fullText);
+
+    // Filter out space tokens — they're whitespace separators, not content blocks
+    const contentTokens = tokens.filter(t => t.type !== "space");
+
+    if (contentTokens.length === 0) return;
+
+    // Get or initialize incremental state for this segment
+    let incState = incrementalState.get(segIdx);
+    if (!incState) {
+      incState = { frozenBlockCount: 0 };
+      incrementalState.set(segIdx, incState);
+    }
+
+    // Determine which tokens are "complete" (frozen) vs in-progress (trailing).
+    // The last content token is always considered in-progress during streaming.
+    // A token is considered complete when a new token appears after it.
+    // Exception: we also check for incomplete fenced code blocks.
+    const lastTokenIdx = contentTokens.length - 1;
+    const completedCount = lastTokenIdx; // All tokens except the last are complete
+
+    // Freeze newly completed blocks into the DOM
+    if (completedCount > incState.frozenBlockCount) {
+      // Prepare tokens array with links property for Parser
+      const tokensWithLinks = tokens as any;
+      const links = tokensWithLinks.links || {};
+
+      for (let i = incState.frozenBlockCount; i < completedCount; i++) {
+        const token = contentTokens[i];
+        const singleTokenArr = Object.assign([token], { links });
+        const blockHtml = sanitizeAndPostProcess(parseTokens(singleTokenArr));
+        const blockDiv = document.createElement("div");
+        blockDiv.dataset.blockIdx = String(i);
+        blockDiv.innerHTML = blockHtml;
+
+        // Insert before the trailing element if it exists, otherwise append
+        const trailing = el.querySelector("[data-block-trailing]");
+        if (trailing) {
+          el.insertBefore(blockDiv, trailing);
+        } else {
+          el.appendChild(blockDiv);
+        }
+      }
+      incState.frozenBlockCount = completedCount;
+    }
+
+    // Render the trailing (in-progress) token
+    let trailingEl = el.querySelector("[data-block-trailing]") as HTMLElement | null;
+    if (!trailingEl) {
+      trailingEl = document.createElement("div");
+      trailingEl.dataset.blockTrailing = "";
+      el.appendChild(trailingEl);
+    }
+
+    const trailingToken = contentTokens[lastTokenIdx];
+    const tokensWithLinks = tokens as any;
+    const links = tokensWithLinks.links || {};
+    const trailingArr = Object.assign([trailingToken], { links });
+    trailingEl.innerHTML = sanitizeAndPostProcess(parseTokens(trailingArr));
   }
 }
 
