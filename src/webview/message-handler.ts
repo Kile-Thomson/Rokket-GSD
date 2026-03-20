@@ -16,6 +16,7 @@ import {
 import {
   state,
   nextId,
+  pruneOldEntries,
   type ChatEntry,
   type ToolCallState,
   type TurnSegment,
@@ -797,6 +798,7 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
         timestamp: msg.timestamp || Date.now(),
       };
       state.entries.push(entry);
+      pruneOldEntries(messagesContainer);
       renderer.renderNewEntry(entry);
     } else if (msg.role === "assistant") {
       const segments: TurnSegment[] = [];
@@ -852,6 +854,7 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
         timestamp: msg.timestamp || Date.now(),
       };
       state.entries.push(entry);
+      pruneOldEntries(messagesContainer);
       renderer.renderNewEntry(entry);
     }
     // Skip toolResult (already indexed) and bashExecution
@@ -1027,6 +1030,7 @@ export function addSystemEntry(text: string, kind: "info" | "error" | "warning" 
     timestamp: Date.now(),
   };
   state.entries.push(entry);
+  pruneOldEntries(messagesContainer);
   renderer.renderNewEntry(entry);
   scrollToBottom(messagesContainer);
 }
