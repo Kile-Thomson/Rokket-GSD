@@ -10,11 +10,10 @@ import * as path from "path";
  * Count pending captures in .gsd/CAPTURES.md.
  * Returns 0 if the file doesn't exist or can't be read.
  */
-export function countPendingCaptures(cwd: string): number {
+export async function countPendingCaptures(cwd: string): Promise<number> {
   const capturesPath = path.join(cwd, ".gsd", "CAPTURES.md");
   try {
-    if (!fs.existsSync(capturesPath)) return 0;
-    const content = fs.readFileSync(capturesPath, "utf-8");
+    const content = await fs.promises.readFile(capturesPath, "utf-8");
     return countPendingInContent(content);
   } catch {
     return 0;

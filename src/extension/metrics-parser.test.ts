@@ -234,28 +234,28 @@ describe("loadMetricsLedger", () => {
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* cleanup */ }
   });
 
-  it("returns null when file doesn't exist", () => {
-    expect(loadMetricsLedger(path.join(tmpDir, "nonexistent"))).toBeNull();
+  it("returns null when file doesn't exist", async () => {
+    expect(await loadMetricsLedger(path.join(tmpDir, "nonexistent"))).toBeNull();
   });
 
-  it("returns null for corrupt JSON", () => {
+  it("returns null for corrupt JSON", async () => {
     fs.writeFileSync(path.join(gsdDir, "metrics.json"), "not json{{{", "utf-8");
-    expect(loadMetricsLedger(tmpDir)).toBeNull();
+    expect(await loadMetricsLedger(tmpDir)).toBeNull();
   });
 
-  it("returns null for wrong version", () => {
+  it("returns null for wrong version", async () => {
     fs.writeFileSync(path.join(gsdDir, "metrics.json"), JSON.stringify({ version: 99, units: [] }), "utf-8");
-    expect(loadMetricsLedger(tmpDir)).toBeNull();
+    expect(await loadMetricsLedger(tmpDir)).toBeNull();
   });
 
-  it("returns null when units is not an array", () => {
+  it("returns null when units is not an array", async () => {
     fs.writeFileSync(path.join(gsdDir, "metrics.json"), JSON.stringify({ version: 1, units: "bad" }), "utf-8");
-    expect(loadMetricsLedger(tmpDir)).toBeNull();
+    expect(await loadMetricsLedger(tmpDir)).toBeNull();
   });
 
-  it("parses valid ledger", () => {
+  it("parses valid ledger", async () => {
     fs.writeFileSync(path.join(gsdDir, "metrics.json"), JSON.stringify(sampleLedger), "utf-8");
-    const result = loadMetricsLedger(tmpDir);
+    const result = await loadMetricsLedger(tmpDir);
     expect(result).not.toBeNull();
     expect(result!.units.length).toBe(10);
     expect(result!.version).toBe(1);

@@ -29,9 +29,13 @@ vi.mock("child_process", () => ({
 // ── Mock fs ──
 const mockExistsSync = vi.fn();
 const mockReadFileSync = vi.fn();
+const mockReadFileAsync = vi.fn();
 vi.mock("fs", () => ({
   existsSync: (...args: unknown[]) => mockExistsSync(...args),
   readFileSync: (...args: unknown[]) => mockReadFileSync(...args),
+  promises: {
+    readFile: (...args: unknown[]) => mockReadFileAsync(...args),
+  },
 }));
 
 import { runHealthCheck } from "./health-check";
@@ -80,6 +84,23 @@ function setupDefaultMocks() {
       return JSON.stringify({ version: "1.0.0" });
     }
     return "{}";
+  });
+  mockReadFileAsync.mockImplementation((filePath: string) => {
+    if (filePath.includes("auth.json")) {
+      return Promise.resolve(JSON.stringify({
+        anthropic: { type: "api_key", key: "sk-test-key" },
+      }));
+    }
+    if (filePath.includes("settings.json")) {
+      return Promise.resolve(JSON.stringify({
+        defaultProvider: "anthropic",
+        defaultModel: "claude-sonnet-4-20250514",
+      }));
+    }
+    if (filePath.includes("package.json")) {
+      return Promise.resolve(JSON.stringify({ version: "1.0.0" }));
+    }
+    return Promise.resolve("{}");
   });
 }
 
@@ -164,6 +185,15 @@ describe("health-check", () => {
         if (filePath.includes("settings.json")) return "{}";
         return "{}";
       });
+      mockReadFileAsync.mockImplementation((filePath: string) => {
+        if (filePath.includes("auth.json")) {
+          return Promise.resolve(JSON.stringify({
+            github: { type: "oauth" },
+          }));
+        }
+        if (filePath.includes("settings.json")) return Promise.resolve("{}");
+        return Promise.resolve("{}");
+      });
 
       const result = await runHealthCheck(output);
 
@@ -192,6 +222,17 @@ describe("health-check", () => {
         }
         if (filePath.includes("settings.json")) return "{}";
         return "{}";
+      });
+      mockReadFileAsync.mockImplementation((filePath: string) => {
+        if (filePath.includes("auth.json")) {
+          return Promise.resolve(JSON.stringify({
+            anthropic: { type: "api_key", key: "sk-test" },
+            openai: { type: "api_key", key: "" },
+            google: { type: "oauth", access: "tok123", refresh: "ref456" },
+          }));
+        }
+        if (filePath.includes("settings.json")) return Promise.resolve("{}");
+        return Promise.resolve("{}");
       });
 
       const result = await runHealthCheck(output);
@@ -231,6 +272,21 @@ describe("health-check", () => {
           });
         }
         return "{}";
+      });
+      mockReadFileAsync.mockImplementation((filePath: string) => {
+        if (filePath.includes("auth.json")) {
+          return Promise.resolve(JSON.stringify({
+            anthropic: { type: "api_key", key: "sk-test" },
+            openai: { type: "api_key", key: "" },
+          }));
+        }
+        if (filePath.includes("settings.json")) {
+          return Promise.resolve(JSON.stringify({
+            defaultProvider: "openai",
+            defaultModel: "gpt-4",
+          }));
+        }
+        return Promise.resolve("{}");
       });
 
       const result = await runHealthCheck(output);

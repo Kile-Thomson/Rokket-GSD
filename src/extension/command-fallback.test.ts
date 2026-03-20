@@ -9,6 +9,9 @@ vi.mock("vscode", () => ({
 
 vi.mock("fs", () => ({
   readFileSync: vi.fn(),
+  promises: {
+    readFile: vi.fn(),
+  },
 }));
 
 import {
@@ -203,10 +206,8 @@ describe("command-fallback", () => {
       });
       const ctx = createMockContext(session);
 
-      // Mock fs.readFileSync to throw (no STATE.md)
-      vi.mocked(fs.readFileSync).mockImplementation(() => {
-        throw new Error("ENOENT");
-      });
+      // Mock fs.promises.readFile to reject (no STATE.md)
+      vi.mocked(fs.promises.readFile as any).mockRejectedValue(new Error("ENOENT"));
 
       startGsdFallbackTimer(ctx, "/gsd queue", "s1", FAKE_WEBVIEW);
 
@@ -241,9 +242,7 @@ describe("command-fallback", () => {
       const session = createMockSession();
       const ctx = createMockContext(session);
 
-      vi.mocked(fs.readFileSync).mockImplementation(() => {
-        throw new Error("ENOENT");
-      });
+      vi.mocked(fs.promises.readFile as any).mockRejectedValue(new Error("ENOENT"));
 
       await handleGsdAutoFallback(ctx, client as any, FAKE_WEBVIEW, "s1", "/gsd queue");
 
@@ -261,7 +260,7 @@ describe("command-fallback", () => {
       const session = createMockSession();
       const ctx = createMockContext(session);
 
-      vi.mocked(fs.readFileSync).mockReturnValue("## Current State\nActive milestone: M001");
+      vi.mocked(fs.promises.readFile as any).mockResolvedValue("## Current State\nActive milestone: M001");
 
       await handleGsdAutoFallback(ctx, client as any, FAKE_WEBVIEW, "s1", "/gsd status");
 
@@ -275,9 +274,7 @@ describe("command-fallback", () => {
       const session = createMockSession();
       const ctx = createMockContext(session);
 
-      vi.mocked(fs.readFileSync).mockImplementation(() => {
-        throw new Error("ENOENT");
-      });
+      vi.mocked(fs.promises.readFile as any).mockRejectedValue(new Error("ENOENT"));
 
       await handleGsdAutoFallback(ctx, client as any, FAKE_WEBVIEW, "s1", "/gsd auto");
 
@@ -301,9 +298,7 @@ describe("command-fallback", () => {
         const client = createMockClient();
         const session = createMockSession();
         const ctx = createMockContext(session);
-        vi.mocked(fs.readFileSync).mockImplementation(() => {
-          throw new Error("ENOENT");
-        });
+        vi.mocked(fs.promises.readFile as any).mockRejectedValue(new Error("ENOENT"));
 
         await handleGsdAutoFallback(ctx, client as any, FAKE_WEBVIEW, "s1", `/gsd ${sub}`);
         expect(client.prompt).toHaveBeenCalledTimes(1);

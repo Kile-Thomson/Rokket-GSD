@@ -15,6 +15,14 @@ vi.mock("./captures-parser", () => ({
   countPendingCaptures: (...args: unknown[]) => mockCountPendingCaptures(...args),
 }));
 
+// ── Mock parallel-status ──
+const mockReadParallelWorkers = vi.fn();
+const mockReadBudgetCeiling = vi.fn();
+vi.mock("./parallel-status", () => ({
+  readParallelWorkers: (...args: unknown[]) => mockReadParallelWorkers(...args),
+  readBudgetCeiling: (...args: unknown[]) => mockReadBudgetCeiling(...args),
+}));
+
 import { AutoProgressPoller } from "./auto-progress";
 
 // ── Helpers ──
@@ -86,7 +94,9 @@ describe("AutoProgressPoller", () => {
         milestones: { done: 0, total: 1 },
       },
     });
-    mockCountPendingCaptures.mockReturnValue(0);
+    mockCountPendingCaptures.mockResolvedValue(0);
+    mockReadParallelWorkers.mockResolvedValue(null);
+    mockReadBudgetCeiling.mockResolvedValue(null);
   });
 
   afterEach(() => {

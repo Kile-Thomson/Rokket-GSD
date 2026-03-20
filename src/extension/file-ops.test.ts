@@ -43,6 +43,7 @@ vi.mock("fs", async () => {
     promises: {
       ...actual.promises,
       access: vi.fn().mockResolvedValue(undefined),
+      readFile: vi.fn(),
     },
   };
 });
@@ -363,19 +364,19 @@ describe("file-ops", () => {
   // ─── cleanStaleCrashLock ───────────────────────────────────────────
 
   describe("cleanStaleCrashLock", () => {
-    it("removes lock when STATE.md says idle", () => {
+    it("removes lock when STATE.md says idle", async () => {
       (fs.existsSync as any) = vi.fn((p: string) => {
         if (p.includes("auto.lock")) return true;
         if (p.includes("STATE.md")) return true;
         return false;
       });
-      (fs.readFileSync as any) = vi.fn(() =>
+      (fs.promises.readFile as any) = vi.fn().mockResolvedValue(
         "**Active Milestone:** none\n**Phase:** idle\n"
       );
       (fs.unlinkSync as any) = vi.fn();
 
       const output = { appendLine: vi.fn() } as any;
-      cleanStaleCrashLock("/project", output);
+      await cleanStaleCrashLock("/project", output);
 
       expect(fs.unlinkSync).toHaveBeenCalledWith(
         expect.stringContaining("auto.lock"),
@@ -385,7 +386,7 @@ describe("file-ops", () => {
       );
     });
 
-    it("removes lock when no STATE.md exists", () => {
+    it("removes lock when no STATE.md exists", async () => {
       (fs.existsSync as any) = vi.fn((p: string) => {
         if (p.includes("auto.lock")) return true;
         return false; // no STATE.md
@@ -393,41 +394,41 @@ describe("file-ops", () => {
       (fs.unlinkSync as any) = vi.fn();
 
       const output = { appendLine: vi.fn() } as any;
-      cleanStaleCrashLock("/project", output);
+      await cleanStaleCrashLock("/project", output);
 
       expect(fs.unlinkSync).toHaveBeenCalledWith(
         expect.stringContaining("auto.lock"),
       );
     });
 
-    it("does not remove lock when milestone is active", () => {
+    it("does not remove lock when milestone is active", async () => {
       (fs.existsSync as any) = vi.fn(() => true);
-      (fs.readFileSync as any) = vi.fn(() =>
+      (fs.promises.readFile as any) = vi.fn().mockResolvedValue(
         "**Active Milestone:** M015\n**Phase:** building\n"
       );
       (fs.unlinkSync as any) = vi.fn();
 
       const output = { appendLine: vi.fn() } as any;
-      cleanStaleCrashLock("/project", output);
+      await cleanStaleCrashLock("/project", output);
 
       expect(fs.unlinkSync).not.toHaveBeenCalled();
     });
 
-    it("does nothing when no lock file exists", () => {
+    it("does nothing when no lock file exists", async () => {
       (fs.existsSync as any) = vi.fn(() => false);
       (fs.unlinkSync as any) = vi.fn();
 
       const output = { appendLine: vi.fn() } as any;
-      cleanStaleCrashLock("/project", output);
+      await cleanStaleCrashLock("/project", output);
 
       expect(fs.unlinkSync).not.toHaveBeenCalled();
     });
 
-    it("does not throw on errors", () => {
+    it("does not throw on errors", async () => {
       (fs.existsSync as any) = vi.fn(() => { throw new Error("boom"); });
 
       const output = { appendLine: vi.fn() } as any;
-      expect(() => cleanStaleCrashLock("/project", output)).not.toThrow();
+      await expect(cleanStaleCrashLock("/project", output)).resolves.not.toThrow();
     });
   });
 });

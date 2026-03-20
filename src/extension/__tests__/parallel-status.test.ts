@@ -21,16 +21,16 @@ describe("readParallelWorkers", () => {
     fs.writeFileSync(path.join(dir, name), JSON.stringify(data));
   }
 
-  it("returns null when .gsd/parallel/ does not exist", () => {
-    expect(readParallelWorkers(tmpDir)).toBeNull();
+  it("returns null when .gsd/parallel/ does not exist", async () => {
+    expect(await readParallelWorkers(tmpDir)).toBeNull();
   });
 
-  it("returns null when directory is empty", () => {
+  it("returns null when directory is empty", async () => {
     fs.mkdirSync(path.join(tmpDir, ".gsd", "parallel"), { recursive: true });
-    expect(readParallelWorkers(tmpDir)).toBeNull();
+    expect(await readParallelWorkers(tmpDir)).toBeNull();
   });
 
-  it("parses a valid worker status file", () => {
+  it("parses a valid worker status file", async () => {
     writeStatus("M001.status.json", {
       milestoneId: "M001",
       pid: 1234,
@@ -41,7 +41,7 @@ describe("readParallelWorkers", () => {
       lastHeartbeat: Date.now(),
     });
 
-    const workers = readParallelWorkers(tmpDir);
+    const workers = await readParallelWorkers(tmpDir);
     expect(workers).toHaveLength(1);
     expect(workers![0]).toMatchObject({
       id: "M001",
@@ -54,7 +54,7 @@ describe("readParallelWorkers", () => {
     });
   });
 
-  it("parses multiple worker files", () => {
+  it("parses multiple worker files", async () => {
     writeStatus("M001.status.json", {
       milestoneId: "M001",
       pid: 1000,
@@ -70,13 +70,13 @@ describe("readParallelWorkers", () => {
       lastHeartbeat: Date.now(),
     });
 
-    const workers = readParallelWorkers(tmpDir);
+    const workers = await readParallelWorkers(tmpDir);
     expect(workers).toHaveLength(2);
     const ids = workers!.map(w => w.id).sort();
     expect(ids).toEqual(["M001", "M002"]);
   });
 
-  it("marks workers with old heartbeat as stale", () => {
+  it("marks workers with old heartbeat as stale", async () => {
     writeStatus("M001.status.json", {
       milestoneId: "M001",
       pid: 1234,
@@ -85,11 +85,11 @@ describe("readParallelWorkers", () => {
       cost: 0,
     });
 
-    const workers = readParallelWorkers(tmpDir);
+    const workers = await readParallelWorkers(tmpDir);
     expect(workers![0].stale).toBe(true);
   });
 
-  it("marks workers with recent heartbeat as not stale", () => {
+  it("marks workers with recent heartbeat as not stale", async () => {
     writeStatus("M001.status.json", {
       milestoneId: "M001",
       pid: 1234,
@@ -98,11 +98,11 @@ describe("readParallelWorkers", () => {
       cost: 0,
     });
 
-    const workers = readParallelWorkers(tmpDir);
+    const workers = await readParallelWorkers(tmpDir);
     expect(workers![0].stale).toBe(false);
   });
 
-  it("defaults unknown state to error", () => {
+  it("defaults unknown state to error", async () => {
     writeStatus("M001.status.json", {
       milestoneId: "M001",
       pid: 1234,
@@ -111,11 +111,11 @@ describe("readParallelWorkers", () => {
       lastHeartbeat: Date.now(),
     });
 
-    const workers = readParallelWorkers(tmpDir);
+    const workers = await readParallelWorkers(tmpDir);
     expect(workers![0].state).toBe("error");
   });
 
-  it("skips corrupt JSON files", () => {
+  it("skips corrupt JSON files", async () => {
     const dir = path.join(tmpDir, ".gsd", "parallel");
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "bad.status.json"), "not-json{{{");
@@ -127,12 +127,12 @@ describe("readParallelWorkers", () => {
       lastHeartbeat: Date.now(),
     });
 
-    const workers = readParallelWorkers(tmpDir);
+    const workers = await readParallelWorkers(tmpDir);
     expect(workers).toHaveLength(1);
     expect(workers![0].id).toBe("M001");
   });
 
-  it("filters out Dropbox conflicted copies", () => {
+  it("filters out Dropbox conflicted copies", async () => {
     writeStatus("M001.status.json", {
       milestoneId: "M001",
       pid: 1234,
@@ -147,12 +147,12 @@ describe("readParallelWorkers", () => {
       JSON.stringify({ milestoneId: "M001-conflict", state: "running", cost: 0, lastHeartbeat: Date.now() }),
     );
 
-    const workers = readParallelWorkers(tmpDir);
+    const workers = await readParallelWorkers(tmpDir);
     expect(workers).toHaveLength(1);
     expect(workers![0].id).toBe("M001");
   });
 
-  it("handles null currentUnit", () => {
+  it("handles null currentUnit", async () => {
     writeStatus("M001.status.json", {
       milestoneId: "M001",
       pid: 1234,
@@ -162,11 +162,11 @@ describe("readParallelWorkers", () => {
       lastHeartbeat: Date.now(),
     });
 
-    const workers = readParallelWorkers(tmpDir);
+    const workers = await readParallelWorkers(tmpDir);
     expect(workers![0].currentUnit).toBeNull();
   });
 
-  it("falls back to filename for id when milestoneId is missing", () => {
+  it("falls back to filename for id when milestoneId is missing", async () => {
     writeStatus("M999.status.json", {
       pid: 1234,
       state: "running",
@@ -174,29 +174,29 @@ describe("readParallelWorkers", () => {
       lastHeartbeat: Date.now(),
     });
 
-    const workers = readParallelWorkers(tmpDir);
+    const workers = await readParallelWorkers(tmpDir);
     expect(workers![0].id).toBe("M999");
   });
 
-  it("handles missing numeric fields with defaults", () => {
+  it("handles missing numeric fields with defaults", async () => {
     writeStatus("M001.status.json", {
       milestoneId: "M001",
       state: "running",
       lastHeartbeat: Date.now(),
     });
 
-    const workers = readParallelWorkers(tmpDir);
+    const workers = await readParallelWorkers(tmpDir);
     expect(workers![0].pid).toBe(0);
     expect(workers![0].completedUnits).toBe(0);
     expect(workers![0].cost).toBe(0);
   });
 
-  it("returns null when only non-status files exist", () => {
+  it("returns null when only non-status files exist", async () => {
     const dir = path.join(tmpDir, ".gsd", "parallel");
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "readme.txt"), "not a status file");
 
-    expect(readParallelWorkers(tmpDir)).toBeNull();
+    expect(await readParallelWorkers(tmpDir)).toBeNull();
   });
 });
 
@@ -217,37 +217,37 @@ describe("readBudgetCeiling", () => {
     fs.writeFileSync(path.join(dir, "preferences.md"), content);
   }
 
-  it("returns null when preferences.md does not exist", () => {
-    expect(readBudgetCeiling(tmpDir)).toBeNull();
+  it("returns null when preferences.md does not exist", async () => {
+    expect(await readBudgetCeiling(tmpDir)).toBeNull();
   });
 
-  it("parses budget_ceiling value", () => {
+  it("parses budget_ceiling value", async () => {
     writePrefs("budget_ceiling: 5.00\nother_key: value\n");
-    expect(readBudgetCeiling(tmpDir)).toBe(5.0);
+    expect(await readBudgetCeiling(tmpDir)).toBe(5.0);
   });
 
-  it("handles decimal values", () => {
+  it("handles decimal values", async () => {
     writePrefs("budget_ceiling: 0.50\n");
-    expect(readBudgetCeiling(tmpDir)).toBe(0.5);
+    expect(await readBudgetCeiling(tmpDir)).toBe(0.5);
   });
 
-  it("returns null when key not present", () => {
+  it("returns null when key not present", async () => {
     writePrefs("some_other_key: 10\n");
-    expect(readBudgetCeiling(tmpDir)).toBeNull();
+    expect(await readBudgetCeiling(tmpDir)).toBeNull();
   });
 
-  it("returns null for non-numeric value", () => {
+  it("returns null for non-numeric value", async () => {
     writePrefs("budget_ceiling: unlimited\n");
-    expect(readBudgetCeiling(tmpDir)).toBeNull();
+    expect(await readBudgetCeiling(tmpDir)).toBeNull();
   });
 
-  it("returns null for zero ceiling", () => {
+  it("returns null for zero ceiling", async () => {
     writePrefs("budget_ceiling: 0\n");
-    expect(readBudgetCeiling(tmpDir)).toBeNull();
+    expect(await readBudgetCeiling(tmpDir)).toBeNull();
   });
 
-  it("returns null for negative ceiling", () => {
+  it("returns null for negative ceiling", async () => {
     writePrefs("budget_ceiling: -5\n");
-    expect(readBudgetCeiling(tmpDir)).toBeNull();
+    expect(await readBudgetCeiling(tmpDir)).toBeNull();
   });
 });

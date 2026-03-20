@@ -82,12 +82,12 @@ export function sanitizeEnvForChildProcess(env: NodeJS.ProcessEnv): Record<strin
  * On Unix, `gsd` is typically a direct symlink to a JS file with a shebang,
  * so we can run it directly.
  */
-function resolveGsdPath(hint?: string): { command: string; args: string[]; useShell: boolean } {
+async function resolveGsdPath(hint?: string): Promise<{ command: string; args: string[]; useShell: boolean }> {
   // If user provided an explicit path, use it directly
   if (hint && hint !== "gsd") {
     // If it's a .cmd file, parse it; otherwise assume it's directly executable
     if (process.platform === "win32" && hint.toLowerCase().endsWith(".cmd")) {
-      const entry = parseWindowsCmdWrapper(hint);
+      const entry = await parseWindowsCmdWrapper(hint);
       if (entry) {
         const nodePath = findNodeBinary();
         return { command: nodePath, args: [entry], useShell: false };
@@ -99,7 +99,7 @@ function resolveGsdPath(hint?: string): { command: string; args: string[]; useSh
   }
 
   if (process.platform === "win32") {
-    return resolveGsdWindows();
+    return await resolveGsdWindows();
   }
 
   return resolveGsdUnix();
@@ -135,7 +135,7 @@ function findNodeBinary(): string {
   return "node";
 }
 
-function resolveGsdWindows(): { command: string; args: string[]; useShell: boolean } {
+async function resolveGsdWindows(): Promise<{ command: string; args: string[]; useShell: boolean }> {
   // Find the .cmd wrapper
   let cmdPath: string | null = null;
   try {
@@ -180,7 +180,7 @@ function resolveGsdWindows(): { command: string; args: string[]; useShell: boole
 
   if (cmdPath) {
     // Parse the .cmd to find the actual node entry point
-    const entry = parseWindowsCmdWrapper(cmdPath);
+    const entry = await parseWindowsCmdWrapper(cmdPath);
     if (entry) {
       const nodePath = findNodeBinary();
       return { command: nodePath, args: [entry], useShell: false };
@@ -198,9 +198,9 @@ function resolveGsdWindows(): { command: string; args: string[]; useShell: boole
  * npm .cmd wrappers follow a known pattern ending with:
  *   "%_prog%" "%dp0%\path\to\entry.js" %*
  */
-function parseWindowsCmdWrapper(cmdPath: string): string | null {
+async function parseWindowsCmdWrapper(cmdPath: string): Promise<string | null> {
   try {
-    const content = fs.readFileSync(cmdPath, "utf-8");
+    const content = await fs.promises.readFile(cmdPath, "utf-8");
     // Match the pattern: "%_prog%" "path\to\entry.js" %*
     // or: "%_prog%" "%dp0%\path\to\entry.js" %*
     const match = content.match(/"%_prog%"\s+"([^"]+)"\s+%\*/);
@@ -210,8 +210,11 @@ function parseWindowsCmdWrapper(cmdPath: string): string | null {
       const cmdDir = path.dirname(cmdPath);
       entryPath = entryPath.replace(/%dp0%\\/gi, "").replace(/%dp0%/gi, "");
       const fullPath = path.resolve(cmdDir, entryPath);
-      if (fs.existsSync(fullPath)) {
+      try {
+        await fs.promises.access(fullPath);
         return fullPath;
+      } catch {
+        return null;
       }
     }
   } catch (err: unknown) {
@@ -296,7 +299,7 @@ export class GsdRpcClient extends EventEmitter {
     this._lastStartOptions = { ...options };
     this._stderrBuffer = "";
 
-    const resolved = resolveGsdPath(options.gsdPath);
+    const resolved = await resolveGsdPath(options.gsdPath);
     // Log the resolved spawn command for diagnostics
     this.emit("log", `[rpc-client] Spawn: ${resolved.command} ${resolved.args.join(" ")} --mode rpc (shell: ${resolved.useShell})\n`);
     const args = [...resolved.args, "--mode", "rpc"];

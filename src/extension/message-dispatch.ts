@@ -341,7 +341,7 @@ export async function handleWebviewMessage(
             // Merge metrics data if available
             if (data) {
               try {
-                const ledger = loadMetricsLedger(cwd);
+                const ledger = await loadMetricsLedger(cwd);
                 if (ledger && ledger.units.length > 0) {
                   // Count remaining slices from roadmap
                   const remainingSlices = data.slices.filter(s => !s.done).length;
