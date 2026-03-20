@@ -3,6 +3,7 @@
 // ============================================================
 
 import { escapeHtml, escapeAttr, scrollToBottom } from "./helpers";
+import { createFocusTrap } from "./a11y";
 
 // ============================================================
 // Dependencies injected via init()
@@ -66,33 +67,6 @@ export function hasPending(): boolean {
 
 /** Track the element that had focus before a dialog appeared, for restoration */
 let preFocusEl: HTMLElement | null = null;
-
-/**
- * Focus trap helper: cycles Tab/Shift+Tab within a container.
- * Returns a keydown handler to attach to the container.
- */
-function createFocusTrap(container: HTMLElement): (e: KeyboardEvent) => void {
-  return (e: KeyboardEvent) => {
-    if (e.key !== "Tab") return;
-    const focusable = container.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    );
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (e.shiftKey) {
-      if (document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      }
-    } else {
-      if (document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-  };
-}
 
 /**
  * Build a fingerprint for a dialog request so we can detect duplicates.
