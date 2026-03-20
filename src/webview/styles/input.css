@@ -1,0 +1,272 @@
+/* ============================================================
+   Input Area
+   ============================================================ */
+
+.gsd-input-area {
+  flex-shrink: 0;
+  padding: 8px 12px 6px;
+  border-top: var(--gsd-border-width) solid var(--gsd-color-border);
+  background: var(--gsd-color-surface);
+  transition: border-color 0.2s;
+}
+
+.gsd-resize-handle {
+  height: 6px;
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: -4px 0 2px;
+}
+
+.gsd-resize-handle::after {
+  content: "";
+  display: block;
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--vscode-panel-border, rgba(128,128,128,0.2));
+  transition: background 0.15s;
+}
+
+.gsd-resize-handle:hover::after {
+  background: var(--vscode-foreground);
+  opacity: 0.3;
+}
+
+.gsd-input-area.drag-over {
+  border-top-color: var(--vscode-focusBorder, #007fd4);
+  background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.04));
+}
+
+.gsd-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--gsd-space-sm);
+}
+
+.gsd-input-wrapper {
+  flex: 1;
+  position: relative;
+}
+
+.gsd-input {
+  width: 100%;
+  resize: none;
+  border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.25));
+  border-radius: var(--gsd-radius-xl);
+  padding: 8px 12px;
+  font-family: var(--gsd-font-family);
+  font-size: var(--vscode-font-size, 13px);
+  color: var(--gsd-input-fg);
+  background: var(--gsd-input-bg);
+  outline: none;
+  min-height: 38px;
+  max-height: 200px;
+  line-height: 1.45;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.gsd-input:focus {
+  border-color: var(--vscode-focusBorder, #007fd4);
+  box-shadow: 0 0 0 1px var(--vscode-focusBorder, rgba(0, 127, 212, 0.3));
+}
+
+.gsd-input::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+.gsd-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* File chips — input area (pre-send) */
+.gsd-file-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gsd-space-sm);
+  padding: 6px 8px 0;
+}
+
+.gsd-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gsd-space-sm);
+  padding: 4px 10px;
+  border-radius: var(--gsd-radius-xl);
+  background: var(--vscode-badge-background, rgba(128, 128, 128, 0.2));
+  color: var(--vscode-badge-foreground, var(--vscode-foreground));
+  font-size: var(--gsd-font-size-md);
+  line-height: 1.3;
+  max-width: 220px;
+}
+
+.gsd-file-chip.sent {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.gsd-file-chip-icon {
+  font-size: var(--gsd-font-size-lg);
+  flex-shrink: 0;
+}
+
+.gsd-file-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gsd-file-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: var(--gsd-radius-circle);
+  background: transparent;
+  color: var(--vscode-descriptionForeground, #888);
+  cursor: pointer;
+  font-size: var(--gsd-font-size-lg);
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.gsd-file-chip-remove:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--gsd-color-text);
+}
+
+/* File chips in user messages */
+.gsd-user-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gsd-space-sm);
+  margin-bottom: 6px;
+}
+
+.gsd-attach-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: var(--gsd-radius-xl);
+  background: transparent;
+  color: var(--vscode-descriptionForeground, #888);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+  padding: 0;
+}
+
+.gsd-attach-btn:hover {
+  color: var(--gsd-color-text);
+  background: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.1));
+}
+
+.gsd-attach-btn:active {
+  transform: scale(0.94);
+}
+
+.gsd-send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: var(--gsd-radius-xl);
+  background: var(--gsd-color-accent);
+  color: var(--gsd-color-accent-fg);
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.gsd-send-btn:hover {
+  background: var(--gsd-color-accent-hover);
+}
+
+.gsd-send-btn:active {
+  transform: scale(0.94);
+}
+
+.gsd-send-btn.gsd-stop-btn {
+  background: rgba(220, 60, 60, 0.15);
+  color: var(--gsd-color-text-error);
+}
+
+.gsd-send-btn.gsd-stop-btn:hover {
+  background: rgba(220, 60, 60, 0.3);
+}
+
+.gsd-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.gsd-input-hint {
+  margin-top: 3px;
+  text-align: right;
+  font-size: var(--gsd-font-size-xs);
+  color: var(--gsd-color-text-muted);
+  opacity: 0.3;
+  font-family: var(--gsd-font-family-mono);
+}
+
+/* ============================================================
+   Image Preview
+   ============================================================ */
+
+.gsd-image-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gsd-space-sm);
+  padding-bottom: 6px;
+}
+
+.gsd-image-thumb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--gsd-radius-lg);
+  overflow: hidden;
+  border: var(--gsd-border-width) solid var(--gsd-color-border);
+}
+
+.gsd-image-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gsd-image-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: var(--gsd-radius-circle);
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  font-size: var(--gsd-font-size-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.gsd-image-thumb:hover .gsd-image-remove {
+  opacity: 1;
+}
