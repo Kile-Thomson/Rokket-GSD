@@ -4,7 +4,7 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.2.63] — 2026-03-21
+## [0.2.64] — 2026-03-21
 
 ### Added
 - **Fork conversation button** — fork/branch icon on every completed assistant turn. Clicking it forks the conversation at that point, creating a new session with the forked messages. Uses server-side entry IDs for correct fork targeting.
