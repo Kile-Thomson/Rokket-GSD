@@ -259,6 +259,21 @@ export interface RpcResponse {
   error?: string;
 }
 
+/**
+ * JSON-RPC client for communicating with the gsd-pi child process.
+ *
+ * Manages the gsd-pi process lifecycle (spawn, restart, stop, force-kill) and
+ * provides a request/response API over JSONL on stdin/stdout. Emits events for
+ * streaming data (`"event"`), process lifecycle (`"exit"`, `"error"`), and
+ * diagnostic logging (`"log"`).
+ *
+ * The client handles:
+ * - Sanitized environment variables (strips Electron/VS Code internals)
+ * - Windows .cmd wrapper resolution for direct Node.js invocation
+ * - Request timeout management (indefinite for agent turns, 60s for control commands)
+ * - 10MB stdout buffer cap to prevent OOM from runaway output
+ * - Graceful stop escalation: abort → SIGTERM → process tree kill
+ */
 export class GsdRpcClient extends EventEmitter {
   private process: ChildProcess | null = null;
   private buffer: string = "";
@@ -548,6 +563,12 @@ export class GsdRpcClient extends EventEmitter {
 
   // --- Convenience methods matching RPC protocol ---
 
+  /**
+   * Send a user prompt to the agent and wait for the response.
+   * @param message - The user's text message
+   * @param images - Optional image attachments (base64-encoded)
+   * @param streamingBehavior - Optional override: `"steer"` to interrupt, `"followUp"` to queue after current turn
+   */
   async prompt(message: string, images?: Array<{ type: "image"; data: string; mimeType: string }>, streamingBehavior?: "steer" | "followUp"): Promise<void> {
     const cmd: Record<string, unknown> = { type: "prompt", message };
     if (images?.length) cmd.images = images;
@@ -555,100 +576,123 @@ export class GsdRpcClient extends EventEmitter {
     await this.request(cmd);
   }
 
+  /** Send a steering message that interrupts the current agent turn with new instructions. */
   async steer(message: string, images?: Array<{ type: "image"; data: string; mimeType: string }>): Promise<void> {
     const cmd: Record<string, unknown> = { type: "steer", message };
     if (images?.length) cmd.images = images;
     await this.request(cmd);
   }
 
+  /** Send a follow-up message that queues after the current agent turn completes. */
   async followUp(message: string, images?: Array<{ type: "image"; data: string; mimeType: string }>): Promise<void> {
     const cmd: Record<string, unknown> = { type: "follow_up", message };
     if (images?.length) cmd.images = images;
     await this.request(cmd);
   }
 
+  /** Abort the current agent turn. Resolves when the abort is acknowledged. */
   async abort(): Promise<void> {
     await this.request({ type: "abort" });
   }
 
+  /** Fetch the current session state (model, streaming status, session info). Returns `RpcStateResult`. */
   async getState(): Promise<unknown> {
     return await this.request({ type: "get_state" });
   }
 
+  /** Fetch all messages in the current session. Returns an array of `AgentMessage`. */
   async getMessages(): Promise<unknown> {
     return await this.request({ type: "get_messages" });
   }
 
+  /** Change the active model. */
   async setModel(provider: string, modelId: string): Promise<unknown> {
     return await this.request({ type: "set_model", provider, modelId });
   }
 
+  /** Set the thinking budget level. */
   async setThinkingLevel(level: string): Promise<void> {
     await this.request({ type: "set_thinking_level", level });
   }
 
+  /** Create a new empty session, discarding the current conversation. */
   async newSession(): Promise<unknown> {
     return await this.request({ type: "new_session" });
   }
 
+  /** Trigger context compaction with optional custom instructions. */
   async compact(customInstructions?: string): Promise<unknown> {
     const cmd: Record<string, unknown> = { type: "compact" };
     if (customInstructions) cmd.customInstructions = customInstructions;
     return await this.request(cmd);
   }
 
+  /** Fetch the list of available slash commands. */
   async getCommands(): Promise<unknown> {
     return await this.request({ type: "get_commands" });
   }
 
+  /** Fetch session cost and token usage statistics. Returns `SessionStats`-shaped data. */
   async getSessionStats(): Promise<unknown> {
     return await this.request({ type: "get_session_stats" });
   }
 
+  /** Fetch all models available from configured providers. */
   async getAvailableModels(): Promise<unknown> {
     return await this.request({ type: "get_available_models" });
   }
 
+  /** Cycle to the next thinking level and return the new level. */
   async cycleThinkingLevel(): Promise<unknown> {
     return await this.request({ type: "cycle_thinking_level" });
   }
 
+  /** Execute a bash command in the agent's working directory. */
   async executeBash(command: string): Promise<unknown> {
     return await this.request({ type: "bash", command });
   }
 
+  /** Switch to a different session by its JSONL file path. Returns the new session state. */
   async switchSession(sessionPath: string): Promise<unknown> {
     return await this.request({ type: "switch_session", sessionPath });
   }
 
+  /** Rename the current session. */
   async setSessionName(name: string): Promise<void> {
     await this.request({ type: "set_session_name", name });
   }
 
+  /** Fork the conversation at a specific message entry, creating a new branch. */
   async fork(entryId: string): Promise<unknown> {
     return await this.request({ type: "fork", entryId });
   }
 
+  /** Enable or disable automatic context compaction. */
   async setAutoCompaction(enabled: boolean): Promise<void> {
     await this.request({ type: "set_auto_compaction", enabled });
   }
 
+  /** Enable or disable automatic retry on transient errors. */
   async setAutoRetry(enabled: boolean): Promise<void> {
     await this.request({ type: "set_auto_retry", enabled });
   }
 
+  /** Cancel a pending auto-retry. */
   async abortRetry(): Promise<void> {
     await this.request({ type: "abort_retry" });
   }
 
+  /** Set steering message delivery mode: `"all"` sends immediately, `"one-at-a-time"` queues. */
   async setSteeringMode(mode: "all" | "one-at-a-time"): Promise<void> {
     await this.request({ type: "set_steering_mode", mode });
   }
 
+  /** Set follow-up message delivery mode: `"all"` sends immediately, `"one-at-a-time"` queues. */
   async setFollowUpMode(mode: "all" | "one-at-a-time"): Promise<void> {
     await this.request({ type: "set_follow_up_mode", mode });
   }
 
+  /** Fetch messages from a forked conversation branch. */
   async getForkMessages(): Promise<unknown> {
     return await this.request({ type: "get_fork_messages" });
   }
