@@ -520,7 +520,7 @@ export class GsdRpcClient extends EventEmitter {
     const commandWithId = { ...command, id };
 
     // Long-running commands get no timeout; others get 60s default
-    const noTimeoutCommands = ["prompt", "steer", "follow_up", "compact"];
+    const noTimeoutCommands = ["prompt", "steer", "follow_up", "compact", "get_messages"];
     const effectiveTimeout = timeoutMs ?? (noTimeoutCommands.includes(command.type as string) ? 0 : 60000);
 
     return new Promise((resolve, reject) => {
