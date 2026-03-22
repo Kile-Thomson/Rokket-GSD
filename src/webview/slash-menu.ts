@@ -171,6 +171,7 @@ export function buildItems(): SlashMenuItem[] {
     { name: "gsd logs", desc: "Browse activity, debug, and metrics logs", sendOnSelect: true },
     { name: "gsd inspect", desc: "Show SQLite DB diagnostics", sendOnSelect: true },
     { name: "gsd skill-health", desc: "Skill lifecycle dashboard", sendOnSelect: true },
+    { name: "gsd rate", desc: "Token usage rates and profile defaults", sendOnSelect: true },
 
     // ── Setup & maintenance ───────────────────────────────────────────
     { name: "gsd init", desc: "Project init wizard — detect, configure, bootstrap .gsd/" },

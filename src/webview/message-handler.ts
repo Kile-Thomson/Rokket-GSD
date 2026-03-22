@@ -545,6 +545,15 @@ function handleMessage(event: MessageEvent): void {
       break;
     }
 
+    case "steer_persisted": {
+      // Update the steer note to reflect durability
+      const note = document.querySelector(".gsd-steer-note");
+      if (note) {
+        note.textContent = "⚡ Override saved — applies to current and future tasks";
+      }
+      break;
+    }
+
     case "extension_ui_request": {
       const data = msg;
       if (data.method === "notify" && data.message) {
@@ -619,6 +628,9 @@ function handleMessage(event: MessageEvent): void {
 
     case "error": {
       const data = msg;
+      // Clear steer note — if the steer RPC failed, the "Redirecting agent..."
+      // indicator would otherwise stay forever since no agent_start will follow.
+      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
       addSystemEntry(data.message, "error");
       break;
     }
@@ -630,6 +642,8 @@ function handleMessage(event: MessageEvent): void {
       state.isRetrying = false;
       state.processHealth = "responsive";
       state.currentTurn = null;
+      // Clear steer note — process is gone, the steer won't be delivered
+      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
       // Clear auto-progress — process is gone
       autoProgress.update(null);
       // Expire any pending dialogs — the process is gone
