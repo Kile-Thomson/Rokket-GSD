@@ -15,7 +15,7 @@ import type { ExtensionToWebviewMessage } from "../shared/types";
 
 /** Matches `/gsd` with optional recognised subcommand. */
 export const GSD_COMMAND_RE =
-  /^\/gsd(?:\s+(auto|next|stop|pause|status|queue|quick|mode|help|forensics|doctor|discuss|visualize|capture|steer|knowledge|config|prefs|migrate|remote|changelog|triage|dispatch|history|undo|skip|cleanup|hooks|run-hook|skill-health|init|setup|inspect|new-milestone|parallel|park|unpark|start|templates|extensions|export|keys|logs))?(?:\s|$)/;
+  /^\/gsd(?:\s+(auto|next|stop|pause|status|queue|quick|mode|help|forensics|doctor|discuss|visualize|capture|steer|knowledge|config|prefs|migrate|remote|changelog|triage|dispatch|history|undo|skip|cleanup|hooks|run-hook|skill-health|init|setup|inspect|new-milestone|parallel|park|unpark|start|templates|extensions|export|keys|logs|rate))?(?:\s|$)/;
 
 /**
  * Subcommands that work natively in RPC mode — they don't need fallbacks.
@@ -23,7 +23,7 @@ export const GSD_COMMAND_RE =
  * produce their own agent_start event or interactive UI.
  */
 export const GSD_NATIVE_SUBCOMMANDS =
-  /^\s*\/gsd\s+(auto|stop|pause|next|status|steer|remote|prefs|parallel|park|unpark|config|keys|setup|doctor|extensions|changelog|knowledge|templates|hooks|run-hook|skill-health|inspect|logs|init|triage|forensics|queue|history|discuss|capture|visualize|help|update|mode)\b/i;
+  /^\s*\/gsd\s+(auto|stop|pause|next|status|steer|remote|prefs|parallel|park|unpark|config|keys|setup|doctor|extensions|changelog|knowledge|templates|hooks|run-hook|skill-health|inspect|logs|init|triage|forensics|queue|history|discuss|capture|visualize|help|update|mode|rate)\b/i;
 
 // ── Context interface ───────────────────────────────────────────────────
 
