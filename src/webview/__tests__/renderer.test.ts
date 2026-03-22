@@ -193,33 +193,16 @@ describe("renderer", () => {
       expect(el!.textContent).toContain("Alert!");
     });
 
-    it("splits the turn when user message arrives during streaming", () => {
+    it("inserts user message after current streaming element without splitting", () => {
       startTurn();
       ensureCurrentTurnElement();
       renderNewEntry(makeUserEntry("Interrupt"));
-      // Should have: old turn (finalized), user bubble, new streaming turn
+      // Should have: streaming element (unchanged), user bubble after it — no continuation split
       const entries = messagesContainer.querySelectorAll(".gsd-entry");
-      expect(entries.length).toBe(3);
+      expect(entries.length).toBe(2);
       expect(entries[0].classList.contains("gsd-entry-assistant")).toBe(true);
-      expect(entries[0].classList.contains("streaming")).toBe(false);
+      expect(entries[0].classList.contains("streaming")).toBe(true);
       expect(entries[1].classList.contains("gsd-entry-user")).toBe(true);
-      expect(entries[2].classList.contains("gsd-entry-assistant")).toBe(true);
-      expect(entries[2].classList.contains("streaming")).toBe(true);
-    });
-
-    it("handles multiple rapid steers without breaking", () => {
-      startTurn();
-      ensureCurrentTurnElement();
-      renderNewEntry(makeUserEntry("first steer"));
-      renderNewEntry(makeUserEntry("second steer"));
-      // Should have: [old turn] [user1] [empty turn] [user2] [new turn]
-      const entries = messagesContainer.querySelectorAll(".gsd-entry");
-      expect(entries.length).toBe(5);
-      expect(entries[0].classList.contains("gsd-entry-assistant")).toBe(true);
-      expect(entries[1].classList.contains("gsd-entry-user")).toBe(true);
-      expect(entries[2].classList.contains("gsd-entry-assistant")).toBe(true);
-      expect(entries[3].classList.contains("gsd-entry-user")).toBe(true);
-      expect(entries[4].classList.contains("streaming")).toBe(true);
     });
   });
 
@@ -332,29 +315,6 @@ describe("renderer", () => {
       // Should not throw
       updateToolSegmentElement("nonexistent");
     });
-
-    it("finds tool in prior turn element after split", () => {
-      startTurn();
-      ensureCurrentTurnElement();
-      const tc = makeToolCall("tc-split", "Bash");
-      state.currentTurn!.toolCalls.set(tc.id, tc);
-      state.currentTurn!.segments.push({ type: "tool", toolCallId: tc.id });
-      appendToolSegmentElement(tc, 0);
-
-      // User steer splits the turn — tool element is now in prior turn
-      renderNewEntry(makeUserEntry("steer message"));
-
-      // Tool completes after the split
-      tc.resultText = "output";
-      tc.isRunning = false;
-      tc.endTime = Date.now() + 1000;
-      updateToolSegmentElement("tc-split");
-
-      // Should still find and update the element in the prior turn
-      const toolEl = messagesContainer.querySelector('[data-tool-id="tc-split"]');
-      expect(toolEl).toBeTruthy();
-      expect(toolEl!.innerHTML).toContain("output");
-    });
   });
 
   // ============================================================
@@ -408,26 +368,6 @@ describe("renderer", () => {
       state.currentTurn = null;
       // Should not throw
       finalizeCurrentTurn();
-    });
-
-    it("removes empty continuation elements after split", () => {
-      startTurn();
-      ensureCurrentTurnElement();
-      appendToTextSegment("text", "before steer");
-      vi.advanceTimersByTime(16);
-
-      // User steer splits the turn — new empty turn element created
-      renderNewEntry(makeUserEntry("steer"));
-
-      // Finalize without any content in the new turn element
-      finalizeCurrentTurn();
-
-      // The empty continuation element should be removed
-      const assistantEntries = messagesContainer.querySelectorAll(".gsd-entry-assistant");
-      for (const el of assistantEntries) {
-        // No empty assistant entries should remain
-        expect(el.innerHTML.trim().length).toBeGreaterThan(0);
-      }
     });
   });
 
