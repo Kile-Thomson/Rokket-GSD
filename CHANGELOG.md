@@ -4,6 +4,12 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.67] — 2026-03-22
+
+### Fixed
+- **Steer note stuck during auto-mode** — the "⚡ Redirecting agent..." indicator now clears on `message_start` (when the agent begins its next response), not just `agent_start`/`agent_end`. During auto-mode the entire workflow is one agent turn, so `agent_start`/`agent_end` never fires between tasks. The note also clears on `error` and `process_exit` events.
+- **Persisted steer note auto-removes** — when a steer is persisted to `OVERRIDES.md` during auto-mode, the note updates to "⚡ Override saved — applies to current and future tasks" and auto-removes after 4 seconds instead of lingering indefinitely.
+
 ## [0.2.66] — 2026-03-22
 
 ### Fixed
