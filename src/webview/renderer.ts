@@ -112,27 +112,11 @@ export function clearMessages(): void {
 
 export function renderNewEntry(entry: ChatEntry): void {
   const el = createEntryElement(entry);
+  // If streaming, insert the user message AFTER the current streaming element
+  // without splitting the assistant turn. The assistant continues rendering
+  // in the same element — the user message just appears below the in-progress response.
   if (currentTurnElement && currentTurnElement.parentNode === messagesContainer) {
-    // During streaming, split the turn: finalize the current turn element,
-    // append the user message, then create a fresh turn element for subsequent
-    // assistant content. This keeps user steers in chronological position
-    // instead of sinking to the bottom while the turn div keeps growing above.
-    currentTurnElement.classList.remove("streaming");
-    // Save the old element so finalizeCurrentTurn can still find it
-    priorTurnElements.push(currentTurnElement);
-    // Reset segment tracking — new turn element gets fresh segments
-    _splitSegmentBarrier = state.currentTurn ? state.currentTurn.segments.length - 1 : -1;
-    segmentElements.clear();
-    incrementalState.clear();
-    _activeSegmentIndex = -1;
-    // Insert user message after the old turn element
     currentTurnElement.after(el);
-    // Create a new turn element after the user message
-    const newTurn = document.createElement("div");
-    newTurn.className = "gsd-entry gsd-entry-assistant streaming";
-    newTurn.dataset.entryId = state.currentTurn?.id || "stream";
-    el.after(newTurn);
-    currentTurnElement = newTurn;
   } else {
     messagesContainer.appendChild(el);
   }
@@ -141,11 +125,6 @@ export function renderNewEntry(entry: ChatEntry): void {
 // ============================================================
 // Public API — streaming
 // ============================================================
-
-/** Return the current turn element (or null). Used by steer note positioning. */
-export function getCurrentTurnElement(): HTMLElement | null {
-  return currentTurnElement;
-}
 
 export function ensureCurrentTurnElement(): HTMLElement {
   if (!currentTurnElement) {
@@ -262,16 +241,6 @@ export function updateToolSegmentElement(toolCallId: string): void {
     targetEl = currentTurnElement.querySelector<HTMLElement>(
       `[data-tool-id="${toolCallId}"]`,
     )?.closest<HTMLElement>(".gsd-tool-segment") ?? null;
-  }
-
-  // Search prior turn elements (from turn splits on user steer messages)
-  if (!targetEl) {
-    for (const prior of priorTurnElements) {
-      targetEl = prior.querySelector<HTMLElement>(
-        `[data-tool-id="${toolCallId}"]`,
-      )?.closest<HTMLElement>(".gsd-tool-segment") ?? null;
-      if (targetEl) break;
-    }
   }
 
   if (!targetEl) return;
