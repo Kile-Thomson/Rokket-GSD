@@ -4,6 +4,17 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.66] — 2026-03-22
+
+### Fixed
+- **Steer note stuck forever** — the "⚡ Redirecting agent..." indicator now clears on `error` and `process_exit` events, not just `agent_start`/`agent_end`. Previously a failed steer or process crash left it visible indefinitely.
+- **Silent steer drop with no client** — sending a message with no active GSD session now shows an explicit error instead of silently discarding the message.
+- **Steer error clarity** — steer failures now show "Steer failed: ..." prefix so the user knows what failed.
+
+### Added
+- **Auto-mode steer persistence** — messages sent during auto-mode are now persisted to `.gsd/OVERRIDES.md` and injected into all future task prompts. Previously, steers only affected the current turn and were lost on task transitions. The steer note updates to "⚡ Override saved — applies to current and future tasks" on successful persistence.
+- **`/gsd rate` subcommand** — token usage rates and profile defaults, added to command fallback and slash menu.
+
 ## [0.2.64] — 2026-03-21
 
 ### Added
