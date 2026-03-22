@@ -287,6 +287,10 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "message_start": {
+      // Clear steer note — new LLM response means the steer was consumed
+      // or is queued for the next tool boundary. Either way, "Redirecting
+      // agent..." is no longer accurate once new content is flowing.
+      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
       break;
     }
 
@@ -546,10 +550,13 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "steer_persisted": {
-      // Update the steer note to reflect durability
+      // Update the steer note to reflect durability, then auto-remove after 4s.
+      // During auto-mode, no agent_start/agent_end fires between tasks, so
+      // the note has no natural removal signal. The timeout ensures it clears.
       const note = document.querySelector(".gsd-steer-note");
       if (note) {
         note.textContent = "⚡ Override saved — applies to current and future tasks";
+        setTimeout(() => note.remove(), 4000);
       }
       break;
     }
