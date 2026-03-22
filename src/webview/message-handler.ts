@@ -810,19 +810,9 @@ function handleMessage(event: MessageEvent): void {
  * builds entries, attaching tool results to their assistant turn's tool calls.
  */
 function renderHistoricalMessages(messages: import("../shared/types").AgentMessage[]): void {
-  // First pass: index tool results by toolCallId
-  const toolResults = new Map<string, { text: string; isError: boolean }>();
-  for (const msg of messages) {
-    if (msg.role === "toolResult") {
-      const toolCallId = (msg as Record<string, unknown>).toolCallId as string | undefined;
-      if (toolCallId) {
-        toolResults.set(toolCallId, {
-          text: extractMessageText(msg.content),
-          isError: !!(msg as Record<string, unknown>).isError,
-        });
-      }
-    }
-  }
+  // Historical messages strip tool result content to keep payload light.
+  // The assistant's own text between tool calls already summarizes outcomes.
+  // Tool calls are shown as names only (no args, no output).
 
   // Second pass: render user and assistant messages
   // Track user message index to map fork entries (server entryIds) to assistant turns
@@ -845,7 +835,7 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
       const segments: TurnSegment[] = [];
       const turnToolCalls = new Map<string, ToolCallState>();
 
-      // Parse content blocks into segments
+      // Parse content blocks into segments — tool calls keep name only, no result content
       if (Array.isArray(msg.content)) {
         for (const block of msg.content as Array<Record<string, unknown>>) {
           if (block.type === "thinking" && block.thinking) {
@@ -858,15 +848,13 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
               segments.push({ type: "text", chunks: [block.text as string] });
             }
           } else if ((block.type === "tool_use" || block.type === "toolCall") && block.name) {
-            // pi stores tool calls as "toolCall" with "arguments"; Anthropic API uses "tool_use" with "input"
             const toolId = (block.id as string) || nextId();
-            const result = toolResults.get(toolId);
             const tc: ToolCallState = {
               id: toolId,
               name: block.name as string,
-              args: (block.input as Record<string, unknown>) || (block.arguments as Record<string, unknown>) || {},
-              resultText: result?.text || "",
-              isError: result?.isError || false,
+              args: {},
+              resultText: "",
+              isError: false,
               isRunning: false,
               startTime: msg.timestamp || Date.now(),
               endTime: msg.timestamp || Date.now(),
@@ -892,7 +880,6 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
         id: nextId(),
         type: "assistant",
         turn,
-        // Map this assistant turn to its preceding user message's server entry ID
         forkEntryId: state.forkEntries[userMessageIndex - 1]?.entryId,
         timestamp: msg.timestamp || Date.now(),
       };
@@ -900,7 +887,7 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
       pruneOldEntries(messagesContainer);
       renderer.renderNewEntry(entry);
     }
-    // Skip toolResult (already indexed) and bashExecution
+    // Skip toolResult and bashExecution — not needed for history replay
   }
 
   // Show messages area, hide welcome
