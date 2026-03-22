@@ -42,6 +42,8 @@ import {
   type FileOpsContext,
 } from "./file-ops";
 import type { StatusBarUpdate } from "./webview-provider";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 // ============================================================
 // MessageDispatchContext — Everything the switch statement needs from the provider
@@ -66,6 +68,50 @@ export interface MessageDispatchContext {
   watchdogCtx: WatchdogContext;
   commandFallbackCtx: CommandFallbackContext;
   fileOpsCtx: FileOpsContext;
+}
+
+// ============================================================
+// appendOverrideFile — Write a user override to .gsd/OVERRIDES.md
+// Mirrors the GSD extension's appendOverride() so the extension
+// host can persist steers during auto-mode without going through
+// a slash command (which would abort the current turn).
+// ============================================================
+
+async function appendOverrideFile(cwd: string, change: string): Promise<void> {
+  const gsdDir = path.join(cwd, ".gsd");
+  const overridesPath = path.join(gsdDir, "OVERRIDES.md");
+  const timestamp = new Date().toISOString();
+  const entry = [
+    `## Override: ${timestamp}`,
+    "",
+    `**Change:** ${change}`,
+    `**Scope:** active`,
+    `**Applied-at:** auto-mode/steer`,
+    "",
+    "---",
+    "",
+  ].join("\n");
+
+  try {
+    const existing = await fs.promises.readFile(overridesPath, "utf-8");
+    await fs.promises.writeFile(overridesPath, existing.trimEnd() + "\n\n" + entry, "utf-8");
+  } catch (err: any) {
+    if (err.code === "ENOENT") {
+      // Create .gsd dir if needed, then write fresh file
+      await fs.promises.mkdir(gsdDir, { recursive: true });
+      const header = [
+        "# GSD Overrides",
+        "",
+        "User-issued overrides that supersede plan document content.",
+        "",
+        "---",
+        "",
+      ].join("\n");
+      await fs.promises.writeFile(overridesPath, header + entry, "utf-8");
+    } else {
+      throw err;
+    }
+  }
 }
 
 // ============================================================
@@ -219,15 +265,43 @@ export async function handleWebviewMessage(
               if (msg.message.startsWith("/")) {
                 await abortAndPrompt(ctx.watchdogCtx, client, webview, msg.message, msg.images);
               } else {
-                await client.steer(msg.message, msg.images?.map((img) => ({
+                // During auto-mode, persist as a durable override so subsequent tasks see it.
+                // The RPC steer handles the current turn; OVERRIDES.md handles future ones.
+                const session = ctx.getSession(sessionId);
+                const isAutoMode = !!session.autoModeState;
+                if (isAutoMode && session.lastStartOptions?.cwd) {
+                  try {
+                    await appendOverrideFile(session.lastStartOptions.cwd, msg.message);
+                    ctx.output.appendLine(`[${sessionId}] Auto-mode steer persisted to OVERRIDES.md`);
+                    ctx.postToWebview(webview, { type: "steer_persisted" } as ExtensionToWebviewMessage);
+                  } catch (overrideErr: any) {
+                    ctx.output.appendLine(`[${sessionId}] Failed to persist override: ${overrideErr.message}`);
+                    // Non-fatal — the RPC steer still goes through for the current turn
+                  }
+                }
+
+                // Build the steer message — enhanced during auto-mode to include override context
+                const steerMessage = isAutoMode
+                  ? [
+                      "USER OVERRIDE — This instruction has been saved to `.gsd/OVERRIDES.md` and applies to all future tasks.",
+                      "",
+                      `**Override:** ${msg.message}`,
+                      "",
+                      "Acknowledge this override and continue your current work respecting it.",
+                    ].join("\n")
+                  : msg.message;
+
+                await client.steer(steerMessage, msg.images?.map((img) => ({
                   type: "image" as const,
                   data: img.data,
                   mimeType: img.mimeType,
                 })));
               }
             } catch (err: any) {
-              ctx.postToWebview(webview, { type: "error", message: err.message });
+              ctx.postToWebview(webview, { type: "error", message: `Steer failed: ${err.message}` });
             }
+          } else {
+            ctx.postToWebview(webview, { type: "error", message: "Could not deliver message — no active GSD session. Send it again to start a new session." });
           }
           break;
         }
