@@ -301,6 +301,12 @@ function handleMessage(event: MessageEvent): void {
 
       if (delta) {
         if (delta.type === "text_delta" && delta.delta) {
+          // Clear steer note on first text output — the agent is producing
+          // content, so the steer has been consumed (or will be at the next
+          // tool boundary). This catches cases where message_start fired
+          // before the steer was sent, and no new message_start follows.
+          const steerNote = messagesContainer.querySelector(".gsd-steer-note");
+          if (steerNote) steerNote.remove();
           renderer.appendToTextSegment("text", delta.delta);
         } else if (delta.type === "thinking_delta" && delta.delta) {
           renderer.appendToTextSegment("thinking", delta.delta);
