@@ -507,13 +507,21 @@ function sendMessage(): void {
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
     scrollToBottom(messagesContainer, true);
 
-    // Show steer note (only one at a time)
+    // Show steer note between the user message and the new turn element.
+    // renderNewEntry splits the turn, so the DOM is now:
+    // [old turn] [user msg] [new turn element]
+    // Place the note before the new turn element so it doesn't sink.
     const existingNote = messagesContainer.querySelector(".gsd-steer-note");
     if (!existingNote) {
       const steerNote = document.createElement("div");
       steerNote.className = "gsd-steer-note";
       steerNote.textContent = "⚡ Redirecting agent...";
-      messagesContainer.appendChild(steerNote);
+      const newTurnEl = renderer.getCurrentTurnElement();
+      if (newTurnEl && newTurnEl.parentNode === messagesContainer) {
+        messagesContainer.insertBefore(steerNote, newTurnEl);
+      } else {
+        messagesContainer.appendChild(steerNote);
+      }
     }
     scrollToBottom(messagesContainer, true);
 
