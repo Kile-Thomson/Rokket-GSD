@@ -3,6 +3,7 @@ dist/
 *.vsix
 .vscode-test/
 .bg-shell/
+.artifacts/
 .DS_Store
 Thumbs.db
 *.swp
@@ -27,7 +28,7 @@ coverage/
 .cache/
 tmp/
 nul
-
+eslint-config-tmp.json
 
 # ── GSD (project management artifacts) ──
 .gsd/
@@ -36,6 +37,3 @@ scripts/*-results.json
 # ── Dropbox ──
 .dropboxignore
 *conflicted copy*
-
-# ── GSD baseline (auto-generated) ──
-.gsd
