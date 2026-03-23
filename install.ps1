@@ -1,4 +1,4 @@
-# Rokket GSD — Installer for VS Code (Windows PowerShell)
+# Rokket GSD — Installer for VS Code / code-server (Windows PowerShell)
 # Usage:
 #   irm https://raw.githubusercontent.com/Kile-Thomson/Rokket-GSD/main/install.ps1 | iex
 #
@@ -7,7 +7,7 @@
 #   irm "https://raw.githubusercontent.com/Kile-Thomson/Rokket-GSD/main/install.ps1" | iex
 $ErrorActionPreference = "Stop"
 
-Write-Host "🚀 Installing Rokket GSD for VS Code..." -ForegroundColor Cyan
+Write-Host "🚀 Installing Rokket GSD..." -ForegroundColor Cyan
 Write-Host ""
 
 # ---- Pre-flight checks ----
@@ -21,11 +21,19 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-if (-not (Get-Command code -ErrorAction SilentlyContinue)) {
-    Write-Host "❌ VS Code CLI (code) not found in PATH." -ForegroundColor Red
-    Write-Host "   Open VS Code → Ctrl+Shift+P → 'Shell Command: Install code command in PATH'" -ForegroundColor Gray
+# Detect VS Code CLI: prefer 'code', fall back to 'code-server'
+$vscodeCli = $null
+if (Get-Command code -ErrorAction SilentlyContinue) {
+    $vscodeCli = "code"
+} elseif (Get-Command code-server -ErrorAction SilentlyContinue) {
+    $vscodeCli = "code-server"
+} else {
+    Write-Host "❌ Neither 'code' (VS Code) nor 'code-server' found in PATH." -ForegroundColor Red
+    Write-Host "   VS Code:       Open VS Code → Ctrl+Shift+P → 'Shell Command: Install code command in PATH'" -ForegroundColor Gray
+    Write-Host "   code-server:   https://github.com/coder/code-server" -ForegroundColor Gray
     exit 1
 }
+Write-Host "   Using CLI: $vscodeCli" -ForegroundColor Gray
 
 # ---- Clone ----
 $installDir = Join-Path $env:TEMP "rokket-gsd-install-$PID"
@@ -87,10 +95,10 @@ if (-not $vsix) {
     exit 1
 }
 
-Write-Host "⚡ Installing $($vsix.Name) into VS Code..." -ForegroundColor Yellow
-$output = code --install-extension $vsix.FullName --force 2>&1
+Write-Host "⚡ Installing $($vsix.Name) via $vscodeCli..." -ForegroundColor Yellow
+$output = & $vscodeCli --install-extension $vsix.FullName --force 2>&1
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ VS Code extension install failed:" -ForegroundColor Red
+    Write-Host "❌ Extension install failed:" -ForegroundColor Red
     Write-Host $output
     Remove-Item -Recurse -Force $installDir -ErrorAction SilentlyContinue
     exit 1
@@ -112,5 +120,5 @@ if (-not (Get-Command gsd -ErrorAction SilentlyContinue)) {
     Write-Host ""
 }
 
-Write-Host "   Reload VS Code to activate the extension." -ForegroundColor Gray
+Write-Host "   Reload VS Code / code-server to activate the extension." -ForegroundColor Gray
 Write-Host "   Press Ctrl+Shift+P → 'Rokket GSD: Open' to start." -ForegroundColor Gray
