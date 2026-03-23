@@ -32,7 +32,6 @@ export type WebviewToExtensionMessage =
   | { type: "compact_context" }
   | { type: "export_html" }
   | { type: "run_bash"; command: string }
-  | { type: "fork_conversation"; entryId: string }
   | { type: "extension_ui_response"; id: string; value?: string; values?: string[]; confirmed?: boolean; cancelled?: boolean }
   | { type: "copy_text"; text: string }
   | { type: "open_file"; path: string }
@@ -102,7 +101,7 @@ export type ExtensionToWebviewMessage =
   | { type: "process_status"; status: ProcessStatus }
   | { type: "process_health"; status: ProcessHealthStatus }
   | { type: "session_list"; sessions: SessionListItem[] }
-  | { type: "session_switched"; state: GsdState; messages: AgentMessage[]; forkEntries?: ForkEntry[] }
+  | { type: "session_switched"; state: GsdState; messages: AgentMessage[] }
   | { type: "session_list_error"; message: string }
   | { type: "update_available"; version: string; currentVersion: string; releaseNotes: string; downloadUrl: string; htmlUrl: string }
   | { type: "workflow_state"; state: WorkflowState | null }
@@ -118,7 +117,6 @@ export type ExtensionToWebviewMessage =
   | { type: "fallback_provider_restored"; provider: string; reason: string }
   | { type: "fallback_chain_exhausted"; reason: string }
   | { type: "session_shutdown" }
-  | { type: "fork_entries"; entries: ForkEntry[] }
   | { type: "extension_error"; extensionPath: string; event: string; error: string }
   | { type: "steer_persisted" }
   | { type: "async_subagent_progress"; toolCallId: string; mode: string; results: Array<{ agent: string; agentSource?: string; task: string; step?: number; exitCode: number; status: string; stopReason?: string; errorMessage?: string; usage?: Record<string, number>; model?: string }> };
@@ -253,16 +251,6 @@ export interface AgentMessage {
   content: unknown;
   timestamp?: number;
   [key: string]: unknown;
-}
-
-/**
- * A fork entry mapping a server-side entry ID to user message text.
- * Used to associate fork buttons with the correct server entry ID.
- * Returned by the `get_fork_messages` RPC method.
- */
-export interface ForkEntry {
-  entryId: string;
-  text: string;
 }
 
 /**
