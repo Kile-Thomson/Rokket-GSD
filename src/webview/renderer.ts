@@ -219,9 +219,21 @@ export function appendToolSegmentElement(tc: ToolCallState, segIdx: number): voi
   if (tc.isRunning) startElapsedTimer();
 }
 
-export function updateToolSegmentElement(toolCallId: string): void {
-  if (!state.currentTurn) return;
-  const tc = state.currentTurn.toolCalls.get(toolCallId);
+export function updateToolSegmentElement(toolCallId: string, searchAllEntries: boolean = false): void {
+  let tc: ToolCallState | undefined;
+
+  if (state.currentTurn) {
+    tc = state.currentTurn.toolCalls.get(toolCallId);
+  }
+
+  // If not in current turn (or no current turn), search previous entries
+  if (!tc && searchAllEntries) {
+    for (let i = state.entries.length - 1; i >= 0; i--) {
+      tc = state.entries[i].turn?.toolCalls.get(toolCallId);
+      if (tc) break;
+    }
+  }
+
   if (!tc) return;
 
   // Find the element — could be in segmentElements directly or inside a group
@@ -241,6 +253,17 @@ export function updateToolSegmentElement(toolCallId: string): void {
     targetEl = currentTurnElement.querySelector<HTMLElement>(
       `[data-tool-id="${toolCallId}"]`,
     )?.closest<HTMLElement>(".gsd-tool-segment") ?? null;
+  }
+
+  // Fallback: search entire messages container (for completed turns / async updates)
+  if (!targetEl) {
+    const messagesContainer = document.getElementById("messages");
+    if (messagesContainer) {
+      const found = messagesContainer.querySelector<HTMLElement>(
+        `[data-tool-id="${toolCallId}"]`,
+      );
+      targetEl = found?.closest<HTMLElement>(".gsd-tool-segment") ?? found ?? null;
+    }
   }
 
   if (!targetEl) return;
@@ -684,7 +707,7 @@ function buildToolGroupHtml(
   </details>`;
 }
 
-function buildToolCallHtml(tc: ToolCallState): string {
+export function buildToolCallHtml(tc: ToolCallState): string {
   const keyArg = getToolKeyArg(tc.name, tc.args);
   const category = getToolCategory(tc.name);
   const toolIcon = getToolIcon(tc.name, category);
@@ -705,7 +728,8 @@ function buildToolCallHtml(tc: ToolCallState): string {
 
   const stateClass = tc.isRunning ? "running" : tc.isSkipped ? "skipped" : tc.isError ? "error" : "done";
   const parallelClass = tc.isParallel ? " parallel" : "";
-  const isSubagent = tc.name.toLowerCase() === "subagent";
+  const n = tc.name.toLowerCase();
+  const isSubagent = n === "subagent" || n === "async_subagent" || n === "await_subagent";
 
   const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
   const shouldCollapse = !tc.isRunning && !isSubagent && (lines > 5 || tc.isSkipped);
