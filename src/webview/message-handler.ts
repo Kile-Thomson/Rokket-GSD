@@ -315,6 +315,47 @@ function handleMessage(event: MessageEvent): void {
       break;
     }
 
+    // Async subagent live progress — update spawn cards in previous turns
+    case "async_subagent_progress": {
+      const data = msg as any;
+      if (!data.toolCallId) break;
+
+      // Find the tool block in the DOM
+      const allToolBlocks = document.querySelectorAll<HTMLElement>(`[data-tool-id]`);
+      let toolBlock: HTMLElement | null = null;
+      allToolBlocks.forEach(el => {
+        if (el.dataset.toolId === data.toolCallId) toolBlock = el;
+      });
+
+      // Update state
+      let tc: ToolCallState | undefined;
+      for (let i = state.entries.length - 1; i >= 0; i--) {
+        tc = state.entries[i].turn?.toolCalls.get(data.toolCallId);
+        if (tc) break;
+      }
+
+      if (tc) {
+        tc.details = { ...(tc.details || {}), mode: data.mode, results: data.results };
+        const done = data.results?.filter((r: any) => r.exitCode === 0).length || 0;
+        const running = data.results?.filter((r: any) => r.exitCode === -1).length || 0;
+        const total = data.results?.length || 0;
+        tc.resultText = `${done}/${total} done, ${running} running`;
+        tc.isRunning = running > 0;
+      }
+
+      // Re-render
+      if (toolBlock && tc) {
+        const html = renderer.buildToolCallHtml(tc);
+        const segment = (toolBlock as HTMLElement).closest(".gsd-tool-segment");
+        if (segment) {
+          segment.innerHTML = html;
+        } else {
+          (toolBlock as HTMLElement).outerHTML = html;
+        }
+      }
+      break;
+    }
+
     case "message_end": {
       const endData = msg;
       const endMsg = endData.message;
@@ -397,9 +438,19 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "tool_execution_update": {
-      if (!state.currentTurn) break;
       const data = msg;
-      const tc = state.currentTurn.toolCalls.get(data.toolCallId);
+      // Look up tool call in current turn first, then fall back to previous entries
+      let tc = state.currentTurn?.toolCalls.get(data.toolCallId);
+      if (!tc) {
+        // Search previous turns — async_subagent updates arrive after the turn ends
+        for (let i = state.entries.length - 1; i >= 0; i--) {
+          const entry = state.entries[i];
+          if (entry.turn?.toolCalls.has(data.toolCallId)) {
+            tc = entry.turn.toolCalls.get(data.toolCallId);
+            break;
+          }
+        }
+      }
       if (tc && data.partialResult) {
         const text = data.partialResult.content
           ?.map((c: any) => c.text || "")

@@ -339,7 +339,30 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     });
 
     client.on("log", (text: string) => {
-      this.output.appendLine(`[${sessionId}] stderr: ${text}`);
+      // Intercept async_subagent progress events from stderr
+      const lines = text.split("\n");
+      const nonProgressLines: string[] = [];
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("{\"__async_subagent_progress\":")) {
+          try {
+            const progress = JSON.parse(trimmed);
+            if (progress.__async_subagent_progress && progress.toolCallId) {
+              this.postToWebview(webview, {
+                type: "async_subagent_progress",
+                toolCallId: progress.toolCallId,
+                mode: progress.mode,
+                results: progress.results,
+              } as any);
+              continue;
+            }
+          } catch { /* not valid JSON, fall through */ }
+        }
+        if (trimmed) nonProgressLines.push(line);
+      }
+      if (nonProgressLines.length > 0) {
+        this.output.appendLine(`[${sessionId}] stderr: ${nonProgressLines.join("\n")}`);
+      }
     });
 
     client.on("exit", ({ code, signal, detail }: { code: number | null; signal: string | null; detail?: string }) => {
