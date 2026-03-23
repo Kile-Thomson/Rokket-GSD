@@ -329,18 +329,24 @@ function handleMessage(event: MessageEvent): void {
 
       // Update state
       let tc: ToolCallState | undefined;
-      for (let i = state.entries.length - 1; i >= 0; i--) {
-        tc = state.entries[i].turn?.toolCalls.get(data.toolCallId);
-        if (tc) break;
+      // Check current turn first (early progress before turn is finalized)
+      tc = state.currentTurn?.toolCalls.get(data.toolCallId);
+      if (!tc) {
+        for (let i = state.entries.length - 1; i >= 0; i--) {
+          tc = state.entries[i].turn?.toolCalls.get(data.toolCallId);
+          if (tc) break;
+        }
       }
 
       if (tc) {
         tc.details = { ...(tc.details || {}), mode: data.mode, results: data.results };
         const done = data.results?.filter((r: any) => r.exitCode === 0).length || 0;
         const running = data.results?.filter((r: any) => r.exitCode === -1).length || 0;
+        const failed = data.results?.filter((r: any) => r.exitCode > 0).length || 0;
         const total = data.results?.length || 0;
-        tc.resultText = `${done}/${total} done, ${running} running`;
+        tc.resultText = `${done}/${total} done, ${running} running${failed ? `, ${failed} failed` : ""}`;
         tc.isRunning = running > 0;
+        tc.isError = failed > 0;
       }
 
       // Re-render
