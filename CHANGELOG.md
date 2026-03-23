@@ -4,6 +4,15 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.69] — 2026-03-23
+
+### Fixed
+- **Bundled extension install** — use proper semver comparison so a user-updated extension isn't downgraded by a bundled older version.
+- **Stale webview reference** — async subagent progress now resolves the current webview at send time instead of closing over the launch-time reference.
+- **Stderr line buffering** — progress JSON is now line-buffered to handle chunk splits across `data` events.
+- **Failed subagent rendering** — cards now show error state (red) when background agents fail instead of neutral completion.
+- **Type safety** — added `async_subagent_progress` to `ExtensionToWebviewMessage` union, removed `as any` casts.
+
 ## [0.2.68] — 2026-03-23
 
 ### Added
