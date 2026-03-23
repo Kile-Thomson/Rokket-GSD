@@ -162,7 +162,7 @@ export async function handleExportHtml(
     /* Export overrides */
     body { background: #1e1e1e; color: #cccccc; max-width: 880px; margin: 0 auto; padding: 32px 24px; }
     .gsd-welcome, .gsd-scroll-fab, .gsd-slash-menu, .gsd-model-picker, .gsd-thinking-picker,
-    .gsd-session-history, .gsd-copy-response-btn, .gsd-fork-btn, .gsd-retry-btn,
+    .gsd-session-history, .gsd-copy-response-btn, .gsd-retry-btn,
     .gsd-turn-actions, .gsd-input-area, .gsd-header, .gsd-footer,
     .gsd-overlay-indicators, .gsd-context-bar-container { display: none !important; }
     .gsd-messages { padding: 0; }
