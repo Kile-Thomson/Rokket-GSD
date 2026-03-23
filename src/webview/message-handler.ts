@@ -301,9 +301,62 @@ function handleMessage(event: MessageEvent): void {
 
       if (delta) {
         if (delta.type === "text_delta" && delta.delta) {
+          // Clear steer note on first text output — the agent is producing
+          // content, so the steer has been consumed (or will be at the next
+          // tool boundary). This catches cases where message_start fired
+          // before the steer was sent, and no new message_start follows.
+          const steerNote = messagesContainer.querySelector(".gsd-steer-note");
+          if (steerNote) steerNote.remove();
           renderer.appendToTextSegment("text", delta.delta);
         } else if (delta.type === "thinking_delta" && delta.delta) {
           renderer.appendToTextSegment("thinking", delta.delta);
+        }
+      }
+      break;
+    }
+
+    // Async subagent live progress — update spawn cards in previous turns
+    case "async_subagent_progress": {
+      const data = msg;
+      if (data.type !== "async_subagent_progress" || !data.toolCallId) break;
+
+      // Find the tool block in the DOM
+      const allToolBlocks = document.querySelectorAll<HTMLElement>(`[data-tool-id]`);
+      let toolBlock: HTMLElement | null = null;
+      allToolBlocks.forEach(el => {
+        if (el.dataset.toolId === data.toolCallId) toolBlock = el;
+      });
+
+      // Update state
+      let tc: ToolCallState | undefined;
+      // Check current turn first (early progress before turn is finalized)
+      tc = state.currentTurn?.toolCalls.get(data.toolCallId);
+      if (!tc) {
+        for (let i = state.entries.length - 1; i >= 0; i--) {
+          tc = state.entries[i].turn?.toolCalls.get(data.toolCallId);
+          if (tc) break;
+        }
+      }
+
+      if (tc) {
+        tc.details = { ...(tc.details || {}), mode: data.mode, results: data.results };
+        const done = data.results?.filter((r: any) => r.exitCode === 0).length || 0;
+        const running = data.results?.filter((r: any) => r.exitCode === -1).length || 0;
+        const failed = data.results?.filter((r: any) => r.exitCode > 0).length || 0;
+        const total = data.results?.length || 0;
+        tc.resultText = `${done}/${total} done, ${running} running${failed ? `, ${failed} failed` : ""}`;
+        tc.isRunning = running > 0;
+        tc.isError = failed > 0;
+      }
+
+      // Re-render
+      if (toolBlock && tc) {
+        const html = renderer.buildToolCallHtml(tc);
+        const segment = (toolBlock as HTMLElement).closest(".gsd-tool-segment");
+        if (segment) {
+          segment.innerHTML = html;
+        } else {
+          (toolBlock as HTMLElement).outerHTML = html;
         }
       }
       break;
@@ -391,9 +444,19 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "tool_execution_update": {
-      if (!state.currentTurn) break;
       const data = msg;
-      const tc = state.currentTurn.toolCalls.get(data.toolCallId);
+      // Look up tool call in current turn first, then fall back to previous entries
+      let tc = state.currentTurn?.toolCalls.get(data.toolCallId);
+      if (!tc) {
+        // Search previous turns — async_subagent updates arrive after the turn ends
+        for (let i = state.entries.length - 1; i >= 0; i--) {
+          const entry = state.entries[i];
+          if (entry.turn?.toolCalls.has(data.toolCallId)) {
+            tc = entry.turn.toolCalls.get(data.toolCallId);
+            break;
+          }
+        }
+      }
       if (tc && data.partialResult) {
         const text = data.partialResult.content
           ?.map((c: any) => c.text || "")
@@ -804,19 +867,9 @@ function handleMessage(event: MessageEvent): void {
  * builds entries, attaching tool results to their assistant turn's tool calls.
  */
 function renderHistoricalMessages(messages: import("../shared/types").AgentMessage[]): void {
-  // First pass: index tool results by toolCallId
-  const toolResults = new Map<string, { text: string; isError: boolean }>();
-  for (const msg of messages) {
-    if (msg.role === "toolResult") {
-      const toolCallId = (msg as Record<string, unknown>).toolCallId as string | undefined;
-      if (toolCallId) {
-        toolResults.set(toolCallId, {
-          text: extractMessageText(msg.content),
-          isError: !!(msg as Record<string, unknown>).isError,
-        });
-      }
-    }
-  }
+  // Historical messages strip tool result content to keep payload light.
+  // The assistant's own text between tool calls already summarizes outcomes.
+  // Tool calls are shown as names only (no args, no output).
 
   // Second pass: render user and assistant messages
   // Track user message index to map fork entries (server entryIds) to assistant turns
@@ -839,7 +892,7 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
       const segments: TurnSegment[] = [];
       const turnToolCalls = new Map<string, ToolCallState>();
 
-      // Parse content blocks into segments
+      // Parse content blocks into segments — tool calls keep name only, no result content
       if (Array.isArray(msg.content)) {
         for (const block of msg.content as Array<Record<string, unknown>>) {
           if (block.type === "thinking" && block.thinking) {
@@ -852,15 +905,13 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
               segments.push({ type: "text", chunks: [block.text as string] });
             }
           } else if ((block.type === "tool_use" || block.type === "toolCall") && block.name) {
-            // pi stores tool calls as "toolCall" with "arguments"; Anthropic API uses "tool_use" with "input"
             const toolId = (block.id as string) || nextId();
-            const result = toolResults.get(toolId);
             const tc: ToolCallState = {
               id: toolId,
               name: block.name as string,
-              args: (block.input as Record<string, unknown>) || (block.arguments as Record<string, unknown>) || {},
-              resultText: result?.text || "",
-              isError: result?.isError || false,
+              args: {},
+              resultText: "",
+              isError: false,
               isRunning: false,
               startTime: msg.timestamp || Date.now(),
               endTime: msg.timestamp || Date.now(),
@@ -886,7 +937,6 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
         id: nextId(),
         type: "assistant",
         turn,
-        // Map this assistant turn to its preceding user message's server entry ID
         forkEntryId: state.forkEntries[userMessageIndex - 1]?.entryId,
         timestamp: msg.timestamp || Date.now(),
       };
@@ -894,7 +944,7 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
       pruneOldEntries(messagesContainer);
       renderer.renderNewEntry(entry);
     }
-    // Skip toolResult (already indexed) and bashExecution
+    // Skip toolResult and bashExecution — not needed for history replay
   }
 
   // Show messages area, hide welcome
