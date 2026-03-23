@@ -5,7 +5,6 @@
 import type {
   ImageAttachment,
   FileAttachment,
-  ForkEntry,
   SessionStats,
   CommandInfo,
   ProcessStatus,
@@ -62,8 +61,6 @@ export interface ChatEntry {
   files?: FileAttachment[];
   // For assistant — a turn with grouped content
   turn?: AssistantTurn;
-  // Server-side fork entry ID — used by fork button to send the correct ID to the server
-  forkEntryId?: string;
   // For system
   systemText?: string;
   systemKind?: "info" | "error" | "warning";
@@ -110,8 +107,6 @@ export interface AppState {
   autoProgressLastUpdate: number;
   // Widget data from setWidget events (keyed by widget key)
   widgetData: Map<string, string[]>;
-  // Fork entry mapping from server — maps user messages to server-side entry IDs for forking
-  forkEntries: ForkEntry[];
 }
 
 /** Tool categorization for icons & color accents */
@@ -193,7 +188,6 @@ export const state: AppState = {
   autoProgress: null,
   autoProgressLastUpdate: 0,
   widgetData: new Map(),
-  forkEntries: [],
 };
 
 // ============================================================
@@ -238,7 +232,6 @@ export function resetState(): void {
   state.autoProgress = null;
   state.autoProgressLastUpdate = 0;
   state.widgetData.clear();
-  state.forkEntries = [];
   entryIdCounter = 0;
   // Reset pruned-entries indicator state
   totalPrunedCount = 0;

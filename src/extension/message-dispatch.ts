@@ -115,6 +115,56 @@ async function appendOverrideFile(cwd: string, change: string): Promise<void> {
 }
 
 // ============================================================
+// sendDashboardData — Build and send dashboard data to the webview
+// ============================================================
+
+async function sendDashboardData(
+  ctx: MessageDispatchContext,
+  webview: vscode.Webview,
+  sessionId: string,
+): Promise<void> {
+  const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+  try {
+    const data = await buildDashboardData(cwd);
+    // Merge session stats if available
+    if (data) {
+      const client = ctx.getSession(sessionId).client;
+      if (client?.isRunning) {
+        try {
+          const statsResult = await client.getSessionStats() as Record<string, unknown> | null;
+          if (statsResult) {
+            data.stats = {
+              cost: statsResult.cost as number | undefined,
+              tokens: statsResult.tokens as { input: number; output: number; cacheRead: number; cacheWrite: number; total: number } | undefined,
+              toolCalls: statsResult.toolCalls as number | undefined,
+              userMessages: statsResult.userMessages as number | undefined,
+            };
+            ctx.applySessionCostFloor(sessionId, data.stats);
+          }
+        } catch {
+          // Stats not available — that's fine
+        }
+      }
+    }
+    // Merge metrics data if available
+    if (data) {
+      try {
+        const ledger = await loadMetricsLedger(cwd);
+        if (ledger && ledger.units.length > 0) {
+          const remainingSlices = data.slices.filter(s => !s.done).length;
+          data.metrics = buildMetricsData(ledger, remainingSlices);
+        }
+      } catch {
+        // Metrics not available — that's fine
+      }
+    }
+    ctx.postToWebview(webview, { type: "dashboard_data", data } as ExtensionToWebviewMessage);
+  } catch (_err: unknown) {
+    ctx.postToWebview(webview, { type: "dashboard_data", data: null } as ExtensionToWebviewMessage);
+  }
+}
+
+// ============================================================
 // handleWebviewMessage — The entire message dispatch switch
 // ============================================================
 
@@ -217,6 +267,15 @@ export async function handleWebviewMessage(
               await c.prompt(msg.message, images);
               ctx.output.appendLine(`[${sessionId}] Prompt RPC resolved for: "${msg.message.slice(0, 80)}"`);
               startGsdFallbackTimer(ctx.commandFallbackCtx, msg.message.trim(), sessionId, webview);
+
+              // When /gsd status is sent, also show our structured dashboard
+              // since pi's TUI widget doesn't translate to RPC mode.
+              // Also catch /gsd auto with status-related instructions.
+              const trimmed = msg.message.trim();
+              if (/^\s*\/gsd\s+status\b/i.test(trimmed) ||
+                  (/^\s*\/gsd\s+auto\b/i.test(trimmed) && /\bstatus\b/i.test(trimmed))) {
+                sendDashboardData(ctx, webview, sessionId).catch(() => {});
+              }
             } catch (err: any) {
               if (err.message?.includes("streaming")) {
                 const isSlash = msg.message.trimStart().startsWith("/");
@@ -231,6 +290,12 @@ export async function handleWebviewMessage(
                     armGsdFallbackProbe(ctx.commandFallbackCtx, msg.message.trim(), sessionId, webview);
                     await abortAndPrompt(ctx.watchdogCtx, c, webview, msg.message, msg.images);
                     startGsdFallbackTimer(ctx.commandFallbackCtx, msg.message.trim(), sessionId, webview);
+                    // Trigger dashboard for /gsd status in retry path too
+                    const retryTrimmed = msg.message.trim();
+                    if (/^\s*\/gsd\s+status\b/i.test(retryTrimmed) ||
+                        (/^\s*\/gsd\s+auto\b/i.test(retryTrimmed) && /\bstatus\b/i.test(retryTrimmed))) {
+                      sendDashboardData(ctx, webview, sessionId).catch(() => {});
+                    }
                   } else {
                     await c.steer(msg.message, imgs);
                   }
@@ -406,46 +471,7 @@ export async function handleWebviewMessage(
         }
 
         case "get_dashboard": {
-          const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
-          try {
-            const data = await buildDashboardData(cwd);
-            // Merge session stats if available
-            if (data) {
-              const client = ctx.getSession(sessionId).client;
-              if (client?.isRunning) {
-                try {
-                  const statsResult = await client.getSessionStats() as Record<string, unknown> | null;
-                  if (statsResult) {
-                    data.stats = {
-                      cost: statsResult.cost as number | undefined,
-                      tokens: statsResult.tokens as { input: number; output: number; cacheRead: number; cacheWrite: number; total: number } | undefined,
-                      toolCalls: statsResult.toolCalls as number | undefined,
-                      userMessages: statsResult.userMessages as number | undefined,
-                    };
-                    ctx.applySessionCostFloor(sessionId, data.stats);
-                  }
-                } catch {
-                  // Stats not available — that's fine
-                }
-              }
-            }
-            // Merge metrics data if available
-            if (data) {
-              try {
-                const ledger = await loadMetricsLedger(cwd);
-                if (ledger && ledger.units.length > 0) {
-                  // Count remaining slices from roadmap
-                  const remainingSlices = data.slices.filter(s => !s.done).length;
-                  data.metrics = buildMetricsData(ledger, remainingSlices);
-                }
-              } catch {
-                // Metrics not available — that's fine
-              }
-            }
-            ctx.postToWebview(webview, { type: "dashboard_data", data } as ExtensionToWebviewMessage);
-          } catch (_err: unknown) {
-            ctx.postToWebview(webview, { type: "dashboard_data", data: null } as ExtensionToWebviewMessage);
-          }
+          await sendDashboardData(ctx, webview, sessionId);
           break;
         }
 
@@ -615,34 +641,6 @@ export async function handleWebviewMessage(
           break;
         }
 
-        case "fork_conversation": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              await client.fork(msg.entryId);
-              ctx.getSession(sessionId).accumulatedCost = 0;
-              ctx.emitStatus({ cost: 0 });
-              const state = await client.getState() as RpcStateResult;
-              const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
-              const forkResult = await client.getForkMessages() as { messages?: { entryId: string; text: string }[] } | null;
-              ctx.output.appendLine(`[${sessionId}] Forked conversation from entry ${msg.entryId}, ${messagesResult?.messages?.length || 0} messages`);
-              ctx.postToWebview(webview, {
-                type: "session_switched",
-                state: toGsdState(state),
-                messages: messagesResult?.messages || [],
-                forkEntries: forkResult?.messages || [],
-              });
-              if (state?.model) {
-                ctx.emitStatus({ model: (state.model as any).id || (state.model as any).name });
-              }
-            } catch (err: any) {
-              ctx.output.appendLine(`[${sessionId}] Fork failed: ${err.message}`);
-              ctx.postToWebview(webview, { type: "error", message: `Fork failed: ${err.message}` });
-            }
-          }
-          break;
-        }
-
         case "get_session_list": {
           const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
           try {
@@ -692,13 +690,11 @@ export async function handleWebviewMessage(
               // Get the new state and messages after switch
               const state = await client.getState() as RpcStateResult;
               const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
-              const forkResult = await client.getForkMessages() as { messages?: { entryId: string; text: string }[] } | null;
               ctx.output.appendLine(`[${sessionId}] Switched session, ${messagesResult?.messages?.length || 0} messages`);
               ctx.postToWebview(webview, {
                 type: "session_switched",
                 state: toGsdState(state),
                 messages: messagesResult?.messages || [],
-                forkEntries: forkResult?.messages || [],
               });
               // Update status bar
               if (state?.model) {
@@ -834,13 +830,11 @@ export async function handleWebviewMessage(
               ctx.emitStatus({ cost: 0 });
               const state = await client.getState() as RpcStateResult;
               const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
-              const forkResult = await client.getForkMessages() as { messages?: { entryId: string; text: string }[] } | null;
               ctx.output.appendLine(`[${sessionId}] Resumed last session: ${latest.name || latest.id} (${messagesResult?.messages?.length || 0} messages)`);
               ctx.postToWebview(webview, {
                 type: "session_switched",
                 state: toGsdState(state),
                 messages: messagesResult?.messages || [],
-                forkEntries: forkResult?.messages || [],
               });
               if (state?.model) {
                 ctx.emitStatus({ model: (state.model as any).id || (state.model as any).name });
