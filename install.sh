@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rokket GSD — Installer for VS Code
+# Rokket GSD — Installer for VS Code / code-server
 # Usage:
 #   curl -sL https://raw.githubusercontent.com/Kile-Thomson/Rokket-GSD/main/install.sh | bash
 #
@@ -8,7 +8,7 @@
 #   curl -sH "Authorization: token $GITHUB_TOKEN" https://raw.githubusercontent.com/Kile-Thomson/Rokket-GSD/main/install.sh | bash
 set -e
 
-echo "🚀 Installing Rokket GSD for VS Code..."
+echo "🚀 Installing Rokket GSD..."
 echo ""
 
 # ---- Pre-flight checks ----
@@ -22,11 +22,19 @@ if ! command -v npm &>/dev/null; then
   exit 1
 fi
 
-if ! command -v code &>/dev/null; then
-  echo "❌ VS Code CLI (code) not found in PATH."
-  echo "   Open VS Code → Cmd+Shift+P → 'Shell Command: Install code command in PATH'"
+# Detect VS Code CLI: prefer 'code', fall back to 'code-server'
+VSCODE_CLI=""
+if command -v code &>/dev/null; then
+  VSCODE_CLI="code"
+elif command -v code-server &>/dev/null; then
+  VSCODE_CLI="code-server"
+else
+  echo "❌ Neither 'code' (VS Code) nor 'code-server' found in PATH."
+  echo "   VS Code:       Open VS Code → Cmd+Shift+P → 'Shell Command: Install code command in PATH'"
+  echo "   code-server:   https://github.com/coder/code-server"
   exit 1
 fi
+echo "   Using CLI: $VSCODE_CLI"
 
 # ---- Clone ----
 TMPDIR="${TMPDIR:-/tmp}"
@@ -80,9 +88,9 @@ if [ -z "$VSIX" ]; then
   exit 1
 fi
 
-echo "⚡ Installing $VSIX into VS Code..."
-if ! code --install-extension "$VSIX" --force 2>&1; then
-  echo "❌ VS Code extension install failed."
+echo "⚡ Installing $VSIX via $VSCODE_CLI..."
+if ! "$VSCODE_CLI" --install-extension "$VSIX" --force 2>&1; then
+  echo "❌ Extension install failed."
   rm -rf "$INSTALL_DIR"
   exit 1
 fi
@@ -103,5 +111,5 @@ if ! command -v gsd &>/dev/null; then
   echo ""
 fi
 
-echo "   Reload VS Code to activate the extension."
+echo "   Reload VS Code / code-server to activate the extension."
 echo "   Press Ctrl+Shift+P → 'Rokket GSD: Open' to start."
