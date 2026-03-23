@@ -120,7 +120,8 @@ export type ExtensionToWebviewMessage =
   | { type: "session_shutdown" }
   | { type: "fork_entries"; entries: ForkEntry[] }
   | { type: "extension_error"; extensionPath: string; event: string; error: string }
-  | { type: "steer_persisted" };
+  | { type: "steer_persisted" }
+  | { type: "async_subagent_progress"; toolCallId: string; mode: string; results: Array<{ agent: string; agentSource?: string; task: string; step?: number; exitCode: number; status: string; stopReason?: string; errorMessage?: string; usage?: Record<string, number>; model?: string }> };
 
 // --- Session List Types ---
 

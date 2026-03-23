@@ -1,0 +1,13 @@
+{
+  "id": "async-subagent",
+  "name": "Async Subagent",
+  "version": "1.2.0",
+  "description": "Non-blocking subagent execution — fire off subagents (single/parallel/chain) and keep working",
+  "tier": "user",
+  "requires": { "platform": ">=2.29.0" },
+  "provides": {
+    "tools": ["async_subagent", "await_subagent"],
+    "commands": ["subagent-jobs"],
+    "hooks": ["session_start", "session_shutdown", "before_agent_start"]
+  }
+}
