@@ -153,7 +153,7 @@ export function getToolCategory(name: string): ToolCategory {
   if (n.startsWith("browser_") || n.startsWith("mac_")) return "browser";
   if (["search-the-web", "search_and_read", "fetch_page", "google_search",
        "resolve_library", "get_library_docs", "web_search"].includes(n)) return "search";
-  if (n === "subagent") return "agent";
+  if (n === "subagent" || n === "async_subagent" || n === "await_subagent") return "agent";
   if (n === "lsp") return "generic";
   if (n.startsWith("github_") || n === "mcp_call" || n === "mcp_discover" || n === "mcp_servers") return "generic";
   if (n.startsWith("gsd_")) return "generic";
@@ -169,7 +169,7 @@ export function getToolIcon(name: string, category: ToolCategory): string {
   if (n === "bash" || n === "async_bash") return "⌨";
   if (n === "await_job" || n === "cancel_job") return "⏳";
   if (n === "bg_shell") return "⚙";
-  if (n === "subagent") return "🤖";
+  if (n === "subagent" || n === "async_subagent" || n === "await_subagent") return "🤖";
   if (n === "lsp") return "🧠";
   if (n.startsWith("browser_")) return "🌐";
   if (n.startsWith("mac_")) return "🖥";
@@ -214,12 +214,17 @@ export function getToolKeyArg(name: string, args: Record<string, unknown>): stri
   if (n === "browser_emulate_device" && args.device) return truncateArg(String(args.device), 40);
   if (n === "browser_mock_route" && args.url) return truncateArg(String(args.url), 60);
   if (n === "browser_extract" && args.selector) return truncateArg(String(args.selector), 60);
-  if (n === "subagent") {
+  if (n === "subagent" || n === "async_subagent") {
     const agent = args.agent || (args.chain as any)?.[0]?.agent || (args.tasks as any)?.[0]?.agent || "";
     const task = args.task || "";
     if (agent) return truncateArg(`${agent}: ${task}`, 80);
     if (task) return truncateArg(String(task), 80);
     return "";
+  }
+  if (n === "await_subagent") {
+    const jobs = args.jobs as string[] | undefined;
+    if (jobs && jobs.length > 0) return jobs.length === 1 ? jobs[0] : `${jobs.length} jobs`;
+    return "(all running)";
   }
   if (n === "bg_shell") {
     const action = args.action ? String(args.action) : "";
