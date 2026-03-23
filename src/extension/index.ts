@@ -9,6 +9,17 @@ import { runHealthCheck } from "./health-check";
 /** Bundled pi extensions to auto-install to ~/.gsd/agent/extensions/ */
 const BUNDLED_PI_EXTENSIONS = ["async-subagent"];
 
+/** Compare two semver strings. Returns >0 if a > b, <0 if a < b, 0 if equal. */
+function compareSemver(a: string, b: string): number {
+  const lhs = a.split(".").map((n) => parseInt(n, 10) || 0);
+  const rhs = b.split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(lhs.length, rhs.length); i++) {
+    const diff = (lhs[i] ?? 0) - (rhs[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
 function installBundledExtensions(context: vscode.ExtensionContext, output: vscode.OutputChannel): void {
   const targetDir = path.join(os.homedir(), ".gsd", "agent", "extensions");
   const sourceDir = path.join(context.extensionUri.fsPath, "resources", "extensions");
@@ -32,7 +43,7 @@ function installBundledExtensions(context: vscode.ExtensionContext, output: vsco
         try {
           const srcVersion = JSON.parse(fs.readFileSync(sourceManifest, "utf-8")).version;
           const tgtVersion = JSON.parse(fs.readFileSync(targetManifest, "utf-8")).version;
-          needsInstall = srcVersion !== tgtVersion;
+          needsInstall = compareSemver(srcVersion, tgtVersion) > 0;
         } catch {
           needsInstall = true;
         }

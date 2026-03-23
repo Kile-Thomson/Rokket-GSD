@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Added
 - **Async Subagent Extension** — bundled `async_subagent` and `await_subagent` tools for non-blocking subagent execution. Spawns agents in the background and returns immediately so the conversation continues. Results auto-deliver when jobs complete via `triggerTurn`.
 - **Live-updating spawn cards** — async subagent cards update in real-time with turns, usage, cost, and model as background agents work. Cards transition from running (spinner) to done (green ✓) as each agent completes. Progress flows through stderr as structured JSON, intercepted by the extension host and forwarded to the webview.
-- **Auto-install bundled pi extensions** — the VS Code extension ships pi-side extensions in `resources/extensions/` and auto-installs them to `~/.gsd/agent/extensions/` on activation. Version-aware: only installs when the bundled version differs.
+- **Auto-install bundled pi extensions** — the VS Code extension ships pi-side extensions in `resources/extensions/` and auto-installs them to `~/.gsd/agent/extensions/` on activation. Version-aware: only installs when the bundled version is strictly newer.
 - **Tool category support** — `async_subagent` and `await_subagent` recognized as `agent` category with 🤖 icon and proper key-arg display for single, parallel, and chain modes.
 - **System prompt preference** — the async-subagent extension injects a `before_agent_start` hook that instructs the agent to always prefer `async_subagent` over the blocking `subagent` tool.
 

@@ -317,8 +317,8 @@ function handleMessage(event: MessageEvent): void {
 
     // Async subagent live progress — update spawn cards in previous turns
     case "async_subagent_progress": {
-      const data = msg as any;
-      if (!data.toolCallId) break;
+      const data = msg;
+      if (data.type !== "async_subagent_progress" || !data.toolCallId) break;
 
       // Find the tool block in the DOM
       const allToolBlocks = document.querySelectorAll<HTMLElement>(`[data-tool-id]`);
