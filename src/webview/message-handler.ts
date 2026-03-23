@@ -584,13 +584,6 @@ function handleMessage(event: MessageEvent): void {
       break;
     }
 
-    case "fork_entries": {
-      state.forkEntries = msg.entries || [];
-      // Update existing fork buttons with server entry IDs
-      renderer.updateForkEntryIds();
-      break;
-    }
-
     case "session_shutdown": {
       state.isStreaming = false;
       state.isCompacting = false;
@@ -808,9 +801,6 @@ function handleMessage(event: MessageEvent): void {
       renderer.clearMessages();
       state.sessionStats = {};
 
-      // Store fork entries for server-side entry ID mapping
-      state.forkEntries = data.forkEntries || [];
-
       // Apply the new state
       if (data.state) {
         state.model = data.state.model || null;
@@ -872,8 +862,6 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
   // Tool calls are shown as names only (no args, no output).
 
   // Second pass: render user and assistant messages
-  // Track user message index to map fork entries (server entryIds) to assistant turns
-  let userMessageIndex = 0;
   for (const msg of messages) {
     if (msg.role === "user") {
       const text = extractMessageText(msg.content);
@@ -887,7 +875,6 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
       state.entries.push(entry);
       pruneOldEntries(messagesContainer);
       renderer.renderNewEntry(entry);
-      userMessageIndex++;
     } else if (msg.role === "assistant") {
       const segments: TurnSegment[] = [];
       const turnToolCalls = new Map<string, ToolCallState>();
@@ -937,7 +924,6 @@ function renderHistoricalMessages(messages: import("../shared/types").AgentMessa
         id: nextId(),
         type: "assistant",
         turn,
-        forkEntryId: state.forkEntries[userMessageIndex - 1]?.entryId,
         timestamp: msg.timestamp || Date.now(),
       };
       state.entries.push(entry);

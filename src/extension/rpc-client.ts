@@ -662,11 +662,6 @@ export class GsdRpcClient extends EventEmitter {
     await this.request({ type: "set_session_name", name });
   }
 
-  /** Fork the conversation at a specific message entry, creating a new branch. */
-  async fork(entryId: string): Promise<unknown> {
-    return await this.request({ type: "fork", entryId });
-  }
-
   /** Enable or disable automatic context compaction. */
   async setAutoCompaction(enabled: boolean): Promise<void> {
     await this.request({ type: "set_auto_compaction", enabled });
@@ -690,11 +685,6 @@ export class GsdRpcClient extends EventEmitter {
   /** Set follow-up message delivery mode: `"all"` sends immediately, `"one-at-a-time"` queues. */
   async setFollowUpMode(mode: "all" | "one-at-a-time"): Promise<void> {
     await this.request({ type: "set_follow_up_mode", mode });
-  }
-
-  /** Fetch messages from a forked conversation branch. */
-  async getForkMessages(): Promise<unknown> {
-    return await this.request({ type: "get_fork_messages" });
   }
 
   /**

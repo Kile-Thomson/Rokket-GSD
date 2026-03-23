@@ -83,7 +83,6 @@ function createMockClient(overrides: Record<string, unknown> = {}) {
     abort: vi.fn().mockResolvedValue(undefined),
     restart: vi.fn().mockResolvedValue(true),
     forceKill: vi.fn(),
-    fork: vi.fn().mockResolvedValue(undefined),
     getState: vi.fn().mockResolvedValue({
       model: { id: "test-model" },
       thinkingLevel: "off",
@@ -95,7 +94,6 @@ function createMockClient(overrides: Record<string, unknown> = {}) {
       autoCompactionEnabled: false,
     }),
     getMessages: vi.fn().mockResolvedValue({ messages: [{ role: "user", text: "hello" }] }),
-    getForkMessages: vi.fn().mockResolvedValue({ messages: [{ entryId: "abc123", text: "hello" }] }),
     getCommands: vi.fn().mockResolvedValue({ commands: [{ name: "/test" }] }),
     getAvailableModels: vi.fn().mockResolvedValue({ models: [] }),
     getSessionStats: vi.fn().mockResolvedValue({ cost: 0.01, tokens: { input: 100, output: 200, cacheRead: 0, cacheWrite: 0, total: 300 } }),
@@ -208,92 +206,6 @@ describe("message-dispatch: handleWebviewMessage", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
-  });
-
-  // ── fork_conversation ───────────────────────────────────────────────
-
-  describe("fork_conversation", () => {
-    it("calls client.fork, getState, getMessages and posts session_switched", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "fork_conversation",
-        entryId: "entry-42",
-      } as WebviewToExtensionMessage);
-
-      expect(client.fork).toHaveBeenCalledWith("entry-42");
-      expect(client.getState).toHaveBeenCalled();
-      expect(client.getMessages).toHaveBeenCalled();
-      expect(ctx.postToWebview).toHaveBeenCalledWith(
-        webview,
-        expect.objectContaining({ type: "session_switched" }),
-      );
-    });
-
-    it("resets accumulatedCost and emits cost:0 on fork", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any, accumulatedCost: 5.00 });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "fork_conversation",
-        entryId: "entry-1",
-      } as WebviewToExtensionMessage);
-
-      expect(session.accumulatedCost).toBe(0);
-      expect(ctx.emitStatus).toHaveBeenCalledWith({ cost: 0 });
-    });
-
-    it("includes forkEntries from getForkMessages in session_switched payload", async () => {
-      const forkEntries = [{ entryId: "srv-1", text: "first" }, { entryId: "srv-2", text: "second" }];
-      const client = createMockClient({
-        getForkMessages: vi.fn().mockResolvedValue({ messages: forkEntries }),
-      });
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "fork_conversation",
-        entryId: "entry-1",
-      } as WebviewToExtensionMessage);
-
-      expect(client.getForkMessages).toHaveBeenCalled();
-      expect(ctx.postToWebview).toHaveBeenCalledWith(
-        webview,
-        expect.objectContaining({ type: "session_switched", forkEntries }),
-      );
-    });
-
-    it("posts error when fork throws", async () => {
-      const client = createMockClient({ fork: vi.fn().mockRejectedValue(new Error("fork failed")) });
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "fork_conversation",
-        entryId: "entry-bad",
-      } as WebviewToExtensionMessage);
-
-      expect(ctx.postToWebview).toHaveBeenCalledWith(
-        webview,
-        expect.objectContaining({ type: "error", message: expect.stringContaining("fork failed") }),
-      );
-    });
-
-    it("does nothing when client is not running", async () => {
-      const client = createMockClient({ isRunning: false });
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "fork_conversation",
-        entryId: "entry-1",
-      } as WebviewToExtensionMessage);
-
-      expect(client.fork).not.toHaveBeenCalled();
-    });
   });
 
   // ── new_conversation ────────────────────────────────────────────────
@@ -413,26 +325,6 @@ describe("message-dispatch: handleWebviewMessage", () => {
       expect(ctx.postToWebview).toHaveBeenCalledWith(
         webview,
         expect.objectContaining({ type: "session_switched" }),
-      );
-    });
-
-    it("includes forkEntries in session_switched payload", async () => {
-      const forkEntries = [{ entryId: "x1", text: "msg1" }];
-      const client = createMockClient({
-        getForkMessages: vi.fn().mockResolvedValue({ messages: forkEntries }),
-      });
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "switch_session",
-        path: "/sessions/other.jsonl",
-      } as WebviewToExtensionMessage);
-
-      expect(client.getForkMessages).toHaveBeenCalled();
-      expect(ctx.postToWebview).toHaveBeenCalledWith(
-        webview,
-        expect.objectContaining({ type: "session_switched", forkEntries }),
       );
     });
 
@@ -1139,6 +1031,274 @@ describe("message-dispatch: handleWebviewMessage", () => {
       } as WebviewToExtensionMessage);
 
       expect(client.setFollowUpMode).toHaveBeenCalledWith("all");
+    });
+  });
+
+  describe("/gsd status triggers dashboard", () => {
+    it("sends dashboard_data when /gsd status is sent", async () => {
+      const client = createMockClient();
+      const session = createMockSession({ client: client as any });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "prompt",
+        message: "/gsd status",
+      } as WebviewToExtensionMessage);
+
+      expect(client.prompt).toHaveBeenCalledWith("/gsd status", undefined);
+      // Dashboard data should also be sent
+      const dashboardCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "dashboard_data"
+      );
+      expect(dashboardCalls.length).toBe(1);
+    });
+
+    it("sends dashboard_data when /gsd auto mentions status", async () => {
+      const client = createMockClient();
+      const session = createMockSession({ client: client as any });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "prompt",
+        message: "/gsd auto View status: Review what was built",
+      } as WebviewToExtensionMessage);
+
+      expect(client.prompt).toHaveBeenCalled();
+      const dashboardCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "dashboard_data"
+      );
+      expect(dashboardCalls.length).toBe(1);
+    });
+
+    it("does NOT send dashboard_data for normal prompts", async () => {
+      const client = createMockClient();
+      const session = createMockSession({ client: client as any });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "prompt",
+        message: "Hello, how are you?",
+      } as WebviewToExtensionMessage);
+
+      const dashboardCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "dashboard_data"
+      );
+      expect(dashboardCalls.length).toBe(0);
+    });
+
+    it("does NOT send dashboard_data for /gsd auto without status keyword", async () => {
+      const client = createMockClient();
+      const session = createMockSession({ client: client as any });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "prompt",
+        message: "/gsd auto Continue with the next task",
+      } as WebviewToExtensionMessage);
+
+      const dashboardCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "dashboard_data"
+      );
+      expect(dashboardCalls.length).toBe(0);
+    });
+  });
+
+  describe("get_dashboard", () => {
+    it("builds and sends dashboard data", async () => {
+      const { buildDashboardData } = await import("./dashboard-parser");
+      (buildDashboardData as ReturnType<typeof vi.fn>).mockResolvedValue({
+        hasProject: true,
+        hasMilestone: true,
+        slices: [{ id: "S01", done: false }],
+      });
+
+      const client = createMockClient();
+      const session = createMockSession({ client: client as any });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "get_dashboard",
+      } as WebviewToExtensionMessage);
+
+      const dashboardCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "dashboard_data"
+      );
+      expect(dashboardCalls.length).toBe(1);
+      expect((dashboardCalls[0][1] as Record<string, unknown>).data).toBeTruthy();
+    });
+
+    it("merges session stats into dashboard data", async () => {
+      const { buildDashboardData } = await import("./dashboard-parser");
+      (buildDashboardData as ReturnType<typeof vi.fn>).mockResolvedValue({
+        hasProject: true,
+        hasMilestone: true,
+        slices: [],
+      });
+
+      const client = createMockClient({
+        getSessionStats: vi.fn().mockResolvedValue({
+          cost: 0.42,
+          tokens: { input: 500, output: 300, cacheRead: 10, cacheWrite: 5, total: 815 },
+          toolCalls: 12,
+          userMessages: 3,
+        }),
+      });
+      const session = createMockSession({ client: client as any });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "get_dashboard",
+      } as WebviewToExtensionMessage);
+
+      const dashboardCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "dashboard_data"
+      );
+      expect(dashboardCalls.length).toBe(1);
+      const data = (dashboardCalls[0][1] as any).data;
+      expect(data.stats).toBeDefined();
+      expect(data.stats.cost).toBe(0.42);
+      expect(data.stats.toolCalls).toBe(12);
+    });
+
+    it("sends null data when buildDashboardData throws", async () => {
+      const { buildDashboardData } = await import("./dashboard-parser");
+      (buildDashboardData as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("parse error"));
+
+      const { ctx, webview } = createMockDispatchContext();
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "get_dashboard",
+      } as WebviewToExtensionMessage);
+
+      const dashboardCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "dashboard_data"
+      );
+      expect(dashboardCalls.length).toBe(1);
+      expect((dashboardCalls[0][1] as any).data).toBeNull();
+    });
+
+    it("sends dashboard data even when session stats fail", async () => {
+      const { buildDashboardData } = await import("./dashboard-parser");
+      (buildDashboardData as ReturnType<typeof vi.fn>).mockResolvedValue({
+        hasProject: true,
+        hasMilestone: true,
+        slices: [],
+      });
+
+      const client = createMockClient({
+        getSessionStats: vi.fn().mockRejectedValue(new Error("stats unavailable")),
+      });
+      const session = createMockSession({ client: client as any });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "get_dashboard",
+      } as WebviewToExtensionMessage);
+
+      const dashboardCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "dashboard_data"
+      );
+      expect(dashboardCalls.length).toBe(1);
+      expect((dashboardCalls[0][1] as any).data).toBeTruthy();
+      // Stats should be absent since getSessionStats threw
+      expect((dashboardCalls[0][1] as any).data.stats).toBeUndefined();
+    });
+
+    it("merges metrics when ledger is available", async () => {
+      const { buildDashboardData } = await import("./dashboard-parser");
+      const { loadMetricsLedger, buildMetricsData } = await import("./metrics-parser");
+      (buildDashboardData as ReturnType<typeof vi.fn>).mockResolvedValue({
+        hasProject: true,
+        hasMilestone: true,
+        slices: [{ id: "S01", done: false }, { id: "S02", done: true }],
+      });
+      (loadMetricsLedger as ReturnType<typeof vi.fn>).mockResolvedValue({
+        units: [{ slice: "S01", duration: 120 }],
+      });
+      (buildMetricsData as ReturnType<typeof vi.fn>).mockReturnValue({
+        avgSliceDuration: 120,
+        eta: 120,
+      });
+
+      const client = createMockClient();
+      const session = createMockSession({ client: client as any });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "get_dashboard",
+      } as WebviewToExtensionMessage);
+
+      expect(loadMetricsLedger).toHaveBeenCalled();
+      expect(buildMetricsData).toHaveBeenCalledWith(
+        expect.objectContaining({ units: expect.any(Array) }),
+        1, // 1 remaining slice (S01 not done)
+      );
+      const dashboardCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "dashboard_data"
+      );
+      expect((dashboardCalls[0][1] as any).data.metrics).toBeDefined();
+    });
+
+    it("sends dashboard when no client is running", async () => {
+      const { buildDashboardData } = await import("./dashboard-parser");
+      (buildDashboardData as ReturnType<typeof vi.fn>).mockResolvedValue({
+        hasProject: true,
+        hasMilestone: true,
+        slices: [],
+      });
+
+      const session = createMockSession({ client: null });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "get_dashboard",
+      } as WebviewToExtensionMessage);
+
+      const dashboardCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "dashboard_data"
+      );
+      expect(dashboardCalls.length).toBe(1);
+      // No stats since no client
+      expect((dashboardCalls[0][1] as any).data.stats).toBeUndefined();
+    });
+  });
+
+  describe("delete_session", () => {
+    it("deletes session and refreshes list", async () => {
+      const { listSessions, deleteSession } = await import("./session-list-service");
+      (listSessions as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { path: "/sessions/s1", id: "s1", name: "Session 1", firstMessage: "hi", created: new Date(), modified: new Date(), messageCount: 5 },
+      ]);
+
+      const { ctx, webview } = createMockDispatchContext();
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "delete_session",
+        path: "/sessions/old",
+      } as WebviewToExtensionMessage);
+
+      expect(deleteSession).toHaveBeenCalledWith("/sessions/old");
+      const listCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "session_list"
+      );
+      expect(listCalls.length).toBe(1);
+    });
+
+    it("posts error when delete fails", async () => {
+      const { deleteSession } = await import("./session-list-service");
+      (deleteSession as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("ENOENT"));
+
+      const { ctx, webview } = createMockDispatchContext();
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "delete_session",
+        path: "/sessions/missing",
+      } as WebviewToExtensionMessage);
+
+      const errorCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "error"
+      );
+      expect(errorCalls.length).toBe(1);
     });
   });
 });

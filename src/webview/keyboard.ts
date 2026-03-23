@@ -287,15 +287,6 @@ function setupClickHandlers(): void {
       return;
     }
 
-    const forkBtn = target.closest(".gsd-fork-btn") as HTMLElement | null;
-    if (forkBtn) {
-      const entryId = forkBtn.dataset.entryId || forkBtn.closest<HTMLElement>(".gsd-entry")?.dataset.entryId;
-      if (entryId) {
-        vscode.postMessage({ type: "fork_conversation", entryId });
-      }
-      return;
-    }
-
     if (target.classList.contains("gsd-file-link")) {
       const path = target.dataset.path;
       if (path) vscode.postMessage({ type: "open_file", path });
