@@ -41,7 +41,11 @@ function parsePlanTasks(content: string): Array<{ id: string; title: string; don
 
 /**
  * Parse milestone registry from STATE.md.
- * Lines like: `- ✅ **M001:** Title` or `- **M002:** Title` or `- ⬜ **M003:** Title`
+ * Lines like: `- ✅ **M001:** Title` or `- 🔄 **M002:** Title` or `- ⏸️ **M003:** Title` or `- ⬜ **M004:** Title`
+ *
+ * Glyph mapping (as of gsd-pi 2.44):
+ *   ✅ = complete, 🔄 = active, ⏸️ = parked, ⬜ = pending
+ * Legacy formats without a glyph or with only ✅/⬜ still parse correctly.
  */
 function parseMilestoneRegistry(content: string): MilestoneRegistryEntry[] {
   const entries: MilestoneRegistryEntry[] = [];
@@ -56,14 +60,16 @@ function parseMilestoneRegistry(content: string): MilestoneRegistryEntry[] {
     if (inRegistry && line.startsWith("##")) break;
     if (!inRegistry) continue;
 
-    // Match: - ✅ **M001:** Title  OR  - **M001:** Title  OR  - ⬜ **M001:** Title
-    const m = line.match(/^-\s*(✅|⬜)?\s*\*\*(\w+):\*\*\s*(.+)/);
+    // Match any status glyph (or none) before the bolded milestone ID.
+    // The glyph capture is generous — we classify by known values below.
+    const m = line.match(/^-\s*([^\s*]*)?\s*\*\*(\w+):\*\*\s*(.+)/);
     if (m) {
+      const glyph = (m[1] || "").trim();
       entries.push({
         id: m[2],
         title: m[3].trim(),
-        done: m[1] === "✅",
-        active: false, // set below
+        done: glyph === "✅",
+        active: glyph === "🔄",
       });
     }
   }

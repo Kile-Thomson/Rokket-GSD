@@ -187,6 +187,12 @@ export interface GsdState {
   steeringMode?: "all" | "one-at-a-time";
   followUpMode?: "all" | "one-at-a-time";
   cwd?: string;
+  /** Whether extension loading has completed (gsd-pi 2.44+). */
+  extensionsReady?: boolean;
+  /** Whether an auto-retry is currently in progress (gsd-pi 2.44+). */
+  retryInProgress?: boolean;
+  /** Current retry attempt number (gsd-pi 2.44+). */
+  retryAttempt?: number;
 }
 
 /**
@@ -337,6 +343,12 @@ export interface RpcStateResult {
   isStreaming?: boolean;
   isCompacting?: boolean;
   autoCompactionEnabled?: boolean;
+  /** Whether extension loading has completed — commands may be incomplete until true. (gsd-pi 2.44+) */
+  extensionsReady?: boolean;
+  /** Whether an auto-retry is currently in progress. (gsd-pi 2.44+) */
+  retryInProgress?: boolean;
+  /** Current retry attempt number (0-based). (gsd-pi 2.44+) */
+  retryAttempt?: number;
   cwd?: string;
   [key: string]: unknown;
 }
@@ -357,6 +369,9 @@ export function toGsdState(rpc: RpcStateResult): GsdState {
     steeringMode: rpc.steeringMode as GsdState["steeringMode"],
     followUpMode: rpc.followUpMode as GsdState["followUpMode"],
     cwd: rpc.cwd,
+    extensionsReady: rpc.extensionsReady as boolean | undefined,
+    retryInProgress: rpc.retryInProgress as boolean | undefined,
+    retryAttempt: rpc.retryAttempt as number | undefined,
   };
 }
 

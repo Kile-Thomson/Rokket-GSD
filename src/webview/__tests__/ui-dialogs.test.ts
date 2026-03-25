@@ -77,6 +77,59 @@ describe("ui-dialogs", () => {
       (messagesContainer.querySelector('[data-action="yes"]') as HTMLElement).click();
       expect(wrapper.classList.contains("resolved")).toBe(true);
     });
+
+    it("inserts dialog after turn container when getDialogContainer returns one", () => {
+      const turnContainer = document.createElement("div");
+      turnContainer.className = "gsd-entry gsd-entry-assistant streaming";
+      messagesContainer.appendChild(turnContainer);
+
+      // Re-init with a getDialogContainer that returns the turn container
+      init({ messagesContainer, vscode: mockVscode, getDialogContainer: () => turnContainer });
+
+      handleRequest(makeRequest({ id: "c-inline", method: "confirm" }));
+
+      // Dialog should be a sibling right after the turn container (not inside it,
+      // because finalizeCurrentTurn rebuilds the turn element's innerHTML)
+      const wrapper = messagesContainer.querySelector('[data-ui-id="c-inline"]') as HTMLElement;
+      expect(wrapper).toBeTruthy();
+      expect(wrapper.previousElementSibling).toBe(turnContainer);
+
+      // Reset to default
+      init({ messagesContainer, vscode: mockVscode });
+    });
+
+    it("falls back to messagesContainer when getDialogContainer returns null", () => {
+      init({ messagesContainer, vscode: mockVscode, getDialogContainer: () => null });
+
+      handleRequest(makeRequest({ id: "c-fallback", method: "confirm" }));
+      const wrapper = messagesContainer.querySelector('[data-ui-id="c-fallback"]');
+      expect(wrapper).toBeTruthy();
+
+      // Reset to default
+      init({ messagesContainer, vscode: mockVscode });
+    });
+
+    it("preserves chronological order for multiple dialogs in the same turn", () => {
+      const turnContainer = document.createElement("div");
+      turnContainer.className = "gsd-entry gsd-entry-assistant streaming";
+      messagesContainer.appendChild(turnContainer);
+
+      init({ messagesContainer, vscode: mockVscode, getDialogContainer: () => turnContainer });
+
+      handleRequest(makeRequest({ id: "d1", method: "confirm", title: "First?" }));
+      handleRequest(makeRequest({ id: "d2", method: "confirm", title: "Second?" }));
+      handleRequest(makeRequest({ id: "d3", method: "confirm", title: "Third?" }));
+
+      // All three should appear after the turn in FIFO order
+      const wrappers = messagesContainer.querySelectorAll(".gsd-entry-ui-request");
+      expect(wrappers).toHaveLength(3);
+      expect((wrappers[0] as HTMLElement).dataset.uiId).toBe("d1");
+      expect((wrappers[1] as HTMLElement).dataset.uiId).toBe("d2");
+      expect((wrappers[2] as HTMLElement).dataset.uiId).toBe("d3");
+
+      // Reset
+      init({ messagesContainer, vscode: mockVscode });
+    });
   });
 
   // ============================================================

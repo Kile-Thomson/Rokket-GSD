@@ -126,6 +126,15 @@ export function renderNewEntry(entry: ChatEntry): void {
 // Public API — streaming
 // ============================================================
 
+/**
+ * Return the current turn element if one exists, without creating it.
+ * Used by ui-dialogs to insert dialog wrappers inline with the turn
+ * that triggered them.
+ */
+export function getCurrentTurnElement(): HTMLElement | null {
+  return currentTurnElement;
+}
+
 export function ensureCurrentTurnElement(): HTMLElement {
   if (!currentTurnElement) {
     const el = document.createElement("div");
