@@ -77,6 +77,36 @@ describe("ui-dialogs", () => {
       (messagesContainer.querySelector('[data-action="yes"]') as HTMLElement).click();
       expect(wrapper.classList.contains("resolved")).toBe(true);
     });
+
+    it("inserts dialog into turn container when getDialogContainer returns one", () => {
+      const turnContainer = document.createElement("div");
+      turnContainer.className = "gsd-entry gsd-entry-assistant streaming";
+      messagesContainer.appendChild(turnContainer);
+
+      // Re-init with a getDialogContainer that returns the turn container
+      init({ messagesContainer, vscode: mockVscode, getDialogContainer: () => turnContainer });
+
+      handleRequest(makeRequest({ id: "c-inline", method: "confirm" }));
+
+      // Dialog should be inside the turn container, not directly in messagesContainer
+      const wrapper = turnContainer.querySelector('[data-ui-id="c-inline"]');
+      expect(wrapper).toBeTruthy();
+      expect(messagesContainer.querySelector(':scope > [data-ui-id="c-inline"]')).toBeNull();
+
+      // Reset to default
+      init({ messagesContainer, vscode: mockVscode });
+    });
+
+    it("falls back to messagesContainer when getDialogContainer returns null", () => {
+      init({ messagesContainer, vscode: mockVscode, getDialogContainer: () => null });
+
+      handleRequest(makeRequest({ id: "c-fallback", method: "confirm" }));
+      const wrapper = messagesContainer.querySelector('[data-ui-id="c-fallback"]');
+      expect(wrapper).toBeTruthy();
+
+      // Reset to default
+      init({ messagesContainer, vscode: mockVscode });
+    });
   });
 
   // ============================================================

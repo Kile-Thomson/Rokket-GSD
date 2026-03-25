@@ -215,7 +215,11 @@ export function handleRequest(data: any): void {
     startTimeoutCountdown(wrapper, id, safeTimeout);
   }
 
-  messagesContainer.appendChild(wrapper);
+  // Insert into the current turn container when available, so the dialog
+  // appears inline with the tool that triggered it (chronological order).
+  // Falls back to messagesContainer for standalone extension requests.
+  const container = getDialogContainer?.() ?? messagesContainer;
+  container.appendChild(wrapper);
   scrollToBottom(messagesContainer, true);
 
   // Set up focus trap on the dialog request element
@@ -464,9 +468,19 @@ function startTimeoutCountdown(wrapper: HTMLElement, id: string, timeoutMs: numb
 export interface UiDialogsDeps {
   messagesContainer: HTMLElement;
   vscode: { postMessage(msg: unknown): void };
+  /**
+   * Return the container where dialog wrappers should be inserted.
+   * When a turn is active (agent is streaming), this should return the
+   * current turn element so the dialog appears inline with the tool
+   * that triggered it. Falls back to messagesContainer when null.
+   */
+  getDialogContainer?: () => HTMLElement | null;
 }
+
+let getDialogContainer: (() => HTMLElement | null) | null = null;
 
 export function init(deps: UiDialogsDeps): void {
   messagesContainer = deps.messagesContainer;
   vscode = deps.vscode;
+  getDialogContainer = deps.getDialogContainer ?? null;
 }
