@@ -261,4 +261,60 @@ Execute T03 for S02
     expect(result!.progress.slices).toEqual({ done: 1, total: 3 });
     expect(result!.progress.milestones).toEqual({ done: 1, total: 2 });
   });
+
+  // ── gsd-pi 2.44 compatibility ──────────────────────────────────
+
+  it("parses 2.44 milestone registry with all four glyphs", async () => {
+    const gsdDir = path.join(tmpDir, ".gsd");
+    fs.mkdirSync(gsdDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(gsdDir, "STATE.md"),
+      `## Milestone Registry
+
+- ✅ **M001:** Completed milestone
+- 🔄 **M002:** Active milestone
+- ⏸️ **M003:** Parked milestone
+- ⬜ **M004:** Pending milestone
+`
+    );
+    mockParseWorkflow.mockResolvedValue(null);
+
+    const result = await buildDashboardData(tmpDir);
+
+    expect(result!.milestoneRegistry).toHaveLength(4);
+    expect(result!.milestoneRegistry[0]).toMatchObject({ id: "M001", done: true, active: false });
+    expect(result!.milestoneRegistry[1]).toMatchObject({ id: "M002", done: false, active: true });
+    expect(result!.milestoneRegistry[2]).toMatchObject({ id: "M003", done: false, active: false });
+    expect(result!.milestoneRegistry[3]).toMatchObject({ id: "M004", done: false, active: false });
+  });
+
+  it("active glyph is overridden by workflow state when available", async () => {
+    const gsdDir = path.join(tmpDir, ".gsd");
+    const milestoneDir = path.join(gsdDir, "milestones", "M003");
+    fs.mkdirSync(milestoneDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(gsdDir, "STATE.md"),
+      `## Milestone Registry
+
+- ✅ **M001:** Done
+- 🔄 **M002:** Glyph says active
+- ⬜ **M003:** Glyph says pending
+`
+    );
+
+    // Workflow state says M003 is the real active milestone
+    mockParseWorkflow.mockResolvedValue({
+      milestone: { id: "M003", title: "Glyph says pending" },
+      slice: null,
+      task: null,
+      phase: "plan",
+      autoMode: null,
+    });
+
+    const result = await buildDashboardData(tmpDir);
+
+    // Workflow state override takes precedence
+    expect(result!.milestoneRegistry[1]).toMatchObject({ id: "M002", active: false });
+    expect(result!.milestoneRegistry[2]).toMatchObject({ id: "M003", active: true });
+  });
 });
