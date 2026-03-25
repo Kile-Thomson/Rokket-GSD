@@ -215,11 +215,20 @@ export function handleRequest(data: any): void {
     startTimeoutCountdown(wrapper, id, safeTimeout);
   }
 
-  // Insert into the current turn container when available, so the dialog
-  // appears inline with the tool that triggered it (chronological order).
-  // Falls back to messagesContainer for standalone extension requests.
-  const container = getDialogContainer?.() ?? messagesContainer;
-  container.appendChild(wrapper);
+  // Insert in chronological position within the conversation.
+  // When a turn is active, place the dialog right after the turn element
+  // in messagesContainer (not inside it — finalizeCurrentTurn() rebuilds
+  // the turn element's innerHTML which would destroy our dialog).
+  // Falls back to appending to messagesContainer for standalone requests.
+  const turnEl = getDialogContainer?.() ?? null;
+  if (turnEl && turnEl.parentElement === messagesContainer && turnEl.nextSibling) {
+    messagesContainer.insertBefore(wrapper, turnEl.nextSibling);
+  } else if (turnEl && turnEl.parentElement === messagesContainer) {
+    // Turn element is the last child — append after it
+    messagesContainer.appendChild(wrapper);
+  } else {
+    messagesContainer.appendChild(wrapper);
+  }
   scrollToBottom(messagesContainer, true);
 
   // Set up focus trap on the dialog request element

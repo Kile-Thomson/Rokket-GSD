@@ -78,7 +78,7 @@ describe("ui-dialogs", () => {
       expect(wrapper.classList.contains("resolved")).toBe(true);
     });
 
-    it("inserts dialog into turn container when getDialogContainer returns one", () => {
+    it("inserts dialog after turn container when getDialogContainer returns one", () => {
       const turnContainer = document.createElement("div");
       turnContainer.className = "gsd-entry gsd-entry-assistant streaming";
       messagesContainer.appendChild(turnContainer);
@@ -88,10 +88,11 @@ describe("ui-dialogs", () => {
 
       handleRequest(makeRequest({ id: "c-inline", method: "confirm" }));
 
-      // Dialog should be inside the turn container, not directly in messagesContainer
-      const wrapper = turnContainer.querySelector('[data-ui-id="c-inline"]');
+      // Dialog should be a sibling right after the turn container (not inside it,
+      // because finalizeCurrentTurn rebuilds the turn element's innerHTML)
+      const wrapper = messagesContainer.querySelector('[data-ui-id="c-inline"]') as HTMLElement;
       expect(wrapper).toBeTruthy();
-      expect(messagesContainer.querySelector(':scope > [data-ui-id="c-inline"]')).toBeNull();
+      expect(wrapper.previousElementSibling).toBe(turnContainer);
 
       // Reset to default
       init({ messagesContainer, vscode: mockVscode });
