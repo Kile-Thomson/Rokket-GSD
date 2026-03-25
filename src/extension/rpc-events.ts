@@ -106,6 +106,16 @@ export function handleRpcEvent(
     ctx.emitStatus({ isStreaming: false });
     ctx.getSession(sessionId).isStreaming = false;
     stopActivityMonitor(ctx.watchdogCtx, sessionId);
+  } else if (eventType === "extensions_ready") {
+    // gsd-pi 2.44+: extensions finished loading — fetch definitive command list
+    ctx.output.appendLine(`[${sessionId}] extensions_ready — refreshing commands`);
+    client.getCommands()
+      .then((result: any) => {
+        ctx.postToWebview(webview, { type: "commands", commands: result?.commands || [] });
+      })
+      .catch((err: Error) => {
+        ctx.output.appendLine(`[${sessionId}] extensions_ready get_commands failed: ${err.message}`);
+      });
   }
 
   // Forward all other events directly to the webview
