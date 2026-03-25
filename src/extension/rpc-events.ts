@@ -111,10 +111,11 @@ export function handleRpcEvent(
     ctx.output.appendLine(`[${sessionId}] extensions_ready — refreshing commands`);
     client.getCommands()
       .then((result: any) => {
-        ctx.postToWebview(webview, { type: "commands", commands: result?.commands || [] });
+        const commands = Array.isArray(result?.commands) ? result.commands : [];
+        ctx.postToWebview(webview, { type: "commands", commands });
       })
-      .catch((err: Error) => {
-        ctx.output.appendLine(`[${sessionId}] extensions_ready get_commands failed: ${err.message}`);
+      .catch((err: unknown) => {
+        ctx.output.appendLine(`[${sessionId}] extensions_ready get_commands failed: ${err instanceof Error ? err.message : String(err)}`);
       });
   }
 
