@@ -215,7 +215,31 @@ export function handleRequest(data: any): void {
     startTimeoutCountdown(wrapper, id, safeTimeout);
   }
 
-  messagesContainer.appendChild(wrapper);
+  // Insert in chronological position within the conversation.
+  // When a turn is active, place the dialog right after the turn element
+  // (and any preceding dialogs for the same turn) in messagesContainer.
+  // We insert as a sibling — not a child — because finalizeCurrentTurn()
+  // rebuilds the turn element's innerHTML which would destroy children.
+  const turnEl = getDialogContainer?.() ?? null;
+  if (turnEl && turnEl.parentElement === messagesContainer) {
+    // Walk forward past any existing dialog wrappers for this same turn
+    // so consecutive dialogs appear in chronological (FIFO) order.
+    let insertionPoint: Node | null = turnEl.nextSibling;
+    while (
+      insertionPoint &&
+      insertionPoint instanceof HTMLElement &&
+      insertionPoint.classList.contains("gsd-entry-ui-request")
+    ) {
+      insertionPoint = insertionPoint.nextSibling;
+    }
+    if (insertionPoint) {
+      messagesContainer.insertBefore(wrapper, insertionPoint);
+    } else {
+      messagesContainer.appendChild(wrapper);
+    }
+  } else {
+    messagesContainer.appendChild(wrapper);
+  }
   scrollToBottom(messagesContainer, true);
 
   // Set up focus trap on the dialog request element
@@ -464,9 +488,19 @@ function startTimeoutCountdown(wrapper: HTMLElement, id: string, timeoutMs: numb
 export interface UiDialogsDeps {
   messagesContainer: HTMLElement;
   vscode: { postMessage(msg: unknown): void };
+  /**
+   * Return the container where dialog wrappers should be inserted.
+   * When a turn is active (agent is streaming), this should return the
+   * current turn element so the dialog appears inline with the tool
+   * that triggered it. Falls back to messagesContainer when null.
+   */
+  getDialogContainer?: () => HTMLElement | null;
 }
+
+let getDialogContainer: (() => HTMLElement | null) | null = null;
 
 export function init(deps: UiDialogsDeps): void {
   messagesContainer = deps.messagesContainer;
   vscode = deps.vscode;
+  getDialogContainer = deps.getDialogContainer ?? null;
 }

@@ -29,7 +29,7 @@ export function parseActiveRef(content: string, label: string): { id: string; ti
   if (!match) return null;
 
   const value = match[1].trim();
-  if (value === "(none)" || value === "—" || !value) return null;
+  if (value === "(none)" || value.toLowerCase() === "none" || value === "—" || !value) return null;
 
   // Try to parse "ID — Title" or "ID: Title" or just "ID"
   const dashMatch = value.match(/^(\S+)\s*[—–-]\s*(.+?)(?:\s*✓.*)?$/);

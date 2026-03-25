@@ -45,7 +45,8 @@ export async function cleanStaleCrashLock(cwd: string, output: vscode.OutputChan
     const activeMilestone = activeMatch?.[1] || "none";
 
     // If state is idle/complete with no active milestone, lock is stale
-    if (activeMilestone === "none" || phase === "idle" || phase === "complete") {
+    // Note: gsd-pi 2.44+ writes "None" (capitalised) when no milestone is active
+    if (activeMilestone.toLowerCase() === "none" || phase === "idle" || phase === "complete") {
       fs.unlinkSync(lockPath);
       output.appendLine(`[pre-launch] Removed stale .gsd/auto.lock (state: ${phase}, milestone: ${activeMilestone})`);
     }
