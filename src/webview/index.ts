@@ -733,6 +733,7 @@ sessionHistory.init({
 uiDialogs.init({
   messagesContainer,
   vscode,
+  getDialogContainer: () => renderer.getCurrentTurnElement(),
 });
 
 toasts.init(document.getElementById("toastContainer")!);

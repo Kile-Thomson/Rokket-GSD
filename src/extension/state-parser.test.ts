@@ -31,6 +31,14 @@ describe("parseActiveRef", () => {
     const content = "**Active Milestone:** (none)";
     expect(parseActiveRef(content, "Milestone")).toBeNull();
   });
+  it("returns null for bare 'None' (gsd-pi 2.44 format)", () => {
+    const content = "**Active Milestone:** None";
+    expect(parseActiveRef(content, "Milestone")).toBeNull();
+  });
+  it("returns null for 'none' (case-insensitive)", () => {
+    const content = "**Active Slice:** none";
+    expect(parseActiveRef(content, "Slice")).toBeNull();
+  });
   it("returns null when label not found", () => {
     expect(parseActiveRef("no match here", "Milestone")).toBeNull();
   });
@@ -104,6 +112,44 @@ describe("parseGsdWorkflowState", () => {
     expect(state!.slice).toBeNull();
     expect(state!.task).toBeNull();
     expect(state!.phase).toBe("planning");
+    await fs.promises.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("parses gsd-pi 2.44 STATE.md format (colon delimiter, no Active Task, 'None' sentinels)", async () => {
+    tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "gsd-test-"));
+    await writeState(`# GSD State
+
+**Active Milestone:** M002: Database Layer
+**Active Slice:** S01: Schema Design
+**Phase:** executing
+**Requirements Status:** 3 active · 2 validated · 1 deferred · 0 out of scope
+
+## Milestone Registry
+
+- ✅ **M001:** Initial Setup
+- 🔄 **M002:** Database Layer
+- ⬜ **M003:** API Layer
+`);
+    const state = await parseGsdWorkflowState(tmpDir);
+    expect(state!.milestone).toEqual({ id: "M002", title: "Database Layer" });
+    expect(state!.slice).toEqual({ id: "S01", title: "Schema Design" });
+    expect(state!.task).toBeNull(); // No Active Task line in 2.44
+    expect(state!.phase).toBe("executing");
+    await fs.promises.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("parses 2.44 STATE.md with 'None' active milestone", async () => {
+    tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "gsd-test-"));
+    await writeState(`# GSD State
+
+**Active Milestone:** None
+**Active Slice:** None
+**Phase:** complete
+`);
+    const state = await parseGsdWorkflowState(tmpDir);
+    expect(state!.milestone).toBeNull();
+    expect(state!.slice).toBeNull();
+    expect(state!.phase).toBe("complete");
     await fs.promises.rm(tmpDir, { recursive: true, force: true });
   });
 });
