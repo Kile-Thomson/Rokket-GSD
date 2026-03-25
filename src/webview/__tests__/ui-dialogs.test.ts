@@ -108,6 +108,28 @@ describe("ui-dialogs", () => {
       // Reset to default
       init({ messagesContainer, vscode: mockVscode });
     });
+
+    it("preserves chronological order for multiple dialogs in the same turn", () => {
+      const turnContainer = document.createElement("div");
+      turnContainer.className = "gsd-entry gsd-entry-assistant streaming";
+      messagesContainer.appendChild(turnContainer);
+
+      init({ messagesContainer, vscode: mockVscode, getDialogContainer: () => turnContainer });
+
+      handleRequest(makeRequest({ id: "d1", method: "confirm", title: "First?" }));
+      handleRequest(makeRequest({ id: "d2", method: "confirm", title: "Second?" }));
+      handleRequest(makeRequest({ id: "d3", method: "confirm", title: "Third?" }));
+
+      // All three should appear after the turn in FIFO order
+      const wrappers = messagesContainer.querySelectorAll(".gsd-entry-ui-request");
+      expect(wrappers).toHaveLength(3);
+      expect((wrappers[0] as HTMLElement).dataset.uiId).toBe("d1");
+      expect((wrappers[1] as HTMLElement).dataset.uiId).toBe("d2");
+      expect((wrappers[2] as HTMLElement).dataset.uiId).toBe("d3");
+
+      // Reset
+      init({ messagesContainer, vscode: mockVscode });
+    });
   });
 
   // ============================================================

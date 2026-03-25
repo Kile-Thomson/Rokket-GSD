@@ -217,15 +217,26 @@ export function handleRequest(data: any): void {
 
   // Insert in chronological position within the conversation.
   // When a turn is active, place the dialog right after the turn element
-  // in messagesContainer (not inside it — finalizeCurrentTurn() rebuilds
-  // the turn element's innerHTML which would destroy our dialog).
-  // Falls back to appending to messagesContainer for standalone requests.
+  // (and any preceding dialogs for the same turn) in messagesContainer.
+  // We insert as a sibling — not a child — because finalizeCurrentTurn()
+  // rebuilds the turn element's innerHTML which would destroy children.
   const turnEl = getDialogContainer?.() ?? null;
-  if (turnEl && turnEl.parentElement === messagesContainer && turnEl.nextSibling) {
-    messagesContainer.insertBefore(wrapper, turnEl.nextSibling);
-  } else if (turnEl && turnEl.parentElement === messagesContainer) {
-    // Turn element is the last child — append after it
-    messagesContainer.appendChild(wrapper);
+  if (turnEl && turnEl.parentElement === messagesContainer) {
+    // Walk forward past any existing dialog wrappers for this same turn
+    // so consecutive dialogs appear in chronological (FIFO) order.
+    let insertionPoint: Node | null = turnEl.nextSibling;
+    while (
+      insertionPoint &&
+      insertionPoint instanceof HTMLElement &&
+      insertionPoint.classList.contains("gsd-entry-ui-request")
+    ) {
+      insertionPoint = insertionPoint.nextSibling;
+    }
+    if (insertionPoint) {
+      messagesContainer.insertBefore(wrapper, insertionPoint);
+    } else {
+      messagesContainer.appendChild(wrapper);
+    }
   } else {
     messagesContainer.appendChild(wrapper);
   }
