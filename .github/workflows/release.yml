@@ -11,9 +11,9 @@ permissions:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
-    # Skip runs triggered by the bot's version bump or docs-only commits
+    # Skip runs triggered by the CI version bump or docs-only commits
     if: >-
-      github.event.head_commit.author.name != 'github-actions[bot]'
+      !startsWith(github.event.head_commit.message, 'chore: bump version')
       && !startsWith(github.event.head_commit.message, 'docs:')
       && !startsWith(github.event.head_commit.message, 'Update README')
       && !startsWith(github.event.head_commit.message, 'Update CHANGELOG')
@@ -29,8 +29,8 @@ jobs:
 
       - name: Configure git
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Kile Thomson"
+          git config user.email "260275437+Kile-Thomson@users.noreply.github.com"
 
       - name: Install dependencies
         run: npm ci
@@ -83,10 +83,8 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
 
-          # Extract the section for this version from CHANGELOG.md
-          # Matches "## [X.Y.Z]" or "## [vX.Y.Z]" and grabs everything until the next ## heading
           cat > /tmp/extract_changelog.py << 'PYEOF'
-          import sys, re
+          import sys, re, subprocess
 
           version = sys.argv[1]
           changelog_path = "CHANGELOG.md"
@@ -104,7 +102,6 @@ jobs:
 
           if match:
               start = match.end()
-              # Find the next ## heading (next version section)
               next_heading = re.search(r"^## \[", content[start:], re.MULTILINE)
               if next_heading:
                   section = content[start:start + next_heading.start()]
@@ -115,12 +112,27 @@ jobs:
               notes = ""
 
           if not notes:
-              notes = "Maintenance release — no notable changes."
+              # No CHANGELOG.md entry — generate from git log since last tag
+              try:
+                  result = subprocess.run(
+                      ["git", "log", "--oneline", "--no-merges",
+                       "--format=- %s", "HEAD~10..HEAD",
+                       "--invert-grep", "--grep=chore: bump version"],
+                      capture_output=True, text=True, timeout=10
+                  )
+                  commits = result.stdout.strip()
+              except Exception:
+                  commits = ""
+
+              if commits:
+                  notes = "### Changes\n\n" + commits
+              else:
+                  notes = "Patch release."
 
           with open(output_path, "w", encoding="utf-8") as f:
               f.write(f"## v{version}\n\n{notes}\n")
 
-          print(f"Extracted {len(notes)} chars for v{version}" if notes != "Maintenance release — no notable changes." else f"No CHANGELOG.md section found for v{version}, using fallback")
+          print(f"Extracted {len(notes)} chars for v{version}" if "### Changes" not in notes and notes != "Patch release." else f"Generated notes from git log for v{version}")
           PYEOF
 
           python3 /tmp/extract_changelog.py "$VERSION"
