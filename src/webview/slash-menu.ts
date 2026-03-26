@@ -87,6 +87,7 @@ export function hide(): void {
   slashMenuVisible = false;
   slashMenuEl.classList.add("gsd-hidden");
   slashMenuEl.innerHTML = "";
+  promptInput?.removeAttribute("aria-activedescendant");
   // Restore focus to prompt input (slash menu is always triggered from input)
   promptInput?.focus();
   _triggerEl = null;
@@ -225,11 +226,18 @@ function render(): void {
   slashMenuEl.setAttribute("role", "listbox");
   slashMenuEl.setAttribute("aria-label", "Slash commands");
   slashMenuEl.innerHTML = filteredItems.map((item, i) => `
-    <div class="gsd-slash-item ${i === slashMenuIndex ? "active" : ""}" role="option" aria-selected="${i === slashMenuIndex}" data-idx="${i}">
+    <div class="gsd-slash-item ${i === slashMenuIndex ? "active" : ""}" role="option" aria-selected="${i === slashMenuIndex}" id="gsd-slash-opt-${i}" data-idx="${i}">
       <span class="gsd-slash-name">/${escapeHtml(item.name)}</span>
       <span class="gsd-slash-desc">${escapeHtml(item.description)}</span>
     </div>
   `).join("");
+
+  // Link active option to input for screen reader announcement
+  if (filteredItems.length > 0 && slashMenuIndex >= 0) {
+    promptInput.setAttribute("aria-activedescendant", `gsd-slash-opt-${slashMenuIndex}`);
+  } else {
+    promptInput.removeAttribute("aria-activedescendant");
+  }
 
   slashMenuEl.querySelectorAll(".gsd-slash-item").forEach((el) => {
     el.addEventListener("click", () => {

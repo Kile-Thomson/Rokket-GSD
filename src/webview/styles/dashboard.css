@@ -29,7 +29,7 @@
   font-weight: 600;
   padding: 2px 8px;
   border-radius: var(--gsd-radius-md);
-  background: rgba(128, 128, 128, 0.12);
+  background: var(--gsd-color-surface-hover);
   color: var(--gsd-color-text-muted);
 }
 
@@ -89,7 +89,7 @@
   flex: 1;
   height: 6px;
   border-radius: var(--gsd-radius-sm);
-  background: rgba(128, 128, 128, 0.15);
+  background: var(--gsd-color-surface-active);
   overflow: hidden;
 }
 
@@ -202,7 +202,7 @@
 
 .gsd-dash-hint code {
   font-family: var(--gsd-font-family-mono);
-  background: rgba(128, 128, 128, 0.12);
+  background: var(--gsd-color-surface-hover);
   padding: 1px 4px;
   border-radius: var(--gsd-radius-sm);
 }
@@ -232,7 +232,7 @@
 
 .gsd-dashboard-empty-hint code {
   font-family: var(--gsd-font-family-mono);
-  background: rgba(128, 128, 128, 0.12);
+  background: var(--gsd-color-surface-hover);
   padding: 1px 4px;
   border-radius: var(--gsd-radius-sm);
 }
