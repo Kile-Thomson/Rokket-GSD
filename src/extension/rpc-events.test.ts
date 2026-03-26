@@ -156,6 +156,26 @@ describe("rpc-events", () => {
       expect(ctx.emitStatus).not.toHaveBeenCalled();
     });
 
+    it("message_end: clears streaming state on stopReason error", () => {
+      const { ctx, session } = createCtx(createMockSession({ isStreaming: true }));
+      handleRpcEvent(ctx, webview, sid, {
+        type: "message_end",
+        message: { role: "assistant", stopReason: "error", errorMessage: "API key invalid" },
+      }, client);
+      expect(session.isStreaming).toBe(false);
+      expect(ctx.emitStatus).toHaveBeenCalledWith({ isStreaming: false });
+      expect(stopActivityMonitor).toHaveBeenCalled();
+    });
+
+    it("message_end: does not clear streaming on normal stopReason", () => {
+      const { ctx, session } = createCtx(createMockSession({ isStreaming: true }));
+      handleRpcEvent(ctx, webview, sid, {
+        type: "message_end",
+        message: { role: "assistant", usage: { cost: { total: 0.5 } }, stopReason: "end_turn" },
+      }, client);
+      expect(session.isStreaming).toBe(true);
+    });
+
     it("fallback_provider_switch: updates model in status", () => {
       const { ctx } = createCtx();
       handleRpcEvent(ctx, webview, sid, { type: "fallback_provider_switch", to: "gpt-4" }, client);

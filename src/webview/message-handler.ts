@@ -17,6 +17,7 @@ import {
   state,
   nextId,
   pruneOldEntries,
+  resetPrunedCount,
   type ChatEntry,
   type ToolCallState,
   type TurnSegment,
@@ -33,6 +34,7 @@ import * as autoProgress from "./auto-progress";
 import * as visualizer from "./visualizer";
 import * as fileHandling from "./file-handling";
 import { createFocusTrap, restoreFocus } from "./a11y";
+import { setChangelogHandlers, getChangelogTriggerEl } from "./keyboard";
 
 // ============================================================
 // Dependencies — set via init()
@@ -170,6 +172,7 @@ function handleMessage(event: MessageEvent): void {
         // Reset streaming state — if we're freshly running, we can't be streaming
         state.isStreaming = false;
         state.isCompacting = false;
+        state.lastExitDetail = null;
         state.commandsLoaded = false;
         state.commands = [];
         // Eagerly fetch commands so they're ready when the user types /
@@ -511,6 +514,9 @@ function handleMessage(event: MessageEvent): void {
       state.isCompacting = false;
       updateOverlayIndicators();
       updateInputUI();
+      if (!msg.aborted) {
+        toasts.show("Context compacted successfully");
+      }
       break;
     }
 
@@ -722,6 +728,7 @@ function handleMessage(event: MessageEvent): void {
 
       // Build an informative error message including stderr detail
       const detail = (data as any).detail as string | undefined;
+      state.lastExitDetail = detail || null;
       let message: string;
       if (detail) {
         message = detail;
@@ -800,6 +807,7 @@ function handleMessage(event: MessageEvent): void {
       renderer.resetStreamingState();
       renderer.clearMessages();
       state.sessionStats = {};
+      resetPrunedCount();
 
       // Apply the new state
       if (data.state) {
@@ -1095,19 +1103,25 @@ function showChangelog(entries: Array<{ version: string; notes: string; date: st
       e.preventDefault();
       card.removeEventListener("keydown", trapHandler);
       card.removeEventListener("keydown", navHandler);
+      setChangelogHandlers(null, null);
       card.classList.add("dismissing");
       setTimeout(() => card.remove(), 300);
-      restoreFocus(null); // focus restore handled by keyboard.ts changelogTriggerEl
+      restoreFocus(getChangelogTriggerEl());
     }
   };
   card.addEventListener("keydown", navHandler);
+
+  // Sync handlers with keyboard.ts so dismissChangelog() can clean up properly
+  setChangelogHandlers(trapHandler, navHandler);
 
   const closeBtn = card.querySelector<HTMLElement>(".gsd-changelog-close");
   closeBtn?.addEventListener("click", () => {
     card.removeEventListener("keydown", trapHandler);
     card.removeEventListener("keydown", navHandler);
+    setChangelogHandlers(null, null);
     card.classList.add("dismissing");
     setTimeout(() => card.remove(), 300);
+    restoreFocus(getChangelogTriggerEl());
   });
 
   messagesContainer.appendChild(card);

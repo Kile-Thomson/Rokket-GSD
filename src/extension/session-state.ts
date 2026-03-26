@@ -135,6 +135,9 @@ export function cleanupSessionState(session: SessionState): void {
     session.autoProgressPoller = null;
   }
 
+  // Remove all event listeners before stopping to prevent stale handlers
+  // firing against cleaned-up state during async teardown
+  try { session.client?.removeAllListeners(); } catch { /* ignore */ }
   // Fire-and-forget: stop() is async but callers don't need to wait for
   // graceful shutdown. The process is killed if it doesn't exit promptly.
   try { session.client?.stop(); } catch { /* ignore */ }

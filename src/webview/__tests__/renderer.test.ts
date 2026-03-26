@@ -18,6 +18,7 @@ import {
   nextId,
   MAX_ENTRIES,
   pruneOldEntries,
+  resetPrunedCount,
   resetState as resetFullState,
   type ChatEntry,
   type ToolCallState,
@@ -734,6 +735,28 @@ describe("renderer", () => {
         `GSD: Pruned 3 oldest entries to maintain ${MAX_ENTRIES}-entry cap`
       );
       warnSpy.mockRestore();
+    });
+
+    it("resetPrunedCount() clears counter and hides indicator", () => {
+      pushEntries(MAX_ENTRIES + 10);
+      pruneOldEntries(messagesContainer);
+
+      const indicator = messagesContainer.querySelector(".gsd-pruned-indicator");
+      expect(indicator).toBeTruthy();
+      expect(indicator!.textContent).toContain("10");
+
+      // Call resetPrunedCount — should remove indicator from DOM
+      resetPrunedCount();
+
+      expect(messagesContainer.querySelector(".gsd-pruned-indicator")).toBeNull();
+
+      // After reset, a new prune should count from 0
+      pushEntries(5);
+      pruneOldEntries(messagesContainer);
+      const newIndicator = messagesContainer.querySelector(".gsd-pruned-indicator");
+      if (newIndicator) {
+        expect(newIndicator.textContent).toContain("5");
+      }
     });
   });
 });

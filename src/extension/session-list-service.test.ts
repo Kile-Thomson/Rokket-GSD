@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { getSessionDir, buildSessionInfo, listSessions, deleteSession } from "./session-list-service";
+import { getSessionDir, buildSessionInfo, listSessions, deleteSession, validateSessionPath } from "./session-list-service";
 
 describe("session-list-service", () => {
   let tmpDir: string;
@@ -252,6 +252,18 @@ describe("session-list-service", () => {
 
       // Cleanup
       fs.rmSync(testDir, { recursive: true, force: true });
+    });
+  });
+
+  describe("validateSessionPath", () => {
+    it("throws for paths outside sessions directory", () => {
+      expect(() => validateSessionPath("/etc/passwd")).toThrow("GSD-ERR-003");
+    });
+
+    it("does not throw for valid session paths", () => {
+      const sessionsDir = path.join(os.homedir(), ".gsd", "agent", "sessions");
+      const validPath = path.join(sessionsDir, "test-cwd", "session.jsonl");
+      expect(() => validateSessionPath(validPath)).not.toThrow();
     });
   });
 });

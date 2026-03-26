@@ -156,6 +156,40 @@
   --gsd-toast-radius: 6px;
 
   /* ----------------------------------------------------------
+     Component — badge variants
+     ---------------------------------------------------------- */
+  --gsd-badge-workflow-bg: rgba(80, 160, 220, 0.1);
+  --gsd-badge-workflow-fg: rgba(120, 180, 240, 0.85);
+  --gsd-badge-auto-bg: rgba(80, 200, 120, 0.12);
+  --gsd-badge-auto-fg: rgba(100, 210, 140, 0.9);
+  --gsd-badge-paused-bg: rgba(220, 180, 60, 0.1);
+  --gsd-badge-paused-fg: rgba(220, 190, 80, 0.85);
+  --gsd-badge-cost-bg: rgba(128, 128, 128, 0.08);
+  --gsd-badge-cost-fg: var(--gsd-color-text-muted);
+  --gsd-badge-context-bg: rgba(128, 128, 128, 0.08);
+  --gsd-badge-context-fg: var(--gsd-color-text-muted);
+  --gsd-badge-context-warn-bg: rgba(220, 180, 60, 0.12);
+  --gsd-badge-context-warn-fg: rgba(220, 190, 80, 0.9);
+  --gsd-badge-context-crit-bg: rgba(240, 80, 80, 0.12);
+  --gsd-badge-context-crit-fg: rgba(240, 100, 100, 0.9);
+  --gsd-badge-thinking-bg: rgba(160, 100, 255, 0.08);
+  --gsd-badge-thinking-fg: rgba(180, 140, 255, 0.85);
+
+  /* ----------------------------------------------------------
+     Component — visualizer
+     ---------------------------------------------------------- */
+  --gsd-viz-color-done: var(--gsd-color-success);
+  --gsd-viz-color-active: var(--vscode-charts-blue, #42a5f5);
+  --gsd-viz-color-blocked: var(--gsd-color-error);
+  --gsd-viz-color-pending: var(--gsd-color-text-muted);
+  --gsd-viz-color-milestone: var(--vscode-charts-purple, #ab47bc);
+  --gsd-viz-color-slice: var(--vscode-charts-blue, #42a5f5);
+  --gsd-viz-color-task: var(--gsd-color-success);
+  --gsd-viz-color-context: var(--gsd-color-warning);
+  --gsd-viz-surface: var(--gsd-color-surface-hover);
+  --gsd-viz-border: var(--gsd-color-border-subtle);
+
+  /* ----------------------------------------------------------
      Component — footer / status bar
      ---------------------------------------------------------- */
   --gsd-footer-bg: var(--vscode-sideBar-background, var(--vscode-editor-background));

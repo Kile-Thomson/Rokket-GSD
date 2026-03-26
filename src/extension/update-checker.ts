@@ -69,6 +69,7 @@ function getGitHubToken(): string | undefined {
       encoding: "utf8",
       timeout: 5000,
       stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
     }).trim();
     if (ghToken) {
       cachedToken = ghToken;
@@ -86,6 +87,7 @@ function getGitHubToken(): string | undefined {
         encoding: "utf8",
         timeout: 5000,
         stdio: ["pipe", "pipe", "pipe"],
+        windowsHide: true,
         input: "protocol=https\nhost=github.com\n\n",
       }
     ).trim();

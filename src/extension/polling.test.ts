@@ -105,7 +105,7 @@ describe("polling", () => {
 
     it("performs an immediate first poll", async () => {
       const client = createMockClient();
-      const session = createMockSession({ client: client as any });
+      const session = createMockSession({ client: client as any, isStreaming: true });
       const ctx = createMockPollingContext(session);
 
       startStatsPolling(ctx, FAKE_WEBVIEW, "s1");
@@ -123,7 +123,7 @@ describe("polling", () => {
 
     it("polls every 5 seconds", async () => {
       const client = createMockClient();
-      const session = createMockSession({ client: client as any });
+      const session = createMockSession({ client: client as any, isStreaming: true });
       const ctx = createMockPollingContext(session);
 
       startStatsPolling(ctx, FAKE_WEBVIEW, "s1");
@@ -202,7 +202,7 @@ describe("polling", () => {
 
     it("posts unresponsive status when ping fails", async () => {
       const client = createMockClient({ ping: vi.fn().mockResolvedValue(false) });
-      const session = createMockSession({ client: client as any });
+      const session = createMockSession({ client: client as any, isStreaming: true });
       const ctx = createMockPollingContext(session);
 
       startHealthMonitoring(ctx, FAKE_WEBVIEW, "s1");
@@ -222,7 +222,7 @@ describe("polling", () => {
         .mockResolvedValueOnce(false) // first: fail
         .mockResolvedValueOnce(true); // second: recover
       const client = createMockClient({ ping: pingFn });
-      const session = createMockSession({ client: client as any });
+      const session = createMockSession({ client: client as any, isStreaming: true });
       const ctx = createMockPollingContext(session);
 
       startHealthMonitoring(ctx, FAKE_WEBVIEW, "s1");

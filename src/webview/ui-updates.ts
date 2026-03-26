@@ -275,8 +275,12 @@ export function updateOverlayIndicators(): void {
   }
 
   if (state.processStatus === "crashed") {
+    const detailLine = state.lastExitDetail
+      ? `<div class="gsd-overlay-detail">${escapeHtml(state.lastExitDetail.slice(0, 200))}</div>`
+      : "";
     parts.push(`<div class="gsd-overlay-indicator crashed">
       ⚠ GSD process not running
+      ${detailLine}
       <button id="restartBtn" class="gsd-overlay-btn">Restart</button>
     </div>`);
   }
