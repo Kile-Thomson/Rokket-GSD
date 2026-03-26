@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.69-blue" alt="Version" />
-  <img src="https://img.shields.io/badge/gsd--pi-v2.12--v2.40-blue" alt="gsd-pi compatibility" />
+  <img src="https://img.shields.io/badge/version-0.2.73-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/gsd--pi-v2.12--v2.49-blue" alt="gsd-pi compatibility" />
   <img src="https://img.shields.io/badge/VS%20Code-1.94%2B-blue" alt="VS Code" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform" />
@@ -81,7 +81,7 @@ Warning toast when workers cross 80% of ceiling
 🛡️ **Process Resilience**<br>
 Built for multi-hour sessions with crash recovery
 
-🧪 **850 Tests, 60%+ Coverage**<br>
+🧪 **865 Tests, 60%+ Coverage**<br>
 CI coverage gate enforced on every push
 
 </td>
@@ -400,7 +400,7 @@ npm run watch    # Rebuilds on file changes
 |--------|-------------|
 | `npm run build` | Production build (extension + webview) |
 | `npm run watch` | Watch mode with auto-rebuild |
-| `npm test` | Run unit tests (Vitest, 850 tests across 44 files) |
+| `npm test` | Run unit tests (Vitest, 865 tests across 44 files) |
 | `npm run lint` | Run ESLint |
 | `npm run package` | Package as `.vsix` |
 
