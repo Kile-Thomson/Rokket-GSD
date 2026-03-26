@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { listSessions, deleteSession } from "./session-list-service";
+import { listSessions, deleteSession, validateSessionPath } from "./session-list-service";
 import { downloadAndInstallUpdate, dismissUpdateVersion, fetchRecentReleases } from "./update-checker";
 import { buildDashboardData } from "./dashboard-parser";
 import { loadMetricsLedger, buildMetricsData } from "./metrics-parser";
@@ -667,6 +667,8 @@ export async function handleWebviewMessage(
           const client = ctx.getSession(sessionId).client;
           if (client?.isRunning) {
             try {
+              // Validate session path is inside sessions directory
+              if (msg.path) validateSessionPath(msg.path);
               // Abort streaming if active before session switch (FT-20/FT-25)
               const sess = ctx.getSession(sessionId);
               if (sess.isStreaming) {

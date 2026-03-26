@@ -59,12 +59,13 @@ export function parsePhase(content: string): string {
 /**
  * Read and parse `.gsd/STATE.md` from the given workspace root.
  * Returns null if `.gsd/STATE.md` doesn't exist or can't be parsed.
+ * If `preReadContent` is provided, skips the file read and parses that instead.
  */
-export async function parseGsdWorkflowState(cwd: string): Promise<GsdWorkflowState | null> {
-  const statePath = path.join(cwd, ".gsd", "STATE.md");
-
+export async function parseGsdWorkflowState(cwd: string, preReadContent?: string): Promise<GsdWorkflowState | null> {
   try {
-    const content = await fs.promises.readFile(statePath, "utf-8");
+    const content = preReadContent ?? await fs.promises.readFile(
+      path.join(cwd, ".gsd", "STATE.md"), "utf-8"
+    );
 
     const milestone = parseActiveRef(content, "Milestone");
     const slice = parseActiveRef(content, "Slice");

@@ -26,8 +26,15 @@ export function startStatsPolling(ctx: PollingContext, webview: vscode.Webview, 
   if (existing) clearInterval(existing);
 
   const poll = async () => {
-    const client = ctx.getSession(sessionId).client;
+    const session = ctx.getSession(sessionId);
+    const client = session.client;
     if (!client?.isRunning) return;
+
+    // Skip stats poll when auto-progress poller is active (it already fetches stats)
+    // or when the session is idle (nothing is changing)
+    if (session.autoProgressPoller?.isActive) return;
+    if (!session.isStreaming) return;
+
     try {
       const stats = await client.getSessionStats() as SessionStats | null;
       if (stats) {
@@ -56,11 +63,12 @@ export function startHealthMonitoring(ctx: PollingContext, webview: vscode.Webvi
   ctx.getSession(sessionId).healthState = "responsive";
 
   const check = async () => {
-    const client = ctx.getSession(sessionId).client;
+    const session = ctx.getSession(sessionId);
+    const client = session.client;
     if (!client?.isRunning) return;
 
-    // Only health-check while streaming (tool execution in progress)
-    // During idle, the process is just waiting for input — no need to ping
+    // Only health-check while streaming — idle processes are just waiting for input
+    if (!session.isStreaming) return;
     const isHealthy = await client.ping(10000);
     const previousState = ctx.getSession(sessionId).healthState || "responsive";
 

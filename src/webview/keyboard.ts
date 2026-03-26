@@ -44,6 +44,23 @@ let changelogTrapHandler: ((e: KeyboardEvent) => void) | null = null;
 let changelogNavHandler: ((e: KeyboardEvent) => void) | null = null;
 let changelogTriggerEl: HTMLElement | null = null;
 
+/**
+ * Update module-level changelog handler refs when the changelog DOM element is replaced.
+ * Called by message-handler.ts when changelog content arrives and replaces the loading state.
+ */
+export function setChangelogHandlers(
+  trap: ((e: KeyboardEvent) => void) | null,
+  nav: ((e: KeyboardEvent) => void) | null,
+): void {
+  changelogTrapHandler = trap;
+  changelogNavHandler = nav;
+}
+
+/** Get the saved changelog trigger element for focus restoration. */
+export function getChangelogTriggerEl(): HTMLElement | null {
+  return changelogTriggerEl;
+}
+
 export interface KeyboardDeps {
   vscode: { postMessage(msg: unknown): void };
   messagesContainer: HTMLElement;

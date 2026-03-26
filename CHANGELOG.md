@@ -4,6 +4,38 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.75] — 2026-03-26
+
+### Fixed
+- **compact() infinite hang** — added 300s timeout to `compact()` and 60s to `get_messages()` (were infinite, could hang forever if gsd-pi stopped responding).
+- **stopReason error not cleared** — extension host now checks `stopReason:"error"` on `message_end` and clears streaming state, instead of waiting 60s+ for the activity monitor.
+- **Stale webview on sidebar re-resolve** — all 4 client event listeners (event, exit, error, log) are now rebound when the sidebar is hidden and re-shown, not just the "event" listener.
+- **Error handler missing cleanup** — the `client.on("error")` handler now cleans up timers and watchdogs (previously only the exit handler did, leaving timers running against a dead client).
+- **Orphaned EventEmitter listeners** — `cleanupSessionState` now calls `removeAllListeners()` before stopping the client.
+- **Cross-platform export path** — hardcoded `\\` in HTML export default path replaced with `path.join()` (was broken on macOS/Linux).
+- **switch_session path traversal** — session path is now validated against sessions directory boundary before forwarding to RPC (mirrors delete_session pattern).
+- **Stale pruned count** — `totalPrunedCount` now resets on session switch (was persisting across sessions showing wrong "N messages removed" count).
+- **Windows console flash** — added `windowsHide: true` to 3 `execSync` calls in update-checker and webview-provider.
+- **Changelog keyboard handler orphaning** — fixed the dual-render path where keyboard.ts and message-handler.ts competed for changelog DOM ownership, causing orphaned focus trap handlers.
+- **Dead CSS selectors** — fixed `.gsd-context-bar-fill` in Phosphor and Forge themes (actual element is `.gsd-context-bar`).
+
+### Changed
+- **Polling performance** — auto-progress poll now runs RPC calls in parallel (`Promise.all`) and filesystem reads in parallel (~50% cycle time reduction on the 3s auto-mode ticker).
+- **Stats polling gated** — stats poll (5s) now skips when session is idle or when auto-progress poller is active (eliminates ~12 redundant RPC calls/min).
+- **Health monitoring gated** — health ping (30s) now skips when not streaming (don't ping idle processes).
+- **Dashboard double-read eliminated** — `buildDashboardData` no longer reads STATE.md twice per call; `parseGsdWorkflowState` accepts pre-read content.
+- **existsSync removed** — replaced blocking `existsSync` in `buildDashboardData` with async `fs.promises.access`.
+
+### Added
+- **26 new design tokens** — badge variant tokens (`--gsd-badge-workflow-*`, `--gsd-badge-auto-*`, etc.) and visualizer tokens (`--gsd-viz-color-*`) in tokens.css.
+- **Visualizer theme support** — ~25 hardcoded Material Design colors replaced with `--gsd-viz-*` tokens that respect the active theme.
+- **Badge tokenization** — all badge colors (workflow, cost, context, thinking) now flow through the token layer.
+- **Crash diagnostic context** — crash overlay now shows the exit detail inline instead of just "GSD process not running".
+- **Compact completion toast** — "Context compacted successfully" toast on compaction end.
+- **Slash menu aria-activedescendant** — screen readers now announce the highlighted item during keyboard navigation.
+- **Focus-visible on 10 elements** — send button, attach button, icon buttons, overlay close buttons, settings options, session history items, fork button, and UI buttons now show visible focus rings for keyboard navigation.
+- **Toast overflow protection** — `max-width` and `text-overflow: ellipsis` prevent long toast messages from overflowing the sidebar.
+
 ## [0.2.69] — 2026-03-23
 
 ### Fixed

@@ -113,7 +113,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { execSync } = require("child_process");
       const gsdPath = execSync(process.platform === "win32" ? "where gsd" : "which gsd", {
-        encoding: "utf8", timeout: 5000,
+        encoding: "utf8", timeout: 5000, windowsHide: true,
       }).trim().split(/\r?\n/)[0];
       if (gsdPath) {
         let dir = path.dirname(gsdPath);
@@ -145,12 +145,14 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     const existingClient = this.sidebarSessionId ? this.getSession(this.sidebarSessionId).client : null;
     if (this.sidebarSessionId && existingClient?.isRunning) {
       sessionId = this.sidebarSessionId;
+      // Rebind ALL client listeners to reference the new webview (not just "event")
       existingClient.removeAllListeners("event");
-      existingClient.on("event", (event: Record<string, unknown>) => {
-        handleRpcEvent(this.rpcEventCtx, webviewView.webview, sessionId, event, existingClient);
-      });
+      existingClient.removeAllListeners("exit");
+      existingClient.removeAllListeners("error");
+      existingClient.removeAllListeners("log");
       this.getSession(sessionId).webview = webviewView.webview;
-      this.output.appendLine(`[${sessionId}] Sidebar re-resolved — reusing existing session`);
+      this._bindClientListeners(existingClient, webviewView.webview, sessionId);
+      this.output.appendLine(`[${sessionId}] Sidebar re-resolved — reusing existing session, all listeners rebound`);
     } else {
       if (this.sidebarSessionId) this.cleanupSession(this.sidebarSessionId);
       sessionId = `sidebar-${++this.sessionCounter}`;
@@ -322,20 +324,15 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     return promise;
   }
 
-  private async _doLaunchGsd(webview: vscode.Webview, sessionId: string, cwd?: string): Promise<void> {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    const workingDir = cwd || workspaceFolders?.[0]?.uri.fsPath || process.cwd();
-    const config = vscode.workspace.getConfiguration("gsd");
-    const processWrapper = config.get<string>("processWrapper", "");
-    const envVars = config.get<Array<{ name: string; value: string }>>("environmentVariables", []);
-    const env: Record<string, string> = {};
-    for (const { name, value } of envVars) env[name] = value;
-
-    this.postToWebview(webview, { type: "process_status", status: "starting" } as ExtensionToWebviewMessage);
-    const client = new GsdRpcClient();
-
+  /**
+   * Bind all 4 RPC client event listeners (event, log, exit, error) to the given webview.
+   * Used both at initial launch and on sidebar re-resolve to ensure handlers reference
+   * the current webview instance. Resolves webview via session state for long-lived handlers.
+   */
+  private _bindClientListeners(client: GsdRpcClient, webview: vscode.Webview, sessionId: string): void {
     client.on("event", (event: Record<string, unknown>) => {
-      handleRpcEvent(this.rpcEventCtx, webview, sessionId, event, client);
+      const currentWebview = this.getSession(sessionId).webview ?? webview;
+      handleRpcEvent(this.rpcEventCtx, currentWebview, sessionId, event, client);
     });
 
     let stderrLineBuffer = "";
@@ -353,7 +350,6 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           try {
             const progress = JSON.parse(trimmed);
             if (progress.__async_subagent_progress && progress.toolCallId) {
-              // Resolve current webview — may have changed since session start
               const currentWebview = this.getSession(sessionId).webview ?? webview;
               this.postToWebview(currentWebview, {
                 type: "async_subagent_progress",
@@ -374,22 +370,13 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
     client.on("exit", ({ code, signal, detail }: { code: number | null; signal: string | null; detail?: string }) => {
       this.output.appendLine(`[${sessionId}] Process exited: ${detail || `code=${code}, signal=${signal}`}`);
-      this.postToWebview(webview, { type: "process_exit", code, signal, detail });
+      const currentWebview = this.getSession(sessionId).webview ?? webview;
+      this.postToWebview(currentWebview, { type: "process_exit", code, signal, detail });
       const isCleanExit = code === 0 || signal === "SIGTERM" || signal === "SIGKILL";
-      this.postToWebview(webview, { type: "process_status", status: isCleanExit ? "stopped" : "crashed" } as ExtensionToWebviewMessage);
+      this.postToWebview(currentWebview, { type: "process_status", status: isCleanExit ? "stopped" : "crashed" } as ExtensionToWebviewMessage);
 
       // Stop all monitoring timers and watchdogs
-      stopAllPolling(this.pollingCtx, sessionId);
-      this.getSession(sessionId).autoModeState = null;
-      stopActivityMonitor(this.watchdogCtx, sessionId);
-      this.getSession(sessionId).isStreaming = false;
-      clearPromptWatchdog(this.watchdogCtx, sessionId);
-      const slashWd = this.getSession(sessionId).slashWatchdog;
-      if (slashWd) { clearTimeout(slashWd); this.getSession(sessionId).slashWatchdog = null; }
-      this.getSession(sessionId).lastEventTime = 0;
-      const gsdTimer = this.getSession(sessionId).gsdFallbackTimer;
-      if (gsdTimer) { clearTimeout(gsdTimer); this.getSession(sessionId).gsdFallbackTimer = null; }
-      this.getSession(sessionId).gsdTurnStarted = false;
+      this._cleanupTimersAndWatchdogs(sessionId);
 
       if (isCleanExit) {
         this.getSession(sessionId).client = null;
@@ -400,9 +387,43 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
     client.on("error", (err: Error) => {
       this.output.appendLine(`[${sessionId}] Process error: ${err.message}`);
-      this.postToWebview(webview, { type: "process_exit", code: null, signal: null, detail: `Failed to start GSD: ${err.message}` });
-      this.postToWebview(webview, { type: "process_status", status: "crashed" } as ExtensionToWebviewMessage);
+      const currentWebview = this.getSession(sessionId).webview ?? webview;
+      this.postToWebview(currentWebview, { type: "process_exit", code: null, signal: null, detail: `Failed to start GSD: ${err.message}` });
+      this.postToWebview(currentWebview, { type: "process_status", status: "crashed" } as ExtensionToWebviewMessage);
+
+      // T05: Clean up timers on error too (mirrors exit handler)
+      this._cleanupTimersAndWatchdogs(sessionId);
     });
+  }
+
+  /** Stop all monitoring timers, watchdogs, and reset streaming state for a session. */
+  private _cleanupTimersAndWatchdogs(sessionId: string): void {
+    stopAllPolling(this.pollingCtx, sessionId);
+    this.getSession(sessionId).autoModeState = null;
+    stopActivityMonitor(this.watchdogCtx, sessionId);
+    this.getSession(sessionId).isStreaming = false;
+    clearPromptWatchdog(this.watchdogCtx, sessionId);
+    const slashWd = this.getSession(sessionId).slashWatchdog;
+    if (slashWd) { clearTimeout(slashWd); this.getSession(sessionId).slashWatchdog = null; }
+    this.getSession(sessionId).lastEventTime = 0;
+    const gsdTimer = this.getSession(sessionId).gsdFallbackTimer;
+    if (gsdTimer) { clearTimeout(gsdTimer); this.getSession(sessionId).gsdFallbackTimer = null; }
+    this.getSession(sessionId).gsdTurnStarted = false;
+  }
+
+  private async _doLaunchGsd(webview: vscode.Webview, sessionId: string, cwd?: string): Promise<void> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    const workingDir = cwd || workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+    const config = vscode.workspace.getConfiguration("gsd");
+    const processWrapper = config.get<string>("processWrapper", "");
+    const envVars = config.get<Array<{ name: string; value: string }>>("environmentVariables", []);
+    const env: Record<string, string> = {};
+    for (const { name, value } of envVars) env[name] = value;
+
+    this.postToWebview(webview, { type: "process_status", status: "starting" } as ExtensionToWebviewMessage);
+    const client = new GsdRpcClient();
+
+    this._bindClientListeners(client, webview, sessionId);
 
     try {
       await client.start({ cwd: workingDir, gsdPath: processWrapper || undefined, env });

@@ -146,7 +146,7 @@
 
 /* Glow effects on misc elements */
 .gsd-app[data-theme="phosphor"] .gsd-welcome-ascii { text-shadow: var(--phosphor-glow); }
-.gsd-app[data-theme="phosphor"] .gsd-context-bar-fill { box-shadow: 0 0 6px rgba(0, 255, 65, 0.3); }
+.gsd-app[data-theme="phosphor"] .gsd-context-bar { box-shadow: 0 0 6px rgba(0, 255, 65, 0.3); }
 .gsd-app[data-theme="phosphor"] .gsd-settings-option.active .gsd-settings-option-dot { box-shadow: var(--phosphor-glow); }
 
 /* Scrollbar hover */

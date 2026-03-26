@@ -142,7 +142,13 @@ async function findFile(dir: string, suffix: string): Promise<string | null> {
  */
 export async function buildDashboardData(cwd: string): Promise<DashboardData | null> {
   const gsdDir = path.join(cwd, ".gsd");
-  if (!fs.existsSync(gsdDir)) return null;
+
+  // Check .gsd dir exists (async, replaces existsSync)
+  try {
+    await fs.promises.access(gsdDir);
+  } catch {
+    return null;
+  }
 
   // Read STATE.md raw content for registry/blockers/next
   const statePath = path.join(gsdDir, "STATE.md");
@@ -150,10 +156,11 @@ export async function buildDashboardData(cwd: string): Promise<DashboardData | n
   try {
     stateContent = await fs.promises.readFile(statePath, "utf-8");
   } catch {
-    // No STATE.md
+    // No STATE.md — proceed with empty content
   }
 
-  const wfState = await parseGsdWorkflowState(cwd);
+  // Pass pre-read content to avoid double-reading STATE.md
+  const wfState = await parseGsdWorkflowState(cwd, stateContent || undefined);
   const milestoneRegistry = parseMilestoneRegistry(stateContent);
   const blockers = parseBlockers(stateContent);
   const nextAction = parseNextAction(stateContent);
