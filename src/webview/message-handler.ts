@@ -17,6 +17,7 @@ import {
   state,
   nextId,
   pruneOldEntries,
+  resetPrunedCount,
   type ChatEntry,
   type ToolCallState,
   type TurnSegment,
@@ -800,6 +801,7 @@ function handleMessage(event: MessageEvent): void {
       renderer.resetStreamingState();
       renderer.clearMessages();
       state.sessionStats = {};
+      resetPrunedCount();
 
       // Apply the new state
       if (data.state) {

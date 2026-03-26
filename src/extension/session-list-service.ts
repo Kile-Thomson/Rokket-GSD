@@ -240,3 +240,14 @@ export async function deleteSession(sessionPath: string): Promise<void> {
 
   await fs.promises.unlink(resolved);
 }
+
+/** Validate that a session path is inside the sessions directory. */
+export function validateSessionPath(sessionPath: string): void {
+  const sessionsRoot = path.join(os.homedir(), CONFIG_DIR, SESSIONS_SUBDIR);
+  const resolved = path.resolve(sessionPath);
+  const normalizedRoot = path.resolve(sessionsRoot);
+
+  if (!resolved.startsWith(normalizedRoot + path.sep) && resolved !== normalizedRoot) {
+    throw new Error(`[GSD-ERR-003] Refusing to access session file outside sessions directory: ${resolved}`);
+  }
+}

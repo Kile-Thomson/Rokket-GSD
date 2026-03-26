@@ -158,6 +158,13 @@ export function pruneOldEntries(container: HTMLElement): number {
   return excess;
 }
 
+/** Reset the pruned-entries count and hide the indicator. Call on session switch. */
+export function resetPrunedCount(): void {
+  totalPrunedCount = 0;
+  const indicator = document.getElementById("gsd-pruned-indicator");
+  if (indicator) indicator.classList.add("gsd-hidden");
+}
+
 // ============================================================
 // Shared mutable state
 // ============================================================

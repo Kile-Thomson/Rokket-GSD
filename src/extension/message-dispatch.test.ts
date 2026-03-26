@@ -13,6 +13,7 @@ vi.mock("vscode", () => ({
 vi.mock("./session-list-service", () => ({
   listSessions: vi.fn().mockResolvedValue([]),
   deleteSession: vi.fn().mockResolvedValue(undefined),
+  validateSessionPath: vi.fn(),
 }));
 
 vi.mock("./update-checker", () => ({
