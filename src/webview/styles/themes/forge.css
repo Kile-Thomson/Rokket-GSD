@@ -142,9 +142,12 @@
 .gsd-app[data-theme="forge"] .gsd-settings-option.active .gsd-settings-option-dot { box-shadow: var(--forge-accent-glow); }
 .gsd-app[data-theme="forge"] .gsd-settings-option:hover { background: var(--forge-elevated); }
 
-/* Context bar fill: gradient */
-.gsd-app[data-theme="forge"] .gsd-context-bar { background: var(--forge-recessed); border-radius: 2px; box-shadow: var(--forge-inset); }
-.gsd-app[data-theme="forge"] .gsd-context-bar { background: linear-gradient(90deg, var(--forge-accent), rgba(200, 135, 90, 0.7)); border-radius: 2px; }
+/* Context bar: gradient fill with inset shadow */
+.gsd-app[data-theme="forge"] .gsd-context-bar {
+  background: linear-gradient(90deg, var(--forge-accent), rgba(200, 135, 90, 0.7));
+  border-radius: 2px;
+  box-shadow: var(--forge-inset);
+}
 
 /* Scrollbar */
 .gsd-app[data-theme="forge"] .gsd-messages::-webkit-scrollbar-thumb { background: rgba(200, 135, 90, 0.12); border-radius: 2px; }
