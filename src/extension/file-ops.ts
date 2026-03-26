@@ -189,7 +189,7 @@ ${exportOverrides}
 </html>`;
     // Show save dialog defaulting to Downloads
     const defaultUri = vscode.Uri.file(
-      (process.env.USERPROFILE || process.env.HOME || "") + `\\Downloads\\gsd-export-${timestamp}.html`
+      path.join(process.env.USERPROFILE || process.env.HOME || "", "Downloads", `gsd-export-${timestamp}.html`)
     );
     const uri = await vscode.window.showSaveDialog({
       defaultUri,

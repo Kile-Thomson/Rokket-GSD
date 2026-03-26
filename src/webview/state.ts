@@ -101,6 +101,8 @@ export interface AppState {
   currentTurn: AssistantTurn | null;
   // Process health state
   processHealth: ProcessHealthStatus;
+  // Last exit detail for crash overlay diagnostic context
+  lastExitDetail: string | null;
   // Auto-mode progress data (null = not in auto-mode)
   autoProgress: AutoProgressData | null;
   // Timestamp of last auto_progress message (for stale-data guard)
@@ -158,6 +160,12 @@ export function pruneOldEntries(container: HTMLElement): number {
   return excess;
 }
 
+/** Reset the pruned-entries count and remove the indicator. Call on session switch. */
+export function resetPrunedCount(): void {
+  totalPrunedCount = 0;
+  document.querySelector(".gsd-pruned-indicator")?.remove();
+}
+
 // ============================================================
 // Shared mutable state
 // ============================================================
@@ -185,6 +193,7 @@ export const state: AppState = {
   modelsRequested: false,
   currentTurn: null,
   processHealth: "responsive",
+  lastExitDetail: null,
   autoProgress: null,
   autoProgressLastUpdate: 0,
   widgetData: new Map(),
@@ -229,10 +238,10 @@ export function resetState(): void {
   state.modelsRequested = false;
   state.currentTurn = null;
   state.processHealth = "responsive";
+  state.lastExitDetail = null;
   state.autoProgress = null;
   state.autoProgressLastUpdate = 0;
   state.widgetData.clear();
   entryIdCounter = 0;
-  // Reset pruned-entries indicator state
-  totalPrunedCount = 0;
+  resetPrunedCount();
 }

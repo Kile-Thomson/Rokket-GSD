@@ -193,51 +193,43 @@ export class AutoProgressPoller {
     }
 
     try {
-      // 1. Get RPC state for model info
+      // 1. Get RPC state + stats in parallel
       let model: { id: string; provider: string } | null = null;
       let cost: number | undefined;
 
       if (this.client.isRunning) {
-        try {
-          const rpcState = await this.client.getState() as Record<string, unknown> | null;
-          if (rpcState?.model) {
-            const m = rpcState.model as { id?: string; provider?: string };
-            if (m.id && m.provider) {
-              model = { id: m.id, provider: m.provider };
-            }
+        const [rpcState, stats] = await Promise.all([
+          this.client.getState().catch(() => null) as Promise<Record<string, unknown> | null>,
+          this.client.getSessionStats().catch(() => null) as Promise<Record<string, unknown> | null>,
+        ]);
+
+        if (rpcState?.model) {
+          const m = rpcState.model as { id?: string; provider?: string };
+          if (m.id && m.provider) {
+            model = { id: m.id, provider: m.provider };
           }
-        } catch {
-          // RPC timeout/error during poll — non-fatal, use stale data
         }
 
-        // Get session stats for cost
-        try {
-          const stats = await this.client.getSessionStats() as Record<string, unknown> | null;
-          if (stats?.cost !== undefined) {
-            cost = stats.cost as number;
-          }
-        } catch {
-          // Non-fatal
+        if (stats?.cost !== undefined) {
+          cost = stats.cost as number;
         }
       }
 
-      // 2. Detect model changes
-      if (model && this.lastModel) {
-        if (model.id !== this.lastModel.id || model.provider !== this.lastModel.provider) {
+      // 2. Detect model changes — only update lastModel when RPC succeeded
+      if (model) {
+        if (this.lastModel && (model.id !== this.lastModel.id || model.provider !== this.lastModel.provider)) {
           this.onModelChanged?.(this.lastModel, model);
         }
+        this.lastModel = model;
       }
-      this.lastModel = model;
 
-      // 3. Get dashboard data from .gsd/ files
+      // 3. Get filesystem data in parallel
       const cwd = this.getCwd();
-      const dashData = await buildDashboardData(cwd);
-
-      // 4. Count pending captures
-      const pendingCaptures = await countPendingCaptures(cwd);
-
-      // 5. Read parallel worker status
-      const rawWorkers = await readParallelWorkers(cwd);
+      const [dashData, pendingCaptures, rawWorkers] = await Promise.all([
+        buildDashboardData(cwd),
+        countPendingCaptures(cwd),
+        readParallelWorkers(cwd),
+      ]);
       let workers: WorkerProgress[] | null = null;
       let budgetAlert = false;
 

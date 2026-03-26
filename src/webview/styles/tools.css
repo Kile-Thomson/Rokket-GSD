@@ -30,7 +30,7 @@
 .gsd-tool-group {
   margin: 6px 0 10px;
   border-radius: var(--gsd-radius-lg);
-  border: 1px solid rgba(100, 160, 255, 0.12);
+  border: 1px solid var(--gsd-tool-border);
   overflow: hidden;
 }
 
@@ -39,7 +39,7 @@
   align-items: center;
   gap: var(--gsd-space-sm);
   padding: 5px 10px;
-  background: rgba(100, 160, 255, 0.04);
+  background: var(--gsd-color-surface-hover);
   cursor: pointer;
   font-size: var(--gsd-font-size-sm);
   font-weight: 500;
@@ -96,7 +96,7 @@
 .gsd-thinking-block {
   margin: 6px 0 10px;
   border-radius: var(--gsd-radius-lg);
-  border: 1px solid rgba(160, 100, 255, 0.12);
+  border: 1px solid var(--gsd-tool-border);
   overflow: hidden;
 }
 
@@ -105,7 +105,7 @@
   align-items: center;
   gap: var(--gsd-space-sm);
   padding: 5px 10px;
-  background: rgba(160, 100, 255, 0.04);
+  background: var(--gsd-color-surface-hover);
   cursor: pointer;
   font-size: var(--gsd-font-size-sm);
   font-weight: 500;

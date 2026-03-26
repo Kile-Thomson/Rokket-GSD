@@ -99,6 +99,15 @@ export function handleRpcEvent(
       session.accumulatedCost += usage.cost.total;
       ctx.emitStatus({ cost: session.accumulatedCost });
     }
+    // Check for error stopReason — clear streaming state even if agent_end never arrives
+    const stopReason = (msg as any)?.stopReason as string | undefined;
+    if (stopReason === "error") {
+      const session = ctx.getSession(sessionId);
+      session.isStreaming = false;
+      ctx.emitStatus({ isStreaming: false });
+      stopActivityMonitor(ctx.watchdogCtx, sessionId);
+      ctx.output.appendLine(`[${sessionId}] message_end stopReason=error — cleared streaming state`);
+    }
   } else if (eventType === "fallback_provider_switch") {
     const to = (event as any).to as string || "";
     if (to) ctx.emitStatus({ model: to });
