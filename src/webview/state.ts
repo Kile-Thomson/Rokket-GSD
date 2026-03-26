@@ -160,11 +160,10 @@ export function pruneOldEntries(container: HTMLElement): number {
   return excess;
 }
 
-/** Reset the pruned-entries count and hide the indicator. Call on session switch. */
+/** Reset the pruned-entries count and remove the indicator. Call on session switch. */
 export function resetPrunedCount(): void {
   totalPrunedCount = 0;
-  const indicator = document.querySelector(".gsd-pruned-indicator") as HTMLElement | null;
-  if (indicator) indicator.classList.add("gsd-hidden");
+  document.querySelector(".gsd-pruned-indicator")?.remove();
 }
 
 // ============================================================
@@ -239,10 +238,10 @@ export function resetState(): void {
   state.modelsRequested = false;
   state.currentTurn = null;
   state.processHealth = "responsive";
+  state.lastExitDetail = null;
   state.autoProgress = null;
   state.autoProgressLastUpdate = 0;
   state.widgetData.clear();
   entryIdCounter = 0;
-  // Reset pruned-entries indicator state
-  totalPrunedCount = 0;
+  resetPrunedCount();
 }

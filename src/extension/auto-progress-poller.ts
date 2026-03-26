@@ -215,13 +215,13 @@ export class AutoProgressPoller {
         }
       }
 
-      // 2. Detect model changes
-      if (model && this.lastModel) {
-        if (model.id !== this.lastModel.id || model.provider !== this.lastModel.provider) {
+      // 2. Detect model changes — only update lastModel when RPC succeeded
+      if (model) {
+        if (this.lastModel && (model.id !== this.lastModel.id || model.provider !== this.lastModel.provider)) {
           this.onModelChanged?.(this.lastModel, model);
         }
+        this.lastModel = model;
       }
-      this.lastModel = model;
 
       // 3. Get filesystem data in parallel
       const cwd = this.getCwd();

@@ -745,10 +745,10 @@ describe("renderer", () => {
       expect(indicator).toBeTruthy();
       expect(indicator!.textContent).toContain("10");
 
-      // Call resetPrunedCount — should hide indicator
+      // Call resetPrunedCount — should remove indicator from DOM
       resetPrunedCount();
 
-      expect(indicator!.classList.contains("gsd-hidden")).toBe(true);
+      expect(messagesContainer.querySelector(".gsd-pruned-indicator")).toBeNull();
 
       // After reset, a new prune should count from 0
       pushEntries(5);
