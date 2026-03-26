@@ -163,7 +163,7 @@ export function pruneOldEntries(container: HTMLElement): number {
 /** Reset the pruned-entries count and hide the indicator. Call on session switch. */
 export function resetPrunedCount(): void {
   totalPrunedCount = 0;
-  const indicator = document.getElementById("gsd-pruned-indicator");
+  const indicator = document.querySelector(".gsd-pruned-indicator") as HTMLElement | null;
   if (indicator) indicator.classList.add("gsd-hidden");
 }
 
