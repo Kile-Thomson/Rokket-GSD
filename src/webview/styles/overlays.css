@@ -1173,7 +1173,7 @@
   padding: 2px 8px;
   border-radius: var(--gsd-radius-md);
   background: rgba(40, 167, 69, 0.15);
-  color: #4caf50;
+  color: var(--gsd-viz-color-done);
   letter-spacing: 0.5px;
 }
 
@@ -1189,19 +1189,19 @@
 
 .gsd-visualizer-phase.phase-executing {
   background: rgba(33, 150, 243, 0.15);
-  color: #64b5f6;
+  color: var(--gsd-viz-color-active);
   opacity: 1;
 }
 
 .gsd-visualizer-phase.phase-complete {
   background: rgba(40, 167, 69, 0.15);
-  color: #4caf50;
+  color: var(--gsd-viz-color-done);
   opacity: 1;
 }
 
 .gsd-visualizer-phase.phase-blocked {
   background: rgba(244, 67, 54, 0.15);
-  color: #ef5350;
+  color: var(--gsd-viz-color-blocked);
   opacity: 1;
 }
 
@@ -1339,10 +1339,10 @@
   background: var(--vscode-focusBorder, #007acc);
 }
 
-.gsd-viz-progress-fill--milestone { background: #ab47bc; }
-.gsd-viz-progress-fill--slice { background: #42a5f5; }
-.gsd-viz-progress-fill--task { background: #66bb6a; }
-.gsd-viz-progress-fill--context { background: #ff9800; }
+.gsd-viz-progress-fill--milestone { background: var(--gsd-viz-color-milestone); }
+.gsd-viz-progress-fill--slice { background: var(--gsd-viz-color-slice); }
+.gsd-viz-progress-fill--task { background: var(--gsd-viz-color-task); }
+.gsd-viz-progress-fill--context { background: var(--gsd-viz-color-context); }
 
 .gsd-viz-progress-pct {
   width: 36px;
@@ -1366,7 +1366,7 @@
   padding: 8px 12px;
   border-radius: var(--gsd-radius-lg);
   background: rgba(33, 150, 243, 0.08);
-  border-left: 3px solid #42a5f5;
+  border-left: 3px solid var(--gsd-viz-color-active);
   margin-bottom: 16px;
   font-size: var(--gsd-font-size-md);
 }
@@ -1400,7 +1400,7 @@
 }
 
 .gsd-viz-blockers-title {
-  color: #ef5350;
+  color: var(--gsd-viz-color-blocked);
   opacity: 0.8;
 }
 
@@ -1433,8 +1433,8 @@
   font-size: var(--gsd-font-size-sm);
 }
 
-.gsd-viz-slice.done .gsd-viz-icon { color: #4caf50; }
-.gsd-viz-slice.active .gsd-viz-icon { color: #42a5f5; }
+.gsd-viz-slice.done .gsd-viz-icon { color: var(--gsd-viz-color-done); }
+.gsd-viz-slice.active .gsd-viz-icon { color: var(--gsd-viz-color-active); }
 
 .gsd-viz-slice-title {
   flex: 1;
@@ -1449,9 +1449,9 @@
   letter-spacing: 0.3px;
 }
 
-.gsd-viz-risk.risk-high { background: rgba(244,67,54,0.12); color: #ef5350; }
-.gsd-viz-risk.risk-medium { background: rgba(255,152,0,0.12); color: #ff9800; }
-.gsd-viz-risk.risk-low { background: rgba(76,175,80,0.12); color: #4caf50; }
+.gsd-viz-risk.risk-high { background: rgba(244,67,54,0.12); color: var(--gsd-viz-color-blocked); }
+.gsd-viz-risk.risk-medium { background: rgba(255,152,0,0.12); color: var(--gsd-viz-color-context); }
+.gsd-viz-risk.risk-low { background: rgba(76,175,80,0.12); color: var(--gsd-viz-color-done); }
 
 .gsd-viz-slice-progress {
   font-size: var(--gsd-font-size-xs);
@@ -1474,8 +1474,8 @@
 }
 
 .gsd-viz-task.done { opacity: 0.5; }
-.gsd-viz-task.done .gsd-viz-icon { color: #4caf50; }
-.gsd-viz-task.active .gsd-viz-icon { color: #42a5f5; }
+.gsd-viz-task.done .gsd-viz-icon { color: var(--gsd-viz-color-done); }
+.gsd-viz-task.active .gsd-viz-icon { color: var(--gsd-viz-color-active); }
 
 /* Registry */
 .gsd-viz-registry-item {
@@ -1487,15 +1487,15 @@
 }
 
 .gsd-viz-registry-item.done { opacity: 0.5; }
-.gsd-viz-registry-item.done .gsd-viz-icon { color: #4caf50; }
-.gsd-viz-registry-item.active .gsd-viz-icon { color: #42a5f5; }
+.gsd-viz-registry-item.done .gsd-viz-icon { color: var(--gsd-viz-color-done); }
+.gsd-viz-registry-item.active .gsd-viz-icon { color: var(--gsd-viz-color-active); }
 
 /* Blockers */
 .gsd-viz-blocker {
   padding: 6px 10px;
   border-radius: var(--gsd-radius-md);
   background: rgba(244,67,54,0.08);
-  border-left: 3px solid #ef5350;
+  border-left: 3px solid var(--gsd-viz-color-blocked);
   font-size: var(--gsd-font-size-md);
   margin-bottom: 4px;
 }
@@ -1519,8 +1519,8 @@
 .gsd-viz-metric-card {
   padding: 16px;
   border-radius: var(--gsd-radius-xl);
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
+  background: var(--gsd-viz-surface);
+  border: 1px solid var(--gsd-viz-border);
   text-align: center;
 }
 
@@ -1556,7 +1556,7 @@
   align-items: center;
   padding: 8px;
   border-radius: var(--gsd-radius-lg);
-  background: rgba(255,255,255,0.02);
+  background: var(--gsd-viz-surface);
 }
 
 .gsd-viz-token-item.gsd-viz-token-total {

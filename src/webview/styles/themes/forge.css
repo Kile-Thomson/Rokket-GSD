@@ -144,7 +144,7 @@
 
 /* Context bar fill: gradient */
 .gsd-app[data-theme="forge"] .gsd-context-bar { background: var(--forge-recessed); border-radius: 2px; box-shadow: var(--forge-inset); }
-.gsd-app[data-theme="forge"] .gsd-context-bar-fill { background: linear-gradient(90deg, var(--forge-accent), rgba(200, 135, 90, 0.7)); border-radius: 2px; }
+.gsd-app[data-theme="forge"] .gsd-context-bar { background: linear-gradient(90deg, var(--forge-accent), rgba(200, 135, 90, 0.7)); border-radius: 2px; }
 
 /* Scrollbar */
 .gsd-app[data-theme="forge"] .gsd-messages::-webkit-scrollbar-thumb { background: rgba(200, 135, 90, 0.12); border-radius: 2px; }

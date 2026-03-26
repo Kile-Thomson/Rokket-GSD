@@ -84,8 +84,8 @@
   font-weight: 500;
   font-family: var(--gsd-font-family-mono);
   letter-spacing: 0.2px;
-  background: rgba(80, 160, 220, 0.1);
-  color: rgba(120, 180, 240, 0.85);
+  background: var(--gsd-badge-workflow-bg);
+  color: var(--gsd-badge-workflow-fg);
   min-height: 28px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -94,23 +94,23 @@
 }
 
 .gsd-workflow-badge.auto {
-  background: rgba(80, 200, 120, 0.12);
-  color: rgba(100, 210, 140, 0.9);
+  background: var(--gsd-badge-auto-bg);
+  color: var(--gsd-badge-auto-fg);
 }
 
 .gsd-workflow-badge.blocked {
-  background: rgba(220, 60, 60, 0.12);
+  background: var(--gsd-badge-context-crit-bg);
   color: var(--gsd-color-text-error);
 }
 
 .gsd-workflow-badge.paused {
-  background: rgba(220, 160, 40, 0.12);
+  background: var(--gsd-badge-paused-bg);
   color: var(--gsd-color-text-warning);
 }
 
 .gsd-workflow-badge.complete {
-  background: rgba(80, 180, 80, 0.1);
-  color: rgba(120, 200, 120, 0.85);
+  background: var(--gsd-badge-auto-bg);
+  color: var(--gsd-badge-auto-fg);
 }
 
 .gsd-header-info {
@@ -152,14 +152,14 @@
 }
 
 .gsd-thinking-badge {
-  background: rgba(160, 100, 255, 0.12);
-  color: rgba(180, 140, 255, 0.9);
+  background: var(--gsd-badge-thinking-bg);
+  color: var(--gsd-badge-thinking-fg);
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .gsd-thinking-badge:hover {
-  background: rgba(160, 100, 255, 0.22);
+  background: var(--gsd-badge-thinking-bg);  filter: brightness(1.3);
 }
 
 .gsd-header-sep {
@@ -171,24 +171,24 @@
 }
 
 .gsd-cost-badge {
-  background: rgba(80, 180, 80, 0.1);
-  color: rgba(120, 200, 120, 0.85);
+  background: var(--gsd-badge-cost-bg);
+  color: var(--gsd-badge-cost-fg);
   font-weight: 600;
 }
 
 .gsd-context-badge {
-  background: rgba(80, 160, 220, 0.1);
-  color: rgba(120, 180, 240, 0.85);
+  background: var(--gsd-badge-context-bg);
+  color: var(--gsd-badge-context-fg);
 }
 
 .gsd-context-badge.warn {
-  background: rgba(220, 160, 40, 0.12);
-  color: var(--gsd-color-text-warning);
+  background: var(--gsd-badge-context-warn-bg);
+  color: var(--gsd-badge-context-warn-fg);
 }
 
 .gsd-context-badge.crit {
-  background: rgba(220, 60, 60, 0.12);
-  color: var(--gsd-color-text-error);
+  background: var(--gsd-badge-context-crit-bg);
+  color: var(--gsd-badge-context-crit-fg);
 }
 
 .gsd-header-actions {

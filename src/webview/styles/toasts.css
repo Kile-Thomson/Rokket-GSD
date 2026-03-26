@@ -25,6 +25,9 @@
   font-family: var(--gsd-font-family);
   box-shadow: 0 2px 10px rgba(0,0,0,0.3);
   white-space: nowrap;
+  max-width: calc(100% - 32px);
+  text-overflow: ellipsis;
+  overflow: hidden;
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.2s ease-out, transform 0.2s ease-out;
