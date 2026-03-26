@@ -213,7 +213,17 @@
 .gsd-model-picker [role="option"]:focus-visible,
 .gsd-thinking-picker [role="option"]:focus-visible,
 .gsd-ui-option-btn:focus-visible,
-.gsd-session-item:focus-visible {
+.gsd-session-item:focus-visible,
+.gsd-send-btn:focus-visible,
+.gsd-attach-btn:focus-visible,
+.gsd-icon-btn:focus-visible,
+.gsd-overlay-btn:focus-visible,
+.gsd-visualizer-close:focus-visible,
+.gsd-changelog-close:focus-visible,
+.gsd-settings-option:focus-visible,
+.gsd-session-history-item:focus-visible,
+.gsd-ui-btn:focus-visible,
+.gsd-fork-btn:focus-visible {
   outline: 2px solid var(--vscode-focusBorder, #007fd4);
   outline-offset: 2px;
 }

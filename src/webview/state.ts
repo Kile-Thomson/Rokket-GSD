@@ -101,6 +101,8 @@ export interface AppState {
   currentTurn: AssistantTurn | null;
   // Process health state
   processHealth: ProcessHealthStatus;
+  // Last exit detail for crash overlay diagnostic context
+  lastExitDetail: string | null;
   // Auto-mode progress data (null = not in auto-mode)
   autoProgress: AutoProgressData | null;
   // Timestamp of last auto_progress message (for stale-data guard)
@@ -192,6 +194,7 @@ export const state: AppState = {
   modelsRequested: false,
   currentTurn: null,
   processHealth: "responsive",
+  lastExitDetail: null,
   autoProgress: null,
   autoProgressLastUpdate: 0,
   widgetData: new Map(),
