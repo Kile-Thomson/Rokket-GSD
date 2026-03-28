@@ -837,6 +837,10 @@ function handleMessage(event: MessageEvent): void {
       break;
     }
 
+    // terminal_output: silently ignored — embedded terminal not used in this extension
+    case "terminal_output":
+      break;
+
     default:
       console.warn("[gsd-webview] Unrecognized message type:", (msg as any).type);
       break;

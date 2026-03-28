@@ -58,7 +58,8 @@ export type WebviewToExtensionMessage =
   | { type: "attach_files" }
   | { type: "get_dashboard" }
   | { type: "get_changelog" }
-  | { type: "set_theme"; theme: string };
+  | { type: "set_theme"; theme: string }
+  | { type: "shutdown" };
 
 // --- Messages FROM extension TO webview ---
 
@@ -119,7 +120,10 @@ export type ExtensionToWebviewMessage =
   | { type: "session_shutdown" }
   | { type: "extension_error"; extensionPath: string; event: string; error: string }
   | { type: "steer_persisted" }
-  | { type: "async_subagent_progress"; toolCallId: string; mode: string; results: Array<{ agent: string; agentSource?: string; task: string; step?: number; exitCode: number; status: string; stopReason?: string; errorMessage?: string; usage?: Record<string, number>; model?: string }> };
+  | { type: "async_subagent_progress"; toolCallId: string; mode: string; results: Array<{ agent: string; agentSource?: string; task: string; step?: number; exitCode: number; status: string; stopReason?: string; errorMessage?: string; usage?: Record<string, number>; model?: string }> }
+  | { type: "cost_update"; runId: string; turnCost: number; cumulativeCost: number; tokens: { input: number; output: number; cacheRead: number; cacheWrite: number } }
+  | { type: "execution_complete"; runId: string; status: string; stats?: unknown }
+  | { type: "terminal_output"; data: string };
 
 // --- Session List Types ---
 
@@ -193,6 +197,8 @@ export interface GsdState {
   retryInProgress?: boolean;
   /** Current retry attempt number (gsd-pi 2.44+). */
   retryAttempt?: number;
+  /** Whether auto-retry is enabled (gsd-pi 2.44+). */
+  autoRetryEnabled?: boolean;
 }
 
 /**
@@ -349,6 +355,8 @@ export interface RpcStateResult {
   retryInProgress?: boolean;
   /** Current retry attempt number (0-based). (gsd-pi 2.44+) */
   retryAttempt?: number;
+  /** Whether auto-retry is enabled. (gsd-pi 2.44+) */
+  autoRetryEnabled?: boolean;
   cwd?: string;
   [key: string]: unknown;
 }
@@ -372,6 +380,7 @@ export function toGsdState(rpc: RpcStateResult): GsdState {
     extensionsReady: rpc.extensionsReady as boolean | undefined,
     retryInProgress: rpc.retryInProgress as boolean | undefined,
     retryAttempt: rpc.retryAttempt as number | undefined,
+    autoRetryEnabled: rpc.autoRetryEnabled as boolean | undefined,
   };
 }
 
