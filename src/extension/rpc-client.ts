@@ -288,6 +288,12 @@ export class GsdRpcClient extends EventEmitter {
   } | null = null;
   private _stderrBuffer: string = "";
   private _pid: number | null = null;
+  private _protocolVersion: 1 | 2 = 1;
+
+  /** The negotiated RPC protocol version (1 = legacy, 2 = v2 with runId/cost_update/execution_complete). */
+  get protocolVersion(): 1 | 2 {
+    return this._protocolVersion;
+  }
 
   get isRunning(): boolean {
     return this._isRunning;
@@ -343,6 +349,7 @@ export class GsdRpcClient extends EventEmitter {
 
     this._isRunning = true;
     this.buffer = "";
+    this._protocolVersion = 1;
 
     // Read stdout line by line (JSONL) — cap buffer at 10MB to prevent OOM
     const MAX_BUFFER_SIZE = 10 * 1024 * 1024;
@@ -572,25 +579,28 @@ export class GsdRpcClient extends EventEmitter {
    * @param images - Optional image attachments (base64-encoded)
    * @param streamingBehavior - Optional override: `"steer"` to interrupt, `"followUp"` to queue after current turn
    */
-  async prompt(message: string, images?: Array<{ type: "image"; data: string; mimeType: string }>, streamingBehavior?: "steer" | "followUp"): Promise<void> {
+  async prompt(message: string, images?: Array<{ type: "image"; data: string; mimeType: string }>, streamingBehavior?: "steer" | "followUp"): Promise<string | undefined> {
     const cmd: Record<string, unknown> = { type: "prompt", message };
     if (images?.length) cmd.images = images;
     if (streamingBehavior) cmd.streamingBehavior = streamingBehavior;
-    await this.request(cmd);
+    const result = await this.request(cmd) as Record<string, unknown> | undefined;
+    return result?.runId as string | undefined;
   }
 
   /** Send a steering message that interrupts the current agent turn with new instructions. */
-  async steer(message: string, images?: Array<{ type: "image"; data: string; mimeType: string }>): Promise<void> {
+  async steer(message: string, images?: Array<{ type: "image"; data: string; mimeType: string }>): Promise<string | undefined> {
     const cmd: Record<string, unknown> = { type: "steer", message };
     if (images?.length) cmd.images = images;
-    await this.request(cmd);
+    const result = await this.request(cmd) as Record<string, unknown> | undefined;
+    return result?.runId as string | undefined;
   }
 
   /** Send a follow-up message that queues after the current agent turn completes. */
-  async followUp(message: string, images?: Array<{ type: "image"; data: string; mimeType: string }>): Promise<void> {
+  async followUp(message: string, images?: Array<{ type: "image"; data: string; mimeType: string }>): Promise<string | undefined> {
     const cmd: Record<string, unknown> = { type: "follow_up", message };
     if (images?.length) cmd.images = images;
-    await this.request(cmd);
+    const result = await this.request(cmd) as Record<string, unknown> | undefined;
+    return result?.runId as string | undefined;
   }
 
   /** Abort the current agent turn. Resolves when the abort is acknowledged. */
@@ -718,6 +728,67 @@ export class GsdRpcClient extends EventEmitter {
       // get_state failed — process is not responding
       return false;
     }
+  }
+
+  // --- v2 Protocol & New Commands (gsd-pi 2.41–2.58) ---
+
+  /**
+   * Negotiate RPC protocol v2. Must be sent as the very first command after start().
+   * Returns the init result on success, or null if the server doesn't support v2
+   * (falls back to v1 silently). Does NOT throw.
+   */
+  async initV2(clientId?: string): Promise<{ protocolVersion: 2; sessionId: string; capabilities: { events: string[]; commands: string[] } } | null> {
+    try {
+      const cmd: Record<string, unknown> = { type: "init", protocolVersion: 2 };
+      if (clientId) cmd.clientId = clientId;
+      const result = await this.request(cmd, 3000) as Record<string, unknown> | undefined;
+      if (result?.protocolVersion === 2) {
+        this._protocolVersion = 2;
+        return result as { protocolVersion: 2; sessionId: string; capabilities: { events: string[]; commands: string[] } };
+      }
+      return null;
+    } catch {
+      // Server doesn't support v2 — stay on v1
+      return null;
+    }
+  }
+
+  /** Request a graceful shutdown of the GSD process. */
+  async shutdown(): Promise<void> {
+    await this.request({ type: "shutdown" });
+  }
+
+  /** Subscribe to specific event types (v2 only). Pass `["*"]` for all events. */
+  async subscribe(events: string[]): Promise<void> {
+    await this.request({ type: "subscribe", events });
+  }
+
+  /** Fork the conversation from a specific user message entry.
+   * NOTE: Not used by Rokket GSD — GSD PI's fork feature is not supported.
+   * Kept as dead code reference only. Do not wire to UI. */
+  // async fork(entryId: string): Promise<unknown> {
+  //   return await this.request({ type: "fork", entryId });
+  // }
+
+  /** Get the list of user messages available for forking.
+   * NOTE: Not used — see fork() above. */
+  // async getForkMessages(): Promise<unknown> {
+  //   return await this.request({ type: "get_fork_messages" });
+  // }
+
+  /** Get the text content of the last assistant message. */
+  async getLastAssistantText(): Promise<unknown> {
+    return await this.request({ type: "get_last_assistant_text" });
+  }
+
+  /** Abort a running bash command. */
+  async abortBash(): Promise<void> {
+    await this.request({ type: "abort_bash" });
+  }
+
+  /** Cycle to the next model in the model registry. */
+  async cycleModel(): Promise<unknown> {
+    return await this.request({ type: "cycle_model" });
   }
 
   // --- Internal ---

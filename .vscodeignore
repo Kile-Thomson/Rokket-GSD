@@ -9,6 +9,8 @@ vitest.config.ts
 dist/meta-*.json
 .gsd
 .gsd/**
+.gsd*
+.gsd */**
 .bg-shell/**
 .github/**
 scripts/**

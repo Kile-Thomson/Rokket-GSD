@@ -430,6 +430,19 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.getSession(sessionId).client = client;
       this.output.appendLine(`[${sessionId}] GSD started in ${workingDir}`);
 
+      // Negotiate v2 protocol — must complete before getState() since init must be first command.
+      // Short timeout (3s) to avoid blocking launch if the process is slow to start.
+      try {
+        const v2Result = await client.initV2("rokket-gsd");
+        if (v2Result) {
+          this.output.appendLine(`[${sessionId}] RPC protocol v2 negotiated (session: ${v2Result.sessionId})`);
+        } else {
+          this.output.appendLine(`[${sessionId}] RPC protocol v1 (server does not support v2)`);
+        }
+      } catch (initErr: any) {
+        this.output.appendLine(`[${sessionId}] v2 init failed (using v1): ${initErr.message}`);
+      }
+
       const autoPoller = new AutoProgressPoller(
         sessionId, client, webview, () => workingDir, this.output,
         (oldModel, newModel) => {
