@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import type { GsdRpcClient } from "./rpc-client";
 import type { SessionState } from "./session-state";
 import type { ExtensionToWebviewMessage } from "../shared/types";
+import { toGsdState, type RpcStateResult } from "../shared/types";
 import type { StatusBarUpdate } from "./webview-provider";
 import type { WatchdogContext } from "./watchdogs";
 import {
@@ -115,6 +116,39 @@ export function handleRpcEvent(
     ctx.emitStatus({ isStreaming: false });
     ctx.getSession(sessionId).isStreaming = false;
     stopActivityMonitor(ctx.watchdogCtx, sessionId);
+  } else if (eventType === 'session_switch') {
+    // Session switched internally (e.g. /resume command) — refresh state
+    ctx.output.appendLine(`[${sessionId}] session_switch event — refreshing state`);
+    client.getState()
+      .then((state: unknown) => {
+        const gsdState = toGsdState(state as RpcStateResult);
+        ctx.postToWebview(webview, { type: 'state', data: gsdState });
+      })
+      .catch((err: unknown) => {
+        ctx.output.appendLine(`[${sessionId}] session_switch get_state failed: ${err instanceof Error ? err.message : String(err)}`);
+      });
+    // Also refresh state alongside messages for the session_switched composite message
+    Promise.all([
+      client.getState().catch(() => null),
+      client.getMessages().catch(() => null),
+    ]).then(([stateResult, msgsResult]) => {
+      const gsdState = stateResult ? toGsdState(stateResult as RpcStateResult) : toGsdState({} as RpcStateResult);
+      const messages = Array.isArray((msgsResult as any)?.messages) ? (msgsResult as any).messages : [];
+      ctx.postToWebview(webview, { type: 'session_switched', state: gsdState, messages });
+    }).catch((err: unknown) => {
+      ctx.output.appendLine(`[${sessionId}] session_switch refresh failed: ${err instanceof Error ? err.message : String(err)}`);
+    });
+  } else if (eventType === 'cost_update') {
+    // v2 protocol: per-turn cost update — update status bar cost
+    const cumulativeCost = (event as any).cumulativeCost as number | undefined;
+    if (cumulativeCost !== undefined) {
+      const session = ctx.getSession(sessionId);
+      session.accumulatedCost = cumulativeCost;
+      ctx.emitStatus({ cost: cumulativeCost });
+    }
+  } else if (eventType === 'execution_complete') {
+    // v2 protocol: execution run completed — refresh workflow state
+    ctx.refreshWorkflowState(webview, sessionId);
   } else if (eventType === "extensions_ready") {
     // gsd-pi 2.44+: extensions finished loading — fetch definitive command list
     ctx.output.appendLine(`[${sessionId}] extensions_ready — refreshing commands`);
