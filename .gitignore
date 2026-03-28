@@ -1,5 +1,4 @@
 node_modules/
-dist/
 *.vsix
 .vscode-test/
 .bg-shell/

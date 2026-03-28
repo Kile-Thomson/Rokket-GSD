@@ -966,6 +966,25 @@ export async function handleWebviewMessage(
           handleOpenDiff(ctx.fileOpsCtx, webview, sessionId, msg as any);
           break;
         }
+
+        case "shutdown": {
+          const client = ctx.getSession(sessionId).client;
+          if (client?.isRunning) {
+            ctx.output.appendLine(`[${sessionId}] Graceful shutdown requested`);
+            try {
+              await client.shutdown();
+            } catch (err: any) {
+              ctx.output.appendLine(`[${sessionId}] Shutdown command failed: ${err.message}`);
+              // Fall back to stop
+              try {
+                await client.stop();
+              } catch (stopErr: any) {
+                ctx.output.appendLine(`[${sessionId}] Fallback stop also failed: ${stopErr.message}`);
+              }
+            }
+          }
+          break;
+        }
       }
 
   } catch (err: any) {
