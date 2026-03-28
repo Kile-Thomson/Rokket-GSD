@@ -976,7 +976,11 @@ export async function handleWebviewMessage(
             } catch (err: any) {
               ctx.output.appendLine(`[${sessionId}] Shutdown command failed: ${err.message}`);
               // Fall back to stop
-              await client.stop();
+              try {
+                await client.stop();
+              } catch (stopErr: any) {
+                ctx.output.appendLine(`[${sessionId}] Fallback stop also failed: ${stopErr.message}`);
+              }
             }
           }
           break;
