@@ -117,23 +117,15 @@ export function handleRpcEvent(
     ctx.getSession(sessionId).isStreaming = false;
     stopActivityMonitor(ctx.watchdogCtx, sessionId);
   } else if (eventType === 'session_switch') {
-    // Session switched internally (e.g. /resume command) — refresh state
+    // Session switched internally (e.g. /resume command) — refresh state and messages
     ctx.output.appendLine(`[${sessionId}] session_switch event — refreshing state`);
-    client.getState()
-      .then((state: unknown) => {
-        const gsdState = toGsdState(state as RpcStateResult);
-        ctx.postToWebview(webview, { type: 'state', data: gsdState });
-      })
-      .catch((err: unknown) => {
-        ctx.output.appendLine(`[${sessionId}] session_switch get_state failed: ${err instanceof Error ? err.message : String(err)}`);
-      });
-    // Also refresh state alongside messages for the session_switched composite message
     Promise.all([
       client.getState().catch(() => null),
       client.getMessages().catch(() => null),
     ]).then(([stateResult, msgsResult]) => {
       const gsdState = stateResult ? toGsdState(stateResult as RpcStateResult) : toGsdState({} as RpcStateResult);
       const messages = Array.isArray((msgsResult as any)?.messages) ? (msgsResult as any).messages : [];
+      ctx.postToWebview(webview, { type: 'state', data: gsdState });
       ctx.postToWebview(webview, { type: 'session_switched', state: gsdState, messages });
     }).catch((err: unknown) => {
       ctx.output.appendLine(`[${sessionId}] session_switch refresh failed: ${err instanceof Error ? err.message : String(err)}`);
