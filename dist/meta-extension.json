@@ -274,7 +274,7 @@
       "format": "esm"
     },
     "src/extension/file-ops.ts": {
-      "bytes": 12149,
+      "bytes": 13367,
       "imports": [
         {
           "path": "vscode",
@@ -546,7 +546,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 397423
+      "bytes": 399166
     },
     "dist/extension.js": {
       "imports": [
@@ -861,7 +861,7 @@
           "bytesInOutput": 15867
         },
         "src/extension/file-ops.ts": {
-          "bytesInOutput": 5691
+          "bytesInOutput": 5971
         },
         "src/extension/polling.ts": {
           "bytesInOutput": 1769
@@ -873,7 +873,7 @@
           "bytesInOutput": 4405
         }
       },
-      "bytes": 100250
+      "bytes": 100530
     }
   }
 }

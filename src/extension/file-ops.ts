@@ -68,7 +68,23 @@ export function handleOpenFile(
       ctx.output.appendLine(`[${sessionId}] Blocked open_file: no workspace open`);
       return;
     }
-    const realFile = fs.realpathSync(path.resolve(msg.path));
+    // Resolve relative paths against workspace root, not the extension CWD.
+    // The agent produces paths like "readme.md" or "src/foo.ts" that are
+    // relative to the project root — path.resolve() alone would anchor them
+    // to the extension host's CWD, which is wrong.
+    const resolvedPath = path.isAbsolute(msg.path)
+      ? msg.path
+      : path.join(workspaceRoot, msg.path);
+
+    // Use realpathSync to canonicalise symlinks, but fall back gracefully if
+    // the file doesn't exist yet — let VS Code surface its own error.
+    let realFile: string;
+    try {
+      realFile = fs.realpathSync(resolvedPath);
+    } catch {
+      realFile = resolvedPath;
+    }
+
     const realRoot = fs.realpathSync(path.resolve(workspaceRoot));
     if (!realFile.startsWith(realRoot + path.sep) && realFile !== realRoot) {
       ctx.output.appendLine(`[${sessionId}] Blocked open_file outside workspace: ${realFile}`);
@@ -118,13 +134,31 @@ export function handleOpenUrl(
   sessionId: string,
   msg: { url: string },
 ): void {
-  // Security: only allow http/https URLs
   const url = String(msg.url || "");
+
+  // External web URLs — open in system browser
   if (/^https?:\/\//i.test(url)) {
     vscode.env.openExternal(vscode.Uri.parse(url));
-  } else {
-    ctx.output.appendLine(`[${sessionId}] Blocked non-http URL: ${url}`);
+    return;
   }
+
+  // File paths (relative, absolute, or file:// URIs) — route through
+  // handleOpenFile which resolves them against the workspace root securely.
+  const isFilePath = url.startsWith("file://") ||
+    path.isAbsolute(url) ||
+    url.startsWith("./") ||
+    url.startsWith("../") ||
+    (!url.includes("://") && !url.startsWith("#") && url.length > 0);
+
+  if (isFilePath) {
+    const filePath = url.startsWith("file://")
+      ? vscode.Uri.parse(url).fsPath
+      : url;
+    handleOpenFile(ctx, _webview, sessionId, { path: filePath });
+    return;
+  }
+
+  ctx.output.appendLine(`[${sessionId}] Blocked non-http URL: ${url}`);
 }
 
 export async function handleExportHtml(
