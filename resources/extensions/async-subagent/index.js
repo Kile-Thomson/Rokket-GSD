@@ -673,13 +673,14 @@ export default function AsyncSubagent(pi) {
       "The subagent runs in its own process with an isolated context window.",
       "Use await_subagent to collect results when ready.",
       "Use this instead of the blocking subagent tool.",
+      "IMPORTANT: To run multiple agents in parallel, pass tasks: [{agent, task}, {agent, task}, ...] in a SINGLE call — never call async_subagent multiple times for parallel work.",
     ].join(" "),
     promptGuidelines: [
       "Use async_subagent instead of subagent — it doesn't block the conversation.",
       "After spawning, continue working or chatting. Do NOT immediately call await_subagent — that defeats the purpose of async.",
       "Results are delivered automatically when jobs complete — you'll receive them as a follow-up message. Present them to the user when they arrive.",
       "Only call await_subagent if you specifically need to block and wait for results before continuing (e.g. chained tasks that depend on prior output).",
-      "For parallel work: spawn multiple async_subagents, then continue with other work.",
+      "PARALLEL WORK: always use a single async_subagent call with tasks: [{agent, task}, {agent, task}, ...]. NEVER make multiple separate async_subagent calls for parallel work — each call is a separate isolated job with no shared state.",
     ],
     parameters: asyncSubagentSchema,
 

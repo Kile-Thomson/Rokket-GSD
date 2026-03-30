@@ -61,8 +61,22 @@ let pendingTextRender: number | null = null;
  * Per-segment incremental rendering state.
  * Tracks how many block-level tokens have been "frozen" (fully rendered and
  * inserted into the DOM as immutable divs) for each text segment.
+ * Also caches the last lexed token list so we don't re-lex unchanged text.
  */
-const incrementalState = new Map<number, { frozenBlockCount: number }>();
+const incrementalState = new Map<number, {
+  frozenBlockCount: number;
+  lastLexedText: string;
+  lastTokens: any[];
+  textLengthAtLastRaf: number;
+}>();
+
+/**
+ * Live text nodes for in-progress trailing content.
+ * Keyed by segment index. Updated directly on every delta so text appears
+ * token-by-token without waiting for the next rAF cycle. The rAF pass
+ * replaces this with fully-parsed markdown and resets the node reference.
+ */
+const liveTextNodes = new Map<number, Text>();
 
 /**
  * Live elapsed timer — refreshes running tool cards every second so the
@@ -135,14 +149,64 @@ export function getCurrentTurnElement(): HTMLElement | null {
   return currentTurnElement;
 }
 
+/**
+ * Show the thinking dots spinner in the current (or newly created) turn element.
+ * Called optimistically on user send — before agent_start fires — so the user
+ * sees immediate feedback with no dead time. Sets currentTurnElement so
+ * resetStreamingState can clean it up if the dots are still showing when
+ * agent_start arrives.
+ */
+export function showPendingDots(): void {
+  const container = ensureCurrentTurnElement();
+  if (!container.querySelector(".gsd-thinking-dots")) {
+    const dots = document.createElement("div");
+    dots.className = "gsd-thinking-dots";
+    dots.innerHTML = "<span></span><span></span><span></span>";
+    container.appendChild(dots);
+  }
+}
+
+/** Remove thinking dots from a container — called when real content arrives. */
+function removePendingDotsFromContainer(container: HTMLElement): void {
+  container.querySelector(".gsd-thinking-dots")?.remove();
+}
+
 export function ensureCurrentTurnElement(): HTMLElement {
   if (!currentTurnElement) {
-    const el = document.createElement("div");
-    el.className = "gsd-entry gsd-entry-assistant streaming";
-    el.dataset.entryId = state.currentTurn?.id || "stream";
-    messagesContainer.appendChild(el);
-    currentTurnElement = el;
-    welcomeScreen.classList.add("gsd-hidden");
+    // Check if there's a pending-dots-only element in the DOM (created
+    // optimistically by showPendingDots on user send) — reuse it so the dots
+    // remain visible until real content arrives rather than blinking out.
+    // Only match elements that contain ONLY the thinking dots — never reuse
+    // an element that has real content in it.
+    const candidates = messagesContainer.querySelectorAll<HTMLElement>(
+      ".gsd-entry-assistant.streaming"
+    );
+    let existing: HTMLElement | null = null;
+    for (const el of Array.from(candidates)) {
+      const onlyDots = el.children.length === 1 &&
+        el.firstElementChild?.classList.contains("gsd-thinking-dots");
+      if (onlyDots) {
+        existing = el;
+        break;
+      }
+    }
+    if (existing) {
+      // Only update entryId if it actually changed — data attribute mutations
+      // trigger style recalculation which resets CSS animations on children.
+      const newId = state.currentTurn?.id;
+      if (newId && existing.dataset.entryId !== newId) {
+        existing.dataset.entryId = newId;
+      }
+      currentTurnElement = existing;
+      welcomeScreen.classList.add("gsd-hidden");
+    } else {
+      const el = document.createElement("div");
+      el.className = "gsd-entry gsd-entry-assistant streaming";
+      el.dataset.entryId = state.currentTurn?.id || "stream";
+      messagesContainer.appendChild(el);
+      currentTurnElement = el;
+      welcomeScreen.classList.add("gsd-hidden");
+    }
   }
   return currentTurnElement;
 }
@@ -177,6 +241,73 @@ export function appendToTextSegment(segType: "text" | "thinking", delta: string)
   }
   _activeSegmentIndex = segIdx;
 
+  // Fast path: if a live text node exists for this segment's trailing element,
+  // update it directly. This fires on every delta — no rAF needed — so the
+  // user sees text appear token-by-token even when deltas arrive in OS-level
+  // bursts. The rAF pass below still runs to handle frozen block promotion
+  // and markdown parsing.
+  if (segType === "text") {
+    const liveNode = liveTextNodes.get(segIdx);
+    if (liveNode) {
+      const seg = turn.segments[segIdx];
+      if (seg.type === "text") {
+        // Only show chars added since the last rAF rendered the trailing element.
+        // The trailing element already contains everything up to that point —
+        // showing the full text here would duplicate it.
+        const incState = incrementalState.get(segIdx);
+        const base = incState?.textLengthAtLastRaf ?? 0;
+        const fullText = seg.chunks.join("");
+        liveNode.data = fullText.slice(base);
+      }
+    } else if (!segmentElements.has(segIdx)) {
+      // First delta for this segment — create the DOM element immediately so
+      // the user sees something without waiting for the next rAF cycle.
+      // We use a live Text node (not textContent) so the rAF can append
+      // the trailing div without leaving a duplicate raw text node behind.
+      const container = ensureCurrentTurnElement();
+      const el = document.createElement("div");
+      el.className = "gsd-assistant-text";
+      const seg = turn.segments[segIdx];
+      const liveNode = document.createTextNode(
+        seg.type === "text" ? seg.chunks.join("") : ""
+      );
+      el.appendChild(liveNode);
+      insertSegmentElement(container, segIdx, el);
+      segmentElements.set(segIdx, el);
+      liveTextNodes.set(segIdx, liveNode);
+    }
+  } else if (segType === "thinking") {
+    const el = segmentElements.get(segIdx);
+    if (el) {
+      const content = el.querySelector(".gsd-thinking-content");
+      if (content) {
+        const seg = turn.segments[segIdx];
+        if (seg.type === "thinking") {
+          content.textContent = seg.chunks.join("");
+        }
+      }
+    } else if (!segmentElements.has(segIdx)) {
+      // First thinking delta — create block immediately
+      const container = ensureCurrentTurnElement();
+      const el = document.createElement("details");
+      el.className = "gsd-thinking-block";
+      el.setAttribute("open", "");
+      el.innerHTML = `<summary class="gsd-thinking-header">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm-.5-3h1v1h-1v-1zm.5-7a2.5 2.5 0 00-2.5 2.5h1A1.5 1.5 0 018 5a1.5 1.5 0 011.5 1.5c0 .44-.18.84-.46 1.13l-.64.66A2.49 2.49 0 007.5 10h1c0-.52.21-1 .57-1.35l.64-.66A2.49 2.49 0 0010.5 6.5 2.5 2.5 0 008 4z"/></svg>
+        <span class="gsd-thinking-label">Thinking</span>
+        <span class="gsd-thinking-lines"></span>
+      </summary>
+      <div class="gsd-thinking-content"></div>`;
+      const seg = turn.segments[segIdx];
+      if (seg.type === "thinking") {
+        const content = el.querySelector(".gsd-thinking-content");
+        if (content) content.textContent = seg.chunks.join("");
+      }
+      insertSegmentElement(container, segIdx, el);
+      segmentElements.set(segIdx, el);
+    }
+  }
+
   if (pendingTextRender === null) {
     pendingTextRender = requestAnimationFrame(() => {
       pendingTextRender = null;
@@ -188,7 +319,7 @@ export function appendToTextSegment(segType: "text" | "thinking", delta: string)
 
 export function appendToolSegmentElement(tc: ToolCallState, segIdx: number): void {
   const container = ensureCurrentTurnElement();
-  const el = document.createElement("div");
+  removePendingDotsFromContainer(container);  const el = document.createElement("div");
   el.className = "gsd-tool-segment";
   el.dataset.segIdx = String(segIdx);
   el.dataset.toolId = tc.id;
@@ -424,16 +555,22 @@ export function finalizeCurrentTurn(): void {
   _splitSegmentBarrier = -1;
   segmentElements.clear();
   incrementalState.clear();
+  liveTextNodes.clear();
   _activeSegmentIndex = -1;
 }
 
 /** Reset streaming state — used by new conversation */
 export function resetStreamingState(): void {
+  // If the current turn element only has pending dots (optimistic spinner from
+  // user send), keep it in the DOM — agent_start will reuse it via
+  // ensureCurrentTurnElement and real content will replace the dots.
+  // Only remove it if we're truly resetting with no pending response expected.
   currentTurnElement = null;
   priorTurnElements = [];
   _splitSegmentBarrier = -1;
   segmentElements.clear();
   incrementalState.clear();
+  liveTextNodes.clear();
   _activeSegmentIndex = -1;
   stopElapsedTimer();
 }
@@ -761,6 +898,10 @@ function renderTextSegment(segIdx: number): void {
   if (!seg || seg.type === "tool") return;
 
   const container = ensureCurrentTurnElement();
+  // Remove pending dots now — content is about to be painted into the container.
+  // Doing this here (rAF) rather than on first delta means the dots animate
+  // right up until real content is visible, with no gap between the two.
+  removePendingDotsFromContainer(container);
   let el = segmentElements.get(segIdx);
 
   const fullText = seg.chunks.join("");
@@ -802,20 +943,24 @@ function renderTextSegment(segIdx: number): void {
       return;
     }
 
-    // Lex the full text into block tokens
-    const tokens = lexMarkdown(fullText);
-
-    // Filter out space tokens — they're whitespace separators, not content blocks
-    const contentTokens = tokens.filter(t => t.type !== "space");
-
-    if (contentTokens.length === 0) return;
-
-    // Get or initialize incremental state for this segment
+    // Lex the full text into block tokens — use cached result if text unchanged
     let incState = incrementalState.get(segIdx);
     if (!incState) {
-      incState = { frozenBlockCount: 0 };
+      incState = { frozenBlockCount: 0, lastLexedText: "", lastTokens: [], textLengthAtLastRaf: 0 };
       incrementalState.set(segIdx, incState);
     }
+    let tokens: any[];
+    if (incState.lastLexedText === fullText) {
+      tokens = incState.lastTokens;
+    } else {
+      tokens = lexMarkdown(fullText);
+      incState.lastLexedText = fullText;
+      incState.lastTokens = tokens;
+    }
+    // Filter out space tokens — they're whitespace separators, not content blocks
+    const contentTokens = tokens.filter((t: any) => t.type !== "space");
+
+    if (contentTokens.length === 0) return;
 
     // Determine which tokens are "complete" (frozen) vs in-progress (trailing).
     // The last content token is always considered in-progress during streaming.
@@ -852,6 +997,12 @@ function renderTextSegment(segIdx: number): void {
     // Render the trailing (in-progress) token
     let trailingEl = el.querySelector("[data-block-trailing]") as HTMLElement | null;
     if (!trailingEl) {
+      // Clear any pre-existing live text node seeded by the first-delta fast path
+      // before appending the proper trailing element — avoids duplication.
+      const existingLiveNode = liveTextNodes.get(segIdx);
+      if (existingLiveNode && existingLiveNode.parentNode === el) {
+        existingLiveNode.data = "";
+      }
       trailingEl = document.createElement("div");
       trailingEl.dataset.blockTrailing = "";
       el.appendChild(trailingEl);
@@ -862,6 +1013,18 @@ function renderTextSegment(segIdx: number): void {
     const links = tokensWithLinks.links || {};
     const trailingArr = Object.assign([trailingToken], { links });
     trailingEl.innerHTML = sanitizeAndPostProcess(parseTokens(trailingArr));
+
+    // Record how much text the trailing element now represents, so the live
+    // node fast-path can show only the incremental chars without duplicating.
+    incState.textLengthAtLastRaf = fullText.length;
+
+    // (Re)attach a live text node at the end of the trailing element so
+    // appendToTextSegment can update it directly on every delta, without
+    // waiting for another rAF cycle. Gives per-token visual updates within
+    // OS-level burst deliveries. The next rAF replaces innerHTML and resets.
+    const liveNode = document.createTextNode("");
+    trailingEl.appendChild(liveNode);
+    liveTextNodes.set(segIdx, liveNode);
   }
 }
 

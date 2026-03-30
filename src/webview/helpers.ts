@@ -601,6 +601,7 @@ let _lastScrollTop = 0;
 let _scrollContainer: HTMLElement | null = null;
 let _scrollHandler: (() => void) | null = null;
 let _programmaticScroll = false;
+let _resizeObserver: ResizeObserver | null = null;
 
 /**
  * Initialize intent-based auto-scroll tracking on a container element.
@@ -616,6 +617,10 @@ export function initAutoScroll(container: HTMLElement): void {
   // Detach from previous container if any
   if (_scrollContainer && _scrollHandler) {
     _scrollContainer.removeEventListener("scroll", _scrollHandler);
+  }
+  if (_resizeObserver) {
+    _resizeObserver.disconnect();
+    _resizeObserver = null;
   }
 
   _lastScrollTop = container.scrollTop;
@@ -639,6 +644,19 @@ export function initAutoScroll(container: HTMLElement): void {
   };
 
   container.addEventListener("scroll", _scrollHandler, { passive: true });
+
+  // ResizeObserver fires after paint when the container grows — scroll to
+  // bottom then. Deferred via rAF so the scroll write doesn't interrupt the
+  // current frame's composited animations (e.g. thinking dots).
+  let pendingScrollRaf: number | null = null;
+  _resizeObserver = new ResizeObserver(() => {
+    if (pendingScrollRaf !== null) return;
+    pendingScrollRaf = requestAnimationFrame(() => {
+      pendingScrollRaf = null;
+      scrollToBottom(container);
+    });
+  });
+  _resizeObserver.observe(container);
 }
 
 /** Reset scroll tracking (e.g. new session, clear messages) */
