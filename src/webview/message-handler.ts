@@ -354,13 +354,7 @@ function handleMessage(event: MessageEvent): void {
 
       // Re-render
       if (toolBlock && tc) {
-        const html = renderer.buildToolCallHtml(tc);
-        const segment = (toolBlock as HTMLElement).closest(".gsd-tool-segment");
-        if (segment) {
-          segment.innerHTML = html;
-        } else {
-          (toolBlock as HTMLElement).outerHTML = html;
-        }
+        renderer.patchToolBlock(toolBlock, tc);
       }
       break;
     }

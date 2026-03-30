@@ -1,0 +1,812 @@
+{
+  "inputs": {
+    "src/webview/styles/tokens.css": {
+      "bytes": 9920,
+      "imports": []
+    },
+    "src/webview/styles/base.css": {
+      "bytes": 1935,
+      "imports": []
+    },
+    "src/webview/styles/layout.css": {
+      "bytes": 13836,
+      "imports": []
+    },
+    "src/webview/styles/entries.css": {
+      "bytes": 8184,
+      "imports": []
+    },
+    "src/webview/styles/tools.css": {
+      "bytes": 16030,
+      "imports": []
+    },
+    "src/webview/styles/dashboard.css": {
+      "bytes": 9723,
+      "imports": []
+    },
+    "src/webview/styles/input.css": {
+      "bytes": 6007,
+      "imports": []
+    },
+    "src/webview/styles/footer.css": {
+      "bytes": 2114,
+      "imports": []
+    },
+    "src/webview/styles/overlays.css": {
+      "bytes": 38247,
+      "imports": []
+    },
+    "src/webview/styles/toasts.css": {
+      "bytes": 1616,
+      "imports": []
+    },
+    "src/webview/styles/misc.css": {
+      "bytes": 11167,
+      "imports": []
+    },
+    "src/webview/styles/auto-progress.css": {
+      "bytes": 5755,
+      "imports": []
+    },
+    "src/webview/styles/parallel.css": {
+      "bytes": 3156,
+      "imports": []
+    },
+    "src/webview/styles/themes/phosphor.css": {
+      "bytes": 7744,
+      "imports": []
+    },
+    "src/webview/styles/themes/clarity.css": {
+      "bytes": 7616,
+      "imports": []
+    },
+    "src/webview/styles/themes/forge.css": {
+      "bytes": 14093,
+      "imports": []
+    },
+    "src/webview/state.ts": {
+      "bytes": 7657,
+      "imports": [],
+      "format": "esm"
+    },
+    "node_modules/marked/lib/marked.esm.js": {
+      "bytes": 71905,
+      "imports": [],
+      "format": "esm"
+    },
+    "node_modules/dompurify/dist/purify.es.mjs": {
+      "bytes": 64644,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/webview/helpers.ts": {
+      "bytes": 29003,
+      "imports": [
+        {
+          "path": "node_modules/marked/lib/marked.esm.js",
+          "kind": "import-statement",
+          "original": "marked"
+        },
+        {
+          "path": "node_modules/dompurify/dist/purify.es.mjs",
+          "kind": "import-statement",
+          "original": "dompurify"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/slash-menu.ts": {
+      "bytes": 15515,
+      "imports": [
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "./state"
+        },
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/a11y.ts": {
+      "bytes": 1663,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/webview/model-picker.ts": {
+      "bytes": 8447,
+      "imports": [
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "./state"
+        },
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        },
+        {
+          "path": "src/webview/a11y.ts",
+          "kind": "import-statement",
+          "original": "./a11y"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/thinking-picker.ts": {
+      "bytes": 9797,
+      "imports": [
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "./state"
+        },
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        },
+        {
+          "path": "src/webview/a11y.ts",
+          "kind": "import-statement",
+          "original": "./a11y"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/session-history.ts": {
+      "bytes": 16541,
+      "imports": [
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        },
+        {
+          "path": "src/webview/a11y.ts",
+          "kind": "import-statement",
+          "original": "./a11y"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/ui-dialogs.ts": {
+      "bytes": 20357,
+      "imports": [
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        },
+        {
+          "path": "src/webview/a11y.ts",
+          "kind": "import-statement",
+          "original": "./a11y"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/toasts.ts": {
+      "bytes": 910,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/webview/tool-grouping.ts": {
+      "bytes": 10317,
+      "imports": [
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/renderer.ts": {
+      "bytes": 52600,
+      "imports": [
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "./state"
+        },
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        },
+        {
+          "path": "src/webview/tool-grouping.ts",
+          "kind": "import-statement",
+          "original": "./tool-grouping"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/dashboard.ts": {
+      "bytes": 17582,
+      "imports": [
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        },
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "./state"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/auto-progress.ts": {
+      "bytes": 13204,
+      "imports": [
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "./state"
+        },
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/visualizer.ts": {
+      "bytes": 21185,
+      "imports": [
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        },
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "./state"
+        },
+        {
+          "path": "src/webview/a11y.ts",
+          "kind": "import-statement",
+          "original": "./a11y"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/file-handling.ts": {
+      "bytes": 8461,
+      "imports": [
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        },
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "./state"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/keyboard.ts": {
+      "bytes": 18461,
+      "imports": [
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        },
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "./state"
+        },
+        {
+          "path": "src/webview/a11y.ts",
+          "kind": "import-statement",
+          "original": "./a11y"
+        },
+        {
+          "path": "src/webview/slash-menu.ts",
+          "kind": "import-statement",
+          "original": "./slash-menu"
+        },
+        {
+          "path": "src/webview/model-picker.ts",
+          "kind": "import-statement",
+          "original": "./model-picker"
+        },
+        {
+          "path": "src/webview/thinking-picker.ts",
+          "kind": "import-statement",
+          "original": "./thinking-picker"
+        },
+        {
+          "path": "src/webview/session-history.ts",
+          "kind": "import-statement",
+          "original": "./session-history"
+        },
+        {
+          "path": "src/webview/visualizer.ts",
+          "kind": "import-statement",
+          "original": "./visualizer"
+        },
+        {
+          "path": "src/webview/toasts.ts",
+          "kind": "import-statement",
+          "original": "./toasts"
+        },
+        {
+          "path": "src/webview/renderer.ts",
+          "kind": "import-statement",
+          "original": "./renderer"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/message-handler.ts": {
+      "bytes": 42725,
+      "imports": [
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        },
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "./state"
+        },
+        {
+          "path": "src/webview/renderer.ts",
+          "kind": "import-statement",
+          "original": "./renderer"
+        },
+        {
+          "path": "src/webview/session-history.ts",
+          "kind": "import-statement",
+          "original": "./session-history"
+        },
+        {
+          "path": "src/webview/slash-menu.ts",
+          "kind": "import-statement",
+          "original": "./slash-menu"
+        },
+        {
+          "path": "src/webview/model-picker.ts",
+          "kind": "import-statement",
+          "original": "./model-picker"
+        },
+        {
+          "path": "src/webview/thinking-picker.ts",
+          "kind": "import-statement",
+          "original": "./thinking-picker"
+        },
+        {
+          "path": "src/webview/ui-dialogs.ts",
+          "kind": "import-statement",
+          "original": "./ui-dialogs"
+        },
+        {
+          "path": "src/webview/toasts.ts",
+          "kind": "import-statement",
+          "original": "./toasts"
+        },
+        {
+          "path": "src/webview/dashboard.ts",
+          "kind": "import-statement",
+          "original": "./dashboard"
+        },
+        {
+          "path": "src/webview/auto-progress.ts",
+          "kind": "import-statement",
+          "original": "./auto-progress"
+        },
+        {
+          "path": "src/webview/visualizer.ts",
+          "kind": "import-statement",
+          "original": "./visualizer"
+        },
+        {
+          "path": "src/webview/file-handling.ts",
+          "kind": "import-statement",
+          "original": "./file-handling"
+        },
+        {
+          "path": "src/webview/a11y.ts",
+          "kind": "import-statement",
+          "original": "./a11y"
+        },
+        {
+          "path": "src/webview/keyboard.ts",
+          "kind": "import-statement",
+          "original": "./keyboard"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/ui-updates.ts": {
+      "bytes": 14267,
+      "imports": [
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        },
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "./state"
+        },
+        {
+          "path": "src/webview/dashboard.ts",
+          "kind": "import-statement",
+          "original": "./dashboard"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/index.ts": {
+      "bytes": 29739,
+      "imports": [
+        {
+          "path": "src/webview/styles/tokens.css",
+          "kind": "import-statement",
+          "original": "./styles/tokens.css"
+        },
+        {
+          "path": "src/webview/styles/base.css",
+          "kind": "import-statement",
+          "original": "./styles/base.css"
+        },
+        {
+          "path": "src/webview/styles/layout.css",
+          "kind": "import-statement",
+          "original": "./styles/layout.css"
+        },
+        {
+          "path": "src/webview/styles/entries.css",
+          "kind": "import-statement",
+          "original": "./styles/entries.css"
+        },
+        {
+          "path": "src/webview/styles/tools.css",
+          "kind": "import-statement",
+          "original": "./styles/tools.css"
+        },
+        {
+          "path": "src/webview/styles/dashboard.css",
+          "kind": "import-statement",
+          "original": "./styles/dashboard.css"
+        },
+        {
+          "path": "src/webview/styles/input.css",
+          "kind": "import-statement",
+          "original": "./styles/input.css"
+        },
+        {
+          "path": "src/webview/styles/footer.css",
+          "kind": "import-statement",
+          "original": "./styles/footer.css"
+        },
+        {
+          "path": "src/webview/styles/overlays.css",
+          "kind": "import-statement",
+          "original": "./styles/overlays.css"
+        },
+        {
+          "path": "src/webview/styles/toasts.css",
+          "kind": "import-statement",
+          "original": "./styles/toasts.css"
+        },
+        {
+          "path": "src/webview/styles/misc.css",
+          "kind": "import-statement",
+          "original": "./styles/misc.css"
+        },
+        {
+          "path": "src/webview/styles/auto-progress.css",
+          "kind": "import-statement",
+          "original": "./styles/auto-progress.css"
+        },
+        {
+          "path": "src/webview/styles/parallel.css",
+          "kind": "import-statement",
+          "original": "./styles/parallel.css"
+        },
+        {
+          "path": "src/webview/styles/themes/phosphor.css",
+          "kind": "import-statement",
+          "original": "./styles/themes/phosphor.css"
+        },
+        {
+          "path": "src/webview/styles/themes/clarity.css",
+          "kind": "import-statement",
+          "original": "./styles/themes/clarity.css"
+        },
+        {
+          "path": "src/webview/styles/themes/forge.css",
+          "kind": "import-statement",
+          "original": "./styles/themes/forge.css"
+        },
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "./state"
+        },
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        },
+        {
+          "path": "src/webview/slash-menu.ts",
+          "kind": "import-statement",
+          "original": "./slash-menu"
+        },
+        {
+          "path": "src/webview/model-picker.ts",
+          "kind": "import-statement",
+          "original": "./model-picker"
+        },
+        {
+          "path": "src/webview/thinking-picker.ts",
+          "kind": "import-statement",
+          "original": "./thinking-picker"
+        },
+        {
+          "path": "src/webview/session-history.ts",
+          "kind": "import-statement",
+          "original": "./session-history"
+        },
+        {
+          "path": "src/webview/ui-dialogs.ts",
+          "kind": "import-statement",
+          "original": "./ui-dialogs"
+        },
+        {
+          "path": "src/webview/toasts.ts",
+          "kind": "import-statement",
+          "original": "./toasts"
+        },
+        {
+          "path": "src/webview/renderer.ts",
+          "kind": "import-statement",
+          "original": "./renderer"
+        },
+        {
+          "path": "src/webview/dashboard.ts",
+          "kind": "import-statement",
+          "original": "./dashboard"
+        },
+        {
+          "path": "src/webview/auto-progress.ts",
+          "kind": "import-statement",
+          "original": "./auto-progress"
+        },
+        {
+          "path": "src/webview/visualizer.ts",
+          "kind": "import-statement",
+          "original": "./visualizer"
+        },
+        {
+          "path": "src/webview/file-handling.ts",
+          "kind": "import-statement",
+          "original": "./file-handling"
+        },
+        {
+          "path": "src/webview/message-handler.ts",
+          "kind": "import-statement",
+          "original": "./message-handler"
+        },
+        {
+          "path": "src/webview/keyboard.ts",
+          "kind": "import-statement",
+          "original": "./keyboard"
+        },
+        {
+          "path": "src/webview/ui-updates.ts",
+          "kind": "import-statement",
+          "original": "./ui-updates"
+        }
+      ],
+      "format": "esm"
+    }
+  },
+  "outputs": {
+    "dist/webview/index.js.map": {
+      "imports": [],
+      "exports": [],
+      "inputs": {},
+      "bytes": 775616
+    },
+    "dist/webview/index.js": {
+      "imports": [],
+      "exports": [],
+      "entryPoint": "src/webview/index.ts",
+      "cssBundle": "dist/webview/index.css",
+      "inputs": {
+        "src/webview/styles/tokens.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/base.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/layout.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/entries.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/tools.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/dashboard.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/input.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/footer.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/overlays.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/toasts.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/misc.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/auto-progress.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/parallel.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/themes/phosphor.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/themes/clarity.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/themes/forge.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/state.ts": {
+          "bytesInOutput": 1090
+        },
+        "node_modules/marked/lib/marked.esm.js": {
+          "bytesInOutput": 38668
+        },
+        "node_modules/dompurify/dist/purify.es.mjs": {
+          "bytesInOutput": 22698
+        },
+        "src/webview/helpers.ts": {
+          "bytesInOutput": 11972
+        },
+        "src/webview/slash-menu.ts": {
+          "bytesInOutput": 7022
+        },
+        "src/webview/a11y.ts": {
+          "bytesInOutput": 437
+        },
+        "src/webview/model-picker.ts": {
+          "bytesInOutput": 3723
+        },
+        "src/webview/thinking-picker.ts": {
+          "bytesInOutput": 3647
+        },
+        "src/webview/session-history.ts": {
+          "bytesInOutput": 7530
+        },
+        "src/webview/ui-dialogs.ts": {
+          "bytesInOutput": 7670
+        },
+        "src/webview/toasts.ts": {
+          "bytesInOutput": 355
+        },
+        "src/webview/tool-grouping.ts": {
+          "bytesInOutput": 3598
+        },
+        "src/webview/renderer.ts": {
+          "bytesInOutput": 22122
+        },
+        "src/webview/dashboard.ts": {
+          "bytesInOutput": 10373
+        },
+        "src/webview/auto-progress.ts": {
+          "bytesInOutput": 6318
+        },
+        "src/webview/visualizer.ts": {
+          "bytesInOutput": 12052
+        },
+        "src/webview/file-handling.ts": {
+          "bytesInOutput": 4010
+        },
+        "src/webview/keyboard.ts": {
+          "bytesInOutput": 6519
+        },
+        "src/webview/message-handler.ts": {
+          "bytesInOutput": 17020
+        },
+        "src/webview/ui-updates.ts": {
+          "bytesInOutput": 7013
+        },
+        "src/webview/index.ts": {
+          "bytesInOutput": 18388
+        }
+      },
+      "bytes": 212634
+    },
+    "dist/webview/index.css.map": {
+      "imports": [],
+      "exports": [],
+      "inputs": {},
+      "bytes": 248228
+    },
+    "dist/webview/index.css": {
+      "imports": [],
+      "inputs": {
+        "src/webview/styles/tokens.css": {
+          "bytesInOutput": 5253
+        },
+        "src/webview/styles/base.css": {
+          "bytesInOutput": 689
+        },
+        "src/webview/styles/layout.css": {
+          "bytesInOutput": 10005
+        },
+        "src/webview/styles/entries.css": {
+          "bytesInOutput": 6032
+        },
+        "src/webview/styles/tools.css": {
+          "bytesInOutput": 11641
+        },
+        "src/webview/styles/dashboard.css": {
+          "bytesInOutput": 7591
+        },
+        "src/webview/styles/input.css": {
+          "bytesInOutput": 4460
+        },
+        "src/webview/styles/footer.css": {
+          "bytesInOutput": 1498
+        },
+        "src/webview/styles/overlays.css": {
+          "bytesInOutput": 29259
+        },
+        "src/webview/styles/toasts.css": {
+          "bytesInOutput": 1070
+        },
+        "src/webview/styles/misc.css": {
+          "bytesInOutput": 7744
+        },
+        "src/webview/styles/auto-progress.css": {
+          "bytesInOutput": 4260
+        },
+        "src/webview/styles/parallel.css": {
+          "bytesInOutput": 2505
+        },
+        "src/webview/styles/themes/phosphor.css": {
+          "bytesInOutput": 5258
+        },
+        "src/webview/styles/themes/clarity.css": {
+          "bytesInOutput": 5304
+        },
+        "src/webview/styles/themes/forge.css": {
+          "bytesInOutput": 9942
+        }
+      },
+      "bytes": 112550
+    }
+  }
+}

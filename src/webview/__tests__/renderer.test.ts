@@ -11,6 +11,7 @@ import {
   updateToolSegmentElement,
   finalizeCurrentTurn,
   resetStreamingState,
+  patchToolBlock,
 } from "../renderer";
 
 import {
@@ -39,7 +40,8 @@ vi.mock("../helpers", () => ({
   getToolIcon: () => "🔧",
   getToolKeyArg: () => "",
   formatToolResult: (_n: string, t: string) => t,
-  buildSubagentOutputHtml: () => "<div>subagent</div>",
+  buildSubagentOutputHtml: () => "<div class=\"gsd-subagent-panel\"><div class=\"gsd-subagent-summary\"><span class=\"gsd-subagent-mode\">Parallel</span><span class=\"gsd-subagent-counts\"></span><span class=\"gsd-subagent-total\">0/0</span></div><div class=\"gsd-agent-cards\"></div></div>",
+  buildUsagePills: () => "",
   renderMarkdown: (t: string) => `<p>${t}</p>`,
   sanitizeAndPostProcess: (html: string) => html,
   lexMarkdown: (text: string) => {
@@ -758,5 +760,258 @@ describe("renderer", () => {
         expect(newIndicator.textContent).toContain("5");
       }
     });
+  });
+});
+
+// ============================================================
+// patchToolBlock — targeted DOM patching
+// ============================================================
+
+describe("patchToolBlock", () => {
+  let messagesContainer: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '<div id="messages"></div><div id="welcome"></div>';
+    messagesContainer = document.getElementById("messages")!;
+    init({
+      messagesContainer,
+      welcomeScreen: document.getElementById("welcome")!,
+    });
+  });
+
+  function makeTc(overrides: Partial<ToolCallState> = {}): ToolCallState {
+    return {
+      id: "tc-1",
+      name: "bash",
+      args: { command: "ls" },
+      resultText: "",
+      isError: false,
+      isRunning: true,
+      startTime: Date.now(),
+      isParallel: false,
+      ...overrides,
+    };
+  }
+
+  function makeToolSegment(tc: ToolCallState): HTMLElement {
+    const wrapper = document.createElement("div");
+    wrapper.className = "gsd-tool-segment";
+    wrapper.innerHTML = `<div class="gsd-tool-block running cat-generic" data-tool-id="${tc.id}">
+      <div class="gsd-tool-header">
+        <span class="gsd-tool-spinner"></span>
+        <span class="gsd-tool-cat-icon">🔧</span>
+        <span class="gsd-tool-name">${tc.name}</span>
+        <span class="gsd-tool-header-right"><span class="gsd-tool-chevron">▸</span></span>
+      </div>
+      <div class="gsd-tool-output"><span class="gsd-tool-output-pending">Running...</span></div>
+    </div>`;
+    return wrapper;
+  }
+
+  it("updates state class when tool completes successfully", () => {
+    const tc = makeTc();
+    const el = makeToolSegment(tc);
+    const block = el.querySelector<HTMLElement>(".gsd-tool-block")!;
+
+    tc.isRunning = false;
+    tc.endTime = tc.startTime! + 500;
+    tc.resultText = "output line 1";
+
+    patchToolBlock(el, tc);
+
+    expect(block.classList.contains("done")).toBe(true);
+    expect(block.classList.contains("running")).toBe(false);
+  });
+
+  it("replaces spinner with success icon on completion", () => {
+    const tc = makeTc();
+    const el = makeToolSegment(tc);
+
+    tc.isRunning = false;
+    tc.endTime = tc.startTime! + 100;
+    tc.resultText = "ok";
+
+    patchToolBlock(el, tc);
+
+    expect(el.querySelector(".gsd-tool-spinner")).toBeNull();
+    const icon = el.querySelector(".gsd-tool-icon");
+    expect(icon?.classList.contains("success")).toBe(true);
+  });
+
+  it("replaces spinner with error icon on failure", () => {
+    const tc = makeTc();
+    const el = makeToolSegment(tc);
+
+    tc.isRunning = false;
+    tc.isError = true;
+    tc.endTime = tc.startTime! + 100;
+    tc.resultText = "error occurred";
+
+    patchToolBlock(el, tc);
+
+    const icon = el.querySelector(".gsd-tool-icon");
+    expect(icon?.classList.contains("error")).toBe(true);
+    expect(icon?.textContent).toBe("✗");
+  });
+
+  it("preserves spinner element when tool is still running", () => {
+    const tc = makeTc({ isRunning: true });
+    const el = makeToolSegment(tc);
+    const spinnerBefore = el.querySelector(".gsd-tool-spinner");
+
+    patchToolBlock(el, tc);
+
+    const spinnerAfter = el.querySelector(".gsd-tool-spinner");
+    expect(spinnerAfter).toBe(spinnerBefore); // same element, not replaced
+  });
+
+  it("updates duration text without replacing spinner", () => {
+    const tc = makeTc({ isRunning: true, startTime: Date.now() - 2000 });
+    const el = makeToolSegment(tc);
+    const spinnerBefore = el.querySelector(".gsd-tool-spinner");
+
+    patchToolBlock(el, tc);
+
+    const spinnerAfter = el.querySelector(".gsd-tool-spinner");
+    expect(spinnerAfter).toBe(spinnerBefore);
+    const durationEl = el.querySelector(".gsd-tool-duration");
+    expect(durationEl).toBeTruthy();
+  });
+
+  it("adds collapsed class when result is long", () => {
+    const tc = makeTc({ isRunning: false });
+    tc.endTime = Date.now();
+    tc.resultText = Array(10).fill("line").join("\n"); // 10 lines > 5 threshold
+    const el = makeToolSegment(tc);
+
+    patchToolBlock(el, tc);
+
+    const block = el.querySelector<HTMLElement>(".gsd-tool-block")!;
+    expect(block.classList.contains("collapsed")).toBe(true);
+  });
+
+  it("updates output content when result text changes", () => {
+    const tc = makeTc({ isRunning: false, resultText: "hello world" });
+    tc.endTime = Date.now();
+    const el = makeToolSegment(tc);
+
+    patchToolBlock(el, tc);
+
+    const output = el.querySelector(".gsd-tool-output");
+    expect(output?.textContent).toContain("hello world");
+  });
+
+  it("falls back to full rebuild when block element not found", () => {
+    const tc = makeTc({ isRunning: false, resultText: "done" });
+    tc.endTime = Date.now();
+    // Malformed element with no .gsd-tool-block
+    const el = document.createElement("div");
+    el.className = "gsd-tool-segment";
+    el.innerHTML = `<div data-tool-id="${tc.id}">bare</div>`;
+
+    // Should not throw
+    expect(() => patchToolBlock(el, tc)).not.toThrow();
+  });
+
+  it("handles async_subagent tool with subagent panel", () => {
+    const tc = makeTc({ name: "async_subagent", isRunning: true });
+    const el = document.createElement("div");
+    el.className = "gsd-tool-segment";
+    el.innerHTML = `<div class="gsd-tool-block running cat-agent" data-tool-id="${tc.id}">
+      <div class="gsd-tool-header">
+        <span class="gsd-tool-spinner"></span>
+        <span class="gsd-tool-name">async_subagent</span>
+        <span class="gsd-tool-header-right"><span class="gsd-tool-chevron">▸</span></span>
+      </div>
+      <div class="gsd-tool-output gsd-tool-output-rich">
+        <div class="gsd-subagent-panel">
+          <div class="gsd-subagent-summary">
+            <span class="gsd-subagent-mode">Parallel</span>
+            <span class="gsd-subagent-counts"></span>
+            <span class="gsd-subagent-total">0/1</span>
+          </div>
+          <div class="gsd-agent-cards">
+            <div class="gsd-agent-card running">
+              <div class="gsd-agent-header">
+                <div class="gsd-agent-header-left"><span class="gsd-tool-spinner"></span><span class="gsd-agent-name">worker</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+    tc.details = {
+      mode: "parallel",
+      results: [{ agent: "worker", task: "do stuff", exitCode: -1, status: "running" }],
+    };
+    tc.resultText = "0/1 done, 1 running";
+
+    // Should not throw and should preserve existing spinner
+    const spinnerBefore = el.querySelector(".gsd-agent-card .gsd-tool-spinner");
+    expect(() => patchToolBlock(el, tc)).not.toThrow();
+    const spinnerAfter = el.querySelector(".gsd-agent-card .gsd-tool-spinner");
+    expect(spinnerAfter).toBe(spinnerBefore);
+  });
+
+  it("transitions agent card from running to done when exitCode changes", () => {
+    const tc = makeTc({ name: "async_subagent", isRunning: false });
+    tc.endTime = Date.now();
+    const el = document.createElement("div");
+    el.className = "gsd-tool-segment";
+    el.innerHTML = `<div class="gsd-tool-block done cat-agent" data-tool-id="${tc.id}">
+      <div class="gsd-tool-header">
+        <span class="gsd-tool-icon success">✓</span>
+        <span class="gsd-tool-name">async_subagent</span>
+        <span class="gsd-tool-header-right"><span class="gsd-tool-chevron">▸</span></span>
+      </div>
+      <div class="gsd-tool-output gsd-tool-output-rich">
+        <div class="gsd-subagent-panel">
+          <div class="gsd-subagent-summary">
+            <span class="gsd-subagent-mode">Parallel</span>
+            <span class="gsd-subagent-counts"></span>
+            <span class="gsd-subagent-total">0/1</span>
+          </div>
+          <div class="gsd-agent-cards">
+            <div class="gsd-agent-card running">
+              <div class="gsd-agent-header">
+                <div class="gsd-agent-header-left"><span class="gsd-tool-spinner"></span><span class="gsd-agent-name">worker</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+    tc.details = {
+      mode: "parallel",
+      results: [{ agent: "worker", task: "do stuff", exitCode: 0, status: "done", usage: { turns: 1, input: 100, output: 50, cost: 0.001 } }],
+    };
+    tc.resultText = "1/1 done, 0 running";
+
+    patchToolBlock(el, tc);
+
+    // Spinner should be replaced with done icon
+    expect(el.querySelector(".gsd-agent-card .gsd-tool-spinner")).toBeNull();
+    const agentIcon = el.querySelector(".gsd-agent-card .gsd-agent-icon");
+    expect(agentIcon?.classList.contains("done")).toBe(true);
+
+    // Card state class updated
+    const card = el.querySelector(".gsd-agent-card");
+    expect(card?.classList.contains("done")).toBe(true);
+    expect(card?.classList.contains("running")).toBe(false);
+
+    // Total updated
+    expect(el.querySelector(".gsd-subagent-total")?.textContent).toBe("1/1");
+  });
+
+  it("parallel badge added when tool becomes parallel", () => {
+    const tc = makeTc({ isRunning: true, isParallel: true });
+    const el = makeToolSegment(tc);
+
+    patchToolBlock(el, tc);
+
+    const block = el.querySelector(".gsd-tool-block");
+    expect(block?.classList.contains("parallel")).toBe(true);
   });
 });

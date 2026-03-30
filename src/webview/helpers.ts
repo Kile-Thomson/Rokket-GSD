@@ -321,7 +321,7 @@ function formatTokenCount(count: number): string {
   return `${(count / 1000000).toFixed(1)}M`;
 }
 
-function buildUsagePills(usage: any, model?: string): string {
+export function buildUsagePills(usage: any, model?: string): string {
   if (!usage) return "";
   const pills: string[] = [];
   if (usage.turns) pills.push(`${usage.turns} turn${usage.turns > 1 ? "s" : ""}`);
@@ -601,6 +601,7 @@ let _lastScrollTop = 0;
 let _scrollContainer: HTMLElement | null = null;
 let _scrollHandler: (() => void) | null = null;
 let _programmaticScroll = false;
+let _mutationObserver: MutationObserver | null = null;
 
 /**
  * Initialize intent-based auto-scroll tracking on a container element.
@@ -616,6 +617,10 @@ export function initAutoScroll(container: HTMLElement): void {
   // Detach from previous container if any
   if (_scrollContainer && _scrollHandler) {
     _scrollContainer.removeEventListener("scroll", _scrollHandler);
+  }
+  if (_mutationObserver) {
+    _mutationObserver.disconnect();
+    _mutationObserver = null;
   }
 
   _lastScrollTop = container.scrollTop;
@@ -639,6 +644,20 @@ export function initAutoScroll(container: HTMLElement): void {
   };
 
   container.addEventListener("scroll", _scrollHandler, { passive: true });
+
+  // MutationObserver watches for child additions and subtree changes — this
+  // fires reliably when content grows inside the container, unlike ResizeObserver
+  // which won't fire on a fixed-height flex container with overflow-y:auto.
+  // Deferred via rAF to avoid forcing layout in the middle of a frame.
+  let pendingScrollRaf: number | null = null;
+  _mutationObserver = new MutationObserver(() => {
+    if (pendingScrollRaf !== null) return;
+    pendingScrollRaf = requestAnimationFrame(() => {
+      pendingScrollRaf = null;
+      scrollToBottom(container);
+    });
+  });
+  _mutationObserver.observe(container, { childList: true, subtree: true, characterData: true });
 }
 
 /** Reset scroll tracking (e.g. new session, clear messages) */

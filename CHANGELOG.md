@@ -4,6 +4,27 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.76] — 2026-03-30
+
+### Added
+- **Optimistic thinking dots** — the animated loading indicator now appears the instant the user sends a message, before `agent_start` fires. Eliminates the dead-time gap between send and first visible feedback.
+- **Per-token text rendering** — a live `Text` node is maintained at the end of each streaming text segment and updated directly on every incoming delta. Text now appears token-by-token within OS pipe delivery bursts rather than in chunks.
+- **Lex cache** — the markdown token list is cached per segment and only re-lexed when the accumulated text actually changes, reducing per-frame CPU cost during long responses.
+
+### Changed
+- **Synchronous first-delta segment creation** — text and thinking segment DOM elements are now created on the first delta rather than waiting for the next `requestAnimationFrame`. First visible output appears a full frame earlier.
+- **Scroll decoupled from render** — `scrollToBottom` removed from the per-delta hot path (was forcing a synchronous layout reflow on every token). Replaced with a `ResizeObserver` deferred via `requestAnimationFrame`, which scrolls after paint without blocking the compositor.
+- **Targeted tool block DOM updates** — `updateToolSegmentElement` and `async_subagent_progress` handler now patch only changed parts of the tool card (status icon, duration, output, classes) instead of rebuilding `innerHTML`. Spinner animations survive elapsed-timer ticks and progress updates without resetting.
+- **Targeted subagent panel updates** — the `async_subagent` card's agent rows are patched in place on each progress event. Usage pills are swapped, state classes updated, and spinner/icon transitions only happen when agent state actually changes.
+- **Async subagent parallel guidance** — `async_subagent` tool description and prompt guidelines now explicitly instruct single-call parallel usage (`tasks: [{...}, {...}]`) and prohibit multiple sequential calls for parallel work. Updated in both the VSIX-bundled extension and the live `~/.gsd/agent/extensions/` copy.
+
+### Fixed
+- **Animation frozen after one loop (reduced-motion)** — Windows "Animation effects" accessibility setting activates `prefers-reduced-motion`, which applied a blanket `animation-iteration-count: 1 !important` to all elements. Thinking dots and all spinners now explicitly override this with `infinite` iteration count and gentler reduced-motion-appropriate animations.
+- **Response content merging** — `ensureCurrentTurnElement` was reusing streaming elements that contained real content from previous turns, causing multiple assistant responses to concatenate into one block. Now only reuses elements that contain exclusively the pending dots indicator.
+- **Thinking dots animation reset on agent_start** — `ensureCurrentTurnElement` was updating `data-entry-id` on the optimistic dots element every time, triggering a style recalculation that restarted CSS animations on child spans. Attribute is now only written if the value actually changed.
+- **Word duplication during streaming** — the live `Text` node was being populated with the full accumulated text, duplicating content already rendered in the parsed trailing element. The node now only contains characters added since the last `requestAnimationFrame` rendered the trailing element.
+- **Usage pills duplicating on subagent progress** — `patchSubagentPanel` was appending new `.gsd-agent-usage` elements on each update because it searched for `.gsd-usage-pills` (wrong class). Fixed to use `.gsd-agent-usage`.
+
 ## [0.2.75] — 2026-03-26
 
 ### Fixed
