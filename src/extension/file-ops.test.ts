@@ -99,8 +99,13 @@ describe("file-ops", () => {
     it("opens a file within the workspace", () => {
       (fs.realpathSync as any).mockImplementation((p: string) => p);
       const ctx = createCtx();
-      handleOpenFile(ctx, webview, sid, { path: "/mock/workspace/src/index.ts" });
-      // path.resolve converts to platform absolute — just verify it was called
+      // Use path.resolve to produce a platform-native absolute path so the
+      // workspace boundary check works on both Unix and Windows.
+      const filePath = path.resolve("/mock/workspace/src/index.ts");
+      vsc.workspace.workspaceFolders = [
+        { uri: { fsPath: path.resolve("/mock/workspace") }, name: "ws", index: 0 },
+      ] as any;
+      handleOpenFile(ctx, webview, sid, { path: filePath });
       expect(vsc.workspace.openTextDocument).toHaveBeenCalledWith(
         expect.stringContaining("mock" + path.sep + "workspace" + path.sep + "src" + path.sep + "index.ts"),
       );
@@ -171,7 +176,22 @@ describe("file-ops", () => {
       const ctx = createCtx();
       handleOpenUrl(ctx, webview, sid, { url: "file:///etc/passwd" });
       expect(vsc.env.openExternal).not.toHaveBeenCalled();
-      expect(ctx.output.appendLine).toHaveBeenCalledWith(expect.stringContaining("Blocked non-http URL"));
+      // file:// paths are routed to handleOpenFile which blocks paths outside workspace
+      expect(ctx.output.appendLine).toHaveBeenCalledWith(expect.stringContaining("Blocked"));
+    });
+
+    it("routes relative file paths to handleOpenFile", () => {
+      const ctx = createCtx();
+      // Relative paths that look like file paths should not be opened externally
+      handleOpenUrl(ctx, webview, sid, { url: "readme.md" });
+      expect(vsc.env.openExternal).not.toHaveBeenCalled();
+    });
+
+    it("blocks anchor-only URLs", () => {
+      const ctx = createCtx();
+      handleOpenUrl(ctx, webview, sid, { url: "#section" });
+      expect(vsc.env.openExternal).not.toHaveBeenCalled();
+      expect(ctx.output.appendLine).toHaveBeenCalledWith(expect.stringContaining("Blocked"));
     });
   });
 
