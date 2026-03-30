@@ -22,6 +22,7 @@ import {
   getToolKeyArg,
   formatToolResult,
   buildSubagentOutputHtml,
+  buildUsagePills,
   renderMarkdown,
   sanitizeAndPostProcess,
   lexMarkdown,
@@ -379,8 +380,10 @@ export function updateToolSegmentElement(toolCallId: string, searchAllEntries: b
 
   if (!targetEl) return;
 
-  // Update the tool's HTML
-  targetEl.innerHTML = buildToolCallHtml(tc);
+  // Targeted DOM patch — update only what changed instead of rebuilding innerHTML.
+  // This preserves the spinner's animation state, hover/focus state, and avoids
+  // screen reader noise from wholesale DOM replacement.
+  patchToolBlockElement(targetEl, tc);
 
   // Attempt streaming collapse if tool just completed
   if (!tc.isRunning && targetSegIdx !== null) {
@@ -816,6 +819,268 @@ function buildToolGroupHtml(
     </summary>
     <div class="gsd-tool-group-content">${inner}</div>
   </details>`;
+}
+
+/**
+ * Targeted DOM patch for a tool block element.
+ * Updates only the parts that can change (status icon, classes, duration,
+ * output) without replacing innerHTML, so spinner animations and focus
+ * state are preserved across elapsed-timer ticks and progress updates.
+ *
+ * `el` may be the `.gsd-tool-segment` wrapper or the `.gsd-tool-block` itself.
+ */
+function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void {
+  const block = el.classList.contains("gsd-tool-block")
+    ? el
+    : el.querySelector<HTMLElement>(".gsd-tool-block");
+  if (!block) {
+    // Fallback — element structure unexpected, full rebuild
+    el.innerHTML = buildToolCallHtml(tc);
+    return;
+  }
+
+  const stateClass = tc.isRunning ? "running" : tc.isSkipped ? "skipped" : tc.isError ? "error" : "done";
+  const n = tc.name.toLowerCase();
+  const isSubagent = n === "subagent" || n === "async_subagent" || n === "await_subagent";
+  const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
+  const shouldCollapse = !tc.isRunning && !isSubagent && (lines > 5 || tc.isSkipped);
+
+  // Update block-level classes
+  block.classList.remove("running", "skipped", "error", "done", "collapsed");
+  block.classList.add(stateClass);
+  if (shouldCollapse) block.classList.add("collapsed");
+  if (tc.isParallel) block.classList.add("parallel");
+
+  // Update aria-expanded on header
+  const header = block.querySelector<HTMLElement>(".gsd-tool-header");
+  if (header) {
+    header.setAttribute("aria-expanded", shouldCollapse ? "false" : "true");
+  }
+
+  // Update status icon — only replace if state changed to avoid resetting spinner
+  const statusIconEl = block.querySelector<HTMLElement>(
+    ".gsd-tool-spinner, .gsd-tool-icon"
+  );
+  if (statusIconEl) {
+    const currentlyRunning = statusIconEl.classList.contains("gsd-tool-spinner") ||
+      !statusIconEl.classList.contains("gsd-tool-icon");
+    if (tc.isRunning && !statusIconEl.classList.contains("gsd-tool-spinner")) {
+      // Transition to running — replace with spinner
+      const spinner = document.createElement("span");
+      spinner.className = "gsd-tool-spinner";
+      statusIconEl.replaceWith(spinner);
+    } else if (!tc.isRunning && (currentlyRunning || statusIconEl.classList.contains("gsd-tool-spinner"))) {
+      // Transition from running — replace spinner with result icon
+      const icon = document.createElement("span");
+      icon.className = "gsd-tool-icon " + (tc.isSkipped ? "skipped" : tc.isError ? "error" : "success");
+      icon.textContent = tc.isSkipped ? "⏭" : tc.isError ? "✗" : "✓";
+      statusIconEl.replaceWith(icon);
+    } else if (!tc.isRunning) {
+      // Already not running — just update class/text in case error state changed
+      statusIconEl.className = "gsd-tool-icon " + (tc.isSkipped ? "skipped" : tc.isError ? "error" : "success");
+      statusIconEl.textContent = tc.isSkipped ? "⏭" : tc.isError ? "✗" : "✓";
+    }
+    // If still running — leave spinner element alone (preserves animation)
+  }
+
+  // Update duration
+  const duration = tc.endTime && tc.startTime
+    ? formatDuration(tc.endTime - tc.startTime)
+    : tc.isRunning && tc.startTime
+      ? formatDuration(Date.now() - tc.startTime)
+      : "";
+  const durationEl = block.querySelector<HTMLElement>(".gsd-tool-duration");
+  if (duration) {
+    if (durationEl) {
+      durationEl.textContent = duration;
+      durationEl.className = `gsd-tool-duration${tc.isRunning ? " elapsed-live" : ""}`;
+    } else {
+      // Insert duration before chevron
+      const right = block.querySelector<HTMLElement>(".gsd-tool-header-right");
+      if (right) {
+        const span = document.createElement("span");
+        span.className = `gsd-tool-duration${tc.isRunning ? " elapsed-live" : ""}`;
+        span.textContent = duration;
+        const chevron = right.querySelector(".gsd-tool-chevron");
+        right.insertBefore(span, chevron ?? null);
+      }
+    }
+  } else if (durationEl) {
+    durationEl.remove();
+  }
+
+  // Update output
+  const outputEl = block.querySelector<HTMLElement>(".gsd-tool-output");
+  let newOutputHtml = "";
+  if (isSubagent) {
+    newOutputHtml = buildSubagentOutputHtml(tc);
+    if (outputEl) {
+      // Patch subagent panel in place to preserve spinner animation state.
+      // If the panel structure already exists, update only what changed.
+      const existingPanel = outputEl.querySelector<HTMLElement>(".gsd-subagent-panel");
+      if (existingPanel) {
+        patchSubagentPanel(existingPanel, tc);
+      } else {
+        outputEl.className = "gsd-tool-output gsd-tool-output-rich";
+        outputEl.innerHTML = newOutputHtml;
+      }
+    } else {
+      const div = document.createElement("div");
+      div.className = "gsd-tool-output gsd-tool-output-rich";
+      div.innerHTML = newOutputHtml;
+      block.appendChild(div);
+    }
+  } else if (tc.resultText) {
+    const formattedResult = formatToolResult(tc.name, tc.resultText, tc.args);
+    const maxOutputLen = 8000;
+    let displayText = formattedResult;
+    let truncated = false;
+    if (displayText.length > maxOutputLen) {
+      displayText = displayText.slice(0, maxOutputLen);
+      truncated = true;
+    }
+    newOutputHtml = `<pre><code>${escapeHtml(displayText)}</code></pre>`;
+    if (truncated) {
+      newOutputHtml += `<div class="gsd-tool-output-truncated">… output truncated (${formatTokens(tc.resultText.length)} chars)</div>`;
+    }
+    if (outputEl) {
+      outputEl.className = "gsd-tool-output";
+      outputEl.innerHTML = newOutputHtml;
+    } else {
+      const div = document.createElement("div");
+      div.className = "gsd-tool-output";
+      div.innerHTML = newOutputHtml;
+      block.appendChild(div);
+    }
+  } else if (tc.isRunning) {
+    if (outputEl) {
+      outputEl.className = "gsd-tool-output";
+      outputEl.innerHTML = `<span class="gsd-tool-output-pending">Running...</span>`;
+    } else {
+      const div = document.createElement("div");
+      div.className = "gsd-tool-output";
+      div.innerHTML = `<span class="gsd-tool-output-pending">Running...</span>`;
+      block.appendChild(div);
+    }
+  } else if (outputEl) {
+    outputEl.remove();
+  }
+}
+
+/**
+ * Public entry point for targeted tool block patching.
+ * Accepts either a `.gsd-tool-segment` wrapper or a `.gsd-tool-block` directly.
+ */
+export function patchToolBlock(el: HTMLElement, tc: ToolCallState): void {
+  patchToolBlockElement(el, tc);
+}
+
+/**
+ * Patch a .gsd-subagent-panel in place — update summary counts and each
+ * agent card's state without rebuilding the DOM, so spinner animations
+ * on running agents survive progress updates.
+ */
+function patchSubagentPanel(panel: HTMLElement, tc: ToolCallState): void {
+  const details = tc.details as { mode?: string; results?: any[] } | undefined;
+  const results = details?.results;
+  if (!results) return;
+
+  const running = results.filter((r: any) => r.exitCode === -1).length;
+  const done = results.filter((r: any) => r.exitCode !== -1 && r.exitCode === 0).length;
+  const failed = results.filter((r: any) => r.exitCode > 0 || r.stopReason === "error").length;
+  const total = results.length;
+
+  // Update summary counts
+  const countsEl = panel.querySelector<HTMLElement>(".gsd-subagent-counts");
+  if (countsEl) {
+    const parts: string[] = [];
+    if (done > 0) parts.push(`<span class="gsd-agent-stat done">${done} done</span>`);
+    if (running > 0) parts.push(`<span class="gsd-agent-stat running">${running} running</span>`);
+    if (failed > 0) parts.push(`<span class="gsd-agent-stat error">${failed} failed</span>`);
+    countsEl.innerHTML = parts.join(`<span class="gsd-agent-sep">·</span>`);
+  }
+  const totalEl = panel.querySelector<HTMLElement>(".gsd-subagent-total");
+  if (totalEl) totalEl.textContent = `${done + failed}/${total}`;
+
+  // Patch each agent card — match by index
+  const cardEls = panel.querySelectorAll<HTMLElement>(".gsd-agent-card");
+  results.forEach((r: any, i: number) => {
+    const card = cardEls[i];
+    if (!card) return;
+
+    const isRunning = r.exitCode === -1;
+    const isFailed = !isRunning && (r.exitCode !== 0 || r.stopReason === "error");
+    const newState = isRunning ? "running" : isFailed ? "error" : "done";
+
+    // Update card state class
+    card.classList.remove("running", "error", "done");
+    card.classList.add(newState);
+
+    // Update status icon — only swap when state transitions to avoid reset
+    const iconEl = card.querySelector<HTMLElement>(".gsd-tool-spinner, .gsd-agent-icon");
+    if (iconEl) {
+      const currentlySpinner = iconEl.classList.contains("gsd-tool-spinner");
+      if (isRunning && !currentlySpinner) {
+        const spinner = document.createElement("span");
+        spinner.className = "gsd-tool-spinner";
+        iconEl.replaceWith(spinner);
+      } else if (!isRunning && currentlySpinner) {
+        const icon = document.createElement("span");
+        icon.className = `gsd-agent-icon ${isFailed ? "error" : "done"}`;
+        icon.textContent = isFailed ? "✗" : "✓";
+        iconEl.replaceWith(icon);
+      } else if (!isRunning) {
+        iconEl.className = `gsd-agent-icon ${isFailed ? "error" : "done"}`;
+        iconEl.textContent = isFailed ? "✗" : "✓";
+      }
+      // Still running — leave spinner alone
+    }
+
+    // Update usage pills (token counts, cost) — these change on progress
+    const headerEl = card.querySelector<HTMLElement>(".gsd-agent-header");
+    if (headerEl && r.usage) {
+      const existingPills = headerEl.querySelector<HTMLElement>(".gsd-agent-usage");
+      const newPillsHtml = buildUsagePills(r.usage, r.model);
+      if (existingPills) {
+        existingPills.outerHTML = newPillsHtml || "<div class=\"gsd-agent-usage\"></div>";
+      } else if (newPillsHtml) {
+        headerEl.insertAdjacentHTML("beforeend", newPillsHtml);
+      }
+    }
+
+    // Update error message if failed
+    if (isFailed && r.errorMessage) {
+      let errEl = card.querySelector<HTMLElement>(".gsd-agent-error");
+      if (!errEl) {
+        errEl = document.createElement("div");
+        errEl.className = "gsd-agent-error";
+        card.appendChild(errEl);
+      }
+      errEl.textContent = r.errorMessage;
+    }
+  });
+
+  // Update footer usage pills if completed
+  if (!tc.isRunning) {
+    const totalUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+    for (const r of results) {
+      if (r.usage) {
+        totalUsage.input += r.usage.input || 0;
+        totalUsage.output += r.usage.output || 0;
+        totalUsage.cost += r.usage.cost || 0;
+        totalUsage.turns += r.usage.turns || 0;
+      }
+    }
+    if (totalUsage.turns > 0) {
+      let footerEl = panel.querySelector<HTMLElement>(".gsd-subagent-footer");
+      if (!footerEl) {
+        footerEl = document.createElement("div");
+        footerEl.className = "gsd-subagent-footer";
+        panel.appendChild(footerEl);
+      }
+      footerEl.innerHTML = buildUsagePills(totalUsage, undefined);
+    }
+  }
 }
 
 export function buildToolCallHtml(tc: ToolCallState): string {

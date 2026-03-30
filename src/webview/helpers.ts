@@ -321,7 +321,7 @@ function formatTokenCount(count: number): string {
   return `${(count / 1000000).toFixed(1)}M`;
 }
 
-function buildUsagePills(usage: any, model?: string): string {
+export function buildUsagePills(usage: any, model?: string): string {
   if (!usage) return "";
   const pills: string[] = [];
   if (usage.turns) pills.push(`${usage.turns} turn${usage.turns > 1 ? "s" : ""}`);
