@@ -91,6 +91,8 @@ describe("file-ops", () => {
     vsc.workspace.workspaceFolders = [
       { uri: { fsPath: "/mock/workspace" }, name: "ws", index: 0 },
     ];
+    // Restore realpathSync identity mock (clearAllMocks resets implementations)
+    (fs.realpathSync as any).mockImplementation((p: string) => p);
   });
 
   // ─── handleOpenFile ────────────────────────────────────────────────
