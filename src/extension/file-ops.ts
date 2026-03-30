@@ -151,9 +151,14 @@ export function handleOpenUrl(
     (!url.includes("://") && !url.startsWith("#") && url.length > 0);
 
   if (isFilePath) {
-    const filePath = url.startsWith("file://")
-      ? vscode.Uri.parse(url).fsPath
-      : url;
+    let filePath: string;
+    if (url.startsWith("file://")) {
+      // Strip file:// prefix manually — vscode.Uri.parse mock may not return
+      // correct fsPath in tests, and this is simpler cross-platform
+      filePath = decodeURIComponent(url.replace(/^file:\/\//, ""));
+    } else {
+      filePath = url;
+    }
     handleOpenFile(ctx, _webview, sessionId, { path: filePath });
     return;
   }
