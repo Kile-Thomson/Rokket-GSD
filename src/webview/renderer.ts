@@ -86,6 +86,7 @@ const liveTextNodes = new Map<number, Text>();
  */
 let elapsedTimerHandle: ReturnType<typeof setInterval> | null = null;
 
+/** Start the live elapsed timer that ticks running tool cards every second. */
 function startElapsedTimer(): void {
   if (elapsedTimerHandle) return;
   elapsedTimerHandle = setInterval(() => {
@@ -104,6 +105,7 @@ function startElapsedTimer(): void {
   }, 1000);
 }
 
+/** Stop the live elapsed timer. */
 function stopElapsedTimer(): void {
   if (elapsedTimerHandle) {
     clearInterval(elapsedTimerHandle);
@@ -167,7 +169,7 @@ export function showPendingDots(): void {
   }
 }
 
-/** Remove thinking dots from a container — called when real content arrives. */
+/** Remove pending thinking dots from a container — called when real content arrives. */
 function removePendingDotsFromContainer(container: HTMLElement): void {
   container.querySelector(".gsd-thinking-dots")?.remove();
 }
@@ -266,6 +268,9 @@ export function appendToTextSegment(segType: "text" | "thinking", delta: string)
       // We use a live Text node (not textContent) so the rAF can append
       // the trailing div without leaving a duplicate raw text node behind.
       const container = ensureCurrentTurnElement();
+      // Remove dots synchronously here so the first token and dots are never
+      // both visible in the same frame.
+      removePendingDotsFromContainer(container);
       const el = document.createElement("div");
       el.className = "gsd-assistant-text";
       const seg = turn.segments[segIdx];
@@ -290,6 +295,7 @@ export function appendToTextSegment(segType: "text" | "thinking", delta: string)
     } else if (!segmentElements.has(segIdx)) {
       // First thinking delta — create block immediately
       const container = ensureCurrentTurnElement();
+      removePendingDotsFromContainer(container);
       const el = document.createElement("details");
       el.className = "gsd-thinking-block";
       el.setAttribute("open", "");
@@ -911,9 +917,8 @@ function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void {
 
   // Update output
   const outputEl = block.querySelector<HTMLElement>(".gsd-tool-output");
-  let newOutputHtml = "";
   if (isSubagent) {
-    newOutputHtml = buildSubagentOutputHtml(tc);
+    const newOutputHtml = buildSubagentOutputHtml(tc);
     if (outputEl) {
       // Patch subagent panel in place to preserve spinner animation state.
       // If the panel structure already exists, update only what changed.
@@ -939,7 +944,7 @@ function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void {
       displayText = displayText.slice(0, maxOutputLen);
       truncated = true;
     }
-    newOutputHtml = `<pre><code>${escapeHtml(displayText)}</code></pre>`;
+    let newOutputHtml = `<pre><code>${escapeHtml(displayText)}</code></pre>`;
     if (truncated) {
       newOutputHtml += `<div class="gsd-tool-output-truncated">… output truncated (${formatTokens(tc.resultText.length)} chars)</div>`;
     }
@@ -1067,6 +1072,8 @@ function patchSubagentPanel(panel: HTMLElement, tc: ToolCallState): void {
       if (r.usage) {
         totalUsage.input += r.usage.input || 0;
         totalUsage.output += r.usage.output || 0;
+        totalUsage.cacheRead += r.usage.cacheRead || 0;
+        totalUsage.cacheWrite += r.usage.cacheWrite || 0;
         totalUsage.cost += r.usage.cost || 0;
         totalUsage.turns += r.usage.turns || 0;
       }

@@ -80,7 +80,7 @@
       "format": "esm"
     },
     "src/webview/helpers.ts": {
-      "bytes": 28837,
+      "bytes": 28982,
       "imports": [
         {
           "path": "node_modules/marked/lib/marked.esm.js",
@@ -207,7 +207,7 @@
       "format": "esm"
     },
     "src/webview/renderer.ts": {
-      "bytes": 51455,
+      "bytes": 51894,
       "imports": [
         {
           "path": "src/webview/state.ts",
@@ -626,7 +626,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 773793
+      "bytes": 774541
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -692,7 +692,7 @@
           "bytesInOutput": 22698
         },
         "src/webview/helpers.ts": {
-          "bytesInOutput": 11927
+          "bytesInOutput": 11955
         },
         "src/webview/slash-menu.ts": {
           "bytesInOutput": 7022
@@ -719,7 +719,7 @@
           "bytesInOutput": 3598
         },
         "src/webview/renderer.ts": {
-          "bytesInOutput": 21725
+          "bytesInOutput": 21820
         },
         "src/webview/dashboard.ts": {
           "bytesInOutput": 10373
@@ -746,7 +746,7 @@
           "bytesInOutput": 18388
         }
       },
-      "bytes": 212192
+      "bytes": 212315
     },
     "dist/webview/index.css.map": {
       "imports": [],
