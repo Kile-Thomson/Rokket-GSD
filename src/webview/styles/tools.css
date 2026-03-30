@@ -176,6 +176,22 @@
   40% { opacity: 0.7; transform: scale(1.1); }
 }
 
+/* Override reduced-motion blanket rule for the thinking dots — they are a
+   meaningful loading indicator, not decorative. Use a gentler animation
+   instead of killing iteration count which leaves them frozen after 1 cycle. */
+@media (prefers-reduced-motion: reduce) {
+  .gsd-thinking-dots span {
+    animation-duration: 2s !important;
+    animation-iteration-count: infinite !important;
+    animation-name: gsd-dot-fade !important;
+  }
+}
+
+@keyframes gsd-dot-fade {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.6; }
+}
+
 /* ============================================================
    Tool Call Blocks
    ============================================================ */
