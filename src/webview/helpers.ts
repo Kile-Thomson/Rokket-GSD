@@ -657,7 +657,7 @@ export function initAutoScroll(container: HTMLElement): void {
       scrollToBottom(container);
     });
   });
-  _mutationObserver.observe(container, { childList: true, subtree: true });
+  _mutationObserver.observe(container, { childList: true, subtree: true, characterData: true });
 }
 
 /** Reset scroll tracking (e.g. new session, clear messages) */

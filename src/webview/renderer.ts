@@ -1088,6 +1088,19 @@ function patchSubagentPanel(panel: HTMLElement, tc: ToolCallState): void {
       footerEl.innerHTML = buildUsagePills(totalUsage, undefined);
     }
   }
+
+  // Upsert the final result block — buildSubagentOutputHtml adds
+  // .gsd-subagent-result when the tool is complete, so we must mirror that
+  // here to avoid dropping the completed subagent's markdown output.
+  if (!tc.isRunning && tc.resultText) {
+    let resultEl = panel.parentElement?.querySelector<HTMLElement>(".gsd-subagent-result");
+    if (!resultEl) {
+      resultEl = document.createElement("div");
+      resultEl.className = "gsd-subagent-result";
+      panel.parentElement?.appendChild(resultEl);
+    }
+    resultEl.innerHTML = renderMarkdown(tc.resultText);
+  }
 }
 
 export function buildToolCallHtml(tc: ToolCallState): string {
@@ -1290,12 +1303,15 @@ function renderTextSegment(segIdx: number): void {
     // node fast-path can show only the incremental chars without duplicating.
     incState.textLengthAtLastRaf = fullText.length;
 
-    // (Re)attach a live text node at the end of the trailing element so
-    // appendToTextSegment can update it directly on every delta, without
-    // waiting for another rAF cycle. Gives per-token visual updates within
-    // OS-level burst deliveries. The next rAF replaces innerHTML and resets.
+    // (Re)attach a live text node inside an inline span at the end of the
+    // trailing element. Using a span (not a bare text node) ensures the
+    // incremental chars sit inline with the parsed block content rather than
+    // appearing as a block-level sibling (which would break formatting).
+    const liveSpan = document.createElement("span");
+    liveSpan.dataset.liveText = "";
     const liveNode = document.createTextNode("");
-    trailingEl.appendChild(liveNode);
+    liveSpan.appendChild(liveNode);
+    trailingEl.appendChild(liveSpan);
     liveTextNodes.set(segIdx, liveNode);
   }
 }
