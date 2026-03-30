@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.73-blue" alt="Version" />
-  <img src="https://img.shields.io/badge/gsd--pi-v2.12--v2.49-blue" alt="gsd-pi compatibility" />
+  <img src="https://img.shields.io/badge/version-0.2.76-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/gsd--pi-v2.12--v2.58-blue" alt="gsd-pi compatibility" />
   <img src="https://img.shields.io/badge/VS%20Code-1.94%2B-blue" alt="VS Code" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform" />
@@ -64,10 +64,10 @@ Classic, Phosphor, Clarity, and Forge
 <td width="50%">
 
 💬 **Streaming Chat**<br>
-Text, thinking, and tools render in real time
+Per-token text rendering with live DOM updates
 
 🔧 **40+ Tool Visualizations**<br>
-Category icons, key args, collapsible output
+Category icons, key args, collapsible output — spinners animate continuously
 
 📊 **Parallel Worker Dashboard**<br>
 Per-worker state, budget bars, and stale detection
@@ -80,6 +80,9 @@ Warning toast when workers cross 80% of ceiling
 
 🛡️ **Process Resilience**<br>
 Built for multi-hour sessions with crash recovery
+
+⚡ **Async Subagent Parallelism**<br>
+Spawn multiple agents in one call, monitor live progress
 
 🧪 **865 Tests, 60%+ Coverage**<br>
 CI coverage gate enforced on every push
