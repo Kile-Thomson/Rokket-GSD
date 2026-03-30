@@ -262,6 +262,17 @@
   to { transform: rotate(360deg); }
 }
 
+/* Override reduced-motion blanket rule for spinners — they are functional
+   loading indicators, not decorative. Keep them spinning. */
+@media (prefers-reduced-motion: reduce) {
+  .gsd-tool-spinner,
+  .gsd-spinner,
+  .gsd-logo.working {
+    animation-duration: 2s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
 /* ============================================================
    What's New Card
    ============================================================ */

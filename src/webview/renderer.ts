@@ -22,6 +22,7 @@ import {
   getToolKeyArg,
   formatToolResult,
   buildSubagentOutputHtml,
+  buildUsagePills,
   renderMarkdown,
   sanitizeAndPostProcess,
   lexMarkdown,
@@ -61,8 +62,22 @@ let pendingTextRender: number | null = null;
  * Per-segment incremental rendering state.
  * Tracks how many block-level tokens have been "frozen" (fully rendered and
  * inserted into the DOM as immutable divs) for each text segment.
+ * Also caches the last lexed token list so we don't re-lex unchanged text.
  */
-const incrementalState = new Map<number, { frozenBlockCount: number }>();
+const incrementalState = new Map<number, {
+  frozenBlockCount: number;
+  lastLexedText: string;
+  lastTokens: any[];
+  textLengthAtLastRaf: number;
+}>();
+
+/**
+ * Live text nodes for in-progress trailing content.
+ * Keyed by segment index. Updated directly on every delta so text appears
+ * token-by-token without waiting for the next rAF cycle. The rAF pass
+ * replaces this with fully-parsed markdown and resets the node reference.
+ */
+const liveTextNodes = new Map<number, Text>();
 
 /**
  * Live elapsed timer — refreshes running tool cards every second so the
@@ -71,6 +86,7 @@ const incrementalState = new Map<number, { frozenBlockCount: number }>();
  */
 let elapsedTimerHandle: ReturnType<typeof setInterval> | null = null;
 
+/** Start the live elapsed timer that ticks running tool cards every second. */
 function startElapsedTimer(): void {
   if (elapsedTimerHandle) return;
   elapsedTimerHandle = setInterval(() => {
@@ -89,6 +105,7 @@ function startElapsedTimer(): void {
   }, 1000);
 }
 
+/** Stop the live elapsed timer. */
 function stopElapsedTimer(): void {
   if (elapsedTimerHandle) {
     clearInterval(elapsedTimerHandle);
@@ -135,14 +152,64 @@ export function getCurrentTurnElement(): HTMLElement | null {
   return currentTurnElement;
 }
 
+/**
+ * Show the thinking dots spinner in the current (or newly created) turn element.
+ * Called optimistically on user send — before agent_start fires — so the user
+ * sees immediate feedback with no dead time. Sets currentTurnElement so
+ * resetStreamingState can clean it up if the dots are still showing when
+ * agent_start arrives.
+ */
+export function showPendingDots(): void {
+  const container = ensureCurrentTurnElement();
+  if (!container.querySelector(".gsd-thinking-dots")) {
+    const dots = document.createElement("div");
+    dots.className = "gsd-thinking-dots";
+    dots.innerHTML = "<span></span><span></span><span></span>";
+    container.appendChild(dots);
+  }
+}
+
+/** Remove pending thinking dots from a container — called when real content arrives. */
+function removePendingDotsFromContainer(container: HTMLElement): void {
+  container.querySelector(".gsd-thinking-dots")?.remove();
+}
+
 export function ensureCurrentTurnElement(): HTMLElement {
   if (!currentTurnElement) {
-    const el = document.createElement("div");
-    el.className = "gsd-entry gsd-entry-assistant streaming";
-    el.dataset.entryId = state.currentTurn?.id || "stream";
-    messagesContainer.appendChild(el);
-    currentTurnElement = el;
-    welcomeScreen.classList.add("gsd-hidden");
+    // Check if there's a pending-dots-only element in the DOM (created
+    // optimistically by showPendingDots on user send) — reuse it so the dots
+    // remain visible until real content arrives rather than blinking out.
+    // Only match elements that contain ONLY the thinking dots — never reuse
+    // an element that has real content in it.
+    const candidates = messagesContainer.querySelectorAll<HTMLElement>(
+      ".gsd-entry-assistant.streaming"
+    );
+    let existing: HTMLElement | null = null;
+    for (const el of Array.from(candidates)) {
+      const onlyDots = el.children.length === 1 &&
+        el.firstElementChild?.classList.contains("gsd-thinking-dots");
+      if (onlyDots) {
+        existing = el;
+        break;
+      }
+    }
+    if (existing) {
+      // Only update entryId if it actually changed — data attribute mutations
+      // trigger style recalculation which resets CSS animations on children.
+      const newId = state.currentTurn?.id;
+      if (newId && existing.dataset.entryId !== newId) {
+        existing.dataset.entryId = newId;
+      }
+      currentTurnElement = existing;
+      welcomeScreen.classList.add("gsd-hidden");
+    } else {
+      const el = document.createElement("div");
+      el.className = "gsd-entry gsd-entry-assistant streaming";
+      el.dataset.entryId = state.currentTurn?.id || "stream";
+      messagesContainer.appendChild(el);
+      currentTurnElement = el;
+      welcomeScreen.classList.add("gsd-hidden");
+    }
   }
   return currentTurnElement;
 }
@@ -177,6 +244,77 @@ export function appendToTextSegment(segType: "text" | "thinking", delta: string)
   }
   _activeSegmentIndex = segIdx;
 
+  // Fast path: if a live text node exists for this segment's trailing element,
+  // update it directly. This fires on every delta — no rAF needed — so the
+  // user sees text appear token-by-token even when deltas arrive in OS-level
+  // bursts. The rAF pass below still runs to handle frozen block promotion
+  // and markdown parsing.
+  if (segType === "text") {
+    const liveNode = liveTextNodes.get(segIdx);
+    if (liveNode) {
+      const seg = turn.segments[segIdx];
+      if (seg.type === "text") {
+        // Only show chars added since the last rAF rendered the trailing element.
+        // The trailing element already contains everything up to that point —
+        // showing the full text here would duplicate it.
+        const incState = incrementalState.get(segIdx);
+        const base = incState?.textLengthAtLastRaf ?? 0;
+        const fullText = seg.chunks.join("");
+        liveNode.data = fullText.slice(base);
+      }
+    } else if (!segmentElements.has(segIdx)) {
+      // First delta for this segment — create the DOM element immediately so
+      // the user sees something without waiting for the next rAF cycle.
+      // We use a live Text node (not textContent) so the rAF can append
+      // the trailing div without leaving a duplicate raw text node behind.
+      const container = ensureCurrentTurnElement();
+      // Remove dots synchronously here so the first token and dots are never
+      // both visible in the same frame.
+      removePendingDotsFromContainer(container);
+      const el = document.createElement("div");
+      el.className = "gsd-assistant-text";
+      const seg = turn.segments[segIdx];
+      const liveNode = document.createTextNode(
+        seg.type === "text" ? seg.chunks.join("") : ""
+      );
+      el.appendChild(liveNode);
+      insertSegmentElement(container, segIdx, el);
+      segmentElements.set(segIdx, el);
+      liveTextNodes.set(segIdx, liveNode);
+    }
+  } else if (segType === "thinking") {
+    const el = segmentElements.get(segIdx);
+    if (el) {
+      const content = el.querySelector(".gsd-thinking-content");
+      if (content) {
+        const seg = turn.segments[segIdx];
+        if (seg.type === "thinking") {
+          content.textContent = seg.chunks.join("");
+        }
+      }
+    } else if (!segmentElements.has(segIdx)) {
+      // First thinking delta — create block immediately
+      const container = ensureCurrentTurnElement();
+      removePendingDotsFromContainer(container);
+      const el = document.createElement("details");
+      el.className = "gsd-thinking-block";
+      el.setAttribute("open", "");
+      el.innerHTML = `<summary class="gsd-thinking-header">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm-.5-3h1v1h-1v-1zm.5-7a2.5 2.5 0 00-2.5 2.5h1A1.5 1.5 0 018 5a1.5 1.5 0 011.5 1.5c0 .44-.18.84-.46 1.13l-.64.66A2.49 2.49 0 007.5 10h1c0-.52.21-1 .57-1.35l.64-.66A2.49 2.49 0 0010.5 6.5 2.5 2.5 0 008 4z"/></svg>
+        <span class="gsd-thinking-label">Thinking</span>
+        <span class="gsd-thinking-lines"></span>
+      </summary>
+      <div class="gsd-thinking-content"></div>`;
+      const seg = turn.segments[segIdx];
+      if (seg.type === "thinking") {
+        const content = el.querySelector(".gsd-thinking-content");
+        if (content) content.textContent = seg.chunks.join("");
+      }
+      insertSegmentElement(container, segIdx, el);
+      segmentElements.set(segIdx, el);
+    }
+  }
+
   if (pendingTextRender === null) {
     pendingTextRender = requestAnimationFrame(() => {
       pendingTextRender = null;
@@ -188,7 +326,7 @@ export function appendToTextSegment(segType: "text" | "thinking", delta: string)
 
 export function appendToolSegmentElement(tc: ToolCallState, segIdx: number): void {
   const container = ensureCurrentTurnElement();
-  const el = document.createElement("div");
+  removePendingDotsFromContainer(container);  const el = document.createElement("div");
   el.className = "gsd-tool-segment";
   el.dataset.segIdx = String(segIdx);
   el.dataset.toolId = tc.id;
@@ -248,8 +386,10 @@ export function updateToolSegmentElement(toolCallId: string, searchAllEntries: b
 
   if (!targetEl) return;
 
-  // Update the tool's HTML
-  targetEl.innerHTML = buildToolCallHtml(tc);
+  // Targeted DOM patch — update only what changed instead of rebuilding innerHTML.
+  // This preserves the spinner's animation state, hover/focus state, and avoids
+  // screen reader noise from wholesale DOM replacement.
+  patchToolBlockElement(targetEl, tc);
 
   // Attempt streaming collapse if tool just completed
   if (!tc.isRunning && targetSegIdx !== null) {
@@ -424,16 +564,22 @@ export function finalizeCurrentTurn(): void {
   _splitSegmentBarrier = -1;
   segmentElements.clear();
   incrementalState.clear();
+  liveTextNodes.clear();
   _activeSegmentIndex = -1;
 }
 
 /** Reset streaming state — used by new conversation */
 export function resetStreamingState(): void {
+  // If the current turn element only has pending dots (optimistic spinner from
+  // user send), keep it in the DOM — agent_start will reuse it via
+  // ensureCurrentTurnElement and real content will replace the dots.
+  // Only remove it if we're truly resetting with no pending response expected.
   currentTurnElement = null;
   priorTurnElements = [];
   _splitSegmentBarrier = -1;
   segmentElements.clear();
   incrementalState.clear();
+  liveTextNodes.clear();
   _activeSegmentIndex = -1;
   stopElapsedTimer();
 }
@@ -681,6 +827,282 @@ function buildToolGroupHtml(
   </details>`;
 }
 
+/**
+ * Targeted DOM patch for a tool block element.
+ * Updates only the parts that can change (status icon, classes, duration,
+ * output) without replacing innerHTML, so spinner animations and focus
+ * state are preserved across elapsed-timer ticks and progress updates.
+ *
+ * `el` may be the `.gsd-tool-segment` wrapper or the `.gsd-tool-block` itself.
+ */
+function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void {
+  const block = el.classList.contains("gsd-tool-block")
+    ? el
+    : el.querySelector<HTMLElement>(".gsd-tool-block");
+  if (!block) {
+    // Fallback — element structure unexpected, full rebuild
+    el.innerHTML = buildToolCallHtml(tc);
+    return;
+  }
+
+  const stateClass = tc.isRunning ? "running" : tc.isSkipped ? "skipped" : tc.isError ? "error" : "done";
+  const n = tc.name.toLowerCase();
+  const isSubagent = n === "subagent" || n === "async_subagent" || n === "await_subagent";
+  const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
+  const shouldCollapse = !tc.isRunning && !isSubagent && (lines > 5 || tc.isSkipped);
+
+  // Update block-level classes
+  block.classList.remove("running", "skipped", "error", "done", "collapsed");
+  block.classList.add(stateClass);
+  if (shouldCollapse) block.classList.add("collapsed");
+  if (tc.isParallel) block.classList.add("parallel");
+
+  // Update aria-expanded on header
+  const header = block.querySelector<HTMLElement>(".gsd-tool-header");
+  if (header) {
+    header.setAttribute("aria-expanded", shouldCollapse ? "false" : "true");
+  }
+
+  // Update status icon — only replace if state changed to avoid resetting spinner
+  const statusIconEl = block.querySelector<HTMLElement>(
+    ".gsd-tool-spinner, .gsd-tool-icon"
+  );
+  if (statusIconEl) {
+    const currentlyRunning = statusIconEl.classList.contains("gsd-tool-spinner") ||
+      !statusIconEl.classList.contains("gsd-tool-icon");
+    if (tc.isRunning && !statusIconEl.classList.contains("gsd-tool-spinner")) {
+      // Transition to running — replace with spinner
+      const spinner = document.createElement("span");
+      spinner.className = "gsd-tool-spinner";
+      statusIconEl.replaceWith(spinner);
+    } else if (!tc.isRunning && (currentlyRunning || statusIconEl.classList.contains("gsd-tool-spinner"))) {
+      // Transition from running — replace spinner with result icon
+      const icon = document.createElement("span");
+      icon.className = "gsd-tool-icon " + (tc.isSkipped ? "skipped" : tc.isError ? "error" : "success");
+      icon.textContent = tc.isSkipped ? "⏭" : tc.isError ? "✗" : "✓";
+      statusIconEl.replaceWith(icon);
+    } else if (!tc.isRunning) {
+      // Already not running — just update class/text in case error state changed
+      statusIconEl.className = "gsd-tool-icon " + (tc.isSkipped ? "skipped" : tc.isError ? "error" : "success");
+      statusIconEl.textContent = tc.isSkipped ? "⏭" : tc.isError ? "✗" : "✓";
+    }
+    // If still running — leave spinner element alone (preserves animation)
+  }
+
+  // Update duration
+  const duration = tc.endTime && tc.startTime
+    ? formatDuration(tc.endTime - tc.startTime)
+    : tc.isRunning && tc.startTime
+      ? formatDuration(Date.now() - tc.startTime)
+      : "";
+  const durationEl = block.querySelector<HTMLElement>(".gsd-tool-duration");
+  if (duration) {
+    if (durationEl) {
+      durationEl.textContent = duration;
+      durationEl.className = `gsd-tool-duration${tc.isRunning ? " elapsed-live" : ""}`;
+    } else {
+      // Insert duration before chevron
+      const right = block.querySelector<HTMLElement>(".gsd-tool-header-right");
+      if (right) {
+        const span = document.createElement("span");
+        span.className = `gsd-tool-duration${tc.isRunning ? " elapsed-live" : ""}`;
+        span.textContent = duration;
+        const chevron = right.querySelector(".gsd-tool-chevron");
+        right.insertBefore(span, chevron ?? null);
+      }
+    }
+  } else if (durationEl) {
+    durationEl.remove();
+  }
+
+  // Update output
+  const outputEl = block.querySelector<HTMLElement>(".gsd-tool-output");
+  if (isSubagent) {
+    const newOutputHtml = buildSubagentOutputHtml(tc);
+    if (outputEl) {
+      // Patch subagent panel in place to preserve spinner animation state.
+      // If the panel structure already exists, update only what changed.
+      const existingPanel = outputEl.querySelector<HTMLElement>(".gsd-subagent-panel");
+      if (existingPanel) {
+        patchSubagentPanel(existingPanel, tc);
+      } else {
+        outputEl.className = "gsd-tool-output gsd-tool-output-rich";
+        outputEl.innerHTML = newOutputHtml;
+      }
+    } else {
+      const div = document.createElement("div");
+      div.className = "gsd-tool-output gsd-tool-output-rich";
+      div.innerHTML = newOutputHtml;
+      block.appendChild(div);
+    }
+  } else if (tc.resultText) {
+    const formattedResult = formatToolResult(tc.name, tc.resultText, tc.args);
+    const maxOutputLen = 8000;
+    let displayText = formattedResult;
+    let truncated = false;
+    if (displayText.length > maxOutputLen) {
+      displayText = displayText.slice(0, maxOutputLen);
+      truncated = true;
+    }
+    let newOutputHtml = `<pre><code>${escapeHtml(displayText)}</code></pre>`;
+    if (truncated) {
+      newOutputHtml += `<div class="gsd-tool-output-truncated">… output truncated (${formatTokens(tc.resultText.length)} chars)</div>`;
+    }
+    if (outputEl) {
+      outputEl.className = "gsd-tool-output";
+      outputEl.innerHTML = newOutputHtml;
+    } else {
+      const div = document.createElement("div");
+      div.className = "gsd-tool-output";
+      div.innerHTML = newOutputHtml;
+      block.appendChild(div);
+    }
+  } else if (tc.isRunning) {
+    if (outputEl) {
+      outputEl.className = "gsd-tool-output";
+      outputEl.innerHTML = `<span class="gsd-tool-output-pending">Running...</span>`;
+    } else {
+      const div = document.createElement("div");
+      div.className = "gsd-tool-output";
+      div.innerHTML = `<span class="gsd-tool-output-pending">Running...</span>`;
+      block.appendChild(div);
+    }
+  } else if (outputEl) {
+    outputEl.remove();
+  }
+}
+
+/**
+ * Public entry point for targeted tool block patching.
+ * Accepts either a `.gsd-tool-segment` wrapper or a `.gsd-tool-block` directly.
+ */
+export function patchToolBlock(el: HTMLElement, tc: ToolCallState): void {
+  patchToolBlockElement(el, tc);
+}
+
+/**
+ * Patch a .gsd-subagent-panel in place — update summary counts and each
+ * agent card's state without rebuilding the DOM, so spinner animations
+ * on running agents survive progress updates.
+ */
+function patchSubagentPanel(panel: HTMLElement, tc: ToolCallState): void {
+  const details = tc.details as { mode?: string; results?: any[] } | undefined;
+  const results = details?.results;
+  if (!results) return;
+
+  const running = results.filter((r: any) => r.exitCode === -1).length;
+  const done = results.filter((r: any) => r.exitCode !== -1 && r.exitCode === 0).length;
+  const failed = results.filter((r: any) => r.exitCode > 0 || r.stopReason === "error").length;
+  const total = results.length;
+
+  // Update summary counts
+  const countsEl = panel.querySelector<HTMLElement>(".gsd-subagent-counts");
+  if (countsEl) {
+    const parts: string[] = [];
+    if (done > 0) parts.push(`<span class="gsd-agent-stat done">${done} done</span>`);
+    if (running > 0) parts.push(`<span class="gsd-agent-stat running">${running} running</span>`);
+    if (failed > 0) parts.push(`<span class="gsd-agent-stat error">${failed} failed</span>`);
+    countsEl.innerHTML = parts.join(`<span class="gsd-agent-sep">·</span>`);
+  }
+  const totalEl = panel.querySelector<HTMLElement>(".gsd-subagent-total");
+  if (totalEl) totalEl.textContent = `${done + failed}/${total}`;
+
+  // Patch each agent card — match by index
+  const cardEls = panel.querySelectorAll<HTMLElement>(".gsd-agent-card");
+  results.forEach((r: any, i: number) => {
+    const card = cardEls[i];
+    if (!card) return;
+
+    const isRunning = r.exitCode === -1;
+    const isFailed = !isRunning && (r.exitCode !== 0 || r.stopReason === "error");
+    const newState = isRunning ? "running" : isFailed ? "error" : "done";
+
+    // Update card state class
+    card.classList.remove("running", "error", "done");
+    card.classList.add(newState);
+
+    // Update status icon — only swap when state transitions to avoid reset
+    const iconEl = card.querySelector<HTMLElement>(".gsd-tool-spinner, .gsd-agent-icon");
+    if (iconEl) {
+      const currentlySpinner = iconEl.classList.contains("gsd-tool-spinner");
+      if (isRunning && !currentlySpinner) {
+        const spinner = document.createElement("span");
+        spinner.className = "gsd-tool-spinner";
+        iconEl.replaceWith(spinner);
+      } else if (!isRunning && currentlySpinner) {
+        const icon = document.createElement("span");
+        icon.className = `gsd-agent-icon ${isFailed ? "error" : "done"}`;
+        icon.textContent = isFailed ? "✗" : "✓";
+        iconEl.replaceWith(icon);
+      } else if (!isRunning) {
+        iconEl.className = `gsd-agent-icon ${isFailed ? "error" : "done"}`;
+        iconEl.textContent = isFailed ? "✗" : "✓";
+      }
+      // Still running — leave spinner alone
+    }
+
+    // Update usage pills (token counts, cost) — these change on progress
+    const headerEl = card.querySelector<HTMLElement>(".gsd-agent-header");
+    if (headerEl && r.usage) {
+      const existingPills = headerEl.querySelector<HTMLElement>(".gsd-agent-usage");
+      const newPillsHtml = buildUsagePills(r.usage, r.model);
+      if (existingPills) {
+        existingPills.outerHTML = newPillsHtml || "<div class=\"gsd-agent-usage\"></div>";
+      } else if (newPillsHtml) {
+        headerEl.insertAdjacentHTML("beforeend", newPillsHtml);
+      }
+    }
+
+    // Update error message if failed
+    if (isFailed && r.errorMessage) {
+      let errEl = card.querySelector<HTMLElement>(".gsd-agent-error");
+      if (!errEl) {
+        errEl = document.createElement("div");
+        errEl.className = "gsd-agent-error";
+        card.appendChild(errEl);
+      }
+      errEl.textContent = r.errorMessage;
+    }
+  });
+
+  // Update footer usage pills if completed
+  if (!tc.isRunning) {
+    const totalUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+    for (const r of results) {
+      if (r.usage) {
+        totalUsage.input += r.usage.input || 0;
+        totalUsage.output += r.usage.output || 0;
+        totalUsage.cacheRead += r.usage.cacheRead || 0;
+        totalUsage.cacheWrite += r.usage.cacheWrite || 0;
+        totalUsage.cost += r.usage.cost || 0;
+        totalUsage.turns += r.usage.turns || 0;
+      }
+    }
+    if (totalUsage.turns > 0) {
+      let footerEl = panel.querySelector<HTMLElement>(".gsd-subagent-footer");
+      if (!footerEl) {
+        footerEl = document.createElement("div");
+        footerEl.className = "gsd-subagent-footer";
+        panel.appendChild(footerEl);
+      }
+      footerEl.innerHTML = buildUsagePills(totalUsage, undefined);
+    }
+  }
+
+  // Upsert the final result block — buildSubagentOutputHtml adds
+  // .gsd-subagent-result when the tool is complete, so we must mirror that
+  // here to avoid dropping the completed subagent's markdown output.
+  if (!tc.isRunning && tc.resultText) {
+    let resultEl = panel.parentElement?.querySelector<HTMLElement>(".gsd-subagent-result");
+    if (!resultEl) {
+      resultEl = document.createElement("div");
+      resultEl.className = "gsd-subagent-result";
+      panel.parentElement?.appendChild(resultEl);
+    }
+    resultEl.innerHTML = renderMarkdown(tc.resultText);
+  }
+}
+
 export function buildToolCallHtml(tc: ToolCallState): string {
   const keyArg = getToolKeyArg(tc.name, tc.args);
   const category = getToolCategory(tc.name);
@@ -761,6 +1183,10 @@ function renderTextSegment(segIdx: number): void {
   if (!seg || seg.type === "tool") return;
 
   const container = ensureCurrentTurnElement();
+  // Remove pending dots now — content is about to be painted into the container.
+  // Doing this here (rAF) rather than on first delta means the dots animate
+  // right up until real content is visible, with no gap between the two.
+  removePendingDotsFromContainer(container);
   let el = segmentElements.get(segIdx);
 
   const fullText = seg.chunks.join("");
@@ -802,20 +1228,24 @@ function renderTextSegment(segIdx: number): void {
       return;
     }
 
-    // Lex the full text into block tokens
-    const tokens = lexMarkdown(fullText);
-
-    // Filter out space tokens — they're whitespace separators, not content blocks
-    const contentTokens = tokens.filter(t => t.type !== "space");
-
-    if (contentTokens.length === 0) return;
-
-    // Get or initialize incremental state for this segment
+    // Lex the full text into block tokens — use cached result if text unchanged
     let incState = incrementalState.get(segIdx);
     if (!incState) {
-      incState = { frozenBlockCount: 0 };
+      incState = { frozenBlockCount: 0, lastLexedText: "", lastTokens: [], textLengthAtLastRaf: 0 };
       incrementalState.set(segIdx, incState);
     }
+    let tokens: any[];
+    if (incState.lastLexedText === fullText) {
+      tokens = incState.lastTokens;
+    } else {
+      tokens = lexMarkdown(fullText);
+      incState.lastLexedText = fullText;
+      incState.lastTokens = tokens;
+    }
+    // Filter out space tokens — they're whitespace separators, not content blocks
+    const contentTokens = tokens.filter((t: any) => t.type !== "space");
+
+    if (contentTokens.length === 0) return;
 
     // Determine which tokens are "complete" (frozen) vs in-progress (trailing).
     // The last content token is always considered in-progress during streaming.
@@ -852,6 +1282,12 @@ function renderTextSegment(segIdx: number): void {
     // Render the trailing (in-progress) token
     let trailingEl = el.querySelector("[data-block-trailing]") as HTMLElement | null;
     if (!trailingEl) {
+      // Clear any pre-existing live text node seeded by the first-delta fast path
+      // before appending the proper trailing element — avoids duplication.
+      const existingLiveNode = liveTextNodes.get(segIdx);
+      if (existingLiveNode && existingLiveNode.parentNode === el) {
+        existingLiveNode.data = "";
+      }
       trailingEl = document.createElement("div");
       trailingEl.dataset.blockTrailing = "";
       el.appendChild(trailingEl);
@@ -862,6 +1298,21 @@ function renderTextSegment(segIdx: number): void {
     const links = tokensWithLinks.links || {};
     const trailingArr = Object.assign([trailingToken], { links });
     trailingEl.innerHTML = sanitizeAndPostProcess(parseTokens(trailingArr));
+
+    // Record how much text the trailing element now represents, so the live
+    // node fast-path can show only the incremental chars without duplicating.
+    incState.textLengthAtLastRaf = fullText.length;
+
+    // (Re)attach a live text node inside an inline span at the end of the
+    // trailing element. Using a span (not a bare text node) ensures the
+    // incremental chars sit inline with the parsed block content rather than
+    // appearing as a block-level sibling (which would break formatting).
+    const liveSpan = document.createElement("span");
+    liveSpan.dataset.liveText = "";
+    const liveNode = document.createTextNode("");
+    liveSpan.appendChild(liveNode);
+    trailingEl.appendChild(liveSpan);
+    liveTextNodes.set(segIdx, liveNode);
   }
 }
 

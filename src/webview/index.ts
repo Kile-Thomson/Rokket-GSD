@@ -544,6 +544,9 @@ function sendMessage(): void {
     welcomeScreen.classList.add('gsd-hidden');
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
     scrollToBottom(messagesContainer, true);
+    // Show thinking dots immediately — before agent_start fires — so the
+    // user sees feedback the instant they send rather than a dead gap.
+    renderer.showPendingDots();
   }
 
   const fullMessage = filePrefix + text;
