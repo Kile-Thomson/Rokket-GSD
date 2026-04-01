@@ -88,18 +88,67 @@ export function init(deps: FileHandlingDeps): void {
 }
 
 // ============================================================
+// Image resizing — Anthropic API rejects images > 2000px
+// ============================================================
+
+const MAX_IMAGE_DIMENSION = 1568; // Anthropic recommended max for best quality/token balance
+
+/**
+ * Downscale an image if either dimension exceeds MAX_IMAGE_DIMENSION.
+ * Returns the (possibly resized) base64 data and mime type.
+ * Output is always JPEG for resized images (smaller payload).
+ */
+function resizeImageIfNeeded(
+  dataUrl: string,
+  originalMimeType: string
+): Promise<{ base64: string; mimeType: string }> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const { naturalWidth: w, naturalHeight: h } = img;
+      if (w <= MAX_IMAGE_DIMENSION && h <= MAX_IMAGE_DIMENSION) {
+        // No resize needed — use original
+        resolve({ base64: dataUrl.split(",")[1], mimeType: originalMimeType });
+        return;
+      }
+      // Scale down preserving aspect ratio
+      const scale = Math.min(MAX_IMAGE_DIMENSION / w, MAX_IMAGE_DIMENSION / h);
+      const newW = Math.round(w * scale);
+      const newH = Math.round(h * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = newW;
+      canvas.height = newH;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, newW, newH);
+      // PNG for lossless types, JPEG otherwise (smaller payload)
+      const outMime = originalMimeType === "image/png" ? "image/png" : "image/jpeg";
+      const quality = outMime === "image/jpeg" ? 0.85 : undefined;
+      const resized = canvas.toDataURL(outMime, quality);
+      resolve({ base64: resized.split(",")[1], mimeType: outMime });
+    };
+    img.onerror = () => {
+      // Fallback: send original if decode fails
+      resolve({ base64: dataUrl.split(",")[1], mimeType: originalMimeType });
+    };
+    img.src = dataUrl;
+  });
+}
+
+// ============================================================
 // File handling functions
 // ============================================================
 
 export function handleFiles(files: FileList | File[]): void {
   for (const file of Array.from(files)) {
     if (file.type.startsWith("image/")) {
-      // Images → inline preview + base64 attachment
+      // Images → resize if needed, then inline preview + base64 attachment
       const reader = new FileReader();
       reader.onload = () => {
-        const base64 = (reader.result as string).split(",")[1];
-        state.images.push({ type: "image", data: base64, mimeType: file.type });
-        renderImagePreviews();
+        const dataUrl = reader.result as string;
+        resizeImageIfNeeded(dataUrl, file.type).then(({ base64, mimeType }) => {
+          state.images.push({ type: "image", data: base64, mimeType });
+          renderImagePreviews();
+        });
       };
       reader.readAsDataURL(file);
     } else {
