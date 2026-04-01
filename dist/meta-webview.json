@@ -281,7 +281,7 @@
       "format": "esm"
     },
     "src/webview/file-handling.ts": {
-      "bytes": 8461,
+      "bytes": 10530,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -626,7 +626,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 778308
+      "bytes": 781577
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -731,7 +731,7 @@
           "bytesInOutput": 12052
         },
         "src/webview/file-handling.ts": {
-          "bytesInOutput": 4010
+          "bytesInOutput": 4579
         },
         "src/webview/keyboard.ts": {
           "bytesInOutput": 6519
@@ -746,7 +746,7 @@
           "bytesInOutput": 18388
         }
       },
-      "bytes": 212634
+      "bytes": 213203
     },
     "dist/webview/index.css.map": {
       "imports": [],
