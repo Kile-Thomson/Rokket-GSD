@@ -1,7 +1,7 @@
 {
   "inputs": {
     "src/extension/rpc-client.ts": {
-      "bytes": 29735,
+      "bytes": 29835,
       "imports": [
         {
           "path": "child_process",
@@ -546,7 +546,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 399436
+      "bytes": 399552
     },
     "dist/extension.js": {
       "imports": [
@@ -816,7 +816,7 @@
           "bytesInOutput": 10337
         },
         "src/extension/rpc-client.ts": {
-          "bytesInOutput": 9856
+          "bytesInOutput": 9868
         },
         "src/extension/update-checker.ts": {
           "bytesInOutput": 6217
@@ -873,7 +873,7 @@
           "bytesInOutput": 4405
         }
       },
-      "bytes": 100559
+      "bytes": 100571
     }
   }
 }
