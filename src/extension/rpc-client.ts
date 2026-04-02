@@ -335,6 +335,8 @@ export class GsdRpcClient extends EventEmitter {
       // Force color output off for RPC
       NO_COLOR: "1",
       FORCE_COLOR: "0",
+      // Signal to extensions that we're running inside the IDE (not CLI TUI)
+      GSD_IDE: "1",
     };
 
     this.process = spawn(resolved.command, args, {

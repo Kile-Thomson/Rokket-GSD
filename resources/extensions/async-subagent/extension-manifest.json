@@ -1,7 +1,7 @@
 {
   "id": "async-subagent",
   "name": "Async Subagent",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Non-blocking subagent execution — fire off subagents (single/parallel/chain) and keep working",
   "tier": "user",
   "requires": { "platform": ">=2.29.0" },

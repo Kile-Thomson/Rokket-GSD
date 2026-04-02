@@ -304,13 +304,25 @@ function handleMessage(event: MessageEvent): void {
 
       if (delta) {
         if (delta.type === "text_delta" && delta.delta) {
+          // Filter out async_subagent_progress JSON that leaks into text deltas.
+          // gsd-pi sometimes emits these as assistant text content rather than
+          // as a separate stderr line. Strip any line containing the marker.
+          let text = delta.delta as string;
+          if (text.includes('"__async_subagent_progress"')) {
+            text = text
+              .split("\n")
+              .filter((line: string) => !line.includes('"__async_subagent_progress"'))
+              .join("\n")
+              .trim();
+            if (!text) break;
+          }
           // Clear steer note on first text output — the agent is producing
           // content, so the steer has been consumed (or will be at the next
           // tool boundary). This catches cases where message_start fired
           // before the steer was sent, and no new message_start follows.
           const steerNote = messagesContainer.querySelector(".gsd-steer-note");
           if (steerNote) steerNote.remove();
-          renderer.appendToTextSegment("text", delta.delta);
+          renderer.appendToTextSegment("text", text);
         } else if (delta.type === "thinking_delta" && delta.delta) {
           renderer.appendToTextSegment("thinking", delta.delta);
         }
@@ -459,7 +471,11 @@ function handleMessage(event: MessageEvent): void {
           ?.map((c: any) => c.text || "")
           .filter(Boolean)
           .join("\n");
-        if (text) tc.resultText = text;
+        // Strip async_subagent_progress JSON that may leak into tool results
+        const filtered = text
+          ? text.split("\n").filter((l: string) => !l.includes('"__async_subagent_progress"')).join("\n").trim()
+          : text;
+        if (filtered) tc.resultText = filtered;
         if (data.partialResult.details) tc.details = data.partialResult.details;
         renderer.updateToolSegmentElement(data.toolCallId);
         scrollToBottom(messagesContainer);
@@ -483,7 +499,11 @@ function handleMessage(event: MessageEvent): void {
             ?.map((c: any) => c.text || "")
             .filter(Boolean)
             .join("\n");
-          if (text) tc.resultText = text;
+          // Strip async_subagent_progress JSON that may leak into tool results
+          const filtered = text
+            ? text.split("\n").filter((l: string) => !l.includes('"__async_subagent_progress"')).join("\n").trim()
+            : text;
+          if (filtered) tc.resultText = filtered;
           if (data.result.details) tc.details = data.result.details;
         }
         // Detect skipped-due-to-steer: downgrade from error to skip
