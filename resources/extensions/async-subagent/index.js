@@ -259,14 +259,17 @@ function deliverProgress(job) {
     model: sr.model,
   }));
 
-  // Emit structured JSON to stderr for the IDE extension to intercept
-  const progressEvent = JSON.stringify({
-    __async_subagent_progress: true,
-    toolCallId: job._toolCallId,
-    mode: job.mode,
-    results,
-  });
-  process.stderr.write(`${progressEvent}\n`);
+  // Emit structured JSON to stderr for the IDE extension to intercept.
+  // Only in IDE mode — CLI TUI renders stderr as text, causing raw JSON leak.
+  if (process.env.GSD_IDE) {
+    const progressEvent = JSON.stringify({
+      __async_subagent_progress: true,
+      toolCallId: job._toolCallId,
+      mode: job.mode,
+      results,
+    });
+    process.stderr.write(`${progressEvent}\n`);
+  }
 }
 
 function deliverResult(job) {
@@ -321,14 +324,17 @@ function deliverResult(job) {
     },
   }, { triggerTurn: true });
 
-  // Also emit structured completion to stderr for IDE card update
-  const completionEvent = JSON.stringify({
-    __async_subagent_progress: true,
-    toolCallId: job._toolCallId,
-    mode: job.mode,
-    results: finalResults,
-  });
-  process.stderr.write(`${completionEvent}\n`);
+  // Also emit structured completion to stderr for IDE card update.
+  // Only in IDE mode — CLI TUI renders stderr as text.
+  if (process.env.GSD_IDE) {
+    const completionEvent = JSON.stringify({
+      __async_subagent_progress: true,
+      toolCallId: job._toolCallId,
+      mode: job.mode,
+      results: finalResults,
+    });
+    process.stderr.write(`${completionEvent}\n`);
+  }
 }
 
 // ── Process spawning ───────────────────────────────────────────────────────
@@ -634,6 +640,11 @@ const awaitSubagentSchema = Type.Object({
 // ── Extension entry point ──────────────────────────────────────────────────
 
 export default function AsyncSubagent(pi) {
+  // Entire extension is IDE-only. In CLI mode, the native subagent tool
+  // handles everything — TUI widgets, progress display, etc. Registering
+  // our tools in CLI would shadow native subagent updates from gsd-pi.
+  if (!process.env.GSD_IDE) return;
+
   piInstance = pi;
 
   pi.on("session_start", async () => {
@@ -644,8 +655,11 @@ export default function AsyncSubagent(pi) {
     jobs.clear();
   });
 
-  // Inject system prompt preference to use async_subagent over blocking subagent
+  // Inject system prompt preference — only in IDE mode where the VS Code
+  // extension intercepts async_subagent progress. In CLI, the native subagent
+  // tool works fine with TUI widgets and shouldn't be overridden.
   pi.on("before_agent_start", async (event) => {
+    if (!process.env.GSD_IDE) return {};
     return {
       systemPrompt: event.systemPrompt +
         "\n\nAlways use async_subagent instead of subagent. The async_subagent tool is non-blocking — " +
