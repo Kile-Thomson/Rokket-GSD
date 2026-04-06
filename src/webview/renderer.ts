@@ -337,6 +337,102 @@ export function appendToolSegmentElement(tc: ToolCallState, segIdx: number): voi
   if (tc.isRunning) startElapsedTimer();
 }
 
+/**
+ * Render a server-side tool (e.g. Anthropic's native web search) as a
+ * compact inline indicator. These arrive via message_update deltas, not
+ * through tool_execution_start/end.
+ */
+export function appendServerToolSegment(toolId: string, toolName: string, input?: unknown): void {
+  if (!state.currentTurn) return;
+
+  const turn = state.currentTurn;
+  const segIdx = turn.segments.length;
+  turn.segments.push({
+    type: "server_tool",
+    serverToolId: toolId,
+    name: toolName,
+    input,
+    isComplete: false,
+  });
+
+  const container = ensureCurrentTurnElement();
+  removePendingDotsFromContainer(container);
+
+  const el = document.createElement("div");
+  el.className = "gsd-server-tool-segment";
+  el.dataset.segIdx = String(segIdx);
+  el.dataset.serverToolId = toolId;
+
+  const displayName = toolName === "web_search" ? "Web Search" : toolName;
+  const icon = toolName === "web_search" ? "🔍" : "⚡";
+  const inputSummary = input && typeof input === "object" && "query" in (input as Record<string, unknown>)
+    ? (input as Record<string, unknown>).query as string
+    : "";
+
+  el.innerHTML = `<div class="gsd-server-tool-card running">` +
+    `<span class="gsd-server-tool-icon">${icon}</span>` +
+    `<span class="gsd-server-tool-name">${displayName}</span>` +
+    (inputSummary ? `<span class="gsd-server-tool-query">${escapeHtml(inputSummary)}</span>` : "") +
+    `<span class="gsd-tool-spinner"></span>` +
+    `</div>`;
+
+  insertSegmentElement(container, segIdx, el);
+  segmentElements.set(segIdx, el);
+}
+
+/**
+ * Complete a server-side tool segment with its results (e.g. web search results).
+ */
+export function completeServerToolSegment(toolUseId: string, results?: unknown): void {
+  if (!state.currentTurn) return;
+
+  // Find the matching segment
+  const turn = state.currentTurn;
+  let segIdx = -1;
+  for (let i = 0; i < turn.segments.length; i++) {
+    const seg = turn.segments[i];
+    if (seg.type === "server_tool" && seg.serverToolId === toolUseId) {
+      seg.results = results;
+      seg.isComplete = true;
+      segIdx = i;
+      break;
+    }
+  }
+
+  if (segIdx === -1) return;
+
+  // Update the DOM element
+  const el = segmentElements.get(segIdx);
+  if (!el) return;
+
+  const card = el.querySelector(".gsd-server-tool-card");
+  if (card) {
+    card.classList.remove("running");
+    card.classList.add("done");
+    // Replace spinner with check
+    const spinner = card.querySelector(".gsd-tool-spinner");
+    if (spinner) {
+      const check = document.createElement("span");
+      check.className = "gsd-server-tool-check";
+      check.textContent = "✓";
+      spinner.replaceWith(check);
+    }
+
+    // If web search results, show source count
+    if (Array.isArray(results)) {
+      const searchResults = results.filter(
+        (r: unknown) => r && typeof r === "object" && "type" in (r as Record<string, unknown>) && (r as Record<string, unknown>).type === "web_search_result"
+      );
+      if (searchResults.length > 0) {
+        const countEl = document.createElement("span");
+        countEl.className = "gsd-server-tool-count";
+        countEl.textContent = `${searchResults.length} result${searchResults.length !== 1 ? "s" : ""}`;
+        card.appendChild(countEl);
+      }
+    }
+  }
+}
+
 export function updateToolSegmentElement(toolCallId: string, searchAllEntries: boolean = false): void {
   let tc: ToolCallState | undefined;
 
@@ -790,6 +886,22 @@ function buildSegmentHtml(seg: TurnSegment, toolCalls: Map<string, ToolCallState
         </div>
       </div></div>`;
     }
+  } else if (seg.type === "server_tool") {
+    const displayName = seg.name === "web_search" ? "Web Search" : seg.name;
+    const icon = seg.name === "web_search" ? "🔍" : "⚡";
+    const inputSummary = seg.input && typeof seg.input === "object" && "query" in (seg.input as Record<string, unknown>)
+      ? (seg.input as Record<string, unknown>).query as string
+      : "";
+    const stateClass = seg.isComplete ? "done" : "running";
+    const statusHtml = seg.isComplete
+      ? `<span class="gsd-server-tool-check">✓</span>`
+      : `<span class="gsd-tool-spinner"></span>`;
+    return `<div class="gsd-server-tool-segment"><div class="gsd-server-tool-card ${stateClass}">` +
+      `<span class="gsd-server-tool-icon">${icon}</span>` +
+      `<span class="gsd-server-tool-name">${escapeHtml(displayName)}</span>` +
+      (inputSummary ? `<span class="gsd-server-tool-query">${escapeHtml(inputSummary)}</span>` : "") +
+      statusHtml +
+      `</div></div>`;
   }
   return "";
 }
@@ -1180,7 +1292,7 @@ function buildSystemHtml(entry: ChatEntry): string {
 function renderTextSegment(segIdx: number): void {
   if (!state.currentTurn) return;
   const seg = state.currentTurn.segments[segIdx];
-  if (!seg || seg.type === "tool") return;
+  if (!seg || seg.type === "tool" || seg.type === "server_tool") return;
 
   const container = ensureCurrentTurnElement();
   // Remove pending dots now — content is about to be painted into the container.
