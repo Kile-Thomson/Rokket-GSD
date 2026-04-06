@@ -207,7 +207,7 @@
       "format": "esm"
     },
     "src/webview/renderer.ts": {
-      "bytes": 58035,
+      "bytes": 59519,
       "imports": [
         {
           "path": "src/webview/state.ts",
@@ -626,7 +626,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 790922
+      "bytes": 793890
     },
     "dist/webview/index.js": {
       "imports": [],

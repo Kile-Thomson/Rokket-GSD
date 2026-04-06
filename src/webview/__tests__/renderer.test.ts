@@ -8,6 +8,8 @@ import {
   ensureCurrentTurnElement,
   appendToTextSegment,
   appendToolSegmentElement,
+  appendServerToolSegment,
+  completeServerToolSegment,
   updateToolSegmentElement,
   finalizeCurrentTurn,
   resetStreamingState,
@@ -1013,5 +1015,153 @@ describe("patchToolBlock", () => {
 
     const block = el.querySelector(".gsd-tool-block");
     expect(block?.classList.contains("parallel")).toBe(true);
+  });
+});
+
+// ============================================================
+// Server-Side Tool Segments
+// ============================================================
+
+describe("Server-side tool segments", () => {
+  let msgContainer: HTMLElement;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    document.body.innerHTML = "";
+    msgContainer = document.createElement("div");
+    msgContainer.id = "messages";
+    const welcome = document.createElement("div");
+    welcome.id = "welcome";
+    document.body.appendChild(msgContainer);
+    document.body.appendChild(welcome);
+
+    init({ messagesContainer: msgContainer, welcomeScreen: welcome });
+    state.entries = [];
+    state.currentTurn = null;
+    state.isStreaming = false;
+    resetStreamingState();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    state.entries = [];
+    state.currentTurn = null;
+    state.isStreaming = false;
+    document.body.innerHTML = "";
+  });
+
+  function startTurn(): void {
+    state.currentTurn = {
+      id: nextId(),
+      segments: [],
+      toolCalls: new Map(),
+      isComplete: false,
+      timestamp: Date.now(),
+    };
+    state.isStreaming = true;
+    ensureCurrentTurnElement();
+  }
+
+  it("appendServerToolSegment creates a segment and DOM element", () => {
+    startTurn();
+    appendServerToolSegment("tool-1", "web_search", { query: "test query" });
+
+    expect(state.currentTurn!.segments).toHaveLength(1);
+    const seg = state.currentTurn!.segments[0];
+    expect(seg.type).toBe("server_tool");
+    if (seg.type === "server_tool") {
+      expect(seg.serverToolId).toBe("tool-1");
+      expect(seg.name).toBe("web_search");
+      expect(seg.isComplete).toBe(false);
+    }
+
+    const card = msgContainer.querySelector(".gsd-server-tool-card");
+    expect(card).toBeTruthy();
+    expect(card?.classList.contains("running")).toBe(true);
+    expect(card?.querySelector(".gsd-server-tool-name")?.textContent).toBe("Web Search");
+    expect(card?.querySelector(".gsd-server-tool-query")?.textContent).toBe("test query");
+    expect(card?.querySelector(".gsd-tool-spinner")).toBeTruthy();
+  });
+
+  it("appendServerToolSegment renders non-web-search tools with generic icon", () => {
+    startTurn();
+    appendServerToolSegment("tool-2", "code_execution", {});
+
+    const name = msgContainer.querySelector(".gsd-server-tool-name");
+    expect(name?.textContent).toBe("code_execution");
+    const icon = msgContainer.querySelector(".gsd-server-tool-icon");
+    expect(icon?.textContent).toBe("⚡");
+  });
+
+  it("completeServerToolSegment marks segment done and updates DOM", () => {
+    startTurn();
+    appendServerToolSegment("tool-1", "web_search", { query: "test" });
+
+    const results = [
+      { type: "web_search_result", url: "https://example.com", title: "Example" },
+      { type: "web_search_result", url: "https://test.com", title: "Test" },
+    ];
+    completeServerToolSegment("tool-1", results);
+
+    const seg = state.currentTurn!.segments[0];
+    if (seg.type === "server_tool") {
+      expect(seg.isComplete).toBe(true);
+      expect(seg.results).toBe(results);
+    }
+
+    const card = msgContainer.querySelector(".gsd-server-tool-card");
+    expect(card?.classList.contains("done")).toBe(true);
+    expect(card?.classList.contains("running")).toBe(false);
+    expect(card?.querySelector(".gsd-tool-spinner")).toBeNull();
+    expect(card?.querySelector(".gsd-server-tool-check")?.textContent).toBe("✓");
+    expect(card?.querySelector(".gsd-server-tool-count")?.textContent).toBe("2 results");
+  });
+
+  it("completeServerToolSegment upserts count badge instead of duplicating", () => {
+    startTurn();
+    appendServerToolSegment("tool-1", "web_search", { query: "test" });
+
+    const results1 = [{ type: "web_search_result", url: "https://a.com", title: "A" }];
+    completeServerToolSegment("tool-1", results1);
+
+    const results2 = [
+      { type: "web_search_result", url: "https://a.com", title: "A" },
+      { type: "web_search_result", url: "https://b.com", title: "B" },
+      { type: "web_search_result", url: "https://c.com", title: "C" },
+    ];
+    completeServerToolSegment("tool-1", results2);
+
+    const countEls = msgContainer.querySelectorAll(".gsd-server-tool-count");
+    expect(countEls).toHaveLength(1);
+    expect(countEls[0].textContent).toBe("3 results");
+  });
+
+  it("finalizeCurrentTurn marks incomplete server_tool segments as done", () => {
+    startTurn();
+    const turn = state.currentTurn!;
+    appendServerToolSegment("tool-1", "web_search", { query: "test" });
+    // Don't call completeServerToolSegment — simulate aborted stream
+
+    finalizeCurrentTurn();
+
+    const seg = turn.segments[0];
+    if (seg.type === "server_tool") {
+      expect(seg.isComplete).toBe(true);
+    }
+  });
+
+  it("does nothing when no current turn", () => {
+    // No crash when calling without a turn
+    appendServerToolSegment("tool-1", "web_search", {});
+    completeServerToolSegment("tool-1", []);
+    expect(state.currentTurn).toBeNull();
+  });
+
+  it("singular result text", () => {
+    startTurn();
+    appendServerToolSegment("tool-1", "web_search", { query: "test" });
+    completeServerToolSegment("tool-1", [{ type: "web_search_result", url: "https://a.com", title: "A" }]);
+
+    expect(msgContainer.querySelector(".gsd-server-tool-count")?.textContent).toBe("1 result");
   });
 });
