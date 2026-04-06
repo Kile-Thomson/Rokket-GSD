@@ -418,16 +418,22 @@ export function completeServerToolSegment(toolUseId: string, results?: unknown):
       spinner.replaceWith(check);
     }
 
-    // If web search results, show source count
+    // If web search results, show or update source count
     if (Array.isArray(results)) {
       const searchResults = results.filter(
         (r: unknown) => r && typeof r === "object" && "type" in (r as Record<string, unknown>) && (r as Record<string, unknown>).type === "web_search_result"
       );
       if (searchResults.length > 0) {
-        const countEl = document.createElement("span");
-        countEl.className = "gsd-server-tool-count";
-        countEl.textContent = `${searchResults.length} result${searchResults.length !== 1 ? "s" : ""}`;
-        card.appendChild(countEl);
+        const countText = `${searchResults.length} result${searchResults.length !== 1 ? "s" : ""}`;
+        let countEl = card.querySelector(".gsd-server-tool-count") as HTMLElement | null;
+        if (countEl) {
+          countEl.textContent = countText;
+        } else {
+          countEl = document.createElement("span");
+          countEl.className = "gsd-server-tool-count";
+          countEl.textContent = countText;
+          card.appendChild(countEl);
+        }
       }
     }
   }
@@ -615,6 +621,15 @@ export function finalizeCurrentTurn(): void {
 
   for (const [, tc] of turn.toolCalls) {
     tc.isRunning = false;
+  }
+
+  // Mark any incomplete server_tool segments as done on turn finalize.
+  // If the web_search_result delta never arrived (e.g. aborted stream),
+  // the segment would otherwise stay stuck as "running" in the finalized HTML.
+  for (const seg of turn.segments) {
+    if (seg.type === "server_tool" && !seg.isComplete) {
+      seg.isComplete = true;
+    }
   }
 
   const isStaleEcho = detectStaleEcho(turn);
@@ -896,11 +911,22 @@ function buildSegmentHtml(seg: TurnSegment, toolCalls: Map<string, ToolCallState
     const statusHtml = seg.isComplete
       ? `<span class="gsd-server-tool-check">✓</span>`
       : `<span class="gsd-tool-spinner"></span>`;
+    // Include result count in finalized HTML when results are available
+    let countHtml = "";
+    if (seg.isComplete && Array.isArray(seg.results)) {
+      const searchResults = (seg.results as unknown[]).filter(
+        (r: unknown) => r && typeof r === "object" && "type" in (r as Record<string, unknown>) && (r as Record<string, unknown>).type === "web_search_result"
+      );
+      if (searchResults.length > 0) {
+        countHtml = `<span class="gsd-server-tool-count">${searchResults.length} result${searchResults.length !== 1 ? "s" : ""}</span>`;
+      }
+    }
     return `<div class="gsd-server-tool-segment"><div class="gsd-server-tool-card ${stateClass}">` +
       `<span class="gsd-server-tool-icon">${icon}</span>` +
       `<span class="gsd-server-tool-name">${escapeHtml(displayName)}</span>` +
       (inputSummary ? `<span class="gsd-server-tool-query">${escapeHtml(inputSummary)}</span>` : "") +
       statusHtml +
+      countHtml +
       `</div></div>`;
   }
   return "";
