@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.76-blue" alt="Version" />
-  <img src="https://img.shields.io/badge/gsd--pi-v2.12--v2.58-blue" alt="gsd-pi compatibility" />
+  <img src="https://img.shields.io/badge/version-0.3.1-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/gsd--pi-v2.12--v2.64-blue" alt="gsd-pi compatibility" />
   <img src="https://img.shields.io/badge/VS%20Code-1.94%2B-blue" alt="VS Code" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform" />
@@ -84,7 +84,7 @@ Built for multi-hour sessions with crash recovery
 ⚡ **Async Subagent Parallelism**<br>
 Spawn multiple agents in one call, monitor live progress
 
-🧪 **865 Tests, 60%+ Coverage**<br>
+🧪 **891 Tests, 60%+ Coverage**<br>
 CI coverage gate enforced on every push
 
 </td>
@@ -251,6 +251,7 @@ Type `/` to open the command palette with 35 commands:
 - **Clickable file paths** that open directly in VS Code
 - **Shimmer animation** on running tools so you always know what's active
 - **Duration tracking** on every completed tool call
+- **Server-side tool indicators** — compact inline cards for Anthropic's native server-side tools (web search, code execution) showing tool name, search query, spinner while running, and result count on completion
 
 ### ⚡ Auto-Mode Progress
 
@@ -403,7 +404,7 @@ npm run watch    # Rebuilds on file changes
 |--------|-------------|
 | `npm run build` | Production build (extension + webview) |
 | `npm run watch` | Watch mode with auto-rebuild |
-| `npm test` | Run unit tests (Vitest, 865 tests across 44 files) |
+| `npm test` | Run unit tests (Vitest, 891 tests across 44 files) |
 | `npm run lint` | Run ESLint |
 | `npm run package` | Package as `.vsix` |
 
