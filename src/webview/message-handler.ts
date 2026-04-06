@@ -325,6 +325,30 @@ function handleMessage(event: MessageEvent): void {
           renderer.appendToTextSegment("text", text);
         } else if (delta.type === "thinking_delta" && delta.delta) {
           renderer.appendToTextSegment("thinking", delta.delta);
+        } else if (delta.type === "server_tool_use") {
+          // Anthropic server-side tool (e.g. native web search, code execution).
+          // These arrive as content blocks, not through tool_execution_start/end.
+          const partial = delta.partial;
+          const content = partial?.content;
+          const idx = delta.contentIndex;
+          if (Array.isArray(content) && typeof idx === "number" && idx >= 0 && idx < content.length) {
+            const block = content[idx];
+            if (block && block.type === "serverToolUse") {
+              renderer.appendServerToolSegment(block.id, block.name, block.input);
+            }
+          }
+        } else if (delta.type === "web_search_result") {
+          // Result from Anthropic's server-side web search tool.
+          // Find the matching server_tool segment and update it with results.
+          const partial = delta.partial;
+          const content = partial?.content;
+          const idx = delta.contentIndex;
+          if (Array.isArray(content) && typeof idx === "number" && idx >= 0 && idx < content.length) {
+            const block = content[idx];
+            if (block && block.type === "webSearchResult") {
+              renderer.completeServerToolSegment(block.toolUseId, block.content);
+            }
+          }
         }
       }
       break;

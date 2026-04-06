@@ -636,3 +636,64 @@
 .gsd-tool-block.cat-search .gsd-tool-name { color: var(--vscode-terminal-ansiMagenta, #d189d1); }
 .gsd-tool-block.cat-agent .gsd-tool-name { color: var(--vscode-terminal-ansiYellow, #d1c589); }
 .gsd-tool-block.cat-process .gsd-tool-name { color: var(--vscode-terminal-ansiBlue, #6cb6ff); }
+
+/* ============================================================
+   Server-Side Tool (Anthropic native web search, etc.)
+   ============================================================ */
+
+.gsd-server-tool-segment {
+  margin: 4px 0;
+}
+
+.gsd-server-tool-card {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gsd-space-sm);
+  padding: 3px 10px;
+  border-radius: var(--gsd-radius-md);
+  border: 1px solid var(--gsd-tool-border);
+  background: var(--gsd-color-surface-hover);
+  font-size: var(--gsd-font-size-sm);
+  color: var(--vscode-descriptionForeground, #888);
+  max-width: 100%;
+}
+
+.gsd-server-tool-card.running {
+  border-color: var(--vscode-terminal-ansiMagenta, #d189d1);
+  border-style: dashed;
+}
+
+.gsd-server-tool-card.done {
+  opacity: 0.7;
+}
+
+.gsd-server-tool-icon {
+  flex-shrink: 0;
+  font-size: var(--gsd-font-size-md);
+}
+
+.gsd-server-tool-name {
+  font-weight: 500;
+  color: var(--vscode-terminal-ansiMagenta, #d189d1);
+  white-space: nowrap;
+}
+
+.gsd-server-tool-query {
+  color: var(--vscode-descriptionForeground, #888);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 300px;
+  font-style: italic;
+}
+
+.gsd-server-tool-check {
+  color: var(--vscode-terminal-ansiGreen, #89d185);
+  font-weight: bold;
+}
+
+.gsd-server-tool-count {
+  font-size: var(--gsd-font-size-xs);
+  opacity: 0.6;
+  margin-left: auto;
+}
