@@ -873,6 +873,8 @@ export async function handleWebviewMessage(
             // Wait a moment for cleanup, then re-launch from scratch
             setTimeout(async () => {
               try {
+                // getSession auto-creates if the session was disposed, which is
+                // harmless — launchGsd will simply wire up a fresh session.
                 ctx.getSession(sessionId).client = null;
                 await ctx.launchGsd(webview, sessionId);
                 ctx.output.appendLine(`[${sessionId}] GSD re-launched after force-kill`);
@@ -880,7 +882,9 @@ export async function handleWebviewMessage(
                 ctx.output.appendLine(`[${sessionId}] Force-restart failed: ${err.message}`);
                 ctx.postToWebview(webview, { type: "error", message: `[GSD-ERR-030] Force-restart failed: ${err.message}` });
               } finally {
-                ctx.getSession(sessionId).isRestarting = false;
+                // Guard: session may have been re-created or cleaned up — only
+                // flip the flag if it still exists in the map.
+                try { ctx.getSession(sessionId).isRestarting = false; } catch { /* disposed */ }
               }
             }, 1000);
           }

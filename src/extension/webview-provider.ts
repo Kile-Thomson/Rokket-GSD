@@ -248,7 +248,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
   private cleanupSession(sessionId: string): void {
     const session = this.sessions.get(sessionId);
-    if (session) cleanupSessionState(session);
+    if (session) {
+      cleanupSessionState(session);
+      this.sessions.delete(sessionId);
+    }
   }
 
   private static readonly LAST_VERSION_KEY = "gsd.lastSeenVersion";

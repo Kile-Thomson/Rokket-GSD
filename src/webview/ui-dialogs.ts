@@ -112,8 +112,13 @@ export function handleRequest(data: any): void {
     vscode.postMessage({ ...cached.response, id });
     return;
   }
-  // Clean expired entries opportunistically
-  if (cached) resolvedResponses.delete(fp);
+  // Sweep all expired entries to prevent unbounded growth
+  if (cached || resolvedResponses.size > 50) {
+    const now = Date.now();
+    for (const [key, val] of resolvedResponses) {
+      if (now >= val.expiresAt) resolvedResponses.delete(key);
+    }
+  }
 
   // Dedup phase 2: if an identical dialog is already pending, link this
   // request to it — when the original is resolved, we'll send the same
