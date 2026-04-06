@@ -366,7 +366,7 @@ export function appendServerToolSegment(toolId: string, toolName: string, input?
   const displayName = toolName === "web_search" ? "Web Search" : toolName;
   const icon = toolName === "web_search" ? "🔍" : "⚡";
   const inputSummary = input && typeof input === "object" && "query" in (input as Record<string, unknown>)
-    ? (input as Record<string, unknown>).query as string
+    ? String((input as Record<string, unknown>).query ?? "")
     : "";
 
   el.innerHTML = `<div class="gsd-server-tool-card running">` +
@@ -890,7 +890,7 @@ function buildSegmentHtml(seg: TurnSegment, toolCalls: Map<string, ToolCallState
     const displayName = seg.name === "web_search" ? "Web Search" : seg.name;
     const icon = seg.name === "web_search" ? "🔍" : "⚡";
     const inputSummary = seg.input && typeof seg.input === "object" && "query" in (seg.input as Record<string, unknown>)
-      ? (seg.input as Record<string, unknown>).query as string
+      ? String((seg.input as Record<string, unknown>).query ?? "")
       : "";
     const stateClass = seg.isComplete ? "done" : "running";
     const statusHtml = seg.isComplete
