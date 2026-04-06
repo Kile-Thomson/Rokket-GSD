@@ -330,8 +330,9 @@ function handleMessage(event: MessageEvent): void {
           // These arrive as content blocks, not through tool_execution_start/end.
           const partial = delta.partial;
           const content = partial?.content;
-          if (Array.isArray(content)) {
-            const block = content[delta.contentIndex];
+          const idx = delta.contentIndex;
+          if (Array.isArray(content) && typeof idx === "number" && idx >= 0 && idx < content.length) {
+            const block = content[idx];
             if (block && block.type === "serverToolUse") {
               renderer.appendServerToolSegment(block.id, block.name, block.input);
             }
@@ -341,8 +342,9 @@ function handleMessage(event: MessageEvent): void {
           // Find the matching server_tool segment and update it with results.
           const partial = delta.partial;
           const content = partial?.content;
-          if (Array.isArray(content)) {
-            const block = content[delta.contentIndex];
+          const idx = delta.contentIndex;
+          if (Array.isArray(content) && typeof idx === "number" && idx >= 0 && idx < content.length) {
+            const block = content[idx];
             if (block && block.type === "webSearchResult") {
               renderer.completeServerToolSegment(block.toolUseId, block.content);
             }

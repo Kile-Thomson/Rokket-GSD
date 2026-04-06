@@ -371,7 +371,7 @@ export function appendServerToolSegment(toolId: string, toolName: string, input?
 
   el.innerHTML = `<div class="gsd-server-tool-card running">` +
     `<span class="gsd-server-tool-icon">${icon}</span>` +
-    `<span class="gsd-server-tool-name">${displayName}</span>` +
+    `<span class="gsd-server-tool-name">${escapeHtml(displayName)}</span>` +
     (inputSummary ? `<span class="gsd-server-tool-query">${escapeHtml(inputSummary)}</span>` : "") +
     `<span class="gsd-tool-spinner"></span>` +
     `</div>`;
