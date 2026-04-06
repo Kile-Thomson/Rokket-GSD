@@ -33,11 +33,12 @@ export interface ToolCallState {
   isParallel?: boolean;
 }
 
-/** A segment in the sequential stream — text, thinking, or tool call */
+/** A segment in the sequential stream — text, thinking, tool call, or server-side tool */
 export type TurnSegment =
   | { type: "text"; chunks: string[] }
   | { type: "thinking"; chunks: string[] }
-  | { type: "tool"; toolCallId: string };
+  | { type: "tool"; toolCallId: string }
+  | { type: "server_tool"; serverToolId: string; name: string; input?: unknown; results?: unknown; isComplete: boolean };
 
 /** One assistant turn = ordered sequence of segments */
 export interface AssistantTurn {
