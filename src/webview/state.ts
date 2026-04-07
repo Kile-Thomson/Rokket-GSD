@@ -110,6 +110,8 @@ export interface AppState {
   autoProgressLastUpdate: number;
   // Widget data from setWidget events (keyed by widget key)
   widgetData: Map<string, string[]>;
+  // Skills loaded in this session (detected from read tool calls to SKILL.md files)
+  loadedSkills: Set<string>;
 }
 
 /** Tool categorization for icons & color accents */
@@ -198,6 +200,7 @@ export const state: AppState = {
   autoProgress: null,
   autoProgressLastUpdate: 0,
   widgetData: new Map(),
+  loadedSkills: new Set(),
 };
 
 // ============================================================
@@ -243,6 +246,7 @@ export function resetState(): void {
   state.autoProgress = null;
   state.autoProgressLastUpdate = 0;
   state.widgetData.clear();
+  state.loadedSkills.clear();
   entryIdCounter = 0;
   resetPrunedCount();
 }

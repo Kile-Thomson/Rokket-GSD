@@ -91,6 +91,35 @@ export function init(deps: MessageHandlerDeps): void {
 }
 
 // ============================================================
+// Skill pill tracker
+// ============================================================
+
+/** Update the skill pills display in the footer */
+function updateSkillPills(): void {
+  let container = document.getElementById("skillPills");
+  if (!container) {
+    // Append to footerStats so pills flow naturally after token counts
+    const footerStats = document.getElementById("footerStats");
+    if (!footerStats) return;
+    container = document.createElement("span");
+    container.id = "skillPills";
+    container.className = "gsd-skill-pills";
+    footerStats.insertAdjacentElement("afterend", container);
+  }
+
+  if (state.loadedSkills.size === 0) {
+    container.classList.add("gsd-hidden");
+    return;
+  }
+
+  container.classList.remove("gsd-hidden");
+  const pills = Array.from(state.loadedSkills)
+    .map((name) => `<span class="gsd-skill-pill" title="Skill loaded: ${escapeHtml(name)}">${escapeHtml(name)}</span>`)
+    .join("");
+  container.innerHTML = pills;
+}
+
+// ============================================================
 // Main message handler
 // ============================================================
 
@@ -469,6 +498,27 @@ function handleMessage(event: MessageEvent): void {
       }
 
       state.currentTurn.toolCalls.set(data.toolCallId, tc);
+
+      // Detect skill loads: read calls targeting */skills/*/SKILL.md
+      if (data.toolName?.toLowerCase() === "read" && typeof data.args?.path === "string") {
+        const skillMatch = data.args.path.replace(/\\/g, "/").match(/\/skills\/([^/]+)\/SKILL\.md$/i);
+        if (skillMatch) {
+          const skillName = skillMatch[1];
+          if (!state.loadedSkills.has(skillName)) {
+            state.loadedSkills.add(skillName);
+            updateSkillPills();
+          }
+        }
+      }
+      // Detect Skill tool invocations
+      if (data.toolName?.toLowerCase() === "skill" && typeof data.args?.skill === "string") {
+        const skillName = data.args.skill;
+        if (!state.loadedSkills.has(skillName)) {
+          state.loadedSkills.add(skillName);
+          updateSkillPills();
+        }
+      }
+
       const segIdx = state.currentTurn.segments.length;
       state.currentTurn.segments.push({ type: "tool", toolCallId: data.toolCallId });
       renderer.appendToolSegmentElement(tc, segIdx);
@@ -845,6 +895,8 @@ function handleMessage(event: MessageEvent): void {
       renderer.resetStreamingState();
       renderer.clearMessages();
       state.sessionStats = {};
+      state.loadedSkills.clear();
+      updateSkillPills();
       resetPrunedCount();
 
       // Apply the new state
