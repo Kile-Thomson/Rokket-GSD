@@ -20,7 +20,7 @@ function compareSemver(a: string, b: string): number {
   return 0;
 }
 
-function installBundledExtensions(context: vscode.ExtensionContext, output: vscode.OutputChannel): void {
+async function installBundledExtensions(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
   const targetDir = path.join(os.homedir(), ".gsd", "agent", "extensions");
   const sourceDir = path.join(context.extensionUri.fsPath, "resources", "extensions");
 
@@ -29,7 +29,7 @@ function installBundledExtensions(context: vscode.ExtensionContext, output: vsco
     const target = path.join(targetDir, extName);
 
     try {
-      if (!fs.existsSync(source)) {
+      try { await fs.promises.access(source); } catch { 
         output.appendLine(`[bundled-ext] Source not found: ${source}`);
         continue;
       }
@@ -38,11 +38,12 @@ function installBundledExtensions(context: vscode.ExtensionContext, output: vsco
       const sourceManifest = path.join(source, "extension-manifest.json");
       const targetManifest = path.join(target, "extension-manifest.json");
 
-      let needsInstall = !fs.existsSync(targetManifest);
+      let needsInstall = false;
+      try { await fs.promises.access(targetManifest); } catch { needsInstall = true; }
       if (!needsInstall) {
         try {
-          const srcVersion = JSON.parse(fs.readFileSync(sourceManifest, "utf-8")).version;
-          const tgtVersion = JSON.parse(fs.readFileSync(targetManifest, "utf-8")).version;
+          const srcVersion = JSON.parse(await fs.promises.readFile(sourceManifest, "utf-8")).version;
+          const tgtVersion = JSON.parse(await fs.promises.readFile(targetManifest, "utf-8")).version;
           needsInstall = compareSemver(srcVersion, tgtVersion) > 0;
         } catch {
           needsInstall = true;
@@ -50,11 +51,11 @@ function installBundledExtensions(context: vscode.ExtensionContext, output: vsco
       }
 
       if (needsInstall) {
-        fs.mkdirSync(target, { recursive: true });
+        await fs.promises.mkdir(target, { recursive: true });
         // NOTE: flat copy — only top-level files. If a future bundled extension
         // has subdirectories, this needs recursive copy support.
-        for (const file of fs.readdirSync(source)) {
-          fs.copyFileSync(path.join(source, file), path.join(target, file));
+        for (const file of await fs.promises.readdir(source)) {
+          await fs.promises.copyFile(path.join(source, file), path.join(target, file));
         }
         output.appendLine(`[bundled-ext] Installed ${extName} to ${target}`);
       }
