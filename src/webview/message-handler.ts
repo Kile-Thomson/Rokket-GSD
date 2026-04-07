@@ -501,9 +501,9 @@ function handleMessage(event: MessageEvent): void {
 
       // Detect skill loads: read calls targeting */skills/*/SKILL.md
       if (data.toolName?.toLowerCase() === "read" && typeof data.args?.path === "string") {
-        const skillMatch = data.args.path.replace(/\\/g, "/").match(/\/skills\/([^/]+)\/SKILL\.md$/i);
+        const skillMatch = data.args.path.replace(/\\/g, "/").match(/(^|\/)skills\/([^/]+)\/SKILL\.md$/i);
         if (skillMatch) {
-          const skillName = skillMatch[1];
+          const skillName = skillMatch[2];
           if (!state.loadedSkills.has(skillName)) {
             state.loadedSkills.add(skillName);
             updateSkillPills();
