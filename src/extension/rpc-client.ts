@@ -358,8 +358,12 @@ export class GsdRpcClient extends EventEmitter {
     this.process.stdout?.on("data", (chunk: Buffer) => {
       this.buffer += chunk.toString("utf8");
       if (this.buffer.length > MAX_BUFFER_SIZE) {
-        this.emit("log", `[rpc-client] Buffer exceeded ${MAX_BUFFER_SIZE / 1024 / 1024}MB — resetting (possible runaway output)`);
-        this.buffer = "";
+        // Preserve any partial line (data after the last newline) so the
+        // JSON-RPC stream can resync once the next newline arrives.
+        const lastNl = this.buffer.lastIndexOf("\n");
+        const partial = lastNl === -1 ? "" : this.buffer.slice(lastNl + 1);
+        this.emit("log", `[rpc-client] Buffer exceeded ${MAX_BUFFER_SIZE / 1024 / 1024}MB — truncating (possible runaway output). Preserving ${partial.length} bytes of partial line.`);
+        this.buffer = partial;
       }
       this.processBuffer();
     });

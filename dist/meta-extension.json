@@ -1,7 +1,7 @@
 {
   "inputs": {
     "src/extension/rpc-client.ts": {
-      "bytes": 29835,
+      "bytes": 30171,
       "imports": [
         {
           "path": "child_process",
@@ -295,7 +295,7 @@
       "format": "esm"
     },
     "src/extension/message-dispatch.ts": {
-      "bytes": 43132,
+      "bytes": 43475,
       "imports": [
         {
           "path": "vscode",
@@ -388,7 +388,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 22369,
+      "bytes": 22425,
       "imports": [
         {
           "path": "vscode",
@@ -500,7 +500,7 @@
       "format": "esm"
     },
     "src/extension/index.ts": {
-      "bytes": 6181,
+      "bytes": 6335,
       "imports": [
         {
           "path": "vscode",
@@ -546,7 +546,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 399552
+      "bytes": 400794
     },
     "dist/extension.js": {
       "imports": [
@@ -810,13 +810,13 @@
       "entryPoint": "src/extension/index.ts",
       "inputs": {
         "src/extension/index.ts": {
-          "bytesInOutput": 2791
+          "bytesInOutput": 2896
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 10337
+          "bytesInOutput": 10363
         },
         "src/extension/rpc-client.ts": {
-          "bytesInOutput": 9868
+          "bytesInOutput": 9986
         },
         "src/extension/update-checker.ts": {
           "bytesInOutput": 6217
@@ -849,7 +849,7 @@
           "bytesInOutput": 4563
         },
         "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 17434
+          "bytesInOutput": 17446
         },
         "src/extension/session-list-service.ts": {
           "bytesInOutput": 2191
@@ -873,7 +873,7 @@
           "bytesInOutput": 4405
         }
       },
-      "bytes": 100571
+      "bytes": 100832
     }
   }
 }
