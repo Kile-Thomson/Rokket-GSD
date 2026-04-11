@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -189,6 +189,45 @@ describe("readParallelWorkers", () => {
     expect(workers![0].pid).toBe(0);
     expect(workers![0].completedUnits).toBe(0);
     expect(workers![0].cost).toBe(0);
+  });
+
+  it("reads multiple status files concurrently via Promise.all", async () => {
+    // Write 3 status files
+    for (let i = 1; i <= 3; i++) {
+      writeStatus(`M00${i}.status.json`, {
+        milestoneId: `M00${i}`,
+        pid: i * 1000,
+        state: "running",
+        cost: i * 0.1,
+        lastHeartbeat: Date.now(),
+      });
+    }
+
+    // Spy on readFile to verify all calls start before any completes
+    const callOrder: string[] = [];
+    const originalReadFile = fs.promises.readFile;
+    const readFileSpy = vi.spyOn(fs.promises, "readFile").mockImplementation(
+      async (filePath: any, encoding?: any) => {
+        const name = path.basename(String(filePath));
+        callOrder.push(`start:${name}`);
+        const result = await originalReadFile(filePath, encoding);
+        callOrder.push(`end:${name}`);
+        return result;
+      },
+    );
+
+    const workers = await readParallelWorkers(tmpDir);
+
+    // All 3 files should have started reading before any completed
+    const starts = callOrder.filter(e => e.startsWith("start:"));
+    const firstEnd = callOrder.findIndex(e => e.startsWith("end:"));
+    const startsBeforeFirstEnd = callOrder.slice(0, firstEnd).filter(e => e.startsWith("start:"));
+
+    expect(starts).toHaveLength(3);
+    expect(startsBeforeFirstEnd).toHaveLength(3);
+    expect(workers).toHaveLength(3);
+
+    readFileSpy.mockRestore();
   });
 
   it("returns null when only non-status files exist", async () => {

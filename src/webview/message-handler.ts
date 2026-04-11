@@ -181,6 +181,9 @@ function handleMessage(event: MessageEvent): void {
     case "session_stats": {
       const data = msg.data;
       if (data) {
+        if (typeof data.contextPercent === "number") {
+          data.contextPercent = Math.min(data.contextPercent, 100);
+        }
         state.sessionStats = {
           ...state.sessionStats,
           ...data,
@@ -542,12 +545,12 @@ function handleMessage(event: MessageEvent): void {
           if (u.cost?.total) {
             state.sessionStats.cost = (state.sessionStats.cost || 0) + u.cost.total;
           }
-          const contextTokens = (u.input || 0) + (u.cacheRead || 0);
+          const contextTokens = (u.input || 0) + (u.cacheRead || 0) + (u.cacheWrite || 0);
           const contextWindow = state.model?.contextWindow || state.sessionStats.contextWindow || 0;
           if (contextWindow > 0 && contextTokens > 0) {
             state.sessionStats.contextTokens = contextTokens;
             state.sessionStats.contextWindow = contextWindow;
-            state.sessionStats.contextPercent = (contextTokens / contextWindow) * 100;
+            state.sessionStats.contextPercent = Math.min((contextTokens / contextWindow) * 100, 100);
           }
           updateHeaderUI();
           updateFooterUI();
