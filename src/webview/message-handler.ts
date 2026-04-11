@@ -130,6 +130,11 @@ function handleMessage(event: MessageEvent): void {
 
   try {
 
+  // Diagnostic: log all event types to trace streaming flow
+  if ((msg.type as string) !== "message_update") {
+    console.log("[gsd-diag] EVENT:", msg.type);
+  }
+
   switch (msg.type) {
     case "config": {
       const data = msg;
@@ -252,6 +257,7 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "agent_start": {
+      console.log("[gsd-diag] agent_start, isContinuation:", !!(msg as any).isContinuation);
       if (uiDialogs.hasPending()) {
         uiDialogs.expireAllPending("New turn started");
       }
@@ -283,6 +289,7 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "agent_end": {
+      console.log("[gsd-diag] agent_end, toolCalls:", state.currentTurn?.toolCalls.size ?? 0, "segments:", state.currentTurn?.segments.length ?? 0);
       state.isStreaming = false;
       announceToScreenReader("Response complete.");
       state.processHealth = "responsive";
@@ -319,6 +326,7 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "message_start": {
+      console.log("[gsd-diag] message_start, currentTurn:", !!state.currentTurn);
       // Clear steer note — new LLM response means the steer was consumed
       // or is queued for the next tool boundary. Either way, "Redirecting
       // agent..." is no longer accurate once new content is flowing.
@@ -378,6 +386,91 @@ function handleMessage(event: MessageEvent): void {
               renderer.completeServerToolSegment(block.toolUseId, block.content);
             }
           }
+        } else if (delta.type === "toolcall_start") {
+          // Tool call streaming — render a spinner immediately so the user
+          // sees the tool appear while the LLM is still generating arguments.
+          const partial = delta.partial;
+          const content = partial?.content;
+          const idx = delta.contentIndex;
+          if (Array.isArray(content) && typeof idx === "number" && idx >= 0 && idx < content.length) {
+            const block = content[idx];
+            if (block && block.type === "toolCall" && block.id && block.name) {
+              const turn = state.currentTurn!;
+              if (!turn.toolCalls.has(block.id)) {
+                const tc: ToolCallState = {
+                  id: block.id,
+                  name: block.name,
+                  args: {},
+                  resultText: "",
+                  isError: false,
+                  isRunning: true,
+                  startTime: Date.now(),
+                  isParallel: false,
+                };
+                // Detect parallel: if another tool from streaming is already running
+                for (const [, existing] of turn.toolCalls) {
+                  if (existing.isRunning) {
+                    tc.isParallel = true;
+                    if (!existing.isParallel) {
+                      existing.isParallel = true;
+                      renderer.updateToolSegmentElement(existing.id);
+                    }
+                    break;
+                  }
+                }
+                turn.toolCalls.set(block.id, tc);
+                const segIdx = turn.segments.length;
+                turn.segments.push({ type: "tool", toolCallId: block.id });
+                renderer.appendToolSegmentElement(tc, segIdx);
+                scrollToBottom(messagesContainer);
+              }
+            }
+          }
+        } else if (delta.type === "toolcall_end") {
+          // Tool call complete — may carry externalResult with the tool's output.
+          // Render the result immediately so users see it while the model continues.
+          const tc2 = delta.toolCall;
+          if (tc2?.id && tc2.externalResult && state.currentTurn) {
+            const existing = state.currentTurn.toolCalls.get(tc2.id);
+            if (existing) {
+              // Update args from the final toolCall payload
+              if (tc2.arguments && typeof tc2.arguments === "object") {
+                existing.args = tc2.arguments;
+              }
+              // Extract result text
+              const resultContent = tc2.externalResult.content;
+              if (Array.isArray(resultContent)) {
+                const text = resultContent
+                  .map((c: any) => c.text || "")
+                  .filter(Boolean)
+                  .join("\n");
+                const filtered = text
+                  ? text.split("\n").filter((l: string) => !l.includes('"__async_subagent_progress"')).join("\n").trim()
+                  : text;
+                if (filtered) existing.resultText = filtered;
+              }
+              if (tc2.externalResult.details) existing.details = tc2.externalResult.details;
+              if (tc2.externalResult.isError) existing.isError = true;
+              // Mark as complete — the tool_execution_end event is redundant after this
+              existing.isRunning = false;
+              existing.endTime = Date.now();
+              renderer.updateToolSegmentElement(tc2.id);
+              scrollToBottom(messagesContainer);
+            }
+          } else if (tc2?.id && tc2.arguments && typeof tc2.arguments === "object" && state.currentTurn) {
+            // toolcall_end without externalResult — just update args
+            const existing = state.currentTurn.toolCalls.get(tc2.id);
+            if (existing) {
+              existing.args = tc2.arguments;
+              renderer.updateToolSegmentElement(tc2.id);
+            }
+          }
+        } else if (delta.type === "toolcall_delta"
+                    || delta.type === "thinking_start" || delta.type === "thinking_end"
+                    || delta.type === "text_start" || delta.type === "text_end") {
+          // Known streaming delta types we don't need to act on — suppress log noise
+        } else {
+          console.log("[gsd-diag] UNHANDLED message_update delta type:", delta.type, JSON.stringify(delta).slice(0, 300));
         }
       }
       break;
@@ -427,6 +520,17 @@ function handleMessage(event: MessageEvent): void {
     case "message_end": {
       const endData = msg;
       const endMsg = endData.message;
+      // Diagnostic: dump message_end content blocks to find tool_use data
+      if (endMsg?.content) {
+        const blocks = Array.isArray(endMsg.content) ? endMsg.content : [];
+        const types = blocks.map((b: any) => b.type || "unknown");
+        console.log("[gsd-diag] message_end content blocks:", types.join(", "));
+        blocks.forEach((b: any, i: number) => {
+          if (b.type === "tool_use") {
+            console.log(`[gsd-diag] message_end tool_use[${i}]:`, b.name, b.id, JSON.stringify(b.input || {}).slice(0, 200));
+          }
+        });
+      }
       if (endMsg?.role === "assistant") {
         // Surface agent errors that arrive via stopReason:"error" on the message.
         // These are NOT delivered through message_update deltas, so the streaming
@@ -467,10 +571,39 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "tool_execution_start": {
+      console.log("[gsd-diag] tool_execution_start", (msg as any).toolName, (msg as any).toolCallId, "currentTurn:", !!state.currentTurn);
       if (!state.currentTurn) break;
       const data = msg;
 
-      // Detect parallel execution: if any other tool is already running, both are parallel
+      // Detect skill loads: read calls targeting */skills/*/SKILL.md
+      if (data.toolName?.toLowerCase() === "read" && typeof data.args?.path === "string") {
+        const skillMatch = data.args.path.replace(/\\/g, "/").match(/(^|\/)skills\/([^/]+)\/SKILL\.md$/i);
+        if (skillMatch) {
+          const skillName = skillMatch[2];
+          if (!state.loadedSkills.has(skillName)) {
+            state.loadedSkills.add(skillName);
+            updateSkillPills();
+          }
+        }
+      }
+      if (data.toolName?.toLowerCase() === "skill" && typeof data.args?.skill === "string") {
+        const skillName = data.args.skill;
+        if (!state.loadedSkills.has(skillName)) {
+          state.loadedSkills.add(skillName);
+          updateSkillPills();
+        }
+      }
+
+      // If streaming already created this tool segment, just update args
+      const existingTc = state.currentTurn.toolCalls.get(data.toolCallId);
+      if (existingTc) {
+        existingTc.args = data.args || existingTc.args;
+        existingTc.isRunning = true;
+        renderer.updateToolSegmentElement(existingTc.id);
+        break;
+      }
+
+      // Fallback: tool wasn't seen in streaming — create segment now
       const runningTools: ToolCallState[] = [];
       for (const [, existing] of state.currentTurn.toolCalls) {
         if (existing.isRunning) runningTools.push(existing);
@@ -487,7 +620,6 @@ function handleMessage(event: MessageEvent): void {
         isParallel: runningTools.length > 0,
       };
 
-      // Mark previously-running tools as parallel too (they weren't until now)
       if (runningTools.length > 0) {
         for (const rt of runningTools) {
           if (!rt.isParallel) {
@@ -498,27 +630,6 @@ function handleMessage(event: MessageEvent): void {
       }
 
       state.currentTurn.toolCalls.set(data.toolCallId, tc);
-
-      // Detect skill loads: read calls targeting */skills/*/SKILL.md
-      if (data.toolName?.toLowerCase() === "read" && typeof data.args?.path === "string") {
-        const skillMatch = data.args.path.replace(/\\/g, "/").match(/(^|\/)skills\/([^/]+)\/SKILL\.md$/i);
-        if (skillMatch) {
-          const skillName = skillMatch[2];
-          if (!state.loadedSkills.has(skillName)) {
-            state.loadedSkills.add(skillName);
-            updateSkillPills();
-          }
-        }
-      }
-      // Detect Skill tool invocations
-      if (data.toolName?.toLowerCase() === "skill" && typeof data.args?.skill === "string") {
-        const skillName = data.args.skill;
-        if (!state.loadedSkills.has(skillName)) {
-          state.loadedSkills.add(skillName);
-          updateSkillPills();
-        }
-      }
-
       const segIdx = state.currentTurn.segments.length;
       state.currentTurn.segments.push({ type: "tool", toolCallId: data.toolCallId });
       renderer.appendToolSegmentElement(tc, segIdx);
@@ -527,6 +638,7 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "tool_execution_update": {
+      console.log("[gsd-diag] tool_execution_update", (msg as any).toolCallId);
       const data = msg;
       // Look up tool call in current turn first, then fall back to previous entries
       let tc = state.currentTurn?.toolCalls.get(data.toolCallId);
@@ -558,6 +670,7 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "tool_execution_end": {
+      console.log("[gsd-diag] tool_execution_end", (msg as any).toolCallId, "currentTurn:", !!state.currentTurn);
       if (!state.currentTurn) break;
       const data = msg;
       const tc = state.currentTurn.toolCalls.get(data.toolCallId);
