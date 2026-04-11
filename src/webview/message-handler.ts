@@ -258,6 +258,14 @@ function handleMessage(event: MessageEvent): void {
 
     case "agent_start": {
       console.log("[gsd-diag] agent_start, isContinuation:", !!(msg as any).isContinuation);
+      // DOM dump for debugging steer ordering
+      const kids = messagesContainer.children;
+      const summary: string[] = [];
+      for (let i = Math.max(0, kids.length - 5); i < kids.length; i++) {
+        const k = kids[i] as HTMLElement;
+        summary.push(`${k.className.replace("gsd-entry ", "")}${k.dataset.steer ? "(steer)" : ""}[${k.textContent?.slice(0, 40) ?? ""}]`);
+      }
+      console.log("[gsd-diag] DOM last 5:", summary.join(" | "));
       if (uiDialogs.hasPending()) {
         uiDialogs.expireAllPending("New turn started");
       }

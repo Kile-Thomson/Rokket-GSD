@@ -261,6 +261,7 @@ export function reattachTurnElement(entryId: string): void {
 
 export function appendToTextSegment(segType: "text" | "thinking", delta: string): void {
   if (!state.currentTurn) return;
+  console.log("[gsd-diag] appendToTextSegment:", segType, "delta:", delta.slice(0, 80));
 
   const turn = state.currentTurn;
   const segments = turn.segments;
