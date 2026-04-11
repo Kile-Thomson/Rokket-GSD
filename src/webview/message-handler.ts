@@ -34,7 +34,7 @@ import * as autoProgress from "./auto-progress";
 import * as visualizer from "./visualizer";
 import * as fileHandling from "./file-handling";
 import { createFocusTrap, restoreFocus } from "./a11y";
-import { setChangelogHandlers, getChangelogTriggerEl } from "./keyboard";
+import { setChangelogHandlers, getChangelogTriggerEl, dismissChangelog } from "./keyboard";
 
 // ============================================================
 // Dependencies — set via init()
@@ -1279,8 +1279,7 @@ function showWhatsNew(version: string, notes: string): void {
  * Show a full changelog panel inline in the chat.
  */
 function showChangelog(entries: Array<{ version: string; notes: string; date: string }>): void {
-  const existing = document.getElementById("gsd-changelog");
-  if (existing) existing.remove();
+  dismissChangelog({ silent: true });
 
   const entriesHtml = entries.length > 0
     ? entries.map((e, i) => `

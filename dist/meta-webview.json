@@ -297,7 +297,7 @@
       "format": "esm"
     },
     "src/webview/keyboard.ts": {
-      "bytes": 18461,
+      "bytes": 18679,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -353,7 +353,7 @@
       "format": "esm"
     },
     "src/webview/message-handler.ts": {
-      "bytes": 53343,
+      "bytes": 53302,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -626,7 +626,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 810799
+      "bytes": 811018
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -734,10 +734,10 @@
           "bytesInOutput": 4579
         },
         "src/webview/keyboard.ts": {
-          "bytesInOutput": 6519
+          "bytesInOutput": 6547
         },
         "src/webview/message-handler.ts": {
-          "bytesInOutput": 20740
+          "bytesInOutput": 20695
         },
         "src/webview/ui-updates.ts": {
           "bytesInOutput": 7067
@@ -746,7 +746,7 @@
           "bytesInOutput": 18399
         }
       },
-      "bytes": 220894
+      "bytes": 220877
     },
     "dist/webview/index.css.map": {
       "imports": [],

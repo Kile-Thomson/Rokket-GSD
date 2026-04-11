@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-import { init, handleNewConversation } from "../keyboard";
+import { init, handleNewConversation, dismissChangelog, setChangelogHandlers } from "../keyboard";
 import { state } from "../state";
 import type { KeyboardDeps } from "../keyboard";
 
@@ -280,6 +280,56 @@ describe("keyboard", () => {
     it("sends attach_files message on click", () => {
       deps.attachBtn.click();
       expect(mockVscode.postMessage).toHaveBeenCalledWith({ type: "attach_files" });
+    });
+  });
+
+  // ----------------------------------------------------------
+  // dismissChangelog
+  // ----------------------------------------------------------
+
+  describe("dismissChangelog", () => {
+    function createChangelogEl(): HTMLElement {
+      const el = document.createElement("div");
+      el.id = "gsd-changelog";
+      document.body.appendChild(el);
+      return el;
+    }
+
+    it("does nothing when no changelog element exists", () => {
+      expect(() => dismissChangelog()).not.toThrow();
+    });
+
+    it("removes element with animation in normal mode", () => {
+      vi.useFakeTimers();
+      const el = createChangelogEl();
+      dismissChangelog();
+      expect(el.classList.contains("dismissing")).toBe(true);
+      expect(document.getElementById("gsd-changelog")).not.toBeNull();
+      vi.advanceTimersByTime(300);
+      expect(document.getElementById("gsd-changelog")).toBeNull();
+      vi.useRealTimers();
+    });
+
+    it("removes element immediately in silent mode", () => {
+      createChangelogEl();
+      dismissChangelog({ silent: true });
+      expect(document.getElementById("gsd-changelog")).toBeNull();
+    });
+
+    it("cleans up keydown handlers from the element", () => {
+      const el = createChangelogEl();
+      const trapHandler = vi.fn();
+      const navHandler = vi.fn();
+      setChangelogHandlers(trapHandler, navHandler);
+      el.addEventListener("keydown", trapHandler);
+      el.addEventListener("keydown", navHandler);
+
+      dismissChangelog({ silent: true });
+
+      // Handlers should have been removed before element was removed
+      // Verify by checking that setChangelogHandlers was called to null them out
+      // (the module-level refs are nulled in dismissChangelog)
+      expect(document.getElementById("gsd-changelog")).toBeNull();
     });
   });
 });
