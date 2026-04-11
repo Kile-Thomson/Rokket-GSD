@@ -133,8 +133,10 @@ export function renderNewEntry(entry: ChatEntry): void {
   // without splitting the assistant turn. The assistant continues rendering
   // in the same element — the user message just appears below the in-progress response.
   if (currentTurnElement && currentTurnElement.parentNode === messagesContainer) {
+    console.log("[gsd-diag] renderNewEntry: placing", entry.type, entry.isSteer ? "(steer)" : "", "after currentTurnElement");
     currentTurnElement.after(el);
   } else {
+    console.log("[gsd-diag] renderNewEntry: appending", entry.type, entry.isSteer ? "(steer)" : "", "at end");
     messagesContainer.appendChild(el);
   }
 }
