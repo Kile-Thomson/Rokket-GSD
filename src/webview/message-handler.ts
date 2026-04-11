@@ -181,21 +181,32 @@ function handleMessage(event: MessageEvent): void {
     case "session_stats": {
       const data = msg.data;
       if (data) {
-        console.log("[gsd-diag] session_stats keys:", Object.keys(data).join(", "));
-        console.log("[gsd-diag] session_stats context fields:", JSON.stringify({
-          contextPercent: data.contextPercent,
-          contextTokens: data.contextTokens,
-          contextWindow: data.contextWindow,
-          autoCompactionEnabled: data.autoCompactionEnabled,
-        }));
-        console.log("[gsd-diag] session_stats tokens:", JSON.stringify(data.tokens));
-        if (typeof data.contextPercent === "number") {
-          console.log("[gsd-diag] session_stats raw contextPercent from backend:", data.contextPercent);
-        }
+        // Preserve locally-accumulated token totals — session_stats from
+        // the backend reports its own cumulative tokens which would double-count
+        // with the per-message values we accumulate in message_end.
+        const localTokens = state.sessionStats.tokens;
+        const localCost = state.sessionStats.cost;
+        const localContext = {
+          contextTokens: state.sessionStats.contextTokens,
+          contextWindow: state.sessionStats.contextWindow,
+          contextPercent: state.sessionStats.contextPercent,
+        };
         state.sessionStats = {
           ...state.sessionStats,
           ...data,
         };
+        // If we have locally-accumulated tokens, prefer them over backend values
+        if (localTokens && localTokens.total > 0) {
+          state.sessionStats.tokens = localTokens;
+        }
+        if (typeof localCost === "number" && localCost > 0) {
+          state.sessionStats.cost = localCost;
+        }
+        if (typeof localContext.contextPercent === "number" && localContext.contextPercent > 0) {
+          state.sessionStats.contextTokens = localContext.contextTokens;
+          state.sessionStats.contextWindow = localContext.contextWindow;
+          state.sessionStats.contextPercent = localContext.contextPercent;
+        }
         updateHeaderUI();
         updateFooterUI();
       }
@@ -541,7 +552,6 @@ function handleMessage(event: MessageEvent): void {
 
         if ((endMsg as any).usage) {
           const u = (endMsg as any).usage as { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } };
-          console.log("[gsd-diag] message_end usage:", JSON.stringify(u));
           if (!state.sessionStats.tokens) {
             state.sessionStats.tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
           }
@@ -554,15 +564,10 @@ function handleMessage(event: MessageEvent): void {
           if (u.cost?.total) {
             state.sessionStats.cost = (state.sessionStats.cost || 0) + u.cost.total;
           }
-          const contextTokens = (u.input || 0) + (u.cacheRead || 0) + (u.cacheWrite || 0);
+          // Context size = input + cacheRead only. cacheWrite is tokens written
+          // TO cache (overlaps with input), not additional prompt size.
+          const contextTokens = (u.input || 0) + (u.cacheRead || 0);
           const contextWindow = state.model?.contextWindow || state.sessionStats.contextWindow || 0;
-          const rawPct = contextWindow > 0 ? (contextTokens / contextWindow) * 100 : 0;
-          console.log("[gsd-diag] message_end context calc:", JSON.stringify({
-            input: u.input, cacheRead: u.cacheRead, cacheWrite: u.cacheWrite,
-            contextTokens, contextWindow, rawPct: rawPct.toFixed(1),
-            modelContextWindow: state.model?.contextWindow,
-            statsContextWindow: state.sessionStats.contextWindow,
-          }));
           if (contextWindow > 0 && contextTokens > 0) {
             state.sessionStats.contextTokens = contextTokens;
             state.sessionStats.contextWindow = contextWindow;
@@ -932,6 +937,7 @@ function handleMessage(event: MessageEvent): void {
       // Build an informative error message including stderr detail
       const detail = (data as any).detail as string | undefined;
       state.lastExitDetail = detail || null;
+      state.lastExitCode = typeof data.code === "number" ? data.code : null;
       let message: string;
       if (detail) {
         message = detail;

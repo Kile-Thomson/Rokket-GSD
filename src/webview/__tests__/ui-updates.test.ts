@@ -69,6 +69,8 @@ function resetState(): void {
   state.retryInfo = undefined;
   state.processStatus = "stopped";
   state.processHealth = "responsive";
+  state.lastExitCode = null;
+  state.lastExitDetail = null;
   state.sessionStats = {};
   state.cwd = "";
   state.useCtrlEnterToSend = false;
@@ -260,8 +262,32 @@ describe("ui-updates", () => {
     it("shows crashed indicator with restart button", () => {
       state.processStatus = "crashed";
       updateOverlayIndicators();
-      expect(deps.overlayIndicators.innerHTML).toContain("not running");
+      expect(deps.overlayIndicators.innerHTML).toContain("GSD process exited");
       expect(deps.overlayIndicators.querySelector("#restartBtn")).toBeTruthy();
+    });
+
+    it("shows exit code in crash overlay when lastExitCode is set", () => {
+      state.processStatus = "crashed";
+      state.lastExitCode = 137;
+      updateOverlayIndicators();
+      expect(deps.overlayIndicators.innerHTML).toContain("(code: 137)");
+    });
+
+    it("shows detail text up to 500 chars in crash overlay", () => {
+      state.processStatus = "crashed";
+      const longDetail = "x".repeat(600);
+      state.lastExitDetail = longDetail;
+      updateOverlayIndicators();
+      const detail = deps.overlayIndicators.querySelector(".gsd-overlay-detail");
+      expect(detail).toBeTruthy();
+      expect(detail!.textContent!.length).toBe(500);
+    });
+
+    it("omits exit code label when lastExitCode is null", () => {
+      state.processStatus = "crashed";
+      state.lastExitCode = null;
+      updateOverlayIndicators();
+      expect(deps.overlayIndicators.innerHTML).not.toContain("(code:");
     });
 
     it("shows unresponsive indicator with force buttons", () => {

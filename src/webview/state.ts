@@ -106,6 +106,7 @@ export interface AppState {
   processHealth: ProcessHealthStatus;
   // Last exit detail for crash overlay diagnostic context
   lastExitDetail: string | null;
+  lastExitCode: number | null;
   // Auto-mode progress data (null = not in auto-mode)
   autoProgress: AutoProgressData | null;
   // Timestamp of last auto_progress message (for stale-data guard)
@@ -199,6 +200,7 @@ export const state: AppState = {
   currentTurn: null,
   processHealth: "responsive",
   lastExitDetail: null,
+  lastExitCode: null,
   autoProgress: null,
   autoProgressLastUpdate: 0,
   widgetData: new Map(),
@@ -245,6 +247,7 @@ export function resetState(): void {
   state.currentTurn = null;
   state.processHealth = "responsive";
   state.lastExitDetail = null;
+  state.lastExitCode = null;
   state.autoProgress = null;
   state.autoProgressLastUpdate = 0;
   state.widgetData.clear();

@@ -40,7 +40,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.06));
+  border-bottom: 1px solid var(--gsd-color-border);
 }
 
 .gsd-widget-segment {
