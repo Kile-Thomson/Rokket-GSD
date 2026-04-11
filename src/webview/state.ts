@@ -60,6 +60,8 @@ export interface ChatEntry {
   text?: string;
   images?: ImageAttachment[];
   files?: FileAttachment[];
+  /** True when this user message was a steer/interrupt sent during streaming */
+  isSteer?: boolean;
   // For assistant — a turn with grouped content
   turn?: AssistantTurn;
   // For system

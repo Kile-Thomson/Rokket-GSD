@@ -206,7 +206,34 @@ export function ensureCurrentTurnElement(): HTMLElement {
       const el = document.createElement("div");
       el.className = "gsd-entry gsd-entry-assistant streaming";
       el.dataset.entryId = state.currentTurn?.id || "stream";
-      messagesContainer.appendChild(el);
+      // If trailing entries are steer/interrupt messages, insert the new
+      // assistant turn before them so auto-mode continuation content doesn't
+      // appear below the user's interrupt.
+      let firstSteer: HTMLElement | null = null;
+      const children = messagesContainer.children;
+      for (let i = children.length - 1; i >= 0; i--) {
+        const child = children[i] as HTMLElement;
+        if (child.dataset.steer === "true") {
+          firstSteer = child;
+        } else {
+          break;
+        }
+      }
+      if (firstSteer) {
+        messagesContainer.insertBefore(el, firstSteer);
+        // Clear steer marks — only one auto-mode turn should be inserted
+        // before the steer. Subsequent turns go after (they're the response).
+        for (let i = children.length - 1; i >= 0; i--) {
+          const child = children[i] as HTMLElement;
+          if (child.dataset.steer === "true") {
+            delete child.dataset.steer;
+          } else {
+            break;
+          }
+        }
+      } else {
+        messagesContainer.appendChild(el);
+      }
       currentTurnElement = el;
       welcomeScreen.classList.add("gsd-hidden");
     }
@@ -768,6 +795,7 @@ function createEntryElement(entry: ChatEntry): HTMLElement {
 
   if (entry.type === "user") {
     el.innerHTML = buildUserHtml(entry);
+    if (entry.isSteer) el.dataset.steer = "true";
   } else if (entry.type === "assistant" && entry.turn) {
     if (entry.turn.isStaleEcho) {
       el.classList.add("gsd-stale-echo");
