@@ -129,16 +129,7 @@ export function clearMessages(): void {
 
 export function renderNewEntry(entry: ChatEntry): void {
   const el = createEntryElement(entry);
-  // If streaming, insert the user message AFTER the current streaming element
-  // without splitting the assistant turn. The assistant continues rendering
-  // in the same element — the user message just appears below the in-progress response.
-  if (currentTurnElement && currentTurnElement.parentNode === messagesContainer) {
-    console.log("[gsd-diag] renderNewEntry: placing", entry.type, entry.isSteer ? "(steer)" : "", "after currentTurnElement");
-    currentTurnElement.after(el);
-  } else {
-    console.log("[gsd-diag] renderNewEntry: appending", entry.type, entry.isSteer ? "(steer)" : "", "at end");
-    messagesContainer.appendChild(el);
-  }
+  messagesContainer.appendChild(el);
 }
 
 // ============================================================
@@ -196,7 +187,6 @@ export function ensureCurrentTurnElement(): HTMLElement {
       }
     }
     if (existing) {
-      console.log("[gsd-diag] ensureCurrentTurnElement: reusing dots-only element");
       // Only update entryId if it actually changed — data attribute mutations
       // trigger style recalculation which resets CSS animations on children.
       const newId = state.currentTurn?.id;
@@ -209,36 +199,7 @@ export function ensureCurrentTurnElement(): HTMLElement {
       const el = document.createElement("div");
       el.className = "gsd-entry gsd-entry-assistant streaming";
       el.dataset.entryId = state.currentTurn?.id || "stream";
-      // If trailing entries are steer/interrupt messages, insert the new
-      // assistant turn before them so auto-mode continuation content doesn't
-      // appear below the user's interrupt.
-      let firstSteer: HTMLElement | null = null;
-      const children = messagesContainer.children;
-      for (let i = children.length - 1; i >= 0; i--) {
-        const child = children[i] as HTMLElement;
-        if (child.dataset.steer === "true") {
-          firstSteer = child;
-        } else {
-          break;
-        }
-      }
-      if (firstSteer) {
-        console.log("[gsd-diag] ensureCurrentTurnElement: inserting before steer entry");
-        messagesContainer.insertBefore(el, firstSteer);
-        // Clear steer marks — only one auto-mode turn should be inserted
-        // before the steer. Subsequent turns go after (they're the response).
-        for (let i = children.length - 1; i >= 0; i--) {
-          const child = children[i] as HTMLElement;
-          if (child.dataset.steer === "true") {
-            delete child.dataset.steer;
-          } else {
-            break;
-          }
-        }
-      } else {
-        console.log("[gsd-diag] ensureCurrentTurnElement: appending new element at end");
-        messagesContainer.appendChild(el);
-      }
+      messagesContainer.appendChild(el);
       currentTurnElement = el;
       welcomeScreen.classList.add("gsd-hidden");
     }
@@ -261,7 +222,6 @@ export function reattachTurnElement(entryId: string): void {
 
 export function appendToTextSegment(segType: "text" | "thinking", delta: string): void {
   if (!state.currentTurn) return;
-  console.log("[gsd-diag] appendToTextSegment:", segType, "delta:", delta.slice(0, 80));
 
   const turn = state.currentTurn;
   const segments = turn.segments;
@@ -641,10 +601,6 @@ export function detectStaleEcho(turn: AssistantTurn): boolean {
 
 export function finalizeCurrentTurn(): void {
   if (!state.currentTurn) return;
-  console.log("[gsd-diag] finalizeCurrentTurn: segments:", state.currentTurn.segments.length,
-    "toolCalls:", state.currentTurn.toolCalls.size,
-    "hasElement:", !!currentTurnElement,
-    "elementContent:", currentTurnElement?.innerHTML?.slice(0, 100) ?? "null");
 
   stopElapsedTimer();
 
@@ -671,8 +627,6 @@ export function finalizeCurrentTurn(): void {
 
   const isStaleEcho = detectStaleEcho(turn);
   turn.isStaleEcho = isStaleEcho;
-  console.log("[gsd-diag] finalizeCurrentTurn: isStaleEcho:", isStaleEcho,
-    "priorTurnElements:", priorTurnElements.length);
 
   // Only push a new entry if this turn isn't already in entries (continuation turns reuse the previous entry)
   const existingEntry = state.entries.find(e => e.type === "assistant" && e.turn === turn);

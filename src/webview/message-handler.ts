@@ -130,10 +130,6 @@ function handleMessage(event: MessageEvent): void {
 
   try {
 
-  // Diagnostic: log all event types to trace streaming flow
-  if ((msg.type as string) !== "message_update") {
-    console.log("[gsd-diag] EVENT:", msg.type);
-  }
 
   switch (msg.type) {
     case "config": {
@@ -257,15 +253,6 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "agent_start": {
-      console.log("[gsd-diag] agent_start, isContinuation:", !!(msg as any).isContinuation);
-      // DOM dump for debugging steer ordering
-      const kids = messagesContainer.children;
-      const summary: string[] = [];
-      for (let i = Math.max(0, kids.length - 5); i < kids.length; i++) {
-        const k = kids[i] as HTMLElement;
-        summary.push(`${k.className.replace("gsd-entry ", "")}${k.dataset.steer ? "(steer)" : ""}[${k.textContent?.slice(0, 40) ?? ""}]`);
-      }
-      console.log("[gsd-diag] DOM last 5:", summary.join(" | "));
       if (uiDialogs.hasPending()) {
         uiDialogs.expireAllPending("New turn started");
       }
@@ -297,7 +284,6 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "agent_end": {
-      console.log("[gsd-diag] agent_end, toolCalls:", state.currentTurn?.toolCalls.size ?? 0, "segments:", state.currentTurn?.segments.length ?? 0);
       state.isStreaming = false;
       announceToScreenReader("Response complete.");
       state.processHealth = "responsive";
@@ -334,7 +320,6 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "message_start": {
-      console.log("[gsd-diag] message_start, currentTurn:", !!state.currentTurn);
       // Clear steer note — new LLM response means the steer was consumed
       // or is queued for the next tool boundary. Either way, "Redirecting
       // agent..." is no longer accurate once new content is flowing.
@@ -478,7 +463,6 @@ function handleMessage(event: MessageEvent): void {
                     || delta.type === "text_start" || delta.type === "text_end") {
           // Known streaming delta types we don't need to act on — suppress log noise
         } else {
-          console.log("[gsd-diag] UNHANDLED message_update delta type:", delta.type, JSON.stringify(delta).slice(0, 300));
         }
       }
       break;
@@ -532,12 +516,6 @@ function handleMessage(event: MessageEvent): void {
       if (endMsg?.content) {
         const blocks = Array.isArray(endMsg.content) ? endMsg.content : [];
         const types = blocks.map((b: any) => b.type || "unknown");
-        console.log("[gsd-diag] message_end content blocks:", types.join(", "));
-        blocks.forEach((b: any, i: number) => {
-          if (b.type === "tool_use") {
-            console.log(`[gsd-diag] message_end tool_use[${i}]:`, b.name, b.id, JSON.stringify(b.input || {}).slice(0, 200));
-          }
-        });
       }
       if (endMsg?.role === "assistant") {
         // Surface agent errors that arrive via stopReason:"error" on the message.
@@ -579,7 +557,6 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "tool_execution_start": {
-      console.log("[gsd-diag] tool_execution_start", (msg as any).toolName, (msg as any).toolCallId, "currentTurn:", !!state.currentTurn);
       if (!state.currentTurn) break;
       const data = msg;
 
@@ -646,7 +623,6 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "tool_execution_update": {
-      console.log("[gsd-diag] tool_execution_update", (msg as any).toolCallId);
       const data = msg;
       // Look up tool call in current turn first, then fall back to previous entries
       let tc = state.currentTurn?.toolCalls.get(data.toolCallId);
@@ -678,7 +654,6 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "tool_execution_end": {
-      console.log("[gsd-diag] tool_execution_end", (msg as any).toolCallId, "currentTurn:", !!state.currentTurn);
       if (!state.currentTurn) break;
       const data = msg;
       const tc = state.currentTurn.toolCalls.get(data.toolCallId);
