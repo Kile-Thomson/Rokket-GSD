@@ -415,7 +415,14 @@ export class GsdRpcClient extends EventEmitter {
 
     this.process.on("error", (err) => {
       this._isRunning = false;
+      this._pid = null;
       this.emit("error", err);
+
+      for (const [, pending] of this.pendingRequests) {
+        pending.reject(new Error(`GSD process error: ${err.message}`));
+      }
+      this.pendingRequests.clear();
+      this.process = null;
     });
   }
 

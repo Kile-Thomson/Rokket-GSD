@@ -194,6 +194,7 @@ export function ensureCurrentTurnElement(): HTMLElement {
       }
     }
     if (existing) {
+      console.log("[gsd-diag] ensureCurrentTurnElement: reusing dots-only element");
       // Only update entryId if it actually changed — data attribute mutations
       // trigger style recalculation which resets CSS animations on children.
       const newId = state.currentTurn?.id;
@@ -220,6 +221,7 @@ export function ensureCurrentTurnElement(): HTMLElement {
         }
       }
       if (firstSteer) {
+        console.log("[gsd-diag] ensureCurrentTurnElement: inserting before steer entry");
         messagesContainer.insertBefore(el, firstSteer);
         // Clear steer marks — only one auto-mode turn should be inserted
         // before the steer. Subsequent turns go after (they're the response).
@@ -232,6 +234,7 @@ export function ensureCurrentTurnElement(): HTMLElement {
           }
         }
       } else {
+        console.log("[gsd-diag] ensureCurrentTurnElement: appending new element at end");
         messagesContainer.appendChild(el);
       }
       currentTurnElement = el;
@@ -635,6 +638,10 @@ export function detectStaleEcho(turn: AssistantTurn): boolean {
 
 export function finalizeCurrentTurn(): void {
   if (!state.currentTurn) return;
+  console.log("[gsd-diag] finalizeCurrentTurn: segments:", state.currentTurn.segments.length,
+    "toolCalls:", state.currentTurn.toolCalls.size,
+    "hasElement:", !!currentTurnElement,
+    "elementContent:", currentTurnElement?.innerHTML?.slice(0, 100) ?? "null");
 
   stopElapsedTimer();
 
@@ -661,6 +668,8 @@ export function finalizeCurrentTurn(): void {
 
   const isStaleEcho = detectStaleEcho(turn);
   turn.isStaleEcho = isStaleEcho;
+  console.log("[gsd-diag] finalizeCurrentTurn: isStaleEcho:", isStaleEcho,
+    "priorTurnElements:", priorTurnElements.length);
 
   // Only push a new entry if this turn isn't already in entries (continuation turns reuse the previous entry)
   const existingEntry = state.entries.find(e => e.type === "assistant" && e.turn === turn);
