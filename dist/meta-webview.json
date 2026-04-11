@@ -29,7 +29,7 @@
       "imports": []
     },
     "src/webview/styles/footer.css": {
-      "bytes": 2687,
+      "bytes": 2609,
       "imports": []
     },
     "src/webview/styles/overlays.css": {
@@ -37,7 +37,7 @@
       "imports": []
     },
     "src/webview/styles/toasts.css": {
-      "bytes": 1616,
+      "bytes": 1541,
       "imports": []
     },
     "src/webview/styles/misc.css": {
@@ -752,7 +752,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 251293
+      "bytes": 250984
     },
     "dist/webview/index.css": {
       "imports": [],
@@ -779,13 +779,13 @@
           "bytesInOutput": 4460
         },
         "src/webview/styles/footer.css": {
-          "bytesInOutput": 1930
+          "bytesInOutput": 1853
         },
         "src/webview/styles/overlays.css": {
           "bytesInOutput": 29510
         },
         "src/webview/styles/toasts.css": {
-          "bytesInOutput": 1070
+          "bytesInOutput": 997
         },
         "src/webview/styles/misc.css": {
           "bytesInOutput": 7744
@@ -806,7 +806,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 114244
+      "bytes": 114094
     }
   }
 }

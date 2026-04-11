@@ -122,8 +122,8 @@
   padding: 0 5px;
   border-radius: 3px;
   font-size: var(--gsd-font-size-xs);
-  background: var(--vscode-badge-background, rgba(128, 128, 128, 0.15));
-  color: var(--vscode-badge-foreground, var(--gsd-color-text-muted));
+  background: var(--gsd-badge-bg);
+  color: var(--gsd-badge-fg);
   line-height: 1.5;
   white-space: nowrap;
 }
