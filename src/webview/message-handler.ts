@@ -181,8 +181,16 @@ function handleMessage(event: MessageEvent): void {
     case "session_stats": {
       const data = msg.data;
       if (data) {
+        console.log("[gsd-diag] session_stats keys:", Object.keys(data).join(", "));
+        console.log("[gsd-diag] session_stats context fields:", JSON.stringify({
+          contextPercent: data.contextPercent,
+          contextTokens: data.contextTokens,
+          contextWindow: data.contextWindow,
+          autoCompactionEnabled: data.autoCompactionEnabled,
+        }));
+        console.log("[gsd-diag] session_stats tokens:", JSON.stringify(data.tokens));
         if (typeof data.contextPercent === "number") {
-          data.contextPercent = Math.min(data.contextPercent, 100);
+          console.log("[gsd-diag] session_stats raw contextPercent from backend:", data.contextPercent);
         }
         state.sessionStats = {
           ...state.sessionStats,
@@ -533,6 +541,7 @@ function handleMessage(event: MessageEvent): void {
 
         if ((endMsg as any).usage) {
           const u = (endMsg as any).usage as { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } };
+          console.log("[gsd-diag] message_end usage:", JSON.stringify(u));
           if (!state.sessionStats.tokens) {
             state.sessionStats.tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
           }
@@ -547,6 +556,13 @@ function handleMessage(event: MessageEvent): void {
           }
           const contextTokens = (u.input || 0) + (u.cacheRead || 0) + (u.cacheWrite || 0);
           const contextWindow = state.model?.contextWindow || state.sessionStats.contextWindow || 0;
+          const rawPct = contextWindow > 0 ? (contextTokens / contextWindow) * 100 : 0;
+          console.log("[gsd-diag] message_end context calc:", JSON.stringify({
+            input: u.input, cacheRead: u.cacheRead, cacheWrite: u.cacheWrite,
+            contextTokens, contextWindow, rawPct: rawPct.toFixed(1),
+            modelContextWindow: state.model?.contextWindow,
+            statsContextWindow: state.sessionStats.contextWindow,
+          }));
           if (contextWindow > 0 && contextTokens > 0) {
             state.sessionStats.contextTokens = contextTokens;
             state.sessionStats.contextWindow = contextWindow;
