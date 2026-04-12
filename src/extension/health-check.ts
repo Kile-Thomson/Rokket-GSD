@@ -62,6 +62,7 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
       encoding: "utf8",
       timeout: 5000,
       stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
     }).trim();
     result.nodeFound = true;
 

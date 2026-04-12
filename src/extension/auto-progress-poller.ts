@@ -117,22 +117,20 @@ export class AutoProgressPoller {
       if (phase === "needs-discussion") {
         this.output.appendLine(`[${this.sessionId}] Auto-progress: discussion pause detected, keeping widget visible`);
 
-        // Build a final progress snapshot with paused state
+        // Build a final progress snapshot with paused state — parallel fetches
         const model: { id: string; provider: string } | null = this.lastModel;
         let cost: number | undefined;
 
-        if (this.client.isRunning) {
-          try {
-            const stats = await this.client.getSessionStats() as Record<string, unknown> | null;
-            if (stats?.cost !== undefined) {
-              cost = stats.cost as number;
-            }
-          } catch {
-            // Non-fatal
-          }
-        }
+        const [stats, pendingCaptures] = await Promise.all([
+          this.client.isRunning
+            ? this.client.getSessionStats().catch(() => null) as Promise<Record<string, unknown> | null>
+            : Promise.resolve(null),
+          countPendingCaptures(cwd),
+        ]);
 
-        const pendingCaptures = await countPendingCaptures(cwd);
+        if (stats?.cost !== undefined) {
+          cost = stats.cost as number;
+        }
 
         const progress: AutoProgressData = {
           autoState: "paused",
@@ -193,26 +191,29 @@ export class AutoProgressPoller {
     }
 
     try {
-      // 1. Get RPC state + stats in parallel
+      const cwd = this.getCwd();
       let model: { id: string; provider: string } | null = null;
       let cost: number | undefined;
 
-      if (this.client.isRunning) {
-        const [rpcState, stats] = await Promise.all([
-          this.client.getState().catch(() => null) as Promise<Record<string, unknown> | null>,
-          this.client.getSessionStats().catch(() => null) as Promise<Record<string, unknown> | null>,
-        ]);
+      // 1. Run RPC + filesystem reads in a single Promise.all — zero data dependency between them
+      const rpcRunning = this.client.isRunning;
+      const [rpcState, stats, dashData, pendingCaptures, rawWorkers] = await Promise.all([
+        rpcRunning ? this.client.getState().catch(() => null) as Promise<Record<string, unknown> | null> : Promise.resolve(null),
+        rpcRunning ? this.client.getSessionStats().catch(() => null) as Promise<Record<string, unknown> | null> : Promise.resolve(null),
+        buildDashboardData(cwd),
+        countPendingCaptures(cwd),
+        readParallelWorkers(cwd),
+      ]);
 
-        if (rpcState?.model) {
-          const m = rpcState.model as { id?: string; provider?: string };
-          if (m.id && m.provider) {
-            model = { id: m.id, provider: m.provider };
-          }
+      if (rpcState?.model) {
+        const m = rpcState.model as { id?: string; provider?: string };
+        if (m.id && m.provider) {
+          model = { id: m.id, provider: m.provider };
         }
+      }
 
-        if (stats?.cost !== undefined) {
-          cost = stats.cost as number;
-        }
+      if (stats?.cost !== undefined) {
+        cost = stats.cost as number;
       }
 
       // 2. Detect model changes — only update lastModel when RPC succeeded
@@ -222,14 +223,6 @@ export class AutoProgressPoller {
         }
         this.lastModel = model;
       }
-
-      // 3. Get filesystem data in parallel
-      const cwd = this.getCwd();
-      const [dashData, pendingCaptures, rawWorkers] = await Promise.all([
-        buildDashboardData(cwd),
-        countPendingCaptures(cwd),
-        readParallelWorkers(cwd),
-      ]);
       let workers: WorkerProgress[] | null = null;
       let budgetAlert = false;
 

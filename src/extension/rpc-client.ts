@@ -415,7 +415,14 @@ export class GsdRpcClient extends EventEmitter {
 
     this.process.on("error", (err) => {
       this._isRunning = false;
+      this._pid = null;
       this.emit("error", err);
+
+      for (const [, pending] of this.pendingRequests) {
+        pending.reject(new Error(`GSD process error: ${err.message}`));
+      }
+      this.pendingRequests.clear();
+      this.process = null;
     });
   }
 
@@ -834,9 +841,12 @@ export class GsdRpcClient extends EventEmitter {
           this.emit("log", `[rpc-client] RPC error response: ${msg.command} — ${msg.error}\n`);
           pending.reject(new Error(msg.error as string || "Unknown RPC error"));
         }
+      } else if (!msg.success && msg.error) {
+        // Second response for an already-resolved request (e.g. gsd-pi sends
+        // ack followed by error). Forward as an error event so the UI can show it.
+        this.emit("log", `[rpc-client] Late error for ${msg.command}: ${msg.error}\n`);
+        this.emit("event", { type: "error", message: msg.error });
       }
-      // Drop responses without a matching pending request (e.g. late responses
-      // from timed-out pings) — don't forward them as events
       return;
     }
 

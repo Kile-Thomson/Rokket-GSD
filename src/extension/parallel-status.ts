@@ -54,20 +54,9 @@ export async function readParallelWorkers(cwd: string): Promise<Array<{
   const statusFiles = entries.filter(f => STATUS_FILE_RE.test(f));
   if (statusFiles.length === 0) return null;
 
-  const workers: Array<{
-    id: string;
-    pid: number;
-    state: "running" | "paused" | "stopped" | "error";
-    currentUnit: { type: string; id: string } | null;
-    completedUnits: number;
-    cost: number;
-    lastHeartbeat: number;
-    stale: boolean;
-  }> = [];
-
   const now = Date.now();
 
-  for (const file of statusFiles) {
+  const results = await Promise.all(statusFiles.map(async (file) => {
     try {
       const raw = await fs.promises.readFile(path.join(dir, file), "utf-8");
       const data: RawWorkerStatus = JSON.parse(raw);
@@ -84,7 +73,7 @@ export async function readParallelWorkers(cwd: string): Promise<Array<{
         currentUnit = { type: data.currentUnit.type, id: data.currentUnit.id };
       }
 
-      workers.push({
+      return {
         id: data.milestoneId || file.replace(/\.status\.json$/, ""),
         pid: typeof data.pid === "number" ? data.pid : 0,
         state,
@@ -93,12 +82,13 @@ export async function readParallelWorkers(cwd: string): Promise<Array<{
         cost: typeof data.cost === "number" ? data.cost : 0,
         lastHeartbeat,
         stale: lastHeartbeat > 0 && (now - lastHeartbeat) > STALE_THRESHOLD_MS,
-      });
+      };
     } catch {
-      // Corrupt/malformed file — skip silently
+      return null; // Corrupt/malformed file — skip silently
     }
-  }
+  }));
 
+  const workers = results.filter((w): w is NonNullable<typeof w> => w !== null);
   return workers.length > 0 ? workers : null;
 }
 

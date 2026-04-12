@@ -260,7 +260,7 @@ export async function handleWebviewMessage(
               } else {
                 startPromptWatchdog(ctx.watchdogCtx, webview, sessionId, msg.message, images);
               }
-              ctx.output.appendLine(`[${sessionId}] Sending prompt to RPC: "${msg.message.slice(0, 80)}"`);
+              ctx.output.appendLine(`[${sessionId}] Sending prompt to RPC: "${msg.message.slice(0, 80)}"${images?.length ? ` (with ${images.length} image(s), ~${images.reduce((s, i) => s + i.data.length, 0)} base64 chars)` : ""}`);
               armGsdFallbackProbe(ctx.commandFallbackCtx, msg.message.trim(), sessionId, webview);
               ctx.getSession(sessionId).lastUserActionTime = Date.now();
 

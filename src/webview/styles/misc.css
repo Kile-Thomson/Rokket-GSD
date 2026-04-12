@@ -223,7 +223,11 @@
 .gsd-settings-option:focus-visible,
 .gsd-session-history-item:focus-visible,
 .gsd-ui-btn:focus-visible,
-.gsd-fork-btn:focus-visible {
+.gsd-fork-btn:focus-visible,
+.gsd-whats-new-close:focus-visible,
+.gsd-session-history-close:focus-visible,
+.gsd-ui-cancel-btn:focus-visible,
+.gsd-ui-multi-cancel:focus-visible {
   outline: 2px solid var(--vscode-focusBorder, #007fd4);
   outline-offset: 2px;
 }

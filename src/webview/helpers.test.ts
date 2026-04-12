@@ -121,6 +121,10 @@ describe("formatContextUsage", () => {
     const stats = { contextWindow: 128000 } as any;
     expect(formatContextUsage(stats, {}  as any)).toBe("?/128k (auto)");
   });
+  it("clamps percent above 100", () => {
+    const stats = { contextWindow: 200000, contextPercent: 299.1, autoCompactionEnabled: true } as any;
+    expect(formatContextUsage(stats, {} as any)).toBe("100.0%/200k (auto)");
+  });
   it("returns empty when no data", () => {
     expect(formatContextUsage({} as any, {} as any)).toBe("");
   });

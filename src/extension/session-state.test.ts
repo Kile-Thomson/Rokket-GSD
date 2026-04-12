@@ -81,12 +81,26 @@ describe("session-state", () => {
 
     it("calls client.stop() if client exists", () => {
       const mockStop = vi.fn();
-      state.client = { stop: mockStop } as unknown as SessionState["client"];
+      const mockRemoveAllListeners = vi.fn();
+      state.client = { stop: mockStop, removeAllListeners: mockRemoveAllListeners } as unknown as SessionState["client"];
 
       cleanupSessionState(state);
 
       expect(mockStop).toHaveBeenCalled();
       expect(state.client).toBeNull();
+    });
+
+    it("calls removeAllListeners() before stop() to prevent stale handlers", () => {
+      const callOrder: string[] = [];
+      const mockRemoveAllListeners = vi.fn(() => callOrder.push("removeAllListeners"));
+      const mockStop = vi.fn(() => callOrder.push("stop"));
+      state.client = { stop: mockStop, removeAllListeners: mockRemoveAllListeners } as unknown as SessionState["client"];
+
+      cleanupSessionState(state);
+
+      expect(mockRemoveAllListeners).toHaveBeenCalled();
+      expect(mockStop).toHaveBeenCalled();
+      expect(callOrder).toEqual(["removeAllListeners", "stop"]);
     });
 
     it("handles null client gracefully", () => {
