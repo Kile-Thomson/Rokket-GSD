@@ -60,6 +60,8 @@ export interface ChatEntry {
   text?: string;
   images?: ImageAttachment[];
   files?: FileAttachment[];
+  /** True when this user message was a steer/interrupt sent during streaming */
+  isSteer?: boolean;
   // For assistant — a turn with grouped content
   turn?: AssistantTurn;
   // For system
@@ -104,12 +106,15 @@ export interface AppState {
   processHealth: ProcessHealthStatus;
   // Last exit detail for crash overlay diagnostic context
   lastExitDetail: string | null;
+  lastExitCode: number | null;
   // Auto-mode progress data (null = not in auto-mode)
   autoProgress: AutoProgressData | null;
   // Timestamp of last auto_progress message (for stale-data guard)
   autoProgressLastUpdate: number;
   // Widget data from setWidget events (keyed by widget key)
   widgetData: Map<string, string[]>;
+  // Skills loaded in this session (detected from read tool calls to SKILL.md files)
+  loadedSkills: Set<string>;
 }
 
 /** Tool categorization for icons & color accents */
@@ -195,9 +200,11 @@ export const state: AppState = {
   currentTurn: null,
   processHealth: "responsive",
   lastExitDetail: null,
+  lastExitCode: null,
   autoProgress: null,
   autoProgressLastUpdate: 0,
   widgetData: new Map(),
+  loadedSkills: new Set(),
 };
 
 // ============================================================
@@ -240,9 +247,11 @@ export function resetState(): void {
   state.currentTurn = null;
   state.processHealth = "responsive";
   state.lastExitDetail = null;
+  state.lastExitCode = null;
   state.autoProgress = null;
   state.autoProgressLastUpdate = 0;
   state.widgetData.clear();
+  state.loadedSkills.clear();
   entryIdCounter = 0;
   resetPrunedCount();
 }

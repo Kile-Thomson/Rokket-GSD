@@ -61,6 +61,32 @@ export function getChangelogTriggerEl(): HTMLElement | null {
   return changelogTriggerEl;
 }
 
+/**
+ * Dismiss the changelog overlay, clean up listeners, restore focus.
+ * When `silent` is true, removes the element immediately without animation or focus restore
+ * (used when replacing the loader with content).
+ */
+export function dismissChangelog(opts?: { silent?: boolean }): void {
+  const el = document.getElementById("gsd-changelog");
+  if (!el) return;
+  if (changelogTrapHandler) {
+    el.removeEventListener("keydown", changelogTrapHandler);
+    changelogTrapHandler = null;
+  }
+  if (changelogNavHandler) {
+    el.removeEventListener("keydown", changelogNavHandler);
+    changelogNavHandler = null;
+  }
+  if (opts?.silent) {
+    el.remove();
+  } else {
+    el.classList.add("dismissing");
+    setTimeout(() => el.remove(), 300);
+    restoreFocus(changelogTriggerEl);
+    changelogTriggerEl = null;
+  }
+}
+
 export interface KeyboardDeps {
   vscode: { postMessage(msg: unknown): void };
   messagesContainer: HTMLElement;
@@ -212,24 +238,6 @@ function setupKeyboardHandlers(): void {
 // ============================================================
 
 function setupClickHandlers(): void {
-  /** Dismiss the changelog overlay, clean up listeners, restore focus */
-  function dismissChangelog(): void {
-    const el = document.getElementById("gsd-changelog");
-    if (!el) return;
-    if (changelogTrapHandler) {
-      el.removeEventListener("keydown", changelogTrapHandler);
-      changelogTrapHandler = null;
-    }
-    if (changelogNavHandler) {
-      el.removeEventListener("keydown", changelogNavHandler);
-      changelogNavHandler = null;
-    }
-    el.classList.add("dismissing");
-    setTimeout(() => el.remove(), 300);
-    restoreFocus(changelogTriggerEl);
-    changelogTriggerEl = null;
-  }
-
   // Version badge click → changelog
   headerVersion.addEventListener("click", () => {
     const existing = document.getElementById("gsd-changelog");
