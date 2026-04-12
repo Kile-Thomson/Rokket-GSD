@@ -18,8 +18,8 @@
 .gsd-toast {
   padding: 6px 16px;
   border-radius: var(--gsd-radius-lg);
-  background: var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.95));
-  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.2));
+  background: var(--gsd-toast-bg);
+  border: 1px solid var(--gsd-toast-border);
   color: var(--gsd-color-text);
   font-size: var(--gsd-font-size-md);
   font-family: var(--gsd-font-family);

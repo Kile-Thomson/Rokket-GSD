@@ -40,7 +40,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.06));
+  border-bottom: 1px solid var(--gsd-color-border);
 }
 
 .gsd-widget-segment {
@@ -99,4 +99,31 @@
 .gsd-footer-right {
   flex-shrink: 0;
   text-align: right;
+}
+
+/* ── Skill pills ── */
+
+.gsd-skill-pills {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 1;
+  overflow: hidden;
+}
+
+.gsd-skill-pills::before {
+  content: "·";
+  opacity: 0.4;
+  margin-right: 2px;
+}
+
+.gsd-skill-pill {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: var(--gsd-font-size-xs);
+  background: var(--gsd-badge-bg);
+  color: var(--gsd-badge-fg);
+  line-height: 1.5;
+  white-space: nowrap;
 }

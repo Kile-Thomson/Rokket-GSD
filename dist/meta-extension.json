@@ -1,7 +1,7 @@
 {
   "inputs": {
     "src/extension/rpc-client.ts": {
-      "bytes": 30171,
+      "bytes": 30624,
       "imports": [
         {
           "path": "child_process",
@@ -116,7 +116,7 @@
       "format": "esm"
     },
     "src/extension/parallel-status.ts": {
-      "bytes": 4115,
+      "bytes": 3957,
       "imports": [
         {
           "path": "fs",
@@ -132,7 +132,7 @@
       "format": "esm"
     },
     "src/extension/auto-progress-poller.ts": {
-      "bytes": 10885,
+      "bytes": 10907,
       "imports": [
         {
           "path": "vscode",
@@ -195,7 +195,7 @@
       "format": "esm"
     },
     "src/extension/rpc-events.ts": {
-      "bytes": 12713,
+      "bytes": 13192,
       "imports": [
         {
           "path": "vscode",
@@ -295,7 +295,7 @@
       "format": "esm"
     },
     "src/extension/message-dispatch.ts": {
-      "bytes": 43475,
+      "bytes": 43599,
       "imports": [
         {
           "path": "vscode",
@@ -469,7 +469,7 @@
       "format": "esm"
     },
     "src/extension/health-check.ts": {
-      "bytes": 9423,
+      "bytes": 9449,
       "imports": [
         {
           "path": "vscode",
@@ -546,7 +546,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 400794
+      "bytes": 402534
     },
     "dist/extension.js": {
       "imports": [
@@ -816,16 +816,16 @@
           "bytesInOutput": 10363
         },
         "src/extension/rpc-client.ts": {
-          "bytesInOutput": 9986
+          "bytesInOutput": 10284
         },
         "src/extension/update-checker.ts": {
           "bytesInOutput": 6217
         },
         "src/extension/auto-progress-poller.ts": {
-          "bytesInOutput": 4187
+          "bytesInOutput": 4238
         },
         "src/extension/dashboard-parser.ts": {
-          "bytesInOutput": 2981
+          "bytesInOutput": 2979
         },
         "src/extension/state-parser.ts": {
           "bytesInOutput": 805
@@ -834,7 +834,7 @@
           "bytesInOutput": 288
         },
         "src/extension/parallel-status.ts": {
-          "bytesInOutput": 1206
+          "bytesInOutput": 1258
         },
         "src/extension/session-state.ts": {
           "bytesInOutput": 1417
@@ -846,10 +846,10 @@
           "bytesInOutput": 3669
         },
         "src/extension/rpc-events.ts": {
-          "bytesInOutput": 4563
+          "bytesInOutput": 4764
         },
         "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 17446
+          "bytesInOutput": 17545
         },
         "src/extension/session-list-service.ts": {
           "bytesInOutput": 2191
@@ -870,10 +870,10 @@
           "bytesInOutput": 860
         },
         "src/extension/health-check.ts": {
-          "bytesInOutput": 4405
+          "bytesInOutput": 4420
         }
       },
-      "bytes": 100832
+      "bytes": 101546
     }
   }
 }

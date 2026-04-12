@@ -104,7 +104,8 @@ export function formatTokens(count: number): string {
 /** Format context window usage as a percentage/window string (e.g. `"42.1%/200k (auto)"`). */
 export function formatContextUsage(stats: SessionStats, model: AppState["model"]): string {
   const contextWindow = stats.contextWindow || model?.contextWindow || 0;
-  const pct = stats.contextPercent;
+  const rawPct = stats.contextPercent;
+  const pct = rawPct != null ? Math.min(rawPct, 100) : null;
   const auto = stats.autoCompactionEnabled !== false ? " (auto)" : "";
   if (contextWindow > 0) {
     const windowStr = formatTokens(contextWindow);

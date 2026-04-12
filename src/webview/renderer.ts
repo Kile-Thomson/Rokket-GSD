@@ -129,14 +129,7 @@ export function clearMessages(): void {
 
 export function renderNewEntry(entry: ChatEntry): void {
   const el = createEntryElement(entry);
-  // If streaming, insert the user message AFTER the current streaming element
-  // without splitting the assistant turn. The assistant continues rendering
-  // in the same element — the user message just appears below the in-progress response.
-  if (currentTurnElement && currentTurnElement.parentNode === messagesContainer) {
-    currentTurnElement.after(el);
-  } else {
-    messagesContainer.appendChild(el);
-  }
+  messagesContainer.appendChild(el);
 }
 
 // ============================================================
@@ -665,7 +658,7 @@ export function finalizeCurrentTurn(): void {
       currentTurnElement.classList.add("gsd-stale-echo");
       currentTurnElement.innerHTML = buildStaleEchoHtml(turn);
     } else {
-      currentTurnElement.innerHTML = buildTurnHtml(turn);
+      finalizeStreamingDom(turn, currentTurnElement);
     }
   }
 
@@ -677,6 +670,68 @@ export function finalizeCurrentTurn(): void {
   incrementalState.clear();
   liveTextNodes.clear();
   _activeSegmentIndex = -1;
+}
+
+/**
+ * Finalize the streaming DOM in-place instead of rebuilding via innerHTML.
+ * Preserves progressively-rendered tool calls, thinking blocks, and text
+ * so the user doesn't see a "flash" where all content disappears and
+ * reappears in one block at the end.
+ */
+function finalizeStreamingDom(turn: AssistantTurn, container: HTMLElement): void {
+  // 1. Finalize text segments — replace incremental streaming markup with clean markdown
+  for (let i = 0; i < turn.segments.length; i++) {
+    const seg = turn.segments[i];
+    const el = segmentElements.get(i);
+    if (!el) continue;
+
+    if (seg.type === "text") {
+      const text = seg.chunks.join("");
+      if (text) {
+        el.innerHTML = renderMarkdown(text);
+      }
+    } else if (seg.type === "thinking") {
+      if (el.tagName === "DETAILS") {
+        el.removeAttribute("open");
+      }
+    } else if (seg.type === "server_tool") {
+      const card = el.querySelector<HTMLElement>(".gsd-server-tool-card");
+      if (card) {
+        card.classList.remove("running");
+        card.classList.add("done");
+        const spinner = card.querySelector(".gsd-tool-spinner");
+        if (spinner) {
+          spinner.outerHTML = `<span class="gsd-server-tool-check">✓</span>`;
+        }
+      }
+    }
+  }
+
+  // 2. Patch all tool states to final (spinners → check/error icons, collapsed state)
+  for (const [, tc] of turn.toolCalls) {
+    const toolEl = container.querySelector<HTMLElement>(`[data-tool-id="${tc.id}"]`);
+    if (toolEl) {
+      const block = toolEl.classList.contains("gsd-tool-block") ? toolEl : toolEl.querySelector<HTMLElement>(".gsd-tool-block");
+      if (block) patchToolBlockElement(block, tc);
+    }
+  }
+
+  // 3. Append copy button + timestamp
+  const textContent = turn.segments
+    .filter(s => s.type === "text")
+    .map(s => s.chunks.join(""))
+    .join("\n\n");
+
+  if (textContent) {
+    const actionsHtml = `<div class="gsd-turn-actions">` +
+      `<button class="gsd-copy-response-btn" data-copy-text="${escapeAttr(textContent)}" title="Copy response" aria-label="Copy response">` +
+      `<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 4h8v8H4V4zm1 1v6h6V5H5zm-3-3h8v1H3v7H2V2h8z"/></svg> Copy</button>` +
+      (turn.timestamp ? buildTimestampHtml(turn.timestamp) : "") +
+      `</div>`;
+    container.insertAdjacentHTML("beforeend", actionsHtml);
+  } else if (turn.timestamp) {
+    container.insertAdjacentHTML("beforeend", buildTimestampHtml(turn.timestamp));
+  }
 }
 
 /** Reset streaming state — used by new conversation */
@@ -706,6 +761,7 @@ function createEntryElement(entry: ChatEntry): HTMLElement {
 
   if (entry.type === "user") {
     el.innerHTML = buildUserHtml(entry);
+    if (entry.isSteer) el.dataset.steer = "true";
   } else if (entry.type === "assistant" && entry.turn) {
     if (entry.turn.isStaleEcho) {
       el.classList.add("gsd-stale-echo");

@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { sanitizeEnvForChildProcess } from "./rpc-client";
+import { describe, it, expect, vi } from "vitest";
+import { sanitizeEnvForChildProcess, GsdRpcClient } from "./rpc-client";
 
 describe("sanitizeEnvForChildProcess", () => {
   it("preserves normal env vars", () => {
@@ -111,5 +111,68 @@ describe("sanitizeEnvForChildProcess", () => {
     expect(result.ORIGINAL_XDG_CURRENT_DESKTOP).toBeUndefined();
     expect(Object.keys(result).filter(k => k.startsWith("VSCODE_"))).toHaveLength(0);
     expect(Object.keys(result).filter(k => k.startsWith("ELECTRON_"))).toHaveLength(0);
+  });
+});
+
+describe("GsdRpcClient error handler timer cleanup", () => {
+  it("rejects pending requests when process emits spawn error", async () => {
+    const client = new GsdRpcClient();
+    const errors: Error[] = [];
+    client.on("error", (err) => errors.push(err));
+
+    // Start with a nonexistent binary to trigger spawn ENOENT
+    await client.start({ cwd: ".", gsdPath: "__nonexistent_binary_that_does_not_exist__" });
+
+    // Wait for the error event to fire asynchronously
+    await new Promise((r) => setTimeout(r, 200));
+
+    expect(client.isRunning).toBe(false);
+    expect(client.pid).toBeNull();
+    expect(errors.length).toBeGreaterThanOrEqual(1);
+    expect(errors[0].message).toContain("ENOENT");
+
+    // Verify pending requests map is cleared
+    const pendingRequests = (client as unknown as { pendingRequests: Map<string, unknown> }).pendingRequests;
+    expect(pendingRequests.size).toBe(0);
+
+    // Verify process reference is nulled
+    const proc = (client as unknown as { process: object | null }).process;
+    expect(proc).toBeNull();
+  });
+
+  it("rejects in-flight requests with timer cleanup on process error", async () => {
+    const client = new GsdRpcClient();
+    const errors: Error[] = [];
+    client.on("error", () => { /* swallow */ });
+
+    // Inject a pending request with a timeout (simulates request() mid-flight)
+    const pendingRequests = (client as unknown as {
+      pendingRequests: Map<string, { resolve: (d: unknown) => void; reject: (e: Error) => void }>
+    }).pendingRequests;
+
+    const rejections: Error[] = [];
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      errors.push(new Error("timeout leaked — timer was not cleaned up"));
+    }, 60000);
+
+    pendingRequests.set("req-1", {
+      resolve: () => {},
+      reject: (err) => {
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+          timeoutHandle = null;
+        }
+        rejections.push(err);
+      },
+    });
+
+    // Start with a bad binary — the error handler should reject pending requests
+    await client.start({ cwd: ".", gsdPath: "__nonexistent_binary__" });
+    await new Promise((r) => setTimeout(r, 200));
+
+    expect(rejections).toHaveLength(1);
+    expect(rejections[0].message).toContain("GSD process error");
+    expect(pendingRequests.size).toBe(0);
+    expect(timeoutHandle).toBeNull();
   });
 });

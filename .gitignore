@@ -36,3 +36,8 @@ scripts/*-results.json
 # ── Dropbox ──
 .dropboxignore
 *conflicted copy*
+
+# ── GSD baseline (auto-generated) ──
+.gsd
+.gsd-id
+dist/
