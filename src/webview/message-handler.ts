@@ -484,7 +484,6 @@ function handleMessage(event: MessageEvent): void {
                     || delta.type === "thinking_start" || delta.type === "thinking_end"
                     || delta.type === "text_start" || delta.type === "text_end") {
           // Known streaming delta types we don't need to act on — suppress log noise
-        } else {
         }
       }
       break;
@@ -537,7 +536,7 @@ function handleMessage(event: MessageEvent): void {
       // Diagnostic: dump message_end content blocks to find tool_use data
       if (endMsg?.content) {
         const blocks = Array.isArray(endMsg.content) ? endMsg.content : [];
-        const types = blocks.map((b: any) => b.type || "unknown");
+        const _types = blocks.map((b: any) => b.type || "unknown");
       }
       if (endMsg?.role === "assistant") {
         // Surface agent errors that arrive via stopReason:"error" on the message.
