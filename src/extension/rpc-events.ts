@@ -55,6 +55,18 @@ export function handleRpcEvent(
     return;
   }
 
+  // Late RPC error (e.g. "No API key") — clear watchdog and streaming state
+  if (eventType === "error") {
+    clearPromptWatchdog(ctx.watchdogCtx, sessionId);
+    const session = ctx.getSession(sessionId);
+    if (session.isStreaming) {
+      session.isStreaming = false;
+      ctx.emitStatus({ isStreaming: false });
+      stopActivityMonitor(ctx.watchdogCtx, sessionId);
+    }
+    ctx.output.appendLine(`[${sessionId}] RPC error event: ${event.message}`);
+  }
+
   // Log extension errors to the output panel
   if (eventType === "extension_error") {
     const extPath = event.extensionPath as string || "unknown";

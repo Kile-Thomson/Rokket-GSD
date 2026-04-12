@@ -500,6 +500,7 @@ function sendMessage(): void {
       type: "user",
       text,
       images: state.images.length > 0 ? [...state.images] : undefined,
+      isSteer: true,
       timestamp: Date.now(),
     });
     pruneOldEntries(messagesContainer);

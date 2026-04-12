@@ -34,7 +34,7 @@ import * as autoProgress from "./auto-progress";
 import * as visualizer from "./visualizer";
 import * as fileHandling from "./file-handling";
 import { createFocusTrap, restoreFocus } from "./a11y";
-import { setChangelogHandlers, getChangelogTriggerEl } from "./keyboard";
+import { setChangelogHandlers, getChangelogTriggerEl, dismissChangelog } from "./keyboard";
 
 // ============================================================
 // Dependencies — set via init()
@@ -91,6 +91,35 @@ export function init(deps: MessageHandlerDeps): void {
 }
 
 // ============================================================
+// Skill pill tracker
+// ============================================================
+
+/** Update the skill pills display in the footer */
+function updateSkillPills(): void {
+  let container = document.getElementById("skillPills");
+  if (!container) {
+    // Append to footerStats so pills flow naturally after token counts
+    const footerStats = document.getElementById("footerStats");
+    if (!footerStats) return;
+    container = document.createElement("span");
+    container.id = "skillPills";
+    container.className = "gsd-skill-pills";
+    footerStats.insertAdjacentElement("afterend", container);
+  }
+
+  if (state.loadedSkills.size === 0) {
+    container.classList.add("gsd-hidden");
+    return;
+  }
+
+  container.classList.remove("gsd-hidden");
+  const pills = Array.from(state.loadedSkills)
+    .map((name) => `<span class="gsd-skill-pill" title="Skill loaded: ${escapeHtml(name)}">${escapeHtml(name)}</span>`)
+    .join("");
+  container.innerHTML = pills;
+}
+
+// ============================================================
 // Main message handler
 // ============================================================
 
@@ -100,6 +129,7 @@ function handleMessage(event: MessageEvent): void {
   const msg = raw as ExtensionToWebviewMessage;
 
   try {
+
 
   switch (msg.type) {
     case "config": {
@@ -151,10 +181,32 @@ function handleMessage(event: MessageEvent): void {
     case "session_stats": {
       const data = msg.data;
       if (data) {
+        // Preserve locally-accumulated token totals — session_stats from
+        // the backend reports its own cumulative tokens which would double-count
+        // with the per-message values we accumulate in message_end.
+        const localTokens = state.sessionStats.tokens;
+        const localCost = state.sessionStats.cost;
+        const localContext = {
+          contextTokens: state.sessionStats.contextTokens,
+          contextWindow: state.sessionStats.contextWindow,
+          contextPercent: state.sessionStats.contextPercent,
+        };
         state.sessionStats = {
           ...state.sessionStats,
           ...data,
         };
+        // If we have locally-accumulated tokens, prefer them over backend values
+        if (localTokens && localTokens.total > 0) {
+          state.sessionStats.tokens = localTokens;
+        }
+        if (typeof localCost === "number" && localCost > 0) {
+          state.sessionStats.cost = localCost;
+        }
+        if (typeof localContext.contextPercent === "number" && localContext.contextPercent > 0) {
+          state.sessionStats.contextTokens = localContext.contextTokens;
+          state.sessionStats.contextWindow = localContext.contextWindow;
+          state.sessionStats.contextPercent = localContext.contextPercent;
+        }
         updateHeaderUI();
         updateFooterUI();
       }
@@ -349,6 +401,90 @@ function handleMessage(event: MessageEvent): void {
               renderer.completeServerToolSegment(block.toolUseId, block.content);
             }
           }
+        } else if (delta.type === "toolcall_start") {
+          // Tool call streaming — render a spinner immediately so the user
+          // sees the tool appear while the LLM is still generating arguments.
+          const partial = delta.partial;
+          const content = partial?.content;
+          const idx = delta.contentIndex;
+          if (Array.isArray(content) && typeof idx === "number" && idx >= 0 && idx < content.length) {
+            const block = content[idx];
+            if (block && block.type === "toolCall" && block.id && block.name) {
+              const turn = state.currentTurn!;
+              if (!turn.toolCalls.has(block.id)) {
+                const tc: ToolCallState = {
+                  id: block.id,
+                  name: block.name,
+                  args: {},
+                  resultText: "",
+                  isError: false,
+                  isRunning: true,
+                  startTime: Date.now(),
+                  isParallel: false,
+                };
+                // Detect parallel: if another tool from streaming is already running
+                for (const [, existing] of turn.toolCalls) {
+                  if (existing.isRunning) {
+                    tc.isParallel = true;
+                    if (!existing.isParallel) {
+                      existing.isParallel = true;
+                      renderer.updateToolSegmentElement(existing.id);
+                    }
+                    break;
+                  }
+                }
+                turn.toolCalls.set(block.id, tc);
+                const segIdx = turn.segments.length;
+                turn.segments.push({ type: "tool", toolCallId: block.id });
+                renderer.appendToolSegmentElement(tc, segIdx);
+                scrollToBottom(messagesContainer);
+              }
+            }
+          }
+        } else if (delta.type === "toolcall_end") {
+          // Tool call complete — may carry externalResult with the tool's output.
+          // Render the result immediately so users see it while the model continues.
+          const tc2 = delta.toolCall;
+          if (tc2?.id && tc2.externalResult && state.currentTurn) {
+            const existing = state.currentTurn.toolCalls.get(tc2.id);
+            if (existing) {
+              // Update args from the final toolCall payload
+              if (tc2.arguments && typeof tc2.arguments === "object") {
+                existing.args = tc2.arguments;
+              }
+              // Extract result text
+              const resultContent = tc2.externalResult.content;
+              if (Array.isArray(resultContent)) {
+                const text = resultContent
+                  .map((c: any) => c.text || "")
+                  .filter(Boolean)
+                  .join("\n");
+                const filtered = text
+                  ? text.split("\n").filter((l: string) => !l.includes('"__async_subagent_progress"')).join("\n").trim()
+                  : text;
+                if (filtered) existing.resultText = filtered;
+              }
+              if (tc2.externalResult.details) existing.details = tc2.externalResult.details;
+              if (tc2.externalResult.isError) existing.isError = true;
+              // Mark as complete — the tool_execution_end event is redundant after this
+              existing.isRunning = false;
+              existing.endTime = Date.now();
+              renderer.updateToolSegmentElement(tc2.id);
+              scrollToBottom(messagesContainer);
+            }
+          } else if (tc2?.id && tc2.arguments && typeof tc2.arguments === "object" && state.currentTurn) {
+            // toolcall_end without externalResult — just update args
+            const existing = state.currentTurn.toolCalls.get(tc2.id);
+            if (existing) {
+              existing.args = tc2.arguments;
+              renderer.updateToolSegmentElement(tc2.id);
+            }
+          }
+        } else if (delta.type === "toolcall_delta"
+                    || delta.type === "thinking_start" || delta.type === "thinking_end"
+                    || delta.type === "text_start" || delta.type === "text_end") {
+          // Known streaming delta types we don't need to act on — suppress log noise
+        } else {
         }
       }
       break;
@@ -398,6 +534,11 @@ function handleMessage(event: MessageEvent): void {
     case "message_end": {
       const endData = msg;
       const endMsg = endData.message;
+      // Diagnostic: dump message_end content blocks to find tool_use data
+      if (endMsg?.content) {
+        const blocks = Array.isArray(endMsg.content) ? endMsg.content : [];
+        const types = blocks.map((b: any) => b.type || "unknown");
+      }
       if (endMsg?.role === "assistant") {
         // Surface agent errors that arrive via stopReason:"error" on the message.
         // These are NOT delivered through message_update deltas, so the streaming
@@ -423,12 +564,14 @@ function handleMessage(event: MessageEvent): void {
           if (u.cost?.total) {
             state.sessionStats.cost = (state.sessionStats.cost || 0) + u.cost.total;
           }
+          // Context size = input + cacheRead only. cacheWrite is tokens written
+          // TO cache (overlaps with input), not additional prompt size.
           const contextTokens = (u.input || 0) + (u.cacheRead || 0);
           const contextWindow = state.model?.contextWindow || state.sessionStats.contextWindow || 0;
           if (contextWindow > 0 && contextTokens > 0) {
             state.sessionStats.contextTokens = contextTokens;
             state.sessionStats.contextWindow = contextWindow;
-            state.sessionStats.contextPercent = (contextTokens / contextWindow) * 100;
+            state.sessionStats.contextPercent = Math.min((contextTokens / contextWindow) * 100, 100);
           }
           updateHeaderUI();
           updateFooterUI();
@@ -441,7 +584,35 @@ function handleMessage(event: MessageEvent): void {
       if (!state.currentTurn) break;
       const data = msg;
 
-      // Detect parallel execution: if any other tool is already running, both are parallel
+      // Detect skill loads: read calls targeting */skills/*/SKILL.md
+      if (data.toolName?.toLowerCase() === "read" && typeof data.args?.path === "string") {
+        const skillMatch = data.args.path.replace(/\\/g, "/").match(/(^|\/)skills\/([^/]+)\/SKILL\.md$/i);
+        if (skillMatch) {
+          const skillName = skillMatch[2];
+          if (!state.loadedSkills.has(skillName)) {
+            state.loadedSkills.add(skillName);
+            updateSkillPills();
+          }
+        }
+      }
+      if (data.toolName?.toLowerCase() === "skill" && typeof data.args?.skill === "string") {
+        const skillName = data.args.skill;
+        if (!state.loadedSkills.has(skillName)) {
+          state.loadedSkills.add(skillName);
+          updateSkillPills();
+        }
+      }
+
+      // If streaming already created this tool segment, just update args
+      const existingTc = state.currentTurn.toolCalls.get(data.toolCallId);
+      if (existingTc) {
+        existingTc.args = data.args || existingTc.args;
+        existingTc.isRunning = true;
+        renderer.updateToolSegmentElement(existingTc.id);
+        break;
+      }
+
+      // Fallback: tool wasn't seen in streaming — create segment now
       const runningTools: ToolCallState[] = [];
       for (const [, existing] of state.currentTurn.toolCalls) {
         if (existing.isRunning) runningTools.push(existing);
@@ -458,7 +629,6 @@ function handleMessage(event: MessageEvent): void {
         isParallel: runningTools.length > 0,
       };
 
-      // Mark previously-running tools as parallel too (they weren't until now)
       if (runningTools.length > 0) {
         for (const rt of runningTools) {
           if (!rt.isParallel) {
@@ -767,6 +937,7 @@ function handleMessage(event: MessageEvent): void {
       // Build an informative error message including stderr detail
       const detail = (data as any).detail as string | undefined;
       state.lastExitDetail = detail || null;
+      state.lastExitCode = typeof data.code === "number" ? data.code : null;
       let message: string;
       if (detail) {
         message = detail;
@@ -845,6 +1016,8 @@ function handleMessage(event: MessageEvent): void {
       renderer.resetStreamingState();
       renderer.clearMessages();
       state.sessionStats = {};
+      state.loadedSkills.clear();
+      updateSkillPills();
       resetPrunedCount();
 
       // Apply the new state
@@ -1106,8 +1279,7 @@ function showWhatsNew(version: string, notes: string): void {
  * Show a full changelog panel inline in the chat.
  */
 function showChangelog(entries: Array<{ version: string; notes: string; date: string }>): void {
-  const existing = document.getElementById("gsd-changelog");
-  if (existing) existing.remove();
+  dismissChangelog({ silent: true });
 
   const entriesHtml = entries.length > 0
     ? entries.map((e, i) => `

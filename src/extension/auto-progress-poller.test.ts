@@ -292,6 +292,123 @@ describe("AutoProgressPoller", () => {
     poller.dispose();
   });
 
+  it("initiates all 5 async calls concurrently in poll()", async () => {
+    const callOrder: string[] = [];
+    let resolveGetState: (v: any) => void;
+    let resolveGetSessionStats: (v: any) => void;
+    let resolveDashboard: (v: any) => void;
+    let resolveCaptures: (v: any) => void;
+    let resolveWorkers: (v: any) => void;
+
+    const client = createMockClient({
+      isRunning: true,
+      getState: vi.fn(() => {
+        callOrder.push("getState");
+        return new Promise(r => { resolveGetState = r; });
+      }),
+      getSessionStats: vi.fn(() => {
+        callOrder.push("getSessionStats");
+        return new Promise(r => { resolveGetSessionStats = r; });
+      }),
+    });
+
+    mockBuildDashboardData.mockImplementation(() => {
+      callOrder.push("buildDashboardData");
+      return new Promise(r => { resolveDashboard = r; });
+    });
+    mockCountPendingCaptures.mockImplementation(() => {
+      callOrder.push("countPendingCaptures");
+      return new Promise(r => { resolveCaptures = r; });
+    });
+    mockReadParallelWorkers.mockImplementation(() => {
+      callOrder.push("readParallelWorkers");
+      return new Promise(r => { resolveWorkers = r; });
+    });
+
+    const { poller } = createPoller({ client });
+    poller.onAutoModeChanged("auto");
+
+    // Let microtasks run so poll() starts — but none of the 5 promises have resolved yet
+    await vi.advanceTimersByTimeAsync(0);
+
+    // All 5 must have been called before any resolved
+    expect(callOrder).toHaveLength(5);
+    expect(callOrder).toContain("getState");
+    expect(callOrder).toContain("getSessionStats");
+    expect(callOrder).toContain("buildDashboardData");
+    expect(callOrder).toContain("countPendingCaptures");
+    expect(callOrder).toContain("readParallelWorkers");
+
+    // Now resolve them all to let poll() complete
+    resolveGetState!(null);
+    resolveGetSessionStats!(null);
+    resolveDashboard!({ phase: "building" });
+    resolveCaptures!(0);
+    resolveWorkers!(null);
+    await vi.advanceTimersByTimeAsync(0);
+
+    poller.dispose();
+  });
+
+  it("runs getSessionStats and countPendingCaptures concurrently in finalPollAndMaybeClear", async () => {
+    const callOrder: string[] = [];
+    let resolveStats: (v: any) => void;
+    let resolveCaptures: (v: any) => void;
+
+    // Make buildDashboardData return needs-discussion so the parallel branch executes
+    mockBuildDashboardData.mockResolvedValue({
+      phase: "needs-discussion",
+      milestone: "M001",
+      slice: "S01",
+      task: "T01",
+      progress: { slices: { done: 0, total: 1 }, tasks: { done: 0, total: 1 }, milestones: { done: 0, total: 1 } },
+    });
+
+    const client = createMockClient({
+      isRunning: true,
+      getSessionStats: vi.fn(() => {
+        callOrder.push("getSessionStats");
+        return new Promise(r => { resolveStats = r; });
+      }),
+    });
+
+    mockCountPendingCaptures.mockImplementation(() => {
+      callOrder.push("countPendingCaptures");
+      return new Promise(r => { resolveCaptures = r; });
+    });
+
+    const { poller, webview } = createPoller({ client });
+
+    // Start then stop to trigger finalPollAndMaybeClear
+    poller.onAutoModeChanged("auto");
+    await vi.advanceTimersByTimeAsync(0);
+
+    callOrder.length = 0;
+    poller.onAutoModeChanged(undefined);
+    await vi.advanceTimersByTimeAsync(0);
+
+    // Both should have been called before either resolved
+    expect(callOrder).toContain("getSessionStats");
+    expect(callOrder).toContain("countPendingCaptures");
+    expect(callOrder).toHaveLength(2);
+
+    // Resolve to complete the finalPollAndMaybeClear
+    resolveStats!({ cost: 1.23 });
+    resolveCaptures!(2);
+    await vi.advanceTimersByTimeAsync(0);
+
+    // Should send paused progress (not clear) for needs-discussion
+    const lastMsg = webview.postMessage.mock.calls.at(-1)?.[0];
+    expect(lastMsg.data).toMatchObject({
+      autoState: "paused",
+      phase: "needs-discussion",
+      pendingCaptures: 2,
+      cost: 1.23,
+    });
+
+    poller.dispose();
+  });
+
   it("resumes polling on auto after paused state", async () => {
     const { poller } = createPoller();
 

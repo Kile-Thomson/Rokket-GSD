@@ -74,6 +74,18 @@ vi.mock("../helpers", () => ({
   scrollToBottom: vi.fn(),
 }));
 
+vi.mock("../keyboard", () => ({
+  setChangelogHandlers: vi.fn(),
+  getChangelogTriggerEl: vi.fn(() => null),
+  dismissChangelog: vi.fn(),
+}));
+
+vi.mock("../a11y", () => ({
+  createFocusTrap: vi.fn(() => vi.fn()),
+  saveFocus: vi.fn(() => null),
+  restoreFocus: vi.fn(),
+}));
+
 import { init, addSystemEntry } from "../message-handler";
 import * as renderer from "../renderer";
 import * as uiDialogs from "../ui-dialogs";
@@ -82,6 +94,7 @@ import * as autoProgress from "../auto-progress";
 import * as dashboard from "../dashboard";
 import * as toasts from "../toasts";
 import * as thinkingPicker from "../thinking-picker";
+import * as keyboard from "../keyboard";
 
 // ============================================================
 // Helpers
@@ -633,6 +646,40 @@ describe("message-handler", () => {
     it("renders dashboard when visualizer is not visible", () => {
       sendMessage({ type: "dashboard_data", data: { milestones: [] } });
       expect(dashboard.renderDashboard).toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================
+  // changelog
+  // ============================================================
+
+  describe("changelog message", () => {
+    it("calls dismissChangelog with silent flag before rendering content", () => {
+      sendMessage({
+        type: "changelog",
+        entries: [{ version: "1.0.0", notes: "Initial release", date: "2026-01-01" }],
+      });
+      expect(keyboard.dismissChangelog).toHaveBeenCalledWith({ silent: true });
+      // The new changelog card should be inserted
+      const card = messagesContainer.querySelector("#gsd-changelog");
+      expect(card).toBeTruthy();
+    });
+
+    it("does not leave orphaned handlers when replacing loader", () => {
+      // Simulate a loader element already in the DOM
+      const loader = document.createElement("div");
+      loader.id = "gsd-changelog";
+      messagesContainer.appendChild(loader);
+
+      sendMessage({
+        type: "changelog",
+        entries: [{ version: "2.0.0", notes: "Update", date: "2026-04-01" }],
+      });
+
+      // dismissChangelog should have cleaned up the loader
+      expect(keyboard.dismissChangelog).toHaveBeenCalledWith({ silent: true });
+      // setChangelogHandlers should be called with new handlers
+      expect(keyboard.setChangelogHandlers).toHaveBeenCalled();
     });
   });
 });
