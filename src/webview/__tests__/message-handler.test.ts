@@ -16,6 +16,12 @@ vi.mock("../renderer", () => ({
   finalizeCurrentTurn: vi.fn(),
   clearMessages: vi.fn(),
   renderNewEntry: vi.fn(),
+  createParallelBatch: vi.fn(),
+  expandParallelBatch: vi.fn(),
+  updateParallelBatchStatus: vi.fn(),
+  finalizeParallelBatch: vi.fn(),
+  clearActiveBatch: vi.fn(),
+  getActiveBatchElement: vi.fn(() => null),
 }));
 
 vi.mock("../session-history", () => ({
@@ -121,7 +127,7 @@ function resetState(): void {
   state.isCompacting = false;
   state.isRetrying = false;
   state.model = null;
-  state.thinkingLevel = "off";
+  state.thinkingLevel = null;
   state.processStatus = "stopped";
   state.processHealth = "responsive";
   state.sessionStats = {};
@@ -246,11 +252,69 @@ describe("message-handler", () => {
   // ============================================================
 
   describe("session_stats message", () => {
-    it("merges stats and updates header/footer", () => {
-      sendMessage({ type: "session_stats", data: { cost: 0.05 } });
-      expect(state.sessionStats.cost).toBe(0.05);
+    it("applies contextWindow and autoCompactionEnabled from session_stats", () => {
+      sendMessage({ type: "session_stats", data: { contextWindow: 1000000, autoCompactionEnabled: true } });
+      expect(state.sessionStats.contextWindow).toBe(1000000);
+      expect(state.sessionStats.autoCompactionEnabled).toBe(true);
       expect(mockUpdateHeaderUI).toHaveBeenCalled();
       expect(mockUpdateFooterUI).toHaveBeenCalled();
+    });
+
+    it("does not overwrite cost or tokens from session_stats", () => {
+      state.sessionStats.cost = 0.10;
+      sendMessage({ type: "session_stats", data: { cost: 0.05 } });
+      // cost from session_stats is ignored — cost_update is authoritative
+      expect(state.sessionStats.cost).toBe(0.10);
+    });
+  });
+
+  // ============================================================
+  // cost_update
+  // ============================================================
+
+  describe("cost_update message", () => {
+    it("reads tokens from GSD PI nested format (tokens.input)", () => {
+      sendMessage({
+        type: "cost_update",
+        cumulativeCost: 0.15,
+        tokens: { input: 50000, output: 2000, cacheRead: 30000, cacheWrite: 5000 },
+      });
+      expect(state.sessionStats.tokens).toEqual({
+        input: 50000,
+        output: 2000,
+        cacheRead: 30000,
+        cacheWrite: 5000,
+        total: 87000,
+      });
+      expect(state.sessionStats.cost).toBe(0.15);
+    });
+
+    it("falls back to flat field names (totalInput)", () => {
+      sendMessage({
+        type: "cost_update",
+        data: { totalCost: 0.20, totalInput: 60000, totalOutput: 3000, totalCacheRead: 0, totalCacheWrite: 0 },
+      });
+      expect(state.sessionStats.tokens?.input).toBe(60000);
+      expect(state.sessionStats.tokens?.output).toBe(3000);
+      expect(state.sessionStats.cost).toBe(0.20);
+    });
+
+    it("computes per-turn deltas from cumulative totals", () => {
+      // First cost_update — establishes baseline
+      sendMessage({
+        type: "cost_update",
+        cumulativeCost: 0.05,
+        tokens: { input: 10000, output: 500, cacheRead: 0, cacheWrite: 0 },
+      });
+      // Second cost_update — deltas should be computed
+      sendMessage({
+        type: "cost_update",
+        cumulativeCost: 0.12,
+        tokens: { input: 25000, output: 1200, cacheRead: 8000, cacheWrite: 0 },
+      });
+      // Session totals = cumulative (not summed deltas)
+      expect(state.sessionStats.tokens?.input).toBe(25000);
+      expect(state.sessionStats.cost).toBe(0.12);
     });
   });
 
@@ -352,6 +416,20 @@ describe("message-handler", () => {
         assistantMessageEvent: { type: "thinking_delta", delta: "hmm" },
       });
       expect(renderer.appendToTextSegment).toHaveBeenCalledWith("thinking", "hmm");
+    });
+
+    it("renders thinking delta even when thinking is off (makes backend bug visible)", () => {
+      sendMessage({ type: "agent_start" });
+      state.thinkingLevel = "off";
+      vi.clearAllMocks();
+
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: { type: "thinking_delta", delta: "secret thoughts" },
+      });
+      // Thinking deltas are always rendered — if the backend sends them with
+      // thinking "off", that's a backend bug and the user should see it.
+      expect(renderer.appendToTextSegment).toHaveBeenCalledWith("thinking", "secret thoughts");
     });
 
     it("does nothing when no current turn", () => {
@@ -530,6 +608,32 @@ describe("message-handler", () => {
       expect(state.availableModels.length).toBe(1);
       expect(state.modelsLoaded).toBe(true);
     });
+
+    it("backfills contextWindow on current model when missing", () => {
+      state.model = { id: "gpt-4", name: "GPT-4", provider: "openai" };
+      expect(state.model.contextWindow).toBeUndefined();
+
+      sendMessage({
+        type: "available_models",
+        models: [{ id: "gpt-4", name: "GPT-4", provider: "openai", reasoning: false, contextWindow: 128000 }],
+      });
+
+      expect(state.model.contextWindow).toBe(128000);
+      expect(mockUpdateHeaderUI).toHaveBeenCalled();
+      expect(mockUpdateFooterUI).toHaveBeenCalled();
+    });
+
+    it("does not overwrite existing contextWindow on current model", () => {
+      state.model = { id: "gpt-4", name: "GPT-4", provider: "openai", contextWindow: 200000 };
+
+      sendMessage({
+        type: "available_models",
+        models: [{ id: "gpt-4", name: "GPT-4", provider: "openai", reasoning: false, contextWindow: 128000 }],
+      });
+
+      // Should keep the existing value
+      expect(state.model.contextWindow).toBe(200000);
+    });
   });
 
   // ============================================================
@@ -603,6 +707,89 @@ describe("message-handler", () => {
         (e) => e.systemKind === "error" && e.systemText?.includes("Internal error"),
       );
       expect(hasErrorEntry).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // session_switched
+  // ============================================================
+
+  describe("session_switched message", () => {
+    it("resets sessionStats on session switch", () => {
+      state.sessionStats = {
+        tokens: { input: 50000, output: 2000, cacheRead: 0, cacheWrite: 0, total: 52000 },
+        cost: 0.15,
+        contextWindow: 200000,
+        contextPercent: 25,
+        contextTokens: 50000,
+      };
+
+      sendMessage({
+        type: "session_switched",
+        state: { model: { id: "test", name: "test", provider: "test" } },
+        messages: [],
+      });
+
+      expect(state.sessionStats).toEqual({});
+    });
+
+    it("resets cost tracking so next cost_update starts from zero", () => {
+      // Simulate a cost_update in the old session
+      sendMessage({
+        type: "cost_update",
+        cumulativeCost: 0.10,
+        tokens: { input: 40000, output: 1000, cacheRead: 0, cacheWrite: 0 },
+      });
+      expect(state.sessionStats.cost).toBe(0.10);
+
+      // Switch sessions
+      sendMessage({
+        type: "session_switched",
+        state: { model: { id: "test", name: "test", provider: "test" } },
+        messages: [],
+      });
+
+      // New session's first cost_update — should use its own cumulative values,
+      // not compute deltas against the old session's totals
+      sendMessage({
+        type: "cost_update",
+        cumulativeCost: 0.02,
+        tokens: { input: 5000, output: 200, cacheRead: 0, cacheWrite: 0 },
+      });
+
+      expect(state.sessionStats.tokens?.input).toBe(5000);
+      expect(state.sessionStats.cost).toBe(0.02);
+    });
+
+    it("allows message_end token accumulation in new session (hasCostUpdateSource reset)", () => {
+      // In the old session, cost_update was authoritative
+      sendMessage({
+        type: "cost_update",
+        cumulativeCost: 0.10,
+        tokens: { input: 40000, output: 1000, cacheRead: 0, cacheWrite: 0 },
+      });
+
+      // Switch sessions
+      sendMessage({
+        type: "session_switched",
+        state: { model: { id: "test", name: "test", provider: "test" } },
+        messages: [],
+      });
+
+      // In new session, send agent_start + message_end with usage (no cost_update)
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "hello" }],
+          usage: { input: 8000, output: 500, cacheRead: 0, cacheWrite: 0 },
+        },
+      });
+
+      // message_end should have accumulated tokens since cost_update source was reset
+      expect(state.sessionStats.tokens?.input).toBe(8000);
+      expect(state.sessionStats.tokens?.output).toBe(500);
     });
   });
 
@@ -682,4 +869,5 @@ describe("message-handler", () => {
       expect(keyboard.setChangelogHandlers).toHaveBeenCalled();
     });
   });
+
 });

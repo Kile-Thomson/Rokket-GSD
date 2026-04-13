@@ -788,7 +788,7 @@ describe("message-dispatch: handleWebviewMessage", () => {
   // ── set_thinking_level ──────────────────────────────────────────────
 
   describe("set_thinking_level", () => {
-    it("calls client.setThinkingLevel", async () => {
+    it("calls client.setThinkingLevel and sends thinking_level_changed + state refresh", async () => {
       const client = createMockClient();
       const session = createMockSession({ client: client as any });
       const { ctx, webview } = createMockDispatchContext(session);
@@ -799,6 +799,15 @@ describe("message-dispatch: handleWebviewMessage", () => {
       } as WebviewToExtensionMessage);
 
       expect(client.setThinkingLevel).toHaveBeenCalledWith("high");
+      expect(ctx.postToWebview).toHaveBeenCalledWith(
+        webview,
+        expect.objectContaining({ type: "thinking_level_changed", level: "high" }),
+      );
+      expect(client.getState).toHaveBeenCalled();
+      expect(ctx.postToWebview).toHaveBeenCalledWith(
+        webview,
+        expect.objectContaining({ type: "state" }),
+      );
     });
   });
 

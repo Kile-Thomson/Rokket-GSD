@@ -4,6 +4,91 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.18] — 2026-04-13
+
+### Fixed
+- **Thinking level override bug** — setting thinking to "off" was overridden by incoming `thinking_delta` events. Initial state now uses `null` (unset) instead of `"off"`, so auto-detection only fires when the user hasn't made an explicit choice
+- **Thinking picker optimistic update removed** — picker no longer updates local state immediately; waits for backend confirmation via `thinking_level_changed` to prevent desync when the backend rejects
+- **Streaming cursor on wrong text block** — cursor now targets only the last `.gsd-assistant-text` child, preventing ghost cursors on text blocks before tool calls
+- **Context usage percentage** — `formatContextUsage` now passes through `contextPercent` directly instead of re-clamping, and visualizer uses `contextPercent` from state instead of recomputing
+
+### Added
+- **Parallel batch tracker** — concurrent tool calls are grouped into a visual batch container with shared header, elapsed timer, per-tool status bars, and usage pill footer on completion
+- **Staggered tool-end rendering** — tool completion events spread across animation frames so each tool visibly transitions from spinner to checkmark individually
+- **Context window fallback table** — `resolveContextWindow()` checks session stats, model object, available models list, then a built-in table of known model context windows
+- **Cost update tracking** — `cost_update` events are now the authoritative token/cost source when available, with per-turn delta computation from cumulative totals
+- **Richer tool key args** — bash tools prefer `description` over raw command; read/write/edit support `file_path` (Claude Code) alongside `path` (PI); grep/glob show pattern; agent shows description
+- **Path shortening for file tools** — read/write/edit tool headers show shortened file paths instead of raw truncated strings
+- **Cache token pills** — usage pills now show cache read (R) and cache write (W) counts
+- **`/thinking` slash command model guard** — only cycles thinking level if the current model supports reasoning
+- **Parallel batch focus-visible** — batch header added to consolidated keyboard focus outline rule
+- **set_thinking_level diagnostics** — extension host logs RPC success/failure and round-trips state for debugging
+- **175 lines of new tests** — parallel batch tracking, message handler cost_update/batch logic, helpers sanitize, thinking level state
+
+### Changed
+- **session_stats handler simplified** — only reads `autoCompactionEnabled` from backend stats; tokens and cost managed by cost_update or message_end accumulation
+- **ThinkingLevel type tightened** — `state.thinkingLevel` is now `ThinkingLevel | null` instead of `string`
+
+## [0.3.6] — 2026-04-12
+
+### Fixed
+- **3 CI lint errors** — unused `vi` import in `auto-progress-poller.test.ts`, empty else block in `auto-progress-poller.ts`, unused `types` variable in `parallel-status.test.ts`
+
+## [0.3.5] — 2026-04-11
+
+### Fixed
+- **Error handler missing timer cleanup** — the `process.on("error")` handler in `GsdRpcClient` now rejects all pending requests and clears their timeout timers (previously only the exit handler did this, leaving dangling timers)
+- **windowsHide on health check** — added `windowsHide: true` to the `execSync("node --version")` call in `health-check.ts`, the last production execSync missing the flag
+
+### Changed
+- **Polling parallelized** — `poll()` in `auto-progress-poller.ts` now runs all 5 async calls (getState, getSessionStats, buildDashboardData, countPendingCaptures, readParallelWorkers) in a single `Promise.all` instead of two sequential groups (~50% faster poll cycle)
+- **Worker reads parallelized** — `readParallelWorkers()` in `parallel-status.ts` replaced sequential for-loop with `Promise.all(statusFiles.map(...))` for concurrent file reads
+- **finalPollAndMaybeClear parallelized** — `getSessionStats` and `countPendingCaptures` run concurrently when phase is `needs-discussion`
+- **CSS fully tokenized** — all hardcoded `rgba()` literals and bare `--vscode-*` references in overlays.css, footer.css, and toasts.css replaced with `--gsd-*` semantic tokens. Light themes now render correctly throughout.
+- **Dead CSS cleaned** — `.gsd-context-bar-fill` selector confirmed absent from all source
+- **Badge tokenization** — skill-pill badges use `--gsd-badge-bg/fg` tokens; toast component uses `--gsd-toast-bg/border` tokens
+
+### Added
+- **Focus-visible on 4 more elements** — `.gsd-whats-new-close`, `.gsd-session-history-close`, `.gsd-ui-cancel-btn`, `.gsd-ui-multi-cancel` added to consolidated focus-visible rule
+- **Crash overlay exit code** — overlay now shows "GSD process exited (code: N)" with up to 500 chars of diagnostic context, scrollable if multi-line
+- **Unified changelog render path** — extracted `dismissChangelog()` to module scope in `keyboard.ts` with a `{ silent: true }` option for programmatic cleanup. `showChangelog()` calls it instead of raw DOM removal, eliminating orphaned handler risk.
+- **Slash menu aria-activedescendant** — screen readers now announce the highlighted slash command during keyboard navigation
+- **Compact completion toast** — "Context compacted successfully" toast on compaction end
+- **4 concurrency tests** — deferred-promise pattern tests proving the parallel poll shape, concurrent worker reads, and parallel finalPoll calls
+- **9 UX/accessibility tests** — exit code display, truncation, null code, dismissChangelog behavior, showChangelog integration
+
+## [0.3.4] — 2026-04-10
+
+### Changed
+- **.gsd/ untracked** — ran `git rm -r --cached .gsd/` to remove tracked .gsd files (already in .gitignore)
+
+## [0.3.3] — 2026-04-09
+
+### Added
+- **7 server-side tool tests** — coverage for server tool rendering, fixing CI coverage threshold
+
+## [0.3.2] — 2026-04-08
+
+### Added
+- **Server-side tool rendering** — compact inline cards for Anthropic's native server-side tools (web search, code execution). Shows tool name, optional search query, spinner while running, and result count on completion. Requires gsd-pi v2.59+.
+
+## [0.3.1] — 2026-04-06
+
+### Fixed
+- **Async-subagent extension non-destructive** — bundled extension no longer overwrites user-modified CLI copies; version comparison is strictly newer-only
+- **File link handling** — drag-drop, click-to-open, and relative path resolution all work correctly for markdown file links
+
+## [0.3.0] — 2026-04-04
+
+### Fixed
+- **Buffer overflow safety** — partial lines preserved on buffer overflow instead of discarding, preventing JSON-RPC stream corruption
+- **Force restart guard** — `force_restart` timeout guarded against disposed sessions
+- **Session memory leak** — session Map entry deleted on cleanup (was accumulating indefinitely)
+- **Dialog memory leak** — expired `resolvedResponses` entries swept periodically (was growing unbounded)
+
+### Changed
+- **Async activation** — `installBundledExtensions` converted to async to unblock extension host activation
+
 ## [0.2.76] — 2026-03-30
 
 ### Added
