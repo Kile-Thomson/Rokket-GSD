@@ -10,6 +10,7 @@ import type {
   ProcessStatus,
   ProcessHealthStatus,
   AutoProgressData,
+  ThinkingLevel,
 } from "../shared/types";
 
 // ============================================================
@@ -85,7 +86,7 @@ export interface AppState {
   isRetrying: boolean;
   retryInfo?: { attempt: number; maxAttempts: number; errorMessage: string };
   model: { id: string; name: string; provider: string; contextWindow?: number } | null;
-  thinkingLevel: string;
+  thinkingLevel: ThinkingLevel | null;
   processStatus: ProcessStatus;
   images: ImageAttachment[];
   files: FileAttachment[];
@@ -182,7 +183,7 @@ export const state: AppState = {
   isCompacting: false,
   isRetrying: false,
   model: null,
-  thinkingLevel: "off",
+  thinkingLevel: null,
   processStatus: "stopped",
   images: [],
   files: [],
@@ -229,7 +230,7 @@ export function resetState(): void {
   state.isRetrying = false;
   state.retryInfo = undefined;
   state.model = null;
-  state.thinkingLevel = "off";
+  state.thinkingLevel = null;
   state.processStatus = "stopped";
   state.images = [];
   state.files = [];

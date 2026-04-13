@@ -121,9 +121,9 @@ describe("formatContextUsage", () => {
     const stats = { contextWindow: 128000 } as any;
     expect(formatContextUsage(stats, {}  as any)).toBe("?/128k (auto)");
   });
-  it("clamps percent above 100", () => {
+  it("shows raw percent above 100 without clamping", () => {
     const stats = { contextWindow: 200000, contextPercent: 299.1, autoCompactionEnabled: true } as any;
-    expect(formatContextUsage(stats, {} as any)).toBe("100.0%/200k (auto)");
+    expect(formatContextUsage(stats, {} as any)).toBe("299.1%/200k (auto)");
   });
   it("returns empty when no data", () => {
     expect(formatContextUsage({} as any, {} as any)).toBe("");
@@ -261,8 +261,19 @@ describe("getToolKeyArg", () => {
   it("extracts bash command", () => {
     expect(getToolKeyArg("bash", { command: "ls -la" })).toBe("ls -la");
   });
-  it("extracts file path for read/write/edit", () => {
+  it("extracts file path for read/write/edit (path)", () => {
     expect(getToolKeyArg("read", { path: "src/foo.ts" })).toBe("src/foo.ts");
+  });
+  it("extracts file_path for read/write/edit (Claude Code)", () => {
+    expect(getToolKeyArg("Read", { file_path: "/home/user/src/foo.ts" })).toBe("…/src/foo.ts");
+    expect(getToolKeyArg("Edit", { file_path: "src/bar.ts", old_string: "x", new_string: "y" })).toBe("src/bar.ts");
+  });
+  it("extracts grep/glob pattern", () => {
+    expect(getToolKeyArg("Grep", { pattern: "getToolKeyArg" })).toBe("getToolKeyArg");
+    expect(getToolKeyArg("Glob", { pattern: "**/*.ts" })).toBe("**/*.ts");
+  });
+  it("extracts Agent description", () => {
+    expect(getToolKeyArg("Agent", { description: "Search for config files", prompt: "..." })).toBe("Search for config files");
   });
   it("extracts subagent info", () => {
     expect(getToolKeyArg("subagent", { agent: "scout", task: "find stuff" })).toBe("scout: find stuff");

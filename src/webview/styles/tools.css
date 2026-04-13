@@ -343,6 +343,142 @@
   50% { opacity: 1; }
 }
 
+/* ============================================================
+   Parallel Batch Tracker
+   ============================================================ */
+
+.gsd-parallel-batch {
+  margin: 6px 0 10px;
+  border-radius: var(--gsd-radius-lg);
+  border: 1px solid var(--gsd-color-border);
+  overflow: hidden;
+}
+
+.gsd-parallel-batch.running {
+  border-color: var(--vscode-charts-yellow, #cca700);
+  border-style: solid;
+  box-shadow: 0 0 0 1px rgba(204, 167, 0, 0.08);
+}
+
+.gsd-parallel-batch.done {
+  border-color: var(--gsd-color-border);
+  border-style: solid;
+  opacity: 0.85;
+}
+
+.gsd-parallel-batch-header {
+  display: flex;
+  align-items: center;
+  gap: var(--gsd-space-sm);
+  padding: 5px 10px;
+  background: var(--gsd-color-surface-hover);
+  font-size: var(--gsd-font-size-sm);
+  font-weight: 500;
+  color: var(--vscode-charts-yellow, #cca700);
+  list-style: none;
+  letter-spacing: 0.3px;
+}
+
+.gsd-parallel-batch.done .gsd-parallel-batch-header {
+  color: var(--gsd-color-text-muted);
+}
+
+.gsd-parallel-batch-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gsd-parallel-batch-elapsed {
+  font-size: var(--gsd-font-size-xs);
+  color: var(--gsd-color-text-muted);
+  opacity: 0.6;
+  font-family: var(--gsd-font-family-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.gsd-parallel-batch-header .gsd-tool-spinner {
+  width: 10px;
+  height: 10px;
+  border-width: 1.5px;
+}
+
+.gsd-parallel-batch-header .gsd-tool-icon {
+  font-size: var(--gsd-font-size-sm);
+}
+
+
+.gsd-parallel-batch-content {
+  padding: 4px 8px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* Compact card style inside batch — matches subagent card layout */
+.gsd-parallel-batch-content .gsd-tool-segment {
+  margin: 0;
+}
+
+.gsd-parallel-batch-content .gsd-tool-block {
+  margin: 0;
+  border: none;
+  border-left: 2px solid transparent;
+  border-radius: var(--gsd-radius-md);
+  background: var(--vscode-textCodeBlock-background, rgba(128,128,128,0.06));
+  padding: 4px 8px;
+  transition: border-color 0.2s;
+}
+
+.gsd-parallel-batch-content .gsd-tool-block.running {
+  border-left-color: var(--gsd-color-text-link);
+}
+.gsd-parallel-batch-content .gsd-tool-block.done {
+  border-left-color: var(--vscode-terminal-ansiGreen, #89d185);
+}
+.gsd-parallel-batch-content .gsd-tool-block.error {
+  border-left-color: var(--gsd-color-text-error);
+}
+
+/* Hide output inside batch — keep it compact */
+.gsd-parallel-batch-content .gsd-tool-output {
+  display: none;
+}
+
+/* Hide chevron and parallel badge inside batch */
+.gsd-parallel-batch-content .gsd-tool-chevron,
+.gsd-parallel-batch-content .gsd-tool-block .gsd-tool-parallel-badge {
+  display: none;
+}
+
+/* Stats footer */
+.gsd-parallel-batch-footer {
+  display: flex;
+  gap: 6px;
+  padding: 4px 8px;
+  border-top: var(--gsd-border-width) solid var(--gsd-color-border-subtle);
+  opacity: 0.7;
+  font-size: var(--gsd-font-size-xs);
+}
+
+.gsd-batch-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--gsd-radius-sm);
+  background: var(--gsd-color-bg-subtle);
+  color: var(--gsd-color-text-secondary);
+  font-size: var(--gsd-font-size-xs);
+}
+
+/* Compact header inside batch */
+.gsd-parallel-batch-content .gsd-tool-header {
+  padding: 0;
+  min-height: 18px;
+}
+
 .gsd-tool-chevron {
   font-size: var(--gsd-font-size-xs);
   opacity: 0.35;

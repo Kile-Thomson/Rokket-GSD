@@ -203,8 +203,10 @@ function render(): void {
       hide();
       return;
     }
+    // Send the request — state update happens when the extension confirms
+    // via thinking_level_changed. No optimistic update to avoid desync
+    // if the backend rejects (e.g. model doesn't support reasoning).
     vscode.postMessage({ type: "set_thinking_level", level });
-    state.thinkingLevel = level;
     onThinkingChanged();
     hide();
   }
