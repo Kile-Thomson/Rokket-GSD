@@ -460,10 +460,17 @@ export async function handleWebviewMessage(
 
         case "set_thinking_level": {
           const client = ctx.getSession(sessionId).client;
+          ctx.output.appendLine(`[${sessionId}] set_thinking_level: level=${msg.level}, client=${!!client}, isRunning=${client?.isRunning}`);
           if (client) {
             try {
               await client.setThinkingLevel(msg.level);
+              const updatedState = await client.getState();
+              const confirmedLevel = (updatedState as RpcStateResult)?.thinkingLevel ?? "off";
+              ctx.output.appendLine(`[${sessionId}] set_thinking_level: RPC succeeded, confirmed=${JSON.stringify(confirmedLevel)}`);
+              ctx.postToWebview(webview, { type: "thinking_level_changed", level: confirmedLevel });
+              ctx.postToWebview(webview, { type: "state", data: updatedState } as ExtensionToWebviewMessage);
             } catch (err: any) {
+              ctx.output.appendLine(`[${sessionId}] set_thinking_level: ERROR — ${err.message}`);
               ctx.postToWebview(webview, { type: "error", message: err.message });
             }
           }

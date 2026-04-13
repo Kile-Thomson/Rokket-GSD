@@ -91,6 +91,16 @@ describe("buildUsagePills", () => {
     expect(html).toContain("$0.1234");
   });
 
+  it("renders cacheRead pill", () => {
+    const html = buildUsagePills({ cacheRead: 25000 });
+    expect(html).toContain("R25k");
+  });
+
+  it("renders cacheWrite pill", () => {
+    const html = buildUsagePills({ cacheWrite: 3200 });
+    expect(html).toContain("W3.2k");
+  });
+
   it("renders model name when provided", () => {
     const html = buildUsagePills({ turns: 1 }, "claude-sonnet-4");
     expect(html).toContain("claude-sonnet-4");

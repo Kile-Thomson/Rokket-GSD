@@ -104,8 +104,7 @@ export function formatTokens(count: number): string {
 /** Format context window usage as a percentage/window string (e.g. `"42.1%/200k (auto)"`). */
 export function formatContextUsage(stats: SessionStats, model: AppState["model"]): string {
   const contextWindow = stats.contextWindow || model?.contextWindow || 0;
-  const rawPct = stats.contextPercent;
-  const pct = rawPct != null ? Math.min(rawPct, 100) : null;
+  const pct = stats.contextPercent ?? null;
   const auto = stats.autoCompactionEnabled !== false ? " (auto)" : "";
   if (contextWindow > 0) {
     const windowStr = formatTokens(contextWindow);
@@ -187,8 +186,16 @@ export function getToolIcon(name: string, category: ToolCategory): string {
 /** Extract the most informative argument from a tool call for display in the tool header. */
 export function getToolKeyArg(name: string, args: Record<string, unknown>): string {
   const n = name.toLowerCase();
-  if ((n === "bash" || n === "async_bash") && args.command) return truncateArg(String(args.command), 80);
-  if ((n === "read" || n === "write" || n === "edit") && args.path) return truncateArg(String(args.path), 80);
+  if (n === "bash" || n === "async_bash") {
+    // Prefer human-readable description over raw command
+    if (args.description) return truncateArg(String(args.description), 80);
+    if (args.command) return truncateArg(String(args.command), 80);
+  }
+  // Support both `path` (pi tools) and `file_path` (Claude Code tools)
+  const filePath = args.file_path || args.path;
+  if ((n === "read" || n === "write" || n === "edit") && filePath) return shortenPath(String(filePath));
+  if ((n === "grep" || n === "glob") && args.pattern) return truncateArg(String(args.pattern), 80);
+  if (n === "agent" && args.description) return truncateArg(String(args.description), 80);
   if (n === "browser_navigate" && args.url) return truncateArg(String(args.url), 60);
   if (n === "browser_click" && args.selector) return truncateArg(String(args.selector), 60);
   if (n === "browser_type" && args.selector) return truncateArg(String(args.selector), 60);
@@ -328,6 +335,8 @@ export function buildUsagePills(usage: any, model?: string): string {
   if (usage.turns) pills.push(`${usage.turns} turn${usage.turns > 1 ? "s" : ""}`);
   if (usage.input) pills.push(`↑${formatTokenCount(usage.input)}`);
   if (usage.output) pills.push(`↓${formatTokenCount(usage.output)}`);
+  if (usage.cacheRead) pills.push(`R${formatTokenCount(usage.cacheRead)}`);
+  if (usage.cacheWrite) pills.push(`W${formatTokenCount(usage.cacheWrite)}`);
   if (usage.cost) pills.push(`$${(Number(usage.cost) || 0).toFixed(4)}`);
   if (model) pills.push(model);
   if (pills.length === 0) return "";

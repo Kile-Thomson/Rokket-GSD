@@ -19,3 +19,4 @@ nul
 **/*conflicted copy*
 debug.log
 .dropboxignore
+.mcp.json
