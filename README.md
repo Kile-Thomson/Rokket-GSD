@@ -48,7 +48,7 @@ One-click install from GitHub Releases
 📂 **Session History**<br>
 Search, rename, resume right where you left off
 
-⌨️ **56 Slash Commands**<br>
+⌨️ **45+ Slash Commands**<br>
 Full GSD workflow from a single `/` keystroke
 
 🧠 **Model Picker**<br>
@@ -165,7 +165,7 @@ Then reload VS Code (`Ctrl+Shift+P` > "Developer: Reload Window").
 Type `/` to open the command palette with 56 commands:
 
 <details>
-<summary><strong>GSD Workflow</strong> (46 commands)</summary>
+<summary><strong>GSD Workflow</strong> (45+ commands)</summary>
 
 | Command | What it does |
 |---------|-------------|
@@ -467,7 +467,7 @@ src/
     dashboard.ts            # GSD dashboard overlay
     model-picker.ts         # Model selection overlay
     thinking-picker.ts      # Thinking level dropdown
-    slash-menu.ts           # Slash command palette (~37 commands)
+    slash-menu.ts           # Slash command palette (45+ built-in commands)
     ui-dialogs.ts           # Inline confirm/select/input dialogs
     tool-grouping.ts        # Read-only tool collapse logic
     session-history.ts      # Session browser panel
