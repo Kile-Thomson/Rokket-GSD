@@ -62,7 +62,7 @@ function createDeps(): UIUpdatesDeps {
 
 function resetState(): void {
   state.model = null;
-  state.thinkingLevel = "off";
+  state.thinkingLevel = null;
   state.isStreaming = false;
   state.isCompacting = false;
   state.isRetrying = false;

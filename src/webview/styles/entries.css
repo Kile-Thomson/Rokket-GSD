@@ -79,8 +79,9 @@
   border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.12));
 }
 
-/* Streaming cursor */
-.gsd-entry-assistant.streaming .gsd-assistant-text > *:last-child::after {
+/* Streaming cursor — only on the last text block (the one actively receiving tokens).
+   Previous text blocks (before tool calls) must not show a cursor. */
+.gsd-entry-assistant.streaming > .gsd-assistant-text:last-child::after {
   content: "▊";
   animation: gsd-cursor-pulse 1.2s ease-in-out infinite;
   opacity: 0.5;

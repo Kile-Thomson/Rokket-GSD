@@ -272,11 +272,23 @@ function selectCommand(idx: number): void {
         onAutoResize();
         onShowModelPicker();
         break;
-      case "thinking":
-        vscode.postMessage({ type: "cycle_thinking_level" });
+      case "thinking": {
+        // Only cycle if there is a current model, and either:
+        // - models are not loaded yet (allow optimistically), or
+        // - the loaded model metadata says reasoning is supported.
+        const supportsReasoning = state.model
+          ? (!state.modelsLoaded ||
+              state.availableModels.some(
+                (m) => m.id === state.model!.id && m.provider === state.model!.provider && m.reasoning
+              ))
+          : false;
+        if (supportsReasoning) {
+          vscode.postMessage({ type: "cycle_thinking_level" });
+        }
         promptInput.value = "";
         onAutoResize();
         break;
+      }
       case "new":
         promptInput.value = "";
         onAutoResize();

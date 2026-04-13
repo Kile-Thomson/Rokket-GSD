@@ -636,7 +636,7 @@ export class GsdRpcClient extends EventEmitter {
     return await this.request({ type: "set_model", provider, modelId });
   }
 
-  /** Set the thinking budget level. */
+  /** Set the thinking budget level. PI CLI expects `level` field. */
   async setThinkingLevel(level: string): Promise<void> {
     await this.request({ type: "set_thinking_level", level });
   }

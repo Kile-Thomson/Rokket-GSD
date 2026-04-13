@@ -227,7 +227,8 @@
 .gsd-whats-new-close:focus-visible,
 .gsd-session-history-close:focus-visible,
 .gsd-ui-cancel-btn:focus-visible,
-.gsd-ui-multi-cancel:focus-visible {
+.gsd-ui-multi-cancel:focus-visible,
+.gsd-parallel-batch-header:focus-visible {
   outline: 2px solid var(--vscode-focusBorder, #007fd4);
   outline-offset: 2px;
 }
