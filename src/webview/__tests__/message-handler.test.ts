@@ -870,4 +870,647 @@ describe("message-handler", () => {
     });
   });
 
+  // ============================================================
+  // resolveContextWindow — context window resolution via message_end
+  // ============================================================
+
+  describe("resolveContextWindow", () => {
+    function startTurnAndEndMessage(usage: Record<string, unknown>): void {
+      // Start a turn so message_end has a currentTurn to work with
+      sendMessage({ type: "agent_start" });
+      // message_end expects msg.message.usage (not msg.usage)
+      sendMessage({
+        type: "message_end",
+        message: { role: "assistant", usage },
+      });
+    }
+
+    it("uses sessionStats.contextWindow when set", () => {
+      state.sessionStats.contextWindow = 200_000;
+      state.model = { id: "claude-sonnet-4-6", name: "Sonnet", provider: "anthropic" };
+      startTurnAndEndMessage({ input: 1000, output: 500 });
+      expect(state.sessionStats.contextWindow).toBe(200_000);
+    });
+
+    it("uses model.contextWindow when sessionStats has none", () => {
+      state.model = { id: "claude-sonnet-4-6", name: "Sonnet", provider: "anthropic", contextWindow: 180_000 };
+      startTurnAndEndMessage({ input: 1000, output: 500 });
+      expect(state.sessionStats.contextWindow).toBe(180_000);
+    });
+
+    it("cross-references availableModels when model has no contextWindow", () => {
+      state.model = { id: "claude-sonnet-4-6", name: "Sonnet", provider: "anthropic" };
+      state.availableModels = [
+        { id: "claude-sonnet-4-6", name: "Sonnet", provider: "anthropic", contextWindow: 190_000, reasoning: true },
+      ] as any;
+      startTurnAndEndMessage({ input: 1000, output: 500 });
+      expect(state.sessionStats.contextWindow).toBe(190_000);
+    });
+
+    it("falls back to known model table for opus-4", () => {
+      state.model = { id: "claude-opus-4-6", name: "Opus", provider: "anthropic" };
+      startTurnAndEndMessage({ input: 1000, output: 500 });
+      expect(state.sessionStats.contextWindow).toBe(200_000);
+    });
+
+    it("falls back to known model table for gpt-4o", () => {
+      state.model = { id: "gpt-4o-mini", name: "GPT-4o", provider: "openai" };
+      startTurnAndEndMessage({ input: 1000, output: 500 });
+      expect(state.sessionStats.contextWindow).toBe(128_000);
+    });
+
+    it("falls back to known model table for gemini-2", () => {
+      state.model = { id: "gemini-2.0-flash", name: "Gemini", provider: "google" };
+      startTurnAndEndMessage({ input: 1000, output: 500 });
+      expect(state.sessionStats.contextWindow).toBe(1_000_000);
+    });
+
+    it("returns 0 for unknown model with no context window info", () => {
+      state.model = { id: "custom-model-xyz", name: "Custom", provider: "custom" };
+      startTurnAndEndMessage({ input: 1000, output: 500 });
+      // contextWindow should be 0 (or undefined/unset) since resolveContextWindow returns 0
+      expect(state.sessionStats.contextWindow || 0).toBe(0);
+    });
+  });
+
+  // ============================================================
+  // cost_update — missing cost field
+  // ============================================================
+
+  describe("cost_update without cost field", () => {
+    it("updates tokens but leaves cost unchanged when no cost field", () => {
+      state.sessionStats.cost = 0.05; // previous cost
+      sendMessage({
+        type: "cost_update",
+        data: {
+          tokens: { input: 1000, output: 500, cacheRead: 200, cacheWrite: 100 },
+          // No cumulativeCost or totalCost
+        },
+      });
+      expect(state.sessionStats.tokens?.input).toBe(1000);
+      expect(state.sessionStats.tokens?.output).toBe(500);
+      expect(state.sessionStats.cost).toBe(0.05); // unchanged
+    });
+
+    it("computes per-turn cost deltas from cumulative totals", () => {
+      // First cost_update — establishes baseline
+      sendMessage({
+        type: "cost_update",
+        data: {
+          tokens: { input: 1000, output: 500, cacheRead: 0, cacheWrite: 0 },
+          cumulativeCost: 0.01,
+        },
+      });
+      expect(state.sessionStats.cost).toBe(0.01);
+
+      // Second cost_update — delta should be computed
+      sendMessage({
+        type: "cost_update",
+        data: {
+          tokens: { input: 2000, output: 1000, cacheRead: 100, cacheWrite: 50 },
+          cumulativeCost: 0.03,
+        },
+      });
+      expect(state.sessionStats.cost).toBe(0.03);
+      expect(state.sessionStats.tokens?.input).toBe(2000);
+    });
+  });
+
+  // ============================================================
+  // process_exit resets derived session tracking
+  // ============================================================
+
+  describe("process_exit", () => {
+    it("resets session tracking state on process exit", () => {
+      // Set up some tracking state
+      sendMessage({
+        type: "cost_update",
+        data: {
+          tokens: { input: 5000, output: 2000, cacheRead: 0, cacheWrite: 0 },
+          cumulativeCost: 0.10,
+        },
+      });
+      expect(state.sessionStats.tokens?.input).toBe(5000);
+
+      // Now process exits
+      sendMessage({ type: "process_exit", code: 0 });
+
+      // Verify state was cleaned up
+      expect(state.isStreaming).toBe(false);
+      expect(state.currentTurn).toBeNull();
+      expect(state.processHealth).toBe("responsive");
+    });
+  });
+
+  // ============================================================
+  // Skill detection in tool_execution_start
+  // ============================================================
+
+  describe("skill detection", () => {
+    it("detects skill from Read tool targeting a SKILL.md file", () => {
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "tool_execution_start",
+        toolCallId: "tc-skill-1",
+        toolName: "Read",
+        args: { path: "/home/user/.agents/skills/my-cool-skill/SKILL.md" },
+      });
+      expect(state.loadedSkills.has("my-cool-skill")).toBe(true);
+    });
+
+    it("detects skill from Read tool with Windows-style backslashes", () => {
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "tool_execution_start",
+        toolCallId: "tc-skill-2",
+        toolName: "Read",
+        args: { path: "C:\\Users\\test\\.agents\\skills\\debug-like-expert\\SKILL.md" },
+      });
+      expect(state.loadedSkills.has("debug-like-expert")).toBe(true);
+    });
+
+    it("does not double-add already loaded skills", () => {
+      state.loadedSkills.clear();
+      state.loadedSkills.add("existing-skill");
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "tool_execution_start",
+        toolCallId: "tc-skill-3",
+        toolName: "Read",
+        args: { path: "/skills/existing-skill/SKILL.md" },
+      });
+      // Should still have it, but set size stays the same
+      expect(state.loadedSkills.has("existing-skill")).toBe(true);
+      expect(state.loadedSkills.size).toBe(1);
+    });
+
+    it("detects skill from Skill tool invocation", () => {
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "tool_execution_start",
+        toolCallId: "tc-skill-4",
+        toolName: "Skill",
+        args: { skill: "lint" },
+      });
+      expect(state.loadedSkills.has("lint")).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // tool_execution_end
+  // ============================================================
+
+  describe("tool_execution_end", () => {
+    it("marks a tool as not running on completion", () => {
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "tool_execution_start",
+        toolCallId: "tc-done-1",
+        toolName: "Read",
+        args: { path: "/test.txt" },
+      });
+      expect(state.currentTurn?.toolCalls.get("tc-done-1")?.isRunning).toBe(true);
+
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: "tc-done-1",
+        output: "file contents",
+      });
+      expect(state.currentTurn?.toolCalls.get("tc-done-1")?.isRunning).toBe(false);
+    });
+
+    it("records error status on tool failure", () => {
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "tool_execution_start",
+        toolCallId: "tc-err-1",
+        toolName: "Bash",
+        args: { command: "false" },
+      });
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: "tc-err-1",
+        output: "command failed",
+        isError: true,
+      });
+      const tc = state.currentTurn?.toolCalls.get("tc-err-1");
+      expect(tc?.isRunning).toBe(false);
+      expect(tc?.isError).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // session_switched
+  // ============================================================
+
+  describe("session_switched", () => {
+    it("resets state and applies new session data", () => {
+      state.isStreaming = true;
+      state.model = { id: "old-model", name: "Old", provider: "old" };
+
+      sendMessage({
+        type: "session_switched",
+        state: {
+          model: { id: "new-model" },
+          thinkingLevel: "high",
+          isStreaming: false,
+          isCompacting: false,
+          sessionId: "s-new",
+        },
+        messages: [],
+      });
+
+      expect(state.isStreaming).toBe(false);
+      expect(state.model?.id).toBe("new-model");
+      expect(state.thinkingLevel).toBe("high");
+    });
+
+    it("renders historical messages from new session", () => {
+      sendMessage({
+        type: "session_switched",
+        state: {
+          model: null,
+          isStreaming: false,
+          isCompacting: false,
+        },
+        messages: [
+          { role: "user", content: "Hello" },
+          { role: "assistant", content: "Hi there" },
+        ],
+      });
+
+      expect(mockUpdateAllUI).toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================
+  // message_end — token accumulation
+  // ============================================================
+
+  describe("message_end token accumulation", () => {
+    it("accumulates tokens from message_end when no cost_update source", () => {
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 500, output: 200, cacheRead: 100, cacheWrite: 50 },
+        },
+      });
+      expect(state.sessionStats.tokens?.input).toBe(500);
+      expect(state.sessionStats.tokens?.output).toBe(200);
+      expect(state.sessionStats.tokens?.cacheRead).toBe(100);
+      expect(state.sessionStats.tokens?.cacheWrite).toBe(50);
+      expect(state.sessionStats.tokens?.total).toBe(850);
+    });
+
+    it("accumulates cost from message_end usage", () => {
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 500, output: 200, cost: { total: 0.005 } },
+        },
+      });
+      expect(state.sessionStats.cost).toBe(0.005);
+    });
+
+    it("computes contextPercent from usage tokens", () => {
+      state.sessionStats.contextWindow = 100_000;
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0 },
+        },
+      });
+      // contextTokens = input + cacheRead + cacheWrite = 50000
+      // contextPercent = 50000 / 100000 * 100 = 50
+      expect(state.sessionStats.contextPercent).toBe(50);
+    });
+
+    it("handles message_end with stopReason:error without crashing", () => {
+      sendMessage({ type: "agent_start" });
+      // This should not throw — error messages are surfaced via addSystemEntry
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          stopReason: "error",
+          errorMessage: "API key expired",
+        },
+      });
+      // message_end doesn't finalize the turn — agent_end does.
+      // Verify no crash occurred and the turn is still active.
+      expect(state.currentTurn).toBeTruthy();
+    });
+  });
+
+  // ============================================================
+  // state message
+  // ============================================================
+
+  describe("state message", () => {
+    it("updates model and streaming state", () => {
+      sendMessage({
+        type: "state",
+        data: {
+          model: { id: "test-model", contextWindow: 200_000 },
+          thinkingLevel: "medium",
+          isStreaming: true,
+          isCompacting: false,
+        },
+      });
+      expect(state.model?.id).toBe("test-model");
+      expect(state.thinkingLevel).toBe("medium");
+      expect(state.isStreaming).toBe(true);
+      expect(state.sessionStats.contextWindow).toBe(200_000);
+    });
+
+    it("preserves thinkingLevel when field is omitted", () => {
+      state.thinkingLevel = "high";
+      sendMessage({
+        type: "state",
+        data: {
+          model: null,
+          isStreaming: false,
+          isCompacting: false,
+          // thinkingLevel NOT present
+        },
+      });
+      expect(state.thinkingLevel).toBe("high");
+    });
+
+    it("clears thinkingLevel when backend sends explicit null", () => {
+      state.thinkingLevel = "high";
+      sendMessage({
+        type: "state",
+        data: {
+          model: null,
+          thinkingLevel: null,
+          isStreaming: false,
+          isCompacting: false,
+        },
+      });
+      expect(state.thinkingLevel).toBeNull();
+    });
+  });
+
+  // ============================================================
+  // thinking_level_changed
+  // ============================================================
+
+  describe("thinking_level_changed", () => {
+    it("updates thinkingLevel from backend confirmation", () => {
+      state.thinkingLevel = null;
+      sendMessage({ type: "thinking_level_changed", level: "high" });
+      expect(state.thinkingLevel).toBe("high");
+      expect(mockUpdateHeaderUI).toHaveBeenCalled();
+      expect(mockUpdateFooterUI).toHaveBeenCalled();
+      expect(thinkingPicker.refresh).toHaveBeenCalled();
+      expect(toasts.show).toHaveBeenCalledWith("Thinking: high");
+    });
+
+    it("defaults to off when level is falsy", () => {
+      sendMessage({ type: "thinking_level_changed", level: "" });
+      expect(state.thinkingLevel).toBe("off");
+    });
+  });
+
+  // ============================================================
+  // model_routed
+  // ============================================================
+
+  describe("model_routed", () => {
+    it("calls handleModelRouted and shows toast", () => {
+      const oldModel = { id: "claude-sonnet-4-6" };
+      const newModel = { id: "claude-opus-4-6" };
+      sendMessage({ type: "model_routed", oldModel, newModel });
+      expect(mockHandleModelRouted).toHaveBeenCalledWith(oldModel, newModel);
+      expect(toasts.show).toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================
+  // agent_end
+  // ============================================================
+
+  describe("agent_end", () => {
+    it("stops streaming and finalizes turn", () => {
+      sendMessage({ type: "agent_start" });
+      expect(state.isStreaming).toBe(true);
+
+      sendMessage({ type: "agent_end" });
+      expect(state.isStreaming).toBe(false);
+      expect(state.processHealth).toBe("responsive");
+      expect(renderer.finalizeCurrentTurn).toHaveBeenCalled();
+      expect(mockUpdateInputUI).toHaveBeenCalled();
+      expect(mockVscode.postMessage).toHaveBeenCalledWith({ type: "get_session_stats" });
+    });
+
+    it("expires pending dialogs on agent_end", () => {
+      (uiDialogs.hasPending as any).mockReturnValue(true);
+      sendMessage({ type: "agent_start" });
+      sendMessage({ type: "agent_end" });
+      expect(uiDialogs.expireAllPending).toHaveBeenCalledWith("Agent finished");
+    });
+
+    it("clears active batch on agent_end", () => {
+      sendMessage({ type: "agent_start" });
+      sendMessage({ type: "agent_end" });
+      expect(renderer.clearActiveBatch).toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================
+  // error message
+  // ============================================================
+
+  describe("error message", () => {
+    it("handles error message without crashing", () => {
+      // Just verify this doesn't throw
+      expect(() => {
+        sendMessage({ type: "error", message: "Something went wrong" });
+      }).not.toThrow();
+    });
+  });
+
+  // ============================================================
+  // turn_start
+  // ============================================================
+
+  describe("commands", () => {
+    it("stores commands and marks as loaded", () => {
+      const cmds = [
+        { name: "test", description: "Test command" },
+        { name: "help", description: "Help command" },
+      ];
+      sendMessage({ type: "commands", commands: cmds });
+      expect(state.commands).toEqual(cmds);
+      expect(state.commandsLoaded).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // extension_ui_request — widget rendering
+  // ============================================================
+
+  describe("extension_ui_request (widgets)", () => {
+    it("handles setWidget without crashing when no container", () => {
+      // No widgetContainer in DOM — should bail gracefully
+      expect(() => {
+        sendMessage({
+          type: "extension_ui_request",
+          action: "setWidget",
+          key: "test-widget",
+          lines: ["Status: OK"],
+        });
+      }).not.toThrow();
+    });
+  });
+
+  // ============================================================
+  // turn_start
+  // ============================================================
+
+  describe("turn_start", () => {
+    it("creates a new turn when none exists", () => {
+      state.currentTurn = null;
+      sendMessage({ type: "turn_start" });
+      expect(state.currentTurn).toBeTruthy();
+      expect(state.currentTurn!.segments).toEqual([]);
+      expect(state.currentTurn!.toolCalls).toBeInstanceOf(Map);
+    });
+
+    it("does not overwrite an existing turn", () => {
+      sendMessage({ type: "agent_start" }); // creates a turn
+      const turnId = state.currentTurn!.id;
+      sendMessage({ type: "turn_start" });
+      expect(state.currentTurn!.id).toBe(turnId);
+    });
+  });
+
+  // ============================================================
+  // message_update — text_delta and thinking_delta
+  // ============================================================
+
+  describe("message_update deltas", () => {
+    it("appends text via text_delta", () => {
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: { type: "text_delta", delta: "Hello world" },
+      });
+      expect(renderer.appendToTextSegment).toHaveBeenCalledWith("text", "Hello world");
+    });
+
+    it("strips async_subagent_progress from text_delta", () => {
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "text_delta",
+          delta: 'some text\n{"__async_subagent_progress": true}\nmore text',
+        },
+      });
+      expect(renderer.appendToTextSegment).toHaveBeenCalledWith("text", "some text\nmore text");
+    });
+
+    it("auto-detects thinking level from thinking_delta when null", () => {
+      state.thinkingLevel = null;
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: { type: "thinking_delta", delta: "Let me think..." },
+      });
+      expect(state.thinkingLevel).toBe("medium");
+      expect(renderer.appendToTextSegment).toHaveBeenCalledWith("thinking", "Let me think...");
+    });
+
+    it("does NOT override explicit thinking level from thinking_delta", () => {
+      state.thinkingLevel = "off";
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: { type: "thinking_delta", delta: "thinking..." },
+      });
+      // "off" is truthy, so auto-detection should NOT fire
+      expect(state.thinkingLevel).toBe("off");
+    });
+  });
+
+  // ============================================================
+  // models_loaded
+  // ============================================================
+
+  describe("available_models", () => {
+    it("stores available models and marks models as loaded", () => {
+      const models = [
+        { id: "claude-sonnet-4-6", name: "Sonnet", provider: "anthropic", reasoning: true },
+        { id: "gpt-4o", name: "GPT-4o", provider: "openai", reasoning: false },
+      ];
+      sendMessage({ type: "available_models", models });
+      expect(state.availableModels.length).toBe(2);
+      expect(state.modelsLoaded).toBe(true);
+      expect(state.modelsRequested).toBe(false);
+    });
+
+    it("backfills contextWindow on current model", () => {
+      state.model = { id: "claude-sonnet-4-6", name: "Sonnet", provider: "anthropic" };
+      sendMessage({
+        type: "available_models",
+        models: [
+          { id: "claude-sonnet-4-6", name: "Sonnet", provider: "anthropic", contextWindow: 200_000, reasoning: true },
+        ],
+      });
+      expect(state.model.contextWindow).toBe(200_000);
+      expect(mockUpdateHeaderUI).toHaveBeenCalled();
+    });
+
+    it("does not backfill when model already has contextWindow", () => {
+      state.model = { id: "claude-sonnet-4-6", name: "Sonnet", provider: "anthropic", contextWindow: 150_000 };
+      sendMessage({
+        type: "available_models",
+        models: [
+          { id: "claude-sonnet-4-6", name: "Sonnet", provider: "anthropic", contextWindow: 200_000, reasoning: true },
+        ],
+      });
+      // Should keep existing value
+      expect(state.model.contextWindow).toBe(150_000);
+    });
+  });
+
+  // ============================================================
+  // session_stats
+  // ============================================================
+
+  describe("session_stats", () => {
+    it("updates autoCompactionEnabled from session stats", () => {
+      sendMessage({
+        type: "session_stats",
+        data: { autoCompactionEnabled: true },
+      });
+      expect(state.sessionStats.autoCompactionEnabled).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // auto compaction events
+  // ============================================================
+
+  describe("auto compaction events", () => {
+    it("sets isCompacting on auto_compaction_start", () => {
+      sendMessage({ type: "auto_compaction_start" });
+      expect(state.isCompacting).toBe(true);
+    });
+
+    it("clears isCompacting on auto_compaction_end", () => {
+      state.isCompacting = true;
+      sendMessage({ type: "auto_compaction_end" });
+      expect(state.isCompacting).toBe(false);
+    });
+  });
+
 });
