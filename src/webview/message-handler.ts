@@ -68,7 +68,7 @@ let lastMessageUsage: { input?: number; output?: number; cacheRead?: number; cac
 // token accumulation is skipped to avoid double-counting (cost_update is authoritative).
 let hasCostUpdateSource = false;
 // Previous cumulative totals from cost_update — used to compute per-turn deltas.
-let prevCostTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+let prevCostTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
 
 // Fallback context window sizes for well-known models when the backend doesn't
 // report contextWindow via model selection. Keyed by model ID substring match.
@@ -205,6 +205,16 @@ export interface MessageHandlerDeps {
   announceToScreenReader: (text: string) => void;
 }
 
+/** Reset per-session derived tracking state. Called on init, session switch, and process exit. */
+function resetDerivedSessionTracking(): void {
+  hasCostUpdateSource = false;
+  prevCostTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
+  lastMessageUsage = null;
+  if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
+  activeBatchToolIds = null;
+  messageParallelToolIds = null;
+}
+
 export function init(deps: MessageHandlerDeps): void {
   vscode = deps.vscode;
   messagesContainer = deps.messagesContainer;
@@ -220,12 +230,7 @@ export function init(deps: MessageHandlerDeps): void {
   autoResize = deps.autoResize;
   announceToScreenReader = deps.announceToScreenReader;
 
-  // Reset per-session tracking state
-  hasCostUpdateSource = false;
-  prevCostTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-  lastMessageUsage = null;
-  activeBatchToolIds = null;
-  messageParallelToolIds = null;
+  resetDerivedSessionTracking();
 
   window.addEventListener("message", handleMessage);
 }
@@ -296,8 +301,9 @@ function handleMessage(event: MessageEvent): void {
         state.model = data.model || null;
         // Only update thinkingLevel if the backend actually reports it.
         // CC CLI omits this field — preserve whatever we already have.
-        if (data.thinkingLevel != null) {
-          state.thinkingLevel = data.thinkingLevel;
+        // Use `in` check so explicit null from backend clears the value.
+        if ("thinkingLevel" in data) {
+          state.thinkingLevel = data.thinkingLevel ?? null;
         }
         state.isStreaming = data.isStreaming || false;
         state.isCompacting = data.isCompacting || false;
@@ -1398,6 +1404,7 @@ function handleMessage(event: MessageEvent): void {
       state.commandsLoaded = false;
       state.commands = [];
       renderer.resetStreamingState();
+      resetDerivedSessionTracking();
       updateInputUI();
       updateOverlayIndicators();
 
@@ -1487,19 +1494,13 @@ function handleMessage(event: MessageEvent): void {
       updateSkillPills();
       resetPrunedCount();
 
-      // Reset per-session tracking (same as init)
-      hasCostUpdateSource = false;
-      prevCostTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-      lastMessageUsage = null;
-      if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
-      activeBatchToolIds = null;
-      messageParallelToolIds = null;
+      resetDerivedSessionTracking();
 
       // Apply the new state
       if (data.state) {
         state.model = data.state.model || null;
-        if (data.state.thinkingLevel != null) {
-          state.thinkingLevel = data.state.thinkingLevel;
+        if ("thinkingLevel" in data.state) {
+          state.thinkingLevel = data.state.thinkingLevel ?? null;
         }
         state.isStreaming = data.state.isStreaming || false;
         state.isCompacting = data.state.isCompacting || false;
@@ -1542,12 +1543,22 @@ function handleMessage(event: MessageEvent): void {
       const totalCacheRead = tok.cacheRead || cu.totalCacheRead || 0;
       const totalCacheWrite = tok.cacheWrite || cu.totalCacheWrite || 0;
 
+      // GSD PI sends `cumulativeCost`, some providers may send `totalCost`
+      const costValue = cu.cumulativeCost ?? cu.totalCost;
+
       // Compute per-turn deltas from cumulative totals
       const turnInput = totalInput - prevCostTotals.input;
       const turnOutput = totalOutput - prevCostTotals.output;
       const turnCacheRead = totalCacheRead - prevCostTotals.cacheRead;
       const turnCacheWrite = totalCacheWrite - prevCostTotals.cacheWrite;
-      prevCostTotals = { input: totalInput, output: totalOutput, cacheRead: totalCacheRead, cacheWrite: totalCacheWrite };
+      const turnCost = typeof costValue === "number" ? costValue - prevCostTotals.cost : undefined;
+      prevCostTotals = {
+        input: totalInput,
+        output: totalOutput,
+        cacheRead: totalCacheRead,
+        cacheWrite: totalCacheWrite,
+        cost: typeof costValue === "number" ? costValue : prevCostTotals.cost,
+      };
 
       // Session totals — use cumulative directly (not accumulated deltas)
       state.sessionStats.tokens = {
@@ -1564,15 +1575,13 @@ function handleMessage(event: MessageEvent): void {
         output: turnOutput,
         cacheRead: turnCacheRead,
         cacheWrite: turnCacheWrite,
-        cost: undefined,
+        cost: typeof turnCost === "number" ? { total: turnCost } : undefined,
       };
 
       // Context % is NOT computed here — cost_update totals are cumulative
       // across all turns and cannot represent current context utilization.
       // message_end.usage provides per-turn data and handles context % instead.
 
-      // GSD PI sends `cumulativeCost`, some providers may send `totalCost`
-      const costValue = cu.cumulativeCost ?? cu.totalCost;
       if (typeof costValue === "number") {
         state.sessionStats.cost = costValue;
       }

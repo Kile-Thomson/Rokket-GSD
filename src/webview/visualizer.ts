@@ -457,7 +457,11 @@ function renderMetricsTab(data: DashboardData): string {
   // Context usage
   const sessionStats = state.sessionStats;
   if (sessionStats.contextWindow && sessionStats.contextTokens) {
-    const pct = (sessionStats.contextPercent ?? 0).toFixed(1);
+    const pctValue =
+      typeof sessionStats.contextPercent === "number"
+        ? sessionStats.contextPercent
+        : (sessionStats.contextTokens / sessionStats.contextWindow) * 100;
+    const pct = pctValue.toFixed(1);
     html += `
       <div class="gsd-viz-context-section">
         <div class="gsd-viz-section-title">Context Window</div>

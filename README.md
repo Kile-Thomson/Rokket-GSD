@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.3.6-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-0.3.18-blue" alt="Version" />
   <img src="https://img.shields.io/badge/gsd--pi-v2.12--v2.71-blue" alt="gsd-pi compatibility" />
   <img src="https://img.shields.io/badge/VS%20Code-1.94%2B-blue" alt="VS Code" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
@@ -84,7 +84,7 @@ Built for multi-hour sessions with crash recovery
 ⚡ **Async Subagent Parallelism**<br>
 Spawn multiple agents in one call, monitor live progress
 
-🧪 **914 Tests, 60%+ Coverage**<br>
+🧪 **935 Tests, 60%+ Coverage**<br>
 CI coverage gate enforced on every push
 
 </td>
@@ -428,7 +428,7 @@ npm run watch    # Rebuilds on file changes
 |--------|-------------|
 | `npm run build` | Production build (extension + webview) |
 | `npm run watch` | Watch mode with auto-rebuild |
-| `npm test` | Run unit tests (Vitest, 914 tests across 44 files) |
+| `npm test` | Run unit tests (Vitest, 935 tests across 44 files) |
 | `npm run lint` | Run ESLint |
 | `npm run package` | Package as `.vsix` |
 
