@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.3.1-blue" alt="Version" />
-  <img src="https://img.shields.io/badge/gsd--pi-v2.12--v2.64-blue" alt="gsd-pi compatibility" />
+  <img src="https://img.shields.io/badge/version-0.3.18-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/gsd--pi-v2.12--v2.71-blue" alt="gsd-pi compatibility" />
   <img src="https://img.shields.io/badge/VS%20Code-1.94%2B-blue" alt="VS Code" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform" />
@@ -48,7 +48,7 @@ One-click install from GitHub Releases
 📂 **Session History**<br>
 Search, rename, resume right where you left off
 
-⌨️ **35 Slash Commands**<br>
+⌨️ **45+ Slash Commands**<br>
 Full GSD workflow from a single `/` keystroke
 
 🧠 **Model Picker**<br>
@@ -84,7 +84,7 @@ Built for multi-hour sessions with crash recovery
 ⚡ **Async Subagent Parallelism**<br>
 Spawn multiple agents in one call, monitor live progress
 
-🧪 **891 Tests, 60%+ Coverage**<br>
+🧪 **935 Tests, 60%+ Coverage**<br>
 CI coverage gate enforced on every push
 
 </td>
@@ -162,38 +162,59 @@ Then reload VS Code (`Ctrl+Shift+P` > "Developer: Reload Window").
 
 ### ⌨️ Slash Commands
 
-Type `/` to open the command palette with 35 commands:
+Type `/` to open the command palette with 56 commands:
 
 <details>
-<summary><strong>GSD Workflow</strong> (25 commands)</summary>
+<summary><strong>GSD Workflow</strong> (45+ commands)</summary>
 
 | Command | What it does |
 |---------|-------------|
-| `/gsd` | Contextual wizard - picks the next action |
-| `/gsd auto` | Start auto-execution mode |
+| `/gsd` | Contextual wizard — picks the next action |
+| `/gsd auto` | Auto-execute tasks (fresh context per task) |
 | `/gsd next` | Execute the next task |
 | `/gsd stop` | Stop auto-mode |
-| `/gsd status` | Project dashboard with milestones, slices, tasks |
+| `/gsd pause` | Pause auto-mode (preserves state) |
+| `/gsd quick` | Execute ad-hoc task with GSD guarantees |
+| `/gsd discuss` | Discuss without executing |
+| `/gsd status` | Project dashboard — milestones, slices, tasks |
 | `/gsd visualize` | Open workflow visualizer overlay |
+| `/gsd help` | Categorized command reference |
+| `/gsd changelog` | Show categorized release notes |
 | `/gsd capture` | Capture a thought during auto-mode |
 | `/gsd steer` | Redirect auto-mode priorities |
-| `/gsd discuss` | Discuss without executing |
-| `/gsd quick` | Execute ad-hoc task with GSD guarantees |
-| `/gsd queue` | Queue future milestones |
+| `/gsd triage` | Manually trigger triage of pending captures |
 | `/gsd knowledge` | View or add to project knowledge base |
+| `/gsd queue` | Queue and reorder future milestones |
+| `/gsd new-milestone` | Create a milestone from a specification document |
+| `/gsd park` | Park a milestone — skip without deleting |
+| `/gsd unpark` | Reactivate a parked milestone |
+| `/gsd dispatch` | Dispatch a specific phase directly |
+| `/gsd history` | View execution history |
+| `/gsd undo` | Revert last completed unit |
+| `/gsd skip` | Prevent a unit from auto-mode dispatch |
+| `/gsd start` | Start a workflow template (bugfix, spike, feature, etc.) |
+| `/gsd templates` | List available workflow templates |
+| `/gsd export` | Export milestone report as HTML |
+| `/gsd cleanup` | Remove merged branches or snapshots |
 | `/gsd config` | View or modify GSD configuration |
 | `/gsd prefs` | View or set preferences |
+| `/gsd mode` | Switch workflow mode (solo/team) |
+| `/gsd keys` | Manage API keys |
+| `/gsd hooks` | Show configured post-unit and pre-dispatch hooks |
+| `/gsd run-hook` | Manually trigger a specific hook |
+| `/gsd extensions` | Manage extensions (list, enable, disable, info) |
 | `/gsd doctor` | Diagnose and fix issues |
 | `/gsd forensics` | Post-mortem analysis of auto-mode failures |
-| `/gsd mode` | Switch workflow mode (solo/team) |
-| `/gsd help` | Categorized command reference |
-| `/gsd migrate` | Migrate project artifacts |
-| `/gsd remote` | Remote question channels (Slack, Discord, Telegram) |
-| `/gsd do` | Natural language routing to the right command |
-| `/gsd note` | Quick idea capture (append, list, promote) |
-| `/gsd update` | Update GSD artifacts and status |
-| `/gsd export` | Export milestone report (supports `--html --all`) |
+| `/gsd logs` | Browse activity, debug, and metrics logs |
+| `/gsd inspect` | Show SQLite DB diagnostics |
+| `/gsd skill-health` | Skill lifecycle dashboard |
 | `/gsd rate` | Token usage rates and profile defaults |
+| `/gsd init` | Project init wizard |
+| `/gsd setup` | Global setup status and configuration |
+| `/gsd migrate` | Migrate a v1 .planning directory to .gsd format |
+| `/gsd update` | Update GSD to the latest version |
+| `/gsd remote` | Remote question channels (Slack, Discord, Telegram) |
+| `/gsd parallel` | Parallel auto-mode orchestration |
 
 </details>
 
@@ -289,7 +310,7 @@ Type `/` to open the command palette with 35 commands:
 - **Auto-compaction indicator** overlay banner when context is being compacted
 - **Auto-retry indicator** with countdown timer and abort button when the provider rate-limits
 - **Provider fallback alerts** via toast when GSD auto-switches models due to rate limits, and again when the original provider recovers
-- **Crash recovery** with restart button and full state cleanup
+- **Crash recovery** with restart button, exit code diagnostics, and full state cleanup
 
 ### 🎨 VS Code Integration
 
@@ -320,13 +341,16 @@ Type `/` to open the command palette with 35 commands:
 
 ### 🔒 Security
 
-- **DOMPurify sanitization** on all rendered markdown
+- **CSP enforcement** — nonce-based Content Security Policy with no `unsafe-inline` in style-src or script-src
+- **DOMPurify sanitization** on all rendered markdown with explicit attribute allowlist
 - **URL scheme allowlist** restricting clickable links to http, https, and vscode
 - **Path traversal protection** with workspace boundary validation and symlink resolution
-- **Command injection prevention** using args arrays instead of shell interpolation
+- **Command injection prevention** using args arrays instead of shell interpolation; destructive bash pattern detection with modal confirmation
 - **Environment isolation** stripping Electron/VS Code env vars before spawning GSD
 - **Download validation** restricting update installs to GitHub URLs only
-- **No secrets in DOM** - API keys and tokens are never rendered in the webview
+- **Temp file size limit** (50MB) on save operations
+- **No secrets in DOM** — API keys and tokens are never rendered in the webview
+- **Buffer overflow protection** — full JSON-RPC buffer reset (not truncation) to preserve protocol integrity
 
 ---
 
@@ -379,11 +403,11 @@ Built to handle real-world agent sessions that run for hours:
                                           └──────────────────────┘
 ```
 
-- **Webview** - vanilla DOM (no framework), ~9K lines of TypeScript, esbuild-bundled IIFE. Sequential segment-based renderer with `requestAnimationFrame` batching for smooth streaming.
-- **Extension Host** - ~12K lines of TypeScript managing the GSD child process, routes messages, handles file operations, monitors health, polls parallel worker status.
+- **Webview** - vanilla DOM (no framework), ~10K lines of TypeScript + ~5.8K lines of CSS (16 modules + 3 theme files), esbuild-bundled IIFE. Sequential segment-based renderer with `requestAnimationFrame` batching for smooth streaming. CSS uses a semantic token layer (`--gsd-*`) bridging VS Code's theme system — components never reference `--vscode-*` directly.
+- **Extension Host** - ~13K lines of TypeScript managing the GSD child process, routes messages, handles file operations, monitors health, polls parallel worker status. All hot-path I/O is async; polling runs via parallelized `Promise.all`.
 - **GSD Process** - the full `gsd-pi` agent running via JSON-RPC over stdin/stdout. Each session gets its own process.
 
-The extension ships as a ~151KB `.vsix` with no runtime dependencies beyond VS Code and the `gsd` CLI.
+The extension ships as a ~160KB `.vsix` with no runtime dependencies beyond VS Code and the `gsd` CLI.
 
 ---
 
@@ -404,7 +428,7 @@ npm run watch    # Rebuilds on file changes
 |--------|-------------|
 | `npm run build` | Production build (extension + webview) |
 | `npm run watch` | Watch mode with auto-rebuild |
-| `npm test` | Run unit tests (Vitest, 891 tests across 44 files) |
+| `npm test` | Run unit tests (Vitest, 935 tests across 44 files) |
 | `npm run lint` | Run ESLint |
 | `npm run package` | Package as `.vsix` |
 
@@ -416,7 +440,9 @@ src/
     index.ts                # Entry point, commands, status bar
     rpc-client.ts           # JSON-RPC client over stdin/stdout
     webview-provider.ts     # Webview lifecycle, message routing
-    auto-progress.ts        # Auto-mode progress polling
+    message-dispatch.ts     # Inbound message routing (extension side)
+    rpc-events.ts           # RPC event handlers
+    auto-progress-poller.ts # Auto-mode progress polling (parallelized)
     parallel-status.ts      # Parallel worker status reader
     dashboard-parser.ts     # Dashboard data aggregation
     metrics-parser.ts       # Cost/token metrics parsing
@@ -425,6 +451,11 @@ src/
     update-checker.ts       # Auto-update from GitHub Releases
     session-list-service.ts # Session history filesystem parser
     session-state.ts        # Per-session state management
+    file-ops.ts             # File operations (export, save, access)
+    health-check.ts         # Process health monitoring
+    html-generator.ts       # Webview HTML + CSP generation
+    watchdogs.ts            # Streaming/tool timeout watchdogs
+    command-fallback.ts     # Slash command fallback handling
   shared/
     types.ts                # Message protocol types (extension <> webview)
   webview/
@@ -436,7 +467,7 @@ src/
     dashboard.ts            # GSD dashboard overlay
     model-picker.ts         # Model selection overlay
     thinking-picker.ts      # Thinking level dropdown
-    slash-menu.ts           # Slash command palette (35 commands)
+    slash-menu.ts           # Slash command palette (45+ built-in commands)
     ui-dialogs.ts           # Inline confirm/select/input dialogs
     tool-grouping.ts        # Read-only tool collapse logic
     session-history.ts      # Session browser panel
@@ -444,10 +475,31 @@ src/
     ui-updates.ts           # Header, footer, overlay updates
     keyboard.ts             # Keyboard shortcut handling
     state.ts                # Shared mutable state
-    styles.css              # Theme-aware styling (~2,000 lines)
+    a11y.ts                 # Accessibility utilities
+    toasts.ts               # Toast notification system
+    file-handling.ts        # File attachment handling
+    styles/
+      tokens.css            # Semantic design tokens (--gsd-* layer)
+      base.css              # Reset, typography, scrollbar
+      layout.css            # Grid, panels, overlays
+      input.css             # Chat input area
+      entries.css           # Message bubbles, turns
+      footer.css            # Status bar, badges
+      tools.css             # Tool call cards
+      overlays.css          # Modals, pickers, visualizer
+      misc.css              # Focus rings, animations, utilities
+      parallel.css          # Worker dashboard cards
+      auto-progress.css     # Auto-mode progress widget
+      dashboard.css         # GSD dashboard overlay
+      toasts.css            # Toast notifications
+      themes/
+        phosphor.css        # Phosphor theme overrides
+        clarity.css         # Clarity theme overrides
+        forge.css           # Forge theme overrides
 resources/
   gsd-logo.svg              # Activity bar icon
   rokket-icon.png            # Extension icon
+  extensions/               # Bundled pi extensions (auto-installed)
 ```
 
 </details>
