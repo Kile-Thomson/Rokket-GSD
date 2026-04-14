@@ -556,6 +556,7 @@ function sendMessage(): void {
     message: fullMessage,
     images: state.images.length > 0 ? [...state.images] : undefined,
   };
+  console.debug(`[gsd:send] Sending prompt, images: ${msg.images?.length ?? 0}${msg.images ? `, total base64 chars: ${msg.images.reduce((s, i) => s + i.data.length, 0)}` : ""}`);
   vscode.postMessage(msg);
 
   promptInput.value = "";

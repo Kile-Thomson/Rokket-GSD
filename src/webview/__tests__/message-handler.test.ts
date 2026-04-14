@@ -316,6 +316,34 @@ describe("message-handler", () => {
       expect(state.sessionStats.tokens?.input).toBe(25000);
       expect(state.sessionStats.cost).toBe(0.12);
     });
+
+    it("computes contextPercent from per-turn deltas", () => {
+      state.sessionStats.contextWindow = 200_000;
+      // First cost_update — turn deltas = full cumulative (prev was 0)
+      sendMessage({
+        type: "cost_update",
+        cumulativeCost: 0.05,
+        tokens: { input: 30000, output: 1000, cacheRead: 10000, cacheWrite: 5000 },
+      });
+      // turnContextTokens = 30000 + 10000 + 5000 = 45000
+      // contextPercent = 45000 / 200000 * 100 = 22.5
+      expect(state.sessionStats.contextPercent).toBe(22.5);
+      expect(state.sessionStats.contextTokens).toBe(45000);
+
+      // Second cost_update — cumulative grows, but context % uses deltas
+      sendMessage({
+        type: "cost_update",
+        cumulativeCost: 0.10,
+        tokens: { input: 95000, output: 3000, cacheRead: 50000, cacheWrite: 10000 },
+      });
+      // turnInput = 95000 - 30000 = 65000
+      // turnCacheRead = 50000 - 10000 = 40000
+      // turnCacheWrite = 10000 - 5000 = 5000
+      // turnContextTokens = 65000 + 40000 + 5000 = 110000
+      // contextPercent = 110000 / 200000 * 100 = 55
+      expect(state.sessionStats.contextPercent).toBeCloseTo(55, 5);
+      expect(state.sessionStats.contextTokens).toBe(110000);
+    });
   });
 
   // ============================================================
@@ -1176,7 +1204,7 @@ describe("message-handler", () => {
       expect(state.sessionStats.cost).toBe(0.005);
     });
 
-    it("computes contextPercent from usage tokens", () => {
+    it("computes contextPercent from usage tokens when cost_update is absent", () => {
       state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
       sendMessage({
@@ -1189,6 +1217,30 @@ describe("message-handler", () => {
       // contextTokens = input + cacheRead + cacheWrite = 50000
       // contextPercent = 50000 / 100000 * 100 = 50
       expect(state.sessionStats.contextPercent).toBe(50);
+    });
+
+    it("does NOT compute contextPercent from message_end when cost_update is active", () => {
+      state.sessionStats.contextWindow = 100_000;
+      // Activate cost_update source first
+      sendMessage({
+        type: "cost_update",
+        cumulativeCost: 0.01,
+        tokens: { input: 5000, output: 500, cacheRead: 2000, cacheWrite: 1000 },
+      });
+      // cost_update sets context % from per-turn deltas: (5000+2000+1000)/100000 = 8%
+      expect(state.sessionStats.contextPercent).toBe(8);
+
+      // Now send message_end with much larger cumulative values — should NOT override
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 500000, output: 50000, cacheRead: 200000, cacheWrite: 100000 },
+        },
+      });
+      // contextPercent should still be 8% from cost_update, not 800% from message_end
+      expect(state.sessionStats.contextPercent).toBe(8);
     });
 
     it("handles message_end with stopReason:error without crashing", () => {
