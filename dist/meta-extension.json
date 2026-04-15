@@ -245,32 +245,6 @@
       ],
       "format": "esm"
     },
-    "src/extension/command-fallback.ts": {
-      "bytes": 25599,
-      "imports": [
-        {
-          "path": "vscode",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "src/shared/constants.ts",
-          "kind": "import-statement",
-          "original": "../shared/constants"
-        }
-      ],
-      "format": "esm"
-    },
     "src/extension/file-ops.ts": {
       "bytes": 13596,
       "imports": [
@@ -424,8 +398,8 @@
       ],
       "format": "esm"
     },
-    "src/extension/message-dispatch.ts": {
-      "bytes": 21962,
+    "src/extension/command-fallback.ts": {
+      "bytes": 25599,
       "imports": [
         {
           "path": "vscode",
@@ -433,14 +407,66 @@
           "external": true
         },
         {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/handlers/prompt-handlers.ts": {
+      "bytes": 10790,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
           "path": "src/extension/watchdogs.ts",
           "kind": "import-statement",
-          "original": "./watchdogs"
+          "original": "../watchdogs"
         },
         {
           "path": "src/extension/command-fallback.ts",
           "kind": "import-statement",
-          "original": "./command-fallback"
+          "original": "../command-fallback"
+        },
+        {
+          "path": "src/extension/handlers/dispatch-utils.ts",
+          "kind": "import-statement",
+          "original": "./dispatch-utils"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/message-dispatch.ts": {
+      "bytes": 8120,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
         },
         {
           "path": "src/extension/file-ops.ts",
@@ -458,11 +484,6 @@
           "original": "./handlers/query-handlers"
         },
         {
-          "path": "src/extension/handlers/dispatch-utils.ts",
-          "kind": "import-statement",
-          "original": "./handlers/dispatch-utils"
-        },
-        {
           "path": "src/extension/handlers/process-handlers.ts",
           "kind": "import-statement",
           "original": "./handlers/process-handlers"
@@ -473,14 +494,9 @@
           "original": "./handlers/session-handlers"
         },
         {
-          "path": "node:fs",
+          "path": "src/extension/handlers/prompt-handlers.ts",
           "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:path",
-          "kind": "import-statement",
-          "external": true
+          "original": "./handlers/prompt-handlers"
         }
       ],
       "format": "esm"
@@ -686,7 +702,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 415257
+      "bytes": 412370
     },
     "dist/extension.js": {
       "imports": [
@@ -866,21 +882,6 @@
           "external": true
         },
         {
-          "path": "fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "vscode",
-          "kind": "require-call",
-          "external": true
-        },
-        {
           "path": "vscode",
           "kind": "require-call",
           "external": true
@@ -907,6 +908,21 @@
         },
         {
           "path": "node:path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
           "kind": "require-call",
           "external": true
         },
@@ -998,9 +1014,6 @@
         "src/extension/rpc-events.ts": {
           "bytesInOutput": 4795
         },
-        "src/extension/command-fallback.ts": {
-          "bytesInOutput": 15871
-        },
         "src/extension/file-ops.ts": {
           "bytesInOutput": 6000
         },
@@ -1025,8 +1038,14 @@
         "src/extension/session-list-service.ts": {
           "bytesInOutput": 2191
         },
+        "src/extension/handlers/prompt-handlers.ts": {
+          "bytesInOutput": 5146
+        },
+        "src/extension/command-fallback.ts": {
+          "bytesInOutput": 15871
+        },
         "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 7493
+          "bytesInOutput": 2532
         },
         "src/extension/polling.ts": {
           "bytesInOutput": 1769
@@ -1038,7 +1057,7 @@
           "bytesInOutput": 4420
         }
       },
-      "bytes": 103803
+      "bytes": 103988
     }
   }
 }

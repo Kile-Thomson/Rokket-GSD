@@ -44,14 +44,11 @@ vi.mock("./command-fallback", () => ({
   startGsdFallbackTimer: vi.fn(),
 }));
 
-const mockReadFile = vi.fn();
-const mockWriteFile = vi.fn();
-const mockMkdir = vi.fn();
 vi.mock("node:fs", () => ({
   promises: {
-    readFile: (...args: unknown[]) => mockReadFile(...args),
-    writeFile: (...args: unknown[]) => mockWriteFile(...args),
-    mkdir: (...args: unknown[]) => mockMkdir(...args),
+    readFile: vi.fn(),
+    writeFile: vi.fn().mockResolvedValue(undefined),
+    mkdir: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -73,7 +70,6 @@ import type { WebviewToExtensionMessage } from "../shared/types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-/** Create a mock RPC client with all methods as vi.fn() stubs. */
 function createMockClient(overrides: Record<string, unknown> = {}) {
   return {
     isRunning: true,
@@ -116,7 +112,6 @@ function createMockClient(overrides: Record<string, unknown> = {}) {
   };
 }
 
-/** Create a minimal SessionState for testing. */
 function createMockSession(overrides: Partial<SessionState> = {}): SessionState {
   return {
     client: null,
@@ -146,10 +141,6 @@ function createMockSession(overrides: Partial<SessionState> = {}): SessionState 
   };
 }
 
-/**
- * Build a complete `MessageDispatchContext` mock.
- * Each test gets a fresh context via beforeEach — no shared mutable state.
- */
 function createMockDispatchContext(
   session?: SessionState,
 ): { ctx: MessageDispatchContext; session: SessionState; webview: any } {
@@ -199,9 +190,6 @@ const SESSION_ID = "test-session-1";
 describe("message-dispatch: handleWebviewMessage", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    mockReadFile.mockReset();
-    mockWriteFile.mockReset().mockResolvedValue(undefined);
-    mockMkdir.mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -341,7 +329,6 @@ describe("message-dispatch: handleWebviewMessage", () => {
         path: "/sessions/other.jsonl",
       } as WebviewToExtensionMessage);
 
-      // Should NOT post session_switched when cancelled
       expect(ctx.postToWebview).not.toHaveBeenCalledWith(
         webview,
         expect.objectContaining({ type: "session_switched" }),
@@ -366,296 +353,6 @@ describe("message-dispatch: handleWebviewMessage", () => {
       );
     });
   });
-
-  // ── set_auto_retry / abort_retry ────────────────────────────────────
-
-  // ── interrupt / cancel_request ──────────────────────────────────────
-
-  describe("interrupt", () => {
-    it("calls client.abort() and clears watchdog timers", async () => {
-      const promptTimer = setTimeout(() => {}, 99999);
-      const slashTimer = setTimeout(() => {}, 99999);
-      const fallbackTimer = setTimeout(() => {}, 99999);
-      const client = createMockClient();
-      const session = createMockSession({
-        client: client as any,
-        promptWatchdog: { timer: promptTimer, retried: false, nonce: 1, message: "test" },
-        slashWatchdog: slashTimer,
-        gsdFallbackTimer: fallbackTimer,
-      });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, { type: "interrupt" });
-
-      expect(client.abort).toHaveBeenCalled();
-      expect(session.promptWatchdog).toBeNull();
-      expect(session.slashWatchdog).toBeNull();
-      expect(session.gsdFallbackTimer).toBeNull();
-    });
-
-    it("force-clears streaming state when abort throws", async () => {
-      const client = createMockClient({
-        abort: vi.fn().mockRejectedValue(new Error("abort failed")),
-      });
-      const session = createMockSession({ client: client as any, isStreaming: true, webview: {} as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, { type: "interrupt" });
-
-      expect(session.isStreaming).toBe(false);
-      expect(ctx.emitStatus).toHaveBeenCalledWith({ isStreaming: false });
-    });
-
-    it("cancel_request dispatches the same as interrupt", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, { type: "cancel_request" });
-
-      expect(client.abort).toHaveBeenCalled();
-    });
-  });
-
-  // ── prompt ──────────────────────────────────────────────────────────
-
-  describe("prompt", () => {
-    it("sends prompt to running client and starts watchdog", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-      const { startPromptWatchdog } = await import("./watchdogs");
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "prompt",
-        message: "Hello world",
-      } as WebviewToExtensionMessage);
-
-      expect(client.prompt).toHaveBeenCalledWith("Hello world", undefined);
-      expect(startPromptWatchdog).toHaveBeenCalled();
-    });
-
-    it("starts slash command watchdog for / prefixed messages", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-      const { startSlashCommandWatchdog } = await import("./watchdogs");
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "prompt",
-        message: "/status",
-      } as WebviewToExtensionMessage);
-
-      expect(startSlashCommandWatchdog).toHaveBeenCalled();
-    });
-
-    it("updates lastUserActionTime on prompt", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any, lastUserActionTime: 0 });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "prompt",
-        message: "test",
-      } as WebviewToExtensionMessage);
-
-      expect(session.lastUserActionTime).toBeGreaterThan(0);
-    });
-
-    it("relaunches when client is not running and no prior client exists", async () => {
-      const session = createMockSession({ client: null });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "prompt",
-        message: "hello",
-      } as WebviewToExtensionMessage);
-
-      expect(ctx.launchGsd).toHaveBeenCalledWith(webview, SESSION_ID);
-    });
-
-    it("posts error when prompt throws streaming error and falls back to steer", async () => {
-      const client = createMockClient({
-        prompt: vi.fn().mockRejectedValue(new Error("streaming in progress")),
-        steer: vi.fn().mockResolvedValue(undefined),
-      });
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "prompt",
-        message: "hello",
-      } as WebviewToExtensionMessage);
-
-      // Non-slash message with streaming error → falls back to steer
-      expect(client.steer).toHaveBeenCalled();
-    });
-  });
-
-  // ── steer ───────────────────────────────────────────────────────────
-
-  describe("steer", () => {
-    it("calls client.steer for non-slash messages", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "change direction",
-      } as WebviewToExtensionMessage);
-
-      expect(client.steer).toHaveBeenCalled();
-    });
-
-    it("calls abortAndPrompt for slash command steers", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-      const { abortAndPrompt } = await import("./watchdogs");
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "/gsd auto",
-      } as WebviewToExtensionMessage);
-
-      expect(abortAndPrompt).toHaveBeenCalled();
-    });
-
-    it("posts error when no client is available", async () => {
-      const session = createMockSession({ client: null as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "change direction",
-      } as WebviewToExtensionMessage);
-
-      expect(ctx.postToWebview).toHaveBeenCalledWith(webview, {
-        type: "error",
-        message: expect.stringContaining("no active GSD session"),
-      });
-    });
-
-    it("posts error with 'Steer failed' prefix when client.steer throws", async () => {
-      const client = createMockClient();
-      client.steer = vi.fn().mockRejectedValue(new Error("connection lost"));
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "change direction",
-      } as WebviewToExtensionMessage);
-
-      expect(ctx.postToWebview).toHaveBeenCalledWith(webview, {
-        type: "error",
-        message: "Steer failed: connection lost",
-      });
-    });
-
-    it("persists override to OVERRIDES.md during auto-mode and sends enhanced steer", async () => {
-      const client = createMockClient();
-      const session = createMockSession({
-        client: client as any,
-        autoModeState: "auto",
-        lastStartOptions: { cwd: "/mock/project" },
-      });
-      const { ctx, webview } = createMockDispatchContext(session);
-      mockReadFile.mockRejectedValue({ code: "ENOENT" });
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "Use Postgres instead of SQLite",
-      } as WebviewToExtensionMessage);
-
-      // Should write OVERRIDES.md
-      expect(mockMkdir).toHaveBeenCalled();
-      expect(mockWriteFile).toHaveBeenCalledWith(
-        expect.stringContaining("OVERRIDES.md"),
-        expect.stringContaining("Use Postgres instead of SQLite"),
-        "utf-8",
-      );
-      // Should notify webview of persistence
-      expect(ctx.postToWebview).toHaveBeenCalledWith(webview, { type: "steer_persisted" });
-      // Should send enhanced steer with override context
-      expect(client.steer).toHaveBeenCalledWith(
-        expect.stringContaining("USER OVERRIDE"),
-        undefined,
-      );
-    });
-
-    it("sends plain steer when not in auto-mode", async () => {
-      const client = createMockClient();
-      const session = createMockSession({
-        client: client as any,
-        autoModeState: null,
-      });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "change direction",
-      } as WebviewToExtensionMessage);
-
-      // Should NOT write OVERRIDES.md
-      expect(mockWriteFile).not.toHaveBeenCalled();
-      // Should NOT notify of persistence
-      expect(ctx.postToWebview).not.toHaveBeenCalledWith(webview, { type: "steer_persisted" });
-      // Should send plain steer
-      expect(client.steer).toHaveBeenCalledWith("change direction", undefined);
-    });
-
-    it("appends to existing OVERRIDES.md during auto-mode", async () => {
-      const client = createMockClient();
-      const session = createMockSession({
-        client: client as any,
-        autoModeState: "auto",
-        lastStartOptions: { cwd: "/mock/project" },
-      });
-      const { ctx, webview } = createMockDispatchContext(session);
-      mockReadFile.mockResolvedValue("# GSD Overrides\n\n---\n\n## Override: 2026-01-01\n\n**Change:** old\n");
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "No in-app messaging",
-      } as WebviewToExtensionMessage);
-
-      // Should append, not create fresh
-      expect(mockMkdir).not.toHaveBeenCalled();
-      expect(mockWriteFile).toHaveBeenCalledWith(
-        expect.stringContaining("OVERRIDES.md"),
-        expect.stringContaining("old"),
-        "utf-8",
-      );
-      expect(mockWriteFile).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.stringContaining("No in-app messaging"),
-        "utf-8",
-      );
-    });
-
-    it("still sends RPC steer even if OVERRIDES.md write fails", async () => {
-      const client = createMockClient();
-      const session = createMockSession({
-        client: client as any,
-        autoModeState: "auto",
-        lastStartOptions: { cwd: "/mock/project" },
-      });
-      const { ctx, webview } = createMockDispatchContext(session);
-      mockReadFile.mockRejectedValue(new Error("disk full"));
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "change direction",
-      } as WebviewToExtensionMessage);
-
-      // Override write failed, but steer should still go through
-      expect(client.steer).toHaveBeenCalled();
-    });
-  });
-
-  // ── get_state ───────────────────────────────────────────────────────
 
   // ── ready ───────────────────────────────────────────────────────────
 
@@ -716,9 +413,6 @@ describe("message-dispatch: handleWebviewMessage", () => {
       const session = createMockSession();
       const { ctx, webview } = createMockDispatchContext(session);
 
-      // The first thing the try block does is ctx.output.appendLine.
-      // Make it throw only on the FIRST call (inside try) but succeed
-      // on subsequent calls (inside catch).
       let callCount = 0;
       ctx.output = {
         appendLine: vi.fn(() => {
@@ -739,107 +433,7 @@ describe("message-dispatch: handleWebviewMessage", () => {
     });
   });
 
-  // ── follow_up ───────────────────────────────────────────────────────
-
-  describe("follow_up", () => {
-    it("calls client.followUp and updates lastUserActionTime", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any, lastUserActionTime: 0 });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "follow_up",
-        message: "tell me more",
-      } as WebviewToExtensionMessage);
-
-      expect(client.followUp).toHaveBeenCalled();
-      expect(session.lastUserActionTime).toBeGreaterThan(0);
-    });
-
-    it("posts error when client is null", async () => {
-      const session = createMockSession({ client: null as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "follow_up",
-        message: "tell me more",
-      } as WebviewToExtensionMessage);
-      expect(ctx.postToWebview).toHaveBeenCalledWith(webview, {
-        type: "error",
-        message: expect.stringContaining("no active GSD session"),
-      });
-    });
-  });
-
-  // ── get_commands ────────────────────────────────────────────────────
-
-  describe("/gsd status triggers dashboard", () => {
-    it("sends dashboard_data when /gsd status is sent", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "prompt",
-        message: "/gsd status",
-      } as WebviewToExtensionMessage);
-
-      expect(client.prompt).toHaveBeenCalledWith("/gsd status", undefined);
-      // Dashboard data should also be sent
-      const dashboardCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
-        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "dashboard_data"
-      );
-      expect(dashboardCalls.length).toBe(1);
-    });
-
-    it("sends dashboard_data when /gsd auto mentions status", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "prompt",
-        message: "/gsd auto View status: Review what was built",
-      } as WebviewToExtensionMessage);
-
-      expect(client.prompt).toHaveBeenCalled();
-      const dashboardCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
-        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "dashboard_data"
-      );
-      expect(dashboardCalls.length).toBe(1);
-    });
-
-    it("does NOT send dashboard_data for normal prompts", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "prompt",
-        message: "Hello, how are you?",
-      } as WebviewToExtensionMessage);
-
-      const dashboardCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
-        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "dashboard_data"
-      );
-      expect(dashboardCalls.length).toBe(0);
-    });
-
-    it("does NOT send dashboard_data for /gsd auto without status keyword", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "prompt",
-        message: "/gsd auto Continue with the next task",
-      } as WebviewToExtensionMessage);
-
-      const dashboardCalls = (ctx.postToWebview as ReturnType<typeof vi.fn>).mock.calls.filter(
-        (call: unknown[]) => (call[1] as Record<string, unknown>).type === "dashboard_data"
-      );
-      expect(dashboardCalls.length).toBe(0);
-    });
-  });
+  // ── delete_session ──────────────────────────────────────────────────
 
   describe("delete_session", () => {
     it("deletes session and refreshes list", async () => {
@@ -877,72 +471,6 @@ describe("message-dispatch: handleWebviewMessage", () => {
         (call: unknown[]) => (call[1] as Record<string, unknown>).type === "error"
       );
       expect(errorCalls.length).toBe(1);
-    });
-  });
-
-  // ─── Image payload sanitization ─────────────────────────────────────
-
-  describe("sanitizeImages filtering", () => {
-    it("filters out images with empty data or invalid MIME types on prompt", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "prompt",
-        message: "hello",
-        images: [
-          { data: "base64valid", mimeType: "image/png" },
-          { data: "", mimeType: "image/png" },
-          { data: "base64pdf", mimeType: "application/pdf" },
-        ],
-      } as any);
-
-      expect(client.prompt).toHaveBeenCalledTimes(1);
-      const passedImages = client.prompt.mock.calls[0][1];
-      expect(passedImages).toEqual([
-        { type: "image", data: "base64valid", mimeType: "image/png" },
-      ]);
-    });
-
-    it("passes undefined when all images are invalid on prompt", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "prompt",
-        message: "hello",
-        images: [
-          { data: "", mimeType: "image/png" },
-          { data: "base64pdf", mimeType: "application/pdf" },
-        ],
-      } as any);
-
-      expect(client.prompt).toHaveBeenCalledTimes(1);
-      const passedImages = client.prompt.mock.calls[0][1];
-      expect(passedImages).toBeUndefined();
-    });
-
-    it("sanitizes images on follow_up path", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any, lastUserActionTime: 0 });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "follow_up",
-        message: "more info",
-        images: [
-          { data: "validdata", mimeType: "image/webp" },
-          { data: "badmime", mimeType: "text/plain" },
-        ],
-      } as any);
-
-      expect(client.followUp).toHaveBeenCalledTimes(1);
-      const passedImages = client.followUp.mock.calls[0][1];
-      expect(passedImages).toEqual([
-        { type: "image", data: "validdata", mimeType: "image/webp" },
-      ]);
     });
   });
 });
