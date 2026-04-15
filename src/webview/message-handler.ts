@@ -15,6 +15,14 @@ import {
 } from "./helpers";
 import { registerCleanup } from "./dispose";
 import {
+  BATCH_FINALIZE_DELAY_MS,
+  TOAST_SHORT_DURATION_MS,
+  TOAST_MEDIUM_DURATION_MS,
+  TOAST_LONG_DURATION_MS,
+  NOTE_AUTO_DISMISS_MS,
+  CSS_ANIMATION_SETTLE_MS,
+} from "../shared/constants";
+import {
   state,
   nextId,
   pruneOldEntries,
@@ -183,7 +191,7 @@ function renderToolEnd(data: Record<string, any>): void {
         batchFinalizeTimer = null;
         // Clear batch tracking so subsequent sequential tools don't get pulled in
         activeBatchToolIds = null;
-      }, 800);
+      }, BATCH_FINALIZE_DELAY_MS);
     }
     renderer.updateParallelBatchStatus();
   }
@@ -449,7 +457,7 @@ export function handleMessage(event: MessageEvent): void {
       handleModelRouted(msg.oldModel, msg.newModel);
       const oldName = msg.oldModel?.id || "unknown";
       const newName = msg.newModel?.id || "unknown";
-      toasts.show(`Model routed: ${oldName} → ${newName}`, 3000);
+      toasts.show(`Model routed: ${oldName} → ${newName}`, TOAST_SHORT_DURATION_MS);
       break;
     }
 
@@ -1195,7 +1203,7 @@ export function handleMessage(event: MessageEvent): void {
       const from = data.from || "unknown";
       const to = data.to || "unknown";
       const reason = data.reason || "rate limit";
-      toasts.show(`⚠ Model switched: ${from} → ${to} (${reason})`, 5000);
+      toasts.show(`⚠ Model switched: ${from} → ${to} (${reason})`, TOAST_LONG_DURATION_MS);
       // Update model display if we can parse provider/id from the "to" field
       const parts = to.split("/");
       if (parts.length >= 2) {
@@ -1215,7 +1223,7 @@ export function handleMessage(event: MessageEvent): void {
       const data = msg as any;
       const model = data.model;
       if (model) {
-        toasts.show(`✓ Original provider restored: ${model.provider}/${model.id}`, 4000);
+        toasts.show(`✓ Original provider restored: ${model.provider}/${model.id}`, TOAST_MEDIUM_DURATION_MS);
         state.model = {
           id: model.id,
           name: model.name || model.id,
@@ -1224,7 +1232,7 @@ export function handleMessage(event: MessageEvent): void {
         };
         updateHeaderUI();
       } else {
-        toasts.show("✓ Original provider restored", 4000);
+        toasts.show("✓ Original provider restored", TOAST_MEDIUM_DURATION_MS);
       }
       break;
     }
@@ -1233,7 +1241,7 @@ export function handleMessage(event: MessageEvent): void {
       const data = msg as any;
       const lastError = data.lastError || "All providers failed";
       addSystemEntry(`All fallback providers exhausted: ${lastError}. Check your API keys or try again later.`, "error");
-      toasts.show("⚠ All model providers failed", 5000);
+      toasts.show("⚠ All model providers failed", TOAST_LONG_DURATION_MS);
       break;
     }
 
@@ -1271,7 +1279,7 @@ export function handleMessage(event: MessageEvent): void {
       const note = document.querySelector(".gsd-steer-note");
       if (note) {
         note.textContent = "⚡ Override saved — applies to current and future tasks";
-        setTimeout(() => note.isConnected && note.remove(), 4000);
+        setTimeout(() => note.isConnected && note.remove(), NOTE_AUTO_DISMISS_MS);
       }
       break;
     }
@@ -1441,7 +1449,7 @@ export function handleMessage(event: MessageEvent): void {
           const parts = r.path.replace(/\\/g, "/").split("/");
           return parts[parts.length - 1] || r.path;
         });
-        toasts.show(`⚠ No read access: ${names.join(", ")}`, 4000);
+        toasts.show(`⚠ No read access: ${names.join(", ")}`, TOAST_MEDIUM_DURATION_MS);
       }
       break;
     }
@@ -1781,7 +1789,7 @@ function showUpdateCard(
   card.querySelector('[data-action="dismiss"]')?.addEventListener("click", () => {
     vscode.postMessage({ type: "update_dismiss", version } as WebviewToExtensionMessage);
     card.classList.add("dismissing");
-    setTimeout(() => card.remove(), 300);
+    setTimeout(() => card.remove(), CSS_ANIMATION_SETTLE_MS);
   });
 
   // Insert at the top of the messages area, after any welcome screen
@@ -1812,7 +1820,7 @@ function showWhatsNew(version: string, notes: string): void {
 
   card.querySelector(".gsd-whats-new-close")?.addEventListener("click", () => {
     card.classList.add("dismissing");
-    setTimeout(() => card.remove(), 300);
+    setTimeout(() => card.remove(), CSS_ANIMATION_SETTLE_MS);
   });
 
   messagesContainer.insertBefore(card, messagesContainer.firstChild?.nextSibling || null);
@@ -1863,7 +1871,7 @@ function showChangelog(entries: Array<{ version: string; notes: string; date: st
       card.removeEventListener("keydown", navHandler);
       setChangelogHandlers(null, null);
       card.classList.add("dismissing");
-      setTimeout(() => card.remove(), 300);
+      setTimeout(() => card.remove(), CSS_ANIMATION_SETTLE_MS);
       restoreFocus(getChangelogTriggerEl());
     }
   };
@@ -1878,7 +1886,7 @@ function showChangelog(entries: Array<{ version: string; notes: string; date: st
     card.removeEventListener("keydown", navHandler);
     setChangelogHandlers(null, null);
     card.classList.add("dismissing");
-    setTimeout(() => card.remove(), 300);
+    setTimeout(() => card.remove(), CSS_ANIMATION_SETTLE_MS);
     restoreFocus(getChangelogTriggerEl());
   });
 

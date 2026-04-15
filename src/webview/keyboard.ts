@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { WebviewToExtensionMessage } from "../shared/types";
+import { CSS_ANIMATION_SETTLE_MS, COPY_BUTTON_RESET_MS } from "../shared/constants";
 import { scrollToBottom, sanitizeUrl } from "./helpers";
 import { state } from "./state";
 import { createFocusTrap, saveFocus, restoreFocus } from "./a11y";
@@ -81,7 +82,7 @@ export function dismissChangelog(opts?: { silent?: boolean }): void {
     el.remove();
   } else {
     el.classList.add("dismissing");
-    setTimeout(() => el.remove(), 300);
+    setTimeout(() => el.remove(), CSS_ANIMATION_SETTLE_MS);
     restoreFocus(changelogTriggerEl);
     changelogTriggerEl = null;
   }
@@ -300,7 +301,7 @@ function setupClickHandlers(): void {
       const code = codeBlock?.querySelector("code")?.textContent || "";
       vscode.postMessage({ type: "copy_text", text: code });
       copyBtn.textContent = "✓ Copied";
-      setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
+      setTimeout(() => { copyBtn.textContent = "Copy"; }, COPY_BUTTON_RESET_MS);
       return;
     }
 

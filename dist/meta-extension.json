@@ -1,7 +1,7 @@
 {
   "inputs": {
     "src/shared/constants.ts": {
-      "bytes": 2360,
+      "bytes": 2756,
       "imports": [],
       "format": "esm"
     },

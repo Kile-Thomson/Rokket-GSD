@@ -7,6 +7,17 @@ import DOMPurify from "dompurify";
 import type { SessionStats } from "../shared/types";
 import type { AppState, ToolCategory, ToolCallState } from "./state";
 import { registerCleanup } from "./dispose";
+import {
+  TASK_PREVIEW_MAX_CHARS,
+  TOKEN_THRESHOLD_K,
+  TOKEN_THRESHOLD_10K,
+  TOKEN_THRESHOLD_M,
+  TOKEN_THRESHOLD_10M,
+  RELATIVE_TIME_5S_MS,
+  RELATIVE_TIME_1M_MS,
+  RELATIVE_TIME_1H_MS,
+  RELATIVE_TIME_1D_MS,
+} from "../shared/constants";
 
 // ============================================================
 // URL safety
@@ -95,11 +106,11 @@ export function formatCost(cost: number | undefined): string {
 
 /** Format a token count with SI suffixes: `1234` → `"1.2k"`, `1500000` → `"1.5M"`. */
 export function formatTokens(count: number): string {
-  if (count < 1000) return count.toString();
-  if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
-  if (count < 1000000) return `${Math.round(count / 1000)}k`;
-  if (count < 10000000) return `${(count / 1000000).toFixed(1)}M`;
-  return `${Math.round(count / 1000000)}M`;
+  if (count < TOKEN_THRESHOLD_K) return count.toString();
+  if (count < TOKEN_THRESHOLD_10K) return `${(count / TOKEN_THRESHOLD_K).toFixed(1)}k`;
+  if (count < TOKEN_THRESHOLD_M) return `${Math.round(count / TOKEN_THRESHOLD_K)}k`;
+  if (count < TOKEN_THRESHOLD_10M) return `${(count / TOKEN_THRESHOLD_M).toFixed(1)}M`;
+  return `${Math.round(count / TOKEN_THRESHOLD_M)}M`;
 }
 
 /** Format context window usage as a percentage/window string (e.g. `"42.1%/200k (auto)"`). */
@@ -324,10 +335,10 @@ export function formatToolResult(toolName: string, resultText: string, args: Rec
 // ============================================================
 
 function formatTokenCount(count: number): string {
-  if (count < 1000) return count.toString();
-  if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
-  if (count < 1000000) return `${Math.round(count / 1000)}k`;
-  return `${(count / 1000000).toFixed(1)}M`;
+  if (count < TOKEN_THRESHOLD_K) return count.toString();
+  if (count < TOKEN_THRESHOLD_10K) return `${(count / TOKEN_THRESHOLD_K).toFixed(1)}k`;
+  if (count < TOKEN_THRESHOLD_M) return `${Math.round(count / TOKEN_THRESHOLD_K)}k`;
+  return `${(count / TOKEN_THRESHOLD_M).toFixed(1)}M`;
 }
 
 export function buildUsagePills(usage: any, model?: string): string {
@@ -357,7 +368,7 @@ function buildAgentCard(r: any, _isRunning: boolean): string {
       : `<span class="gsd-agent-icon done">✓</span>`;
 
   const taskPreview = r.task
-    ? (r.task.length > 120 ? r.task.slice(0, 120) + "…" : r.task)
+    ? (r.task.length > TASK_PREVIEW_MAX_CHARS ? r.task.slice(0, TASK_PREVIEW_MAX_CHARS) + "…" : r.task)
     : "";
 
   const parts: string[] = [];
@@ -550,10 +561,10 @@ export function isLikelyFilePath(s: string): boolean {
 /** Format a Unix timestamp as a relative time string (e.g. `"5s ago"`, `"3m ago"`, `"2h ago"`). */
 export function formatRelativeTime(ts: number): string {
   const diff = Date.now() - ts;
-  if (diff < 5000) return "just now";
-  if (diff < 60_000) return `${Math.floor(diff / 1000)}s ago`;
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  if (diff < RELATIVE_TIME_5S_MS) return "just now";
+  if (diff < RELATIVE_TIME_1M_MS) return `${Math.floor(diff / 1000)}s ago`;
+  if (diff < RELATIVE_TIME_1H_MS) return `${Math.floor(diff / RELATIVE_TIME_1M_MS)}m ago`;
+  if (diff < RELATIVE_TIME_1D_MS) return `${Math.floor(diff / RELATIVE_TIME_1H_MS)}h ago`;
   return new Date(ts).toLocaleDateString();
 }
 

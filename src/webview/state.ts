@@ -12,6 +12,7 @@ import type {
   AutoProgressData,
   ThinkingLevel,
 } from "../shared/types";
+import { MAX_ENTRIES as MAX_ENTRIES_CONST } from "../shared/constants";
 
 // ============================================================
 // Types
@@ -125,7 +126,7 @@ export type ToolCategory = "file" | "shell" | "browser" | "search" | "agent" | "
 // Entry cap — maximum number of entries kept in state/DOM
 // ============================================================
 
-export const MAX_ENTRIES = 300;
+export const MAX_ENTRIES = MAX_ENTRIES_CONST;
 
 /** Running total of entries pruned during this session (for the indicator) */
 let totalPrunedCount = 0;

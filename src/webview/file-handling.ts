@@ -5,6 +5,7 @@
 import { escapeHtml } from "./helpers";
 import { state } from "./state";
 import { persistAttachments } from "./persist-attachments";
+import { MAX_IMAGE_DIMENSION } from "../shared/constants";
 
 // ============================================================
 // Dependencies — set via init()
@@ -95,8 +96,6 @@ export function init(deps: FileHandlingDeps): void {
 // ============================================================
 // Image resizing — Anthropic API rejects images > 2000px
 // ============================================================
-
-const MAX_IMAGE_DIMENSION = 1568; // Anthropic recommended max for best quality/token balance
 
 /**
  * Downscale an image if either dimension exceeds MAX_IMAGE_DIMENSION.

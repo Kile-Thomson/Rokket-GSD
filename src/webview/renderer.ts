@@ -38,6 +38,12 @@ import {
   collapseToolIntoGroup,
 } from "./tool-grouping";
 import { registerCleanup } from "./dispose";
+import {
+  MAX_OUTPUT_LEN,
+  SHORT_TEXT_THRESHOLD,
+  TURN_COALESCE_WINDOW_MS,
+  PARALLEL_TIME_SAVED_THRESHOLD_MS,
+} from "../shared/constants";
 
 // ============================================================
 // Dependencies injected via init()
@@ -584,7 +590,7 @@ export function detectStaleEcho(turn: AssistantTurn): boolean {
     .map(s => s.chunks.join(""))
     .join("")
     .trim();
-  if (totalText.length > 200) return false;
+  if (totalText.length > SHORT_TEXT_THRESHOLD) return false;
 
   let lastAssistantIdx = -1;
   for (let i = state.entries.length - 1; i >= 0; i--) {
@@ -600,7 +606,7 @@ export function detectStaleEcho(turn: AssistantTurn): boolean {
   }
 
   const prevTimestamp = state.entries[lastAssistantIdx].timestamp;
-  if (turn.timestamp - prevTimestamp > 30000) return false;
+  if (turn.timestamp - prevTimestamp > TURN_COALESCE_WINDOW_MS) return false;
 
   return true;
 }
@@ -985,7 +991,7 @@ export function finalizeParallelBatch(turnUsage?: { input?: number; output?: num
       pills.push(`sequential: ${formatDuration(sequentialTotal)}`);
       pills.push(`parallel: ${formatDuration(actualParallelDuration)}`);
       const saved = sequentialTotal - actualParallelDuration;
-      if (saved > 500) {
+      if (saved > PARALLEL_TIME_SAVED_THRESHOLD_MS) {
         const pct = Math.round((saved / sequentialTotal) * 100);
         pills.push(`saved ${formatDuration(saved)} (${pct}%)`);
       }
@@ -1540,7 +1546,7 @@ function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void {
     }
   } else if (tc.resultText) {
     const formattedResult = formatToolResult(tc.name, tc.resultText, tc.args);
-    const maxOutputLen = 8000;
+    const maxOutputLen = MAX_OUTPUT_LEN;
     let displayText = formattedResult;
     let truncated = false;
     if (displayText.length > maxOutputLen) {
@@ -1740,7 +1746,7 @@ export function buildToolCallHtml(tc: ToolCallState): string {
     outputHtml = `<div class="gsd-tool-output gsd-tool-output-rich">${buildSubagentOutputHtml(tc)}</div>`;
   } else if (tc.resultText) {
     const formattedResult = formatToolResult(tc.name, tc.resultText, tc.args);
-    const maxOutputLen = 8000;
+    const maxOutputLen = MAX_OUTPUT_LEN;
     let displayText = formattedResult;
     let truncated = false;
     if (displayText.length > maxOutputLen) {

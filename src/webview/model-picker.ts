@@ -5,6 +5,7 @@
 import { state, type AvailableModel } from "./state";
 import { escapeHtml, escapeAttr, formatTokens } from "./helpers";
 import { createFocusTrap, saveFocus, restoreFocus } from "./a11y";
+import { DELAYED_STATE_REFRESH_MS } from "../shared/constants";
 
 // ============================================================
 // Module state
@@ -163,7 +164,7 @@ export function render(): void {
     }
     onUpdateHeaderUI();
     onUpdateFooterUI();
-    setTimeout(() => vscode.postMessage({ type: "get_state" }), 500);
+    setTimeout(() => vscode.postMessage({ type: "get_state" }), DELAYED_STATE_REFRESH_MS);
   }
 
   items.forEach((el) => {

@@ -1,4 +1,5 @@
-export const SEND_DEBOUNCE_MS = 300;
+import { SEND_DEBOUNCE_MS } from "../shared/constants";
+export { SEND_DEBOUNCE_MS };
 
 let lastSendTime = 0;
 

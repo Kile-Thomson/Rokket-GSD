@@ -48,6 +48,14 @@ export const PARALLEL_TIME_SAVED_THRESHOLD_MS = 500;
 export const STALE_ECHO_WINDOW_MS = 1_500;
 export const TASK_PREVIEW_MAX_CHARS = 120;
 export const MAX_IMAGE_DIMENSION = 1_568;
+export const TOKEN_THRESHOLD_K = 1_000;
+export const TOKEN_THRESHOLD_10K = 10_000;
+export const TOKEN_THRESHOLD_M = 1_000_000;
+export const TOKEN_THRESHOLD_10M = 10_000_000;
+export const RELATIVE_TIME_5S_MS = 5_000;
+export const RELATIVE_TIME_1M_MS = 60_000;
+export const RELATIVE_TIME_1H_MS = 3_600_000;
+export const RELATIVE_TIME_1D_MS = 86_400_000;
 
 // ── UI Animation & Toasts ──
 
@@ -59,6 +67,7 @@ export const TOAST_MEDIUM_DURATION_MS = 4_000;
 export const TOAST_LONG_DURATION_MS = 5_000;
 export const COPY_BUTTON_RESET_MS = 1_500;
 export const DELAYED_STATE_REFRESH_MS = 500;
+export const BATCH_FINALIZE_DELAY_MS = 800;
 export const SEND_DEBOUNCE_MS = 300;
 export const NOTE_AUTO_DISMISS_MS = 4_000;
 export const STALE_ECHO_DEBOUNCE_MS = 1_000;

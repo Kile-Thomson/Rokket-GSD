@@ -69,9 +69,20 @@
       "bytes": 14093,
       "imports": []
     },
-    "src/webview/state.ts": {
-      "bytes": 8191,
+    "src/shared/constants.ts": {
+      "bytes": 2756,
       "imports": [],
+      "format": "esm"
+    },
+    "src/webview/state.ts": {
+      "bytes": 8278,
+      "imports": [
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
+        }
+      ],
       "format": "esm"
     },
     "node_modules/marked/lib/marked.esm.js": {
@@ -90,7 +101,7 @@
       "format": "esm"
     },
     "src/webview/helpers.ts": {
-      "bytes": 30018,
+      "bytes": 30549,
       "imports": [
         {
           "path": "node_modules/marked/lib/marked.esm.js",
@@ -106,13 +117,24 @@
           "path": "src/webview/dispose.ts",
           "kind": "import-statement",
           "original": "./dispose"
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
         }
       ],
       "format": "esm"
     },
     "src/webview/send-debounce.ts": {
-      "bytes": 297,
-      "imports": [],
+      "bytes": 345,
+      "imports": [
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
+        }
+      ],
       "format": "esm"
     },
     "src/webview/persist-attachments.ts": {
@@ -148,7 +170,7 @@
       "format": "esm"
     },
     "src/webview/model-picker.ts": {
-      "bytes": 8499,
+      "bytes": 8585,
       "imports": [
         {
           "path": "src/webview/state.ts",
@@ -164,6 +186,11 @@
           "path": "src/webview/a11y.ts",
           "kind": "import-statement",
           "original": "./a11y"
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
         }
       ],
       "format": "esm"
@@ -227,8 +254,14 @@
       "format": "esm"
     },
     "src/webview/toasts.ts": {
-      "bytes": 910,
-      "imports": [],
+      "bytes": 1044,
+      "imports": [
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
+        }
+      ],
       "format": "esm"
     },
     "src/webview/tool-grouping.ts": {
@@ -243,7 +276,7 @@
       "format": "esm"
     },
     "src/webview/renderer.ts": {
-      "bytes": 77457,
+      "bytes": 77691,
       "imports": [
         {
           "path": "src/webview/state.ts",
@@ -264,6 +297,11 @@
           "path": "src/webview/dispose.ts",
           "kind": "import-statement",
           "original": "./dispose"
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
         }
       ],
       "format": "esm"
@@ -327,7 +365,7 @@
       "format": "esm"
     },
     "src/webview/file-handling.ts": {
-      "bytes": 11556,
+      "bytes": 11519,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -343,13 +381,23 @@
           "path": "src/webview/persist-attachments.ts",
           "kind": "import-statement",
           "original": "./persist-attachments"
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
         }
       ],
       "format": "esm"
     },
     "src/webview/keyboard.ts": {
-      "bytes": 18947,
+      "bytes": 19069,
       "imports": [
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
+        },
         {
           "path": "src/webview/helpers.ts",
           "kind": "import-statement",
@@ -404,7 +452,7 @@
       "format": "esm"
     },
     "src/webview/message-handler.ts": {
-      "bytes": 78519,
+      "bytes": 78956,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -415,6 +463,11 @@
           "path": "src/webview/dispose.ts",
           "kind": "import-statement",
           "original": "./dispose"
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
         },
         {
           "path": "src/webview/state.ts",
@@ -707,7 +760,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 884272
+      "bytes": 886024
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -767,7 +820,7 @@
           "bytesInOutput": 0
         },
         "src/webview/state.ts": {
-          "bytesInOutput": 1128
+          "bytesInOutput": 1135
         },
         "node_modules/marked/lib/marked.esm.js": {
           "bytesInOutput": 38670
@@ -824,7 +877,7 @@
           "bytesInOutput": 12166
         },
         "src/webview/file-handling.ts": {
-          "bytesInOutput": 5273
+          "bytesInOutput": 5269
         },
         "src/webview/keyboard.ts": {
           "bytesInOutput": 6685
@@ -839,7 +892,7 @@
           "bytesInOutput": 18800
         }
       },
-      "bytes": 234896
+      "bytes": 234899
     },
     "dist/webview/index.css.map": {
       "imports": [],
