@@ -487,8 +487,12 @@ export function updateToolSegmentElement(toolCallId: string, searchAllEntries: b
   // screen reader noise from wholesale DOM replacement.
   patchToolBlockElement(targetEl, tc);
 
-  // Attempt streaming collapse if tool just completed
-  if (!tc.isRunning && targetSegIdx !== null) {
+  // Attempt streaming collapse if tool just completed.
+  // Skip collapse when the tool is inside a parallel batch — the batch container
+  // handles visual grouping already. Collapsing inside a batch reparents elements
+  // into a .gsd-tool-group, reducing batch content children to 1 and breaking the
+  // batch header count (shows "1 tool" instead of e.g. "5 tools").
+  if (!tc.isRunning && targetSegIdx !== null && !targetEl.closest(".gsd-parallel-batch-content")) {
     if (tc.isSkipped) {
       tryStreamingSkippedCollapse(targetEl, targetSegIdx);
     } else {
@@ -1034,6 +1038,108 @@ export function getFinalizedBatchElement(): HTMLElement | null {
 export function clearActiveBatch(): void {
   activeBatchElement = null;
   finalizedBatchElement = null;
+}
+
+/**
+ * Idempotent reconciliation: ensure all tracked parallel tool segments are
+ * inside a single batch container. Creates the batch if needed, reparents
+ * stray segments that arrived after the initial batch creation.
+ *
+ * Safe to call from any event handler regardless of event ordering.
+ * This replaces the scattered create/expand/verify logic that was fragile
+ * to race conditions between streaming, message_end, and tool_execution_start.
+ */
+export function syncBatchState(trackedIds: Set<string>): void {
+  if (!currentTurnElement || trackedIds.size < 2) return;
+
+  // Collect all segment elements that exist in the DOM for tracked IDs
+  const readySegments: { id: string; el: HTMLElement }[] = [];
+  for (const toolId of trackedIds) {
+    const el = currentTurnElement.querySelector<HTMLElement>(
+      `.gsd-tool-segment[data-tool-id="${toolId}"]`,
+    );
+    if (el) readySegments.push({ id: toolId, el });
+  }
+
+  if (readySegments.length < 2) return; // Not enough segments yet
+
+  if (!activeBatchElement) {
+    // Reopen finalized batch only if its tools overlap the incoming set
+    const canReopen =
+      finalizedBatchElement &&
+      Array.from(
+        finalizedBatchElement.querySelectorAll<HTMLElement>(
+          ".gsd-tool-segment[data-tool-id]",
+        ),
+      ).some((el) => trackedIds.has(el.dataset.toolId!));
+
+    if (canReopen && finalizedBatchElement) {
+      activeBatchElement = finalizedBatchElement;
+      finalizedBatchElement = null;
+      activeBatchElement.classList.remove("done");
+      activeBatchElement.classList.add("running");
+      activeBatchElement.querySelector(".gsd-parallel-batch-footer")?.remove();
+      const elapsed = activeBatchElement.querySelector(".gsd-parallel-batch-elapsed");
+      if (elapsed) elapsed.textContent = "";
+      const icon = activeBatchElement.querySelector(".gsd-parallel-batch-header .gsd-tool-icon");
+      if (icon) {
+        const spinner = document.createElement("span");
+        spinner.className = "gsd-tool-spinner";
+        icon.replaceWith(spinner);
+      }
+      activeBatchElement.dataset.startTime = String(Date.now());
+    } else {
+      // Create new batch container
+      const batch = document.createElement("div");
+      batch.className = "gsd-parallel-batch running";
+      batch.dataset.batchSize = String(readySegments.length);
+
+      const header = document.createElement("div");
+      header.className = "gsd-parallel-batch-header";
+      header.innerHTML =
+        `<span class="gsd-tool-spinner"></span>` +
+        `<span class="gsd-parallel-batch-label">${readySegments.length} tools running in parallel</span>` +
+        `<span class="gsd-parallel-batch-elapsed elapsed-live"></span>`;
+
+      const content = document.createElement("div");
+      content.className = "gsd-parallel-batch-content";
+
+      batch.appendChild(header);
+      batch.appendChild(content);
+
+      // Insert batch before the first segment (in document order)
+      let firstEl: HTMLElement | null = null;
+      for (const { el } of readySegments) {
+        if (!firstEl || el.compareDocumentPosition(firstEl) & Node.DOCUMENT_POSITION_FOLLOWING) {
+          firstEl = el;
+        }
+      }
+      if (firstEl && firstEl.parentNode) {
+        firstEl.parentNode.insertBefore(batch, firstEl);
+      } else {
+        currentTurnElement.appendChild(batch);
+      }
+
+      activeBatchElement = batch;
+      batch.dataset.startTime = String(Date.now());
+    }
+  }
+
+  // Reparent any tracked segments not yet inside the batch content
+  const content = activeBatchElement.querySelector(".gsd-parallel-batch-content");
+  if (!content) return;
+
+  for (const { el } of readySegments) {
+    if (!content.contains(el)) {
+      content.appendChild(el);
+    }
+  }
+
+  // Update header label with actual count
+  const count = content.children.length;
+  activeBatchElement.dataset.batchSize = String(count);
+  const label = activeBatchElement.querySelector(".gsd-parallel-batch-label");
+  if (label) label.textContent = `${count} tools running in parallel`;
 }
 
 // ============================================================

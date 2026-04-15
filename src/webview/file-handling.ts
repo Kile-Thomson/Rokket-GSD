@@ -29,13 +29,17 @@ export function init(deps: FileHandlingDeps): void {
   // Paste handler
   document.addEventListener("paste", (e: ClipboardEvent) => {
     const items = e.clipboardData?.items;
+    console.debug("[gsd:paste] Paste event fired, items:", items?.length ?? "null",
+      "types:", e.clipboardData?.types?.join(", ") ?? "none");
     if (!items) return;
     let handled = false;
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
+      console.debug(`[gsd:paste] Item[${i}]: kind=${item.kind}, type=${item.type}`);
       if (item.kind === "file") {
         const file = item.getAsFile();
         if (file) {
+          console.debug(`[gsd:paste] File: name=${file.name}, type=${file.type}, size=${file.size}`);
           handleFiles([file]);
           handled = true;
         }
@@ -140,15 +144,22 @@ function resizeImageIfNeeded(
 
 export function handleFiles(files: FileList | File[]): void {
   for (const file of Array.from(files)) {
+    console.debug(`[gsd:files] Processing: ${file.name}, type=${file.type}, size=${file.size}`);
     if (file.type.startsWith("image/")) {
       // Images → resize if needed, then inline preview + base64 attachment
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result as string;
+        console.debug(`[gsd:files] FileReader complete, dataUrl length: ${dataUrl.length}`);
         resizeImageIfNeeded(dataUrl, file.type).then(({ base64, mimeType }) => {
+          console.debug(`[gsd:files] Resize done, base64 length: ${base64.length}, mime: ${mimeType}`);
           state.images.push({ type: "image", data: base64, mimeType });
+          console.debug(`[gsd:files] state.images count: ${state.images.length}`);
           renderImagePreviews();
         });
+      };
+      reader.onerror = () => {
+        console.error(`[gsd:files] FileReader error for ${file.name}:`, reader.error);
       };
       reader.readAsDataURL(file);
     } else {
