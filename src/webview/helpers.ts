@@ -360,22 +360,23 @@ function buildAgentCard(r: any, _isRunning: boolean): string {
     ? (r.task.length > 120 ? r.task.slice(0, 120) + "…" : r.task)
     : "";
 
-  let html = `<div class="gsd-agent-card ${stateClass}">`;
-  html += `<div class="gsd-agent-header">`;
-  html += `<div class="gsd-agent-header-left">${icon}<span class="gsd-agent-name">${escapeHtml(r.agent)}</span></div>`;
-  html += buildUsagePills(r.usage, r.model);
-  html += `</div>`;
+  const parts: string[] = [];
+  parts.push(`<div class="gsd-agent-card ${stateClass}">`);
+  parts.push(`<div class="gsd-agent-header">`);
+  parts.push(`<div class="gsd-agent-header-left">${icon}<span class="gsd-agent-name">${escapeHtml(r.agent)}</span></div>`);
+  parts.push(buildUsagePills(r.usage, r.model));
+  parts.push(`</div>`);
 
   if (taskPreview) {
-    html += `<div class="gsd-agent-task">${escapeHtml(taskPreview)}</div>`;
+    parts.push(`<div class="gsd-agent-task">${escapeHtml(taskPreview)}</div>`);
   }
 
   if (failed && r.errorMessage) {
-    html += `<div class="gsd-agent-error">${escapeHtml(r.errorMessage)}</div>`;
+    parts.push(`<div class="gsd-agent-error">${escapeHtml(r.errorMessage)}</div>`);
   }
 
-  html += `</div>`;
-  return html;
+  parts.push(`</div>`);
+  return parts.join("");
 }
 
 /** Build rich HTML for subagent results instead of plain text */
@@ -393,7 +394,8 @@ export function buildSubagentOutputHtml(tc: ToolCallState): string {
     const failed = results.filter((r: any) => r.exitCode > 0 || r.stopReason === "error").length;
     const total = results.length;
 
-    let html = `<div class="gsd-subagent-panel">`;
+    const parts: string[] = [];
+    parts.push(`<div class="gsd-subagent-panel">`);
 
     // Summary bar
     const modeLabel = mode === "chain" ? "Chain" : mode === "parallel" ? "Parallel" : "Agent";
@@ -401,18 +403,18 @@ export function buildSubagentOutputHtml(tc: ToolCallState): string {
     if (done > 0) statusParts.push(`<span class="gsd-agent-stat done">${done} done</span>`);
     if (running > 0) statusParts.push(`<span class="gsd-agent-stat running">${running} running</span>`);
     if (failed > 0) statusParts.push(`<span class="gsd-agent-stat error">${failed} failed</span>`);
-    html += `<div class="gsd-subagent-summary">`;
-    html += `<span class="gsd-subagent-mode">${escapeHtml(modeLabel)}</span>`;
-    html += `<span class="gsd-subagent-counts">${statusParts.join(`<span class="gsd-agent-sep">·</span>`)}</span>`;
-    html += `<span class="gsd-subagent-total">${done + failed}/${total}</span>`;
-    html += `</div>`;
+    parts.push(`<div class="gsd-subagent-summary">`);
+    parts.push(`<span class="gsd-subagent-mode">${escapeHtml(modeLabel)}</span>`);
+    parts.push(`<span class="gsd-subagent-counts">${statusParts.join(`<span class="gsd-agent-sep">·</span>`)}</span>`);
+    parts.push(`<span class="gsd-subagent-total">${done + failed}/${total}</span>`);
+    parts.push(`</div>`);
 
     // Agent cards
-    html += `<div class="gsd-agent-cards">`;
+    parts.push(`<div class="gsd-agent-cards">`);
     for (const r of results) {
-      html += buildAgentCard(r, tc.isRunning);
+      parts.push(buildAgentCard(r, tc.isRunning));
     }
-    html += `</div>`;
+    parts.push(`</div>`);
 
     // Aggregate usage for completed runs
     if (!tc.isRunning) {
@@ -426,18 +428,18 @@ export function buildSubagentOutputHtml(tc: ToolCallState): string {
         }
       }
       if (totalUsage.turns > 0) {
-        html += `<div class="gsd-subagent-footer">${buildUsagePills(totalUsage)}</div>`;
+        parts.push(`<div class="gsd-subagent-footer">${buildUsagePills(totalUsage)}</div>`);
       }
     }
 
-    html += `</div>`;
+    parts.push(`</div>`);
 
     // If completed, also render the final output as markdown below
     if (!tc.isRunning && text) {
-      html += `<div class="gsd-subagent-result">${renderMarkdown(text)}</div>`;
+      parts.push(`<div class="gsd-subagent-result">${renderMarkdown(text)}</div>`);
     }
 
-    return html;
+    return parts.join("");
   }
 
   // Fallback: no structured details, use legacy rendering
@@ -447,24 +449,25 @@ export function buildSubagentOutputHtml(tc: ToolCallState): string {
                       (args.tasks as any[])?.[0]?.agent || "agent";
     const taskCount = (args.chain as any[])?.length || (args.tasks as any[])?.length || 1;
 
-    let html = `<div class="gsd-subagent-live">`;
-    html += `<div class="gsd-subagent-status">`;
-    html += `<span class="gsd-tool-spinner"></span>`;
+    const parts: string[] = [];
+    parts.push(`<div class="gsd-subagent-live">`);
+    parts.push(`<div class="gsd-subagent-status">`);
+    parts.push(`<span class="gsd-tool-spinner"></span>`);
 
     if (mode === "chain") {
-      html += ` Chain: ${taskCount} steps`;
+      parts.push(` Chain: ${taskCount} steps`);
     } else if (mode === "parallel") {
-      html += ` Parallel: ${taskCount} tasks`;
+      parts.push(` Parallel: ${taskCount} tasks`);
     } else {
-      html += ` ${escapeHtml(agentName)}`;
+      parts.push(` ${escapeHtml(agentName)}`);
     }
-    html += `</div>`;
+    parts.push(`</div>`);
 
     if (text) {
-      html += `<div class="gsd-subagent-progress">${escapeHtml(text)}</div>`;
+      parts.push(`<div class="gsd-subagent-progress">${escapeHtml(text)}</div>`);
     }
-    html += `</div>`;
-    return html;
+    parts.push(`</div>`);
+    return parts.join("");
   }
 
   if (!text) return `<span class="gsd-tool-output-pending">(no output)</span>`;

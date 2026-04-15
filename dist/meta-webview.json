@@ -85,7 +85,7 @@
       "format": "esm"
     },
     "src/webview/helpers.ts": {
-      "bytes": 29784,
+      "bytes": 30018,
       "imports": [
         {
           "path": "node_modules/marked/lib/marked.esm.js",
@@ -143,7 +143,7 @@
       "format": "esm"
     },
     "src/webview/model-picker.ts": {
-      "bytes": 8447,
+      "bytes": 8499,
       "imports": [
         {
           "path": "src/webview/state.ts",
@@ -164,7 +164,7 @@
       "format": "esm"
     },
     "src/webview/thinking-picker.ts": {
-      "bytes": 9985,
+      "bytes": 10039,
       "imports": [
         {
           "path": "src/webview/state.ts",
@@ -185,7 +185,7 @@
       "format": "esm"
     },
     "src/webview/session-history.ts": {
-      "bytes": 16950,
+      "bytes": 17021,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -233,7 +233,7 @@
       "format": "esm"
     },
     "src/webview/renderer.ts": {
-      "bytes": 77520,
+      "bytes": 77457,
       "imports": [
         {
           "path": "src/webview/state.ts",
@@ -692,7 +692,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 881978
+      "bytes": 883247
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -761,7 +761,7 @@
           "bytesInOutput": 299
         },
         "src/webview/helpers.ts": {
-          "bytesInOutput": 12473
+          "bytesInOutput": 12657
         },
         "src/webview/send-debounce.ts": {
           "bytesInOutput": 69
@@ -776,13 +776,13 @@
           "bytesInOutput": 437
         },
         "src/webview/model-picker.ts": {
-          "bytesInOutput": 3723
+          "bytesInOutput": 3760
         },
         "src/webview/thinking-picker.ts": {
-          "bytesInOutput": 3629
+          "bytesInOutput": 3664
         },
         "src/webview/session-history.ts": {
-          "bytesInOutput": 7633
+          "bytesInOutput": 7698
         },
         "src/webview/ui-dialogs.ts": {
           "bytesInOutput": 7736
@@ -794,7 +794,7 @@
           "bytesInOutput": 3598
         },
         "src/webview/renderer.ts": {
-          "bytesInOutput": 30258
+          "bytesInOutput": 30314
         },
         "src/webview/dashboard.ts": {
           "bytesInOutput": 10410
@@ -821,7 +821,7 @@
           "bytesInOutput": 18788
         }
       },
-      "bytes": 234346
+      "bytes": 234723
     },
     "dist/webview/index.css.map": {
       "imports": [],

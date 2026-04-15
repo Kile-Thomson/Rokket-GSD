@@ -84,10 +84,11 @@ export function render(): void {
     byProvider.set(m.provider, list);
   }
 
-  let html = `<div class="gsd-model-picker-header">
+  const parts: string[] = [];
+  parts.push(`<div class="gsd-model-picker-header">
     <span class="gsd-model-picker-title" id="modelPickerTitle">Select Model</span>
     <button class="gsd-model-picker-close" id="modelPickerClose" aria-label="Close model picker">✕</button>
-  </div>`;
+  </div>`);
 
   // Flatten models for arrow key indexing
   const allModels: AvailableModel[] = [];
@@ -102,20 +103,20 @@ export function render(): void {
   let flatIdx = 0;
 
   for (const [provider, providerModels] of byProvider) {
-    html += `<div class="gsd-model-picker-group" role="group" aria-label="${escapeAttr(provider)}">
+    parts.push(`<div class="gsd-model-picker-group" role="group" aria-label="${escapeAttr(provider)}">
       <div class="gsd-model-picker-provider">${escapeHtml(provider)}</div>
-      <div role="listbox" aria-labelledby="modelPickerTitle">`;
+      <div role="listbox" aria-labelledby="modelPickerTitle">`);
     for (const m of providerModels) {
       const isCurrent = m.id === currentId && m.provider === currentProvider;
       const isActive = flatIdx === activeIndex;
       const ctxStr = m.contextWindow ? formatTokens(m.contextWindow) : "";
       const reasoningTag = m.reasoning ? `<span class="gsd-model-tag reasoning">reasoning</span>` : "";
-      html += `<div class="gsd-model-picker-item ${isCurrent ? "current" : ""} ${isActive ? "active" : ""}" 
+      parts.push(`<div class="gsd-model-picker-item ${isCurrent ? "current" : ""} ${isActive ? "active" : ""}"
                     role="option"
                     aria-selected="${isCurrent}"
                     tabindex="${isActive ? "0" : "-1"}"
                     data-flat-idx="${flatIdx}"
-                    data-provider="${escapeAttr(m.provider)}" 
+                    data-provider="${escapeAttr(m.provider)}"
                     data-model-id="${escapeAttr(m.id)}">
         <div class="gsd-model-picker-name">
           ${isCurrent ? '<span class="gsd-model-current-dot">●</span>' : ""}
@@ -125,14 +126,14 @@ export function render(): void {
           ${ctxStr ? `<span class="gsd-model-ctx">${ctxStr} ctx</span>` : ""}
           ${reasoningTag}
         </div>
-      </div>`;
+      </div>`);
       flatIdx++;
     }
-    html += `</div></div>`;
+    parts.push(`</div></div>`);
   }
 
   pickerEl.classList.remove("gsd-hidden");
-  pickerEl.innerHTML = html;
+  pickerEl.innerHTML = parts.join("");
 
   // Attach focus trap (remove old one first to avoid duplicates on re-render)
   if (focusTrapHandler) {

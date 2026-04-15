@@ -1235,7 +1235,7 @@ function buildStaleEchoHtml(turn: AssistantTurn): string {
 }
 
 function buildTurnHtml(turn: AssistantTurn): string {
-  let html = "";
+  const parts: string[] = [];
 
   const grouped = groupConsecutiveTools(turn.segments, turn.toolCalls);
 
@@ -1251,12 +1251,11 @@ function buildTurnHtml(turn: AssistantTurn): string {
   for (const item of grouped) {
     if (item.type === "group") {
       if (skippedCount > 0) {
-        html += buildSkippedGroupHtml(skippedCount);
+        parts.push(buildSkippedGroupHtml(skippedCount));
         skippedCount = 0;
       }
-      html += buildToolGroupHtml(item.segments, item.toolNames, turn.toolCalls);
+      parts.push(buildToolGroupHtml(item.segments, item.toolNames, turn.toolCalls));
     } else {
-      // Check if this is a skipped tool — collapse consecutive skipped tools
       const seg = item.segment;
       if (seg.type === "tool") {
         const tc = turn.toolCalls.get(seg.toolCallId);
@@ -1266,46 +1265,45 @@ function buildTurnHtml(turn: AssistantTurn): string {
         }
       }
       if (skippedCount > 0) {
-        html += buildSkippedGroupHtml(skippedCount);
+        parts.push(buildSkippedGroupHtml(skippedCount));
         skippedCount = 0;
       }
-      html += buildSegmentHtml(item.segment, turn.toolCalls);
+      parts.push(buildSegmentHtml(item.segment, turn.toolCalls));
     }
   }
   if (skippedCount > 0) {
-    html += buildSkippedGroupHtml(skippedCount);
+    parts.push(buildSkippedGroupHtml(skippedCount));
   }
 
   if (!turn.isComplete) {
     const hasAnyContent = turn.segments.length > 0;
     const hasRunningTool = Array.from(turn.toolCalls.values()).some((t) => t.isRunning);
     if (!hasRunningTool && !hasAnyContent) {
-      html += `<div class="gsd-thinking-dots"><span></span><span></span><span></span></div>`;
+      parts.push(`<div class="gsd-thinking-dots"><span></span><span></span><span></span></div>`);
     }
   }
 
   if (turn.isComplete) {
-    // Collect text content for the copy button
     const textContent = turn.segments
       .filter(s => s.type === "text")
       .map(s => s.chunks.join(""))
       .join("\n\n");
     if (textContent) {
-      html += `<div class="gsd-turn-actions">`;
-      html += `<button class="gsd-copy-response-btn" data-copy-text="${escapeAttr(textContent)}" title="Copy response" aria-label="Copy response">
+      parts.push(`<div class="gsd-turn-actions">`);
+      parts.push(`<button class="gsd-copy-response-btn" data-copy-text="${escapeAttr(textContent)}" title="Copy response" aria-label="Copy response">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 4h8v8H4V4zm1 1v6h6V5H5zm-3-3h8v1H3v7H2V2h8z"/></svg>
         Copy
-      </button>`;
+      </button>`);
       if (turn.timestamp) {
-        html += buildTimestampHtml(turn.timestamp);
+        parts.push(buildTimestampHtml(turn.timestamp));
       }
-      html += `</div>`;
+      parts.push(`</div>`);
     } else if (turn.timestamp) {
-      html += buildTimestampHtml(turn.timestamp);
+      parts.push(buildTimestampHtml(turn.timestamp));
     }
   }
 
-  return html;
+  return parts.join("");
 }
 
 function buildSkippedGroupHtml(count: number): string {
