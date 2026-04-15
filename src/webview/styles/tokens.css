@@ -228,6 +228,41 @@
   --gsd-footer-border: var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
 
   /* ----------------------------------------------------------
+     Color — terminal ANSI
+     ---------------------------------------------------------- */
+  --gsd-color-ansi-green: var(--vscode-terminal-ansiGreen, #89d185);
+  --gsd-color-ansi-magenta: var(--vscode-terminal-ansiMagenta, #d189d1);
+  --gsd-color-ansi-yellow: var(--vscode-terminal-ansiYellow, #d1c589);
+  --gsd-color-ansi-cyan: var(--vscode-terminal-ansiCyan, #89d1d1);
+  --gsd-color-ansi-blue: var(--vscode-terminal-ansiBlue, #6cb6ff);
+
+  /* ----------------------------------------------------------
+     Color — chart
+     ---------------------------------------------------------- */
+  --gsd-color-chart-green: var(--vscode-charts-green, #4ec9b0);
+  --gsd-color-chart-blue: var(--vscode-charts-blue, var(--vscode-textLink-foreground, #3794ff));
+  --gsd-color-chart-red: var(--vscode-charts-red, #f48771);
+  --gsd-color-chart-orange: var(--vscode-charts-orange, #d18616);
+
+  /* ----------------------------------------------------------
+     Color — selection
+     ---------------------------------------------------------- */
+  --gsd-color-selection-bg: var(--vscode-editor-selectionBackground, rgba(38, 79, 120, 0.7));
+  --gsd-color-selection-fg: var(--vscode-editor-selectionForeground, #ffffff);
+  --gsd-color-selection-inactive: var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.1));
+
+  /* ----------------------------------------------------------
+     Color — misc semantic
+     ---------------------------------------------------------- */
+  --gsd-color-blockquote-bg: var(--vscode-textBlockQuote-background, rgba(128, 128, 128, 0.04));
+  --gsd-color-text-link-active: var(--vscode-textLink-activeForeground, #3794ff);
+  --gsd-color-icon-file: var(--vscode-symbolIcon-fileForeground, #d4a959);
+  --gsd-color-error-fg: var(--vscode-testing-iconFailed, #f44336);
+  --gsd-color-progress-bar: var(--vscode-progressBar-background, rgba(255, 255, 255, 0.1));
+  --gsd-scrollbar-hover: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.5));
+  --gsd-color-btn-border: var(--vscode-button-border, rgba(255, 255, 255, 0.1));
+
+  /* ----------------------------------------------------------
      Opacity
      ---------------------------------------------------------- */
   --gsd-opacity-muted: 0.7;
