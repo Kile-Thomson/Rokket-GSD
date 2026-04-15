@@ -390,67 +390,6 @@
       ],
       "format": "esm"
     },
-    "src/webview/keyboard.ts": {
-      "bytes": 19220,
-      "imports": [
-        {
-          "path": "src/shared/constants.ts",
-          "kind": "import-statement",
-          "original": "../shared/constants"
-        },
-        {
-          "path": "src/webview/helpers.ts",
-          "kind": "import-statement",
-          "original": "./helpers"
-        },
-        {
-          "path": "src/webview/state.ts",
-          "kind": "import-statement",
-          "original": "./state"
-        },
-        {
-          "path": "src/webview/a11y.ts",
-          "kind": "import-statement",
-          "original": "./a11y"
-        },
-        {
-          "path": "src/webview/slash-menu.ts",
-          "kind": "import-statement",
-          "original": "./slash-menu"
-        },
-        {
-          "path": "src/webview/model-picker.ts",
-          "kind": "import-statement",
-          "original": "./model-picker"
-        },
-        {
-          "path": "src/webview/thinking-picker.ts",
-          "kind": "import-statement",
-          "original": "./thinking-picker"
-        },
-        {
-          "path": "src/webview/session-history.ts",
-          "kind": "import-statement",
-          "original": "./session-history"
-        },
-        {
-          "path": "src/webview/visualizer.ts",
-          "kind": "import-statement",
-          "original": "./visualizer"
-        },
-        {
-          "path": "src/webview/toasts.ts",
-          "kind": "import-statement",
-          "original": "./toasts"
-        },
-        {
-          "path": "src/webview/renderer.ts",
-          "kind": "import-statement",
-          "original": "./renderer"
-        }
-      ],
-      "format": "esm"
-    },
     "src/webview/handlers/handler-state.ts": {
       "bytes": 7861,
       "imports": [
@@ -544,23 +483,18 @@
       ],
       "format": "esm"
     },
-    "src/webview/message-handler.ts": {
-      "bytes": 33511,
+    "src/webview/keyboard.ts": {
+      "bytes": 19220,
       "imports": [
-        {
-          "path": "src/webview/helpers.ts",
-          "kind": "import-statement",
-          "original": "./helpers"
-        },
-        {
-          "path": "src/webview/dispose.ts",
-          "kind": "import-statement",
-          "original": "./dispose"
-        },
         {
           "path": "src/shared/constants.ts",
           "kind": "import-statement",
           "original": "../shared/constants"
+        },
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
         },
         {
           "path": "src/webview/state.ts",
@@ -568,14 +502,9 @@
           "original": "./state"
         },
         {
-          "path": "src/webview/renderer.ts",
+          "path": "src/webview/a11y.ts",
           "kind": "import-statement",
-          "original": "./renderer"
-        },
-        {
-          "path": "src/webview/session-history.ts",
-          "kind": "import-statement",
-          "original": "./session-history"
+          "original": "./a11y"
         },
         {
           "path": "src/webview/slash-menu.ts",
@@ -593,24 +522,9 @@
           "original": "./thinking-picker"
         },
         {
-          "path": "src/webview/ui-dialogs.ts",
+          "path": "src/webview/session-history.ts",
           "kind": "import-statement",
-          "original": "./ui-dialogs"
-        },
-        {
-          "path": "src/webview/toasts.ts",
-          "kind": "import-statement",
-          "original": "./toasts"
-        },
-        {
-          "path": "src/webview/dashboard.ts",
-          "kind": "import-statement",
-          "original": "./dashboard"
-        },
-        {
-          "path": "src/webview/auto-progress.ts",
-          "kind": "import-statement",
-          "original": "./auto-progress"
+          "original": "./session-history"
         },
         {
           "path": "src/webview/visualizer.ts",
@@ -618,34 +532,177 @@
           "original": "./visualizer"
         },
         {
-          "path": "src/webview/file-handling.ts",
+          "path": "src/webview/toasts.ts",
           "kind": "import-statement",
-          "original": "./file-handling"
+          "original": "./toasts"
         },
         {
-          "path": "src/webview/persist-attachments.ts",
+          "path": "src/webview/renderer.ts",
           "kind": "import-statement",
-          "original": "./persist-attachments"
+          "original": "./renderer"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/handlers/ui-notification-handlers.ts": {
+      "bytes": 16747,
+      "imports": [
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "../helpers"
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../../shared/constants"
+        },
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "../state"
+        },
+        {
+          "path": "src/webview/renderer.ts",
+          "kind": "import-statement",
+          "original": "../renderer"
+        },
+        {
+          "path": "src/webview/toasts.ts",
+          "kind": "import-statement",
+          "original": "../toasts"
+        },
+        {
+          "path": "src/webview/auto-progress.ts",
+          "kind": "import-statement",
+          "original": "../auto-progress"
+        },
+        {
+          "path": "src/webview/ui-dialogs.ts",
+          "kind": "import-statement",
+          "original": "../ui-dialogs"
+        },
+        {
+          "path": "src/webview/file-handling.ts",
+          "kind": "import-statement",
+          "original": "../file-handling"
         },
         {
           "path": "src/webview/a11y.ts",
           "kind": "import-statement",
-          "original": "./a11y"
+          "original": "../a11y"
         },
         {
           "path": "src/webview/keyboard.ts",
           "kind": "import-statement",
-          "original": "./keyboard"
+          "original": "../keyboard"
         },
         {
           "path": "src/webview/handlers/handler-state.ts",
           "kind": "import-statement",
-          "original": "./handlers/handler-state"
+          "original": "./handler-state"
+        },
+        {
+          "path": "src/webview/handlers/tool-execution-handlers.ts",
+          "kind": "import-statement",
+          "original": "./tool-execution-handlers"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/handlers/state-handlers.ts": {
+      "bytes": 12906,
+      "imports": [
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "../helpers"
+        },
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "../state"
+        },
+        {
+          "path": "src/webview/renderer.ts",
+          "kind": "import-statement",
+          "original": "../renderer"
+        },
+        {
+          "path": "src/webview/session-history.ts",
+          "kind": "import-statement",
+          "original": "../session-history"
+        },
+        {
+          "path": "src/webview/slash-menu.ts",
+          "kind": "import-statement",
+          "original": "../slash-menu"
+        },
+        {
+          "path": "src/webview/model-picker.ts",
+          "kind": "import-statement",
+          "original": "../model-picker"
+        },
+        {
+          "path": "src/webview/thinking-picker.ts",
+          "kind": "import-statement",
+          "original": "../thinking-picker"
+        },
+        {
+          "path": "src/webview/toasts.ts",
+          "kind": "import-statement",
+          "original": "../toasts"
+        },
+        {
+          "path": "src/webview/dashboard.ts",
+          "kind": "import-statement",
+          "original": "../dashboard"
+        },
+        {
+          "path": "src/webview/auto-progress.ts",
+          "kind": "import-statement",
+          "original": "../auto-progress"
+        },
+        {
+          "path": "src/webview/visualizer.ts",
+          "kind": "import-statement",
+          "original": "../visualizer"
+        },
+        {
+          "path": "src/webview/persist-attachments.ts",
+          "kind": "import-statement",
+          "original": "../persist-attachments"
+        },
+        {
+          "path": "src/webview/a11y.ts",
+          "kind": "import-statement",
+          "original": "../a11y"
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../../shared/constants"
         },
         {
           "path": "src/webview/handlers/handler-state.ts",
           "kind": "import-statement",
-          "original": "./handlers/handler-state"
+          "original": "./handler-state"
+        },
+        {
+          "path": "src/webview/handlers/ui-notification-handlers.ts",
+          "kind": "import-statement",
+          "original": "./ui-notification-handlers"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/message-handler.ts": {
+      "bytes": 7716,
+      "imports": [
+        {
+          "path": "src/webview/dispose.ts",
+          "kind": "import-statement",
+          "original": "./dispose"
         },
         {
           "path": "src/webview/handlers/handler-state.ts",
@@ -661,6 +718,21 @@
           "path": "src/webview/handlers/tool-execution-handlers.ts",
           "kind": "import-statement",
           "original": "./handlers/tool-execution-handlers"
+        },
+        {
+          "path": "src/webview/handlers/state-handlers.ts",
+          "kind": "import-statement",
+          "original": "./handlers/state-handlers"
+        },
+        {
+          "path": "src/webview/handlers/ui-notification-handlers.ts",
+          "kind": "import-statement",
+          "original": "./handlers/ui-notification-handlers"
+        },
+        {
+          "path": "src/webview/handlers/handler-state.ts",
+          "kind": "import-statement",
+          "original": "./handlers/handler-state"
         }
       ],
       "format": "esm"
@@ -883,7 +955,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 878742
+      "bytes": 886819
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -994,7 +1066,7 @@
           "bytesInOutput": 10410
         },
         "src/webview/auto-progress.ts": {
-          "bytesInOutput": 6479
+          "bytesInOutput": 6497
         },
         "src/webview/visualizer.ts": {
           "bytesInOutput": 12385
@@ -1002,20 +1074,26 @@
         "src/webview/file-handling.ts": {
           "bytesInOutput": 5269
         },
+        "src/webview/handlers/handler-state.ts": {
+          "bytesInOutput": 2364
+        },
+        "src/webview/handlers/tool-execution-handlers.ts": {
+          "bytesInOutput": 4109
+        },
+        "src/webview/handlers/streaming-handlers.ts": {
+          "bytesInOutput": 6567
+        },
         "src/webview/keyboard.ts": {
           "bytesInOutput": 6794
         },
-        "src/webview/handlers/handler-state.ts": {
-          "bytesInOutput": 2365
+        "src/webview/handlers/ui-notification-handlers.ts": {
+          "bytesInOutput": 8220
+        },
+        "src/webview/handlers/state-handlers.ts": {
+          "bytesInOutput": 5314
         },
         "src/webview/message-handler.ts": {
-          "bytesInOutput": 14445
-        },
-        "src/webview/handlers/tool-execution-handlers.ts": {
-          "bytesInOutput": 4112
-        },
-        "src/webview/handlers/streaming-handlers.ts": {
-          "bytesInOutput": 6571
+          "bytesInOutput": 2235
         },
         "src/webview/ui-updates.ts": {
           "bytesInOutput": 7259
@@ -1024,7 +1102,7 @@
           "bytesInOutput": 18676
         }
       },
-      "bytes": 236811
+      "bytes": 238145
     },
     "dist/webview/index.css.map": {
       "imports": [],

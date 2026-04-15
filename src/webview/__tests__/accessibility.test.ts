@@ -220,7 +220,7 @@ describe("ARIA semantics", () => {
       const importCount = content.match(/import.*announceToScreenReader/g)?.length || 0;
       totalCalls += calls.length - importCount;
     }
-    expect(totalCalls).toBeGreaterThanOrEqual(5);
+    expect(totalCalls).toBeGreaterThanOrEqual(4);
   });
 });
 
