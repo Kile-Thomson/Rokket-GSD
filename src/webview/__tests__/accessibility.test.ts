@@ -593,3 +593,102 @@ describe("R015: prefers-reduced-motion covers all @keyframes", () => {
     expect(reducedMotionBlock![1]).toContain("transition-duration");
   });
 });
+
+// ============================================================
+// Focus-visible coverage — regression tests (T02, M024/S01)
+// ============================================================
+
+describe("Focus-visible coverage", () => {
+  const stylesDir = path.resolve(__dirname, "..", "styles");
+
+  function readAllCss(): { file: string; content: string }[] {
+    const results: { file: string; content: string }[] = [];
+    const entries = fs.readdirSync(stylesDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith(".css")) {
+        results.push({
+          file: entry.name,
+          content: fs.readFileSync(path.join(stylesDir, entry.name), "utf-8"),
+        });
+      }
+    }
+    return results;
+  }
+
+  function extractHoverSelectors(cssFiles: { file: string; content: string }[]): string[] {
+    const hoverRegex = /([^{}\n]+):hover(?:\s*[,{])/g;
+    const selectors: string[] = [];
+    for (const { content } of cssFiles) {
+      let match: RegExpExecArray | null;
+      while ((match = hoverRegex.exec(content)) !== null) {
+        selectors.push(match[1].trim() + ":hover");
+      }
+    }
+    return selectors;
+  }
+
+  function extractBaseClass(selector: string): string {
+    const withoutHover = selector.replace(/:hover$/, "");
+    const classMatch = withoutHover.match(/(\.\w[\w-]*)/);
+    return classMatch ? classMatch[1] : withoutHover;
+  }
+
+  const excludePatterns = [
+    "scrollbar",
+    "::before",
+    "::after",
+    "tr:hover",
+    ".gsd-entry:hover",
+    ".gsd-entry-assistant:hover",
+    ".gsd-session-history-item:hover .gsd-session-action-btn",
+    ".gsd-image-thumb:hover",
+    ".gsd-resize-handle",
+    ".gsd-model-picker-item:hover",
+    ".gsd-thinking-picker-item:hover",
+    ".gsd-session-history-item:hover",
+    ".gsd-slash-item.disabled:hover",
+    ".gsd-thinking-badge.disabled:hover",
+    ".gsd-assistant-text a:hover",
+    ".gsd-link:hover",
+  ];
+
+  function shouldExclude(selector: string): boolean {
+    return excludePatterns.some((pat) => selector.includes(pat));
+  }
+
+  it("every interactive :hover selector has a matching :focus-visible rule", () => {
+    const cssFiles = readAllCss();
+    const hoverSelectors = extractHoverSelectors(cssFiles);
+    const allCss = cssFiles.map((f) => f.content).join("\n");
+
+    const missing: string[] = [];
+    for (const hoverSel of hoverSelectors) {
+      if (shouldExclude(hoverSel)) continue;
+      const full = hoverSel.replace(/:hover$/, "");
+      const base = extractBaseClass(hoverSel);
+      const hasFocusVisible = (sel: string) => {
+        if (allCss.includes(sel + ":focus-visible")) return true;
+        const escaped = sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const attrPattern = new RegExp(escaped + "\\[.*?\\]:focus-visible");
+        return attrPattern.test(allCss);
+      };
+      if (!hasFocusVisible(full) && !hasFocusVisible(base)) {
+        missing.push(hoverSel);
+      }
+    }
+
+    expect(missing).toEqual([]);
+  });
+
+  it("consolidated focus-visible block in misc.css has at least 42 selectors", () => {
+    const miscCss = fs.readFileSync(path.join(stylesDir, "misc.css"), "utf-8");
+    const fvMatches = miscCss.match(/:focus-visible/g) || [];
+    expect(fvMatches.length).toBeGreaterThanOrEqual(42);
+  });
+
+  it("consolidated :active block in misc.css has at least 20 selectors", () => {
+    const miscCss = fs.readFileSync(path.join(stylesDir, "misc.css"), "utf-8");
+    const activeMatches = miscCss.match(/:active/g) || [];
+    expect(activeMatches.length).toBeGreaterThanOrEqual(20);
+  });
+});
