@@ -191,6 +191,51 @@ function renderToolEnd(data: Record<string, any>): void {
   scrollToBottom(messagesContainer);
 }
 
+// ============================================================
+// Cached DOM refs — queried lazily, survive for webview lifetime
+// ============================================================
+
+let cachedHeaderVersion: HTMLElement | null | undefined;
+let cachedWidgetContainer: HTMLElement | null | undefined;
+let cachedGsdApp: Element | null | undefined;
+let cachedSettingsDropdown: HTMLElement | null | undefined;
+
+function getHeaderVersion(): HTMLElement | null {
+  if (cachedHeaderVersion === undefined) {
+    cachedHeaderVersion = document.getElementById("headerVersion");
+  }
+  return cachedHeaderVersion;
+}
+
+function getWidgetContainer(): HTMLElement | null {
+  if (cachedWidgetContainer === undefined) {
+    cachedWidgetContainer = document.getElementById("widgetContainer");
+  }
+  return cachedWidgetContainer;
+}
+
+function getGsdApp(): Element | null {
+  if (cachedGsdApp === undefined) {
+    cachedGsdApp = document.querySelector(".gsd-app");
+  }
+  return cachedGsdApp;
+}
+
+function getSettingsDropdown(): HTMLElement | null {
+  if (cachedSettingsDropdown === undefined) {
+    cachedSettingsDropdown = document.getElementById("settingsDropdown");
+  }
+  return cachedSettingsDropdown;
+}
+
+// ============================================================
+// Steer-note removal helper
+// ============================================================
+
+function removeSteerNotes(): void {
+  document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
+}
+
 export interface MessageHandlerDeps {
   vscode: { postMessage(msg: unknown): void };
   messagesContainer: HTMLElement;
@@ -242,18 +287,23 @@ export function init(deps: MessageHandlerDeps): void {
 // Skill pill tracker
 // ============================================================
 
+let cachedSkillPills: HTMLElement | null = null;
+let cachedFooterStats: HTMLElement | null | undefined;
+
 /** Update the skill pills display in the footer */
 function updateSkillPills(): void {
-  let container = document.getElementById("skillPills");
+  let container = cachedSkillPills || document.getElementById("skillPills");
   if (!container) {
-    // Append to footerStats so pills flow naturally after token counts
-    const footerStats = document.getElementById("footerStats");
-    if (!footerStats) return;
+    if (cachedFooterStats === undefined) {
+      cachedFooterStats = document.getElementById("footerStats");
+    }
+    if (!cachedFooterStats) return;
     container = document.createElement("span");
     container.id = "skillPills";
     container.className = "gsd-skill-pills";
-    footerStats.insertAdjacentElement("afterend", container);
+    cachedFooterStats.insertAdjacentElement("afterend", container);
   }
+  cachedSkillPills = container;
 
   if (state.loadedSkills.size === 0) {
     container.classList.add("gsd-hidden");
@@ -291,7 +341,7 @@ export function handleMessage(event: MessageEvent): void {
       if (data.version) state.version = data.version;
       if (data.extensionVersion) {
         state.extensionVersion = data.extensionVersion;
-        const headerVer = document.getElementById("headerVersion");
+        const headerVer = getHeaderVersion();
         if (headerVer) headerVer.textContent = `v${data.extensionVersion}`;
       }
       updateAllUI();
@@ -440,7 +490,7 @@ export function handleMessage(event: MessageEvent): void {
         renderer.ensureCurrentTurnElement();
         announceToScreenReader("Assistant is responding...");
       }
-      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
+      removeSteerNotes();
       break;
     }
 
@@ -456,7 +506,7 @@ export function handleMessage(event: MessageEvent): void {
       if (uiDialogs.hasPending()) {
         uiDialogs.expireAllPending("Agent finished");
       }
-      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
+      removeSteerNotes();
       if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
       if (activeBatchToolIds) { renderer.finalizeParallelBatch(lastMessageUsage); }
       activeBatchToolIds = null;
@@ -491,7 +541,7 @@ export function handleMessage(event: MessageEvent): void {
       // Clear steer note — new LLM response means the steer was consumed
       // or is queued for the next tool boundary. Either way, "Redirecting
       // agent..." is no longer accurate once new content is flowing.
-      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
+      removeSteerNotes();
       // Reset per-message parallel tracking — each message gets its own set
       messageParallelToolIds = null;
       lastMessageUsage = null;
@@ -522,8 +572,7 @@ export function handleMessage(event: MessageEvent): void {
           // content, so the steer has been consumed (or will be at the next
           // tool boundary). This catches cases where message_start fired
           // before the steer was sent, and no new message_start follows.
-          const steerNote = messagesContainer.querySelector(".gsd-steer-note");
-          if (steerNote) steerNote.remove();
+          removeSteerNotes();
           // Finalize any active batch — model is generating text, so all tools
           // from the previous content blocks are done.
           if (activeBatchToolIds && !batchFinalizeTimer) {
@@ -1316,7 +1365,7 @@ export function handleMessage(event: MessageEvent): void {
       const data = msg;
       // Clear steer note — if the steer RPC failed, the "Redirecting agent..."
       // indicator would otherwise stay forever since no agent_start will follow.
-      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
+      removeSteerNotes();
       addSystemEntry(data.message, "error");
       break;
     }
@@ -1329,7 +1378,7 @@ export function handleMessage(event: MessageEvent): void {
       state.processHealth = "responsive";
       state.currentTurn = null;
       // Clear steer note — process is gone, the steer won't be delivered
-      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
+      removeSteerNotes();
       // Clear auto-progress — process is gone
       autoProgress.update(null);
       // Expire any pending dialogs — the process is gone
@@ -1677,12 +1726,12 @@ function extractMessageText(content: unknown): string {
 // ============================================================
 
 function applyTheme(theme: string): void {
-  const app = document.querySelector(".gsd-app");
+  const app = getGsdApp();
   if (app) {
     app.setAttribute("data-theme", theme);
   }
   // Update active state in settings dropdown
-  const dropdown = document.getElementById("settingsDropdown");
+  const dropdown = getSettingsDropdown();
   if (dropdown) {
     dropdown.querySelectorAll(".gsd-settings-option").forEach(el => {
       const isActive = (el as HTMLElement).dataset.theme === theme;
@@ -1873,7 +1922,7 @@ const widgetElements = new Map<string, HTMLElement>();
  * When lines is undefined/empty, the widget is removed (cleanup signal).
  */
 function renderWidget(key: string, lines: string[] | undefined, _placement?: string): void {
-  const container = document.getElementById("widgetContainer");
+  const container = getWidgetContainer();
   if (!container) return;
 
   // Remove signal

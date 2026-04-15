@@ -208,11 +208,16 @@ export function updateFooterUI(): void {
   footerRight.textContent = right;
 }
 
+// Cached DOM ref — queried once, survives for webview lifetime
+let cachedLogo: Element | null | undefined;
+
 export function updateInputUI(): void {
   // Toggle rocket glow based on streaming state
-  const logo = document.querySelector(".gsd-logo");
-  if (logo) {
-    logo.classList.toggle("working", state.isStreaming);
+  if (cachedLogo === undefined) {
+    cachedLogo = document.querySelector(".gsd-logo");
+  }
+  if (cachedLogo) {
+    cachedLogo.classList.toggle("working", state.isStreaming);
   }
 
   if (state.isCompacting) {
@@ -307,7 +312,8 @@ export function updateOverlayIndicators(): void {
     overlayIndicators.classList.add('gsd-hidden');
   }
 
-  // Wire up force buttons (if rendered)
+  // Wire up force buttons (if rendered).
+  // These must be re-queried each call — the container is rebuilt via innerHTML above.
   const forceRestartBtn = document.getElementById("forceRestartBtn");
   if (forceRestartBtn) {
     forceRestartBtn.addEventListener("click", () => {
@@ -333,8 +339,14 @@ export function updateOverlayIndicators(): void {
   }
 }
 
+// Cached DOM ref — queried once, survives for webview lifetime
+let cachedWorkflowBadge: HTMLElement | null | undefined;
+
 export function updateWorkflowBadge(wf: WorkflowState | null): void {
-  const badge = document.getElementById("workflowBadge");
+  if (cachedWorkflowBadge === undefined || (cachedWorkflowBadge && !cachedWorkflowBadge.isConnected)) {
+    cachedWorkflowBadge = document.getElementById("workflowBadge");
+  }
+  const badge = cachedWorkflowBadge;
   if (!badge) return;
 
   if (!wf) {

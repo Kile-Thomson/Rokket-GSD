@@ -12,6 +12,7 @@ import { state } from "./state";
 
 let messagesContainer: HTMLElement;
 let welcomeScreen: HTMLElement;
+let cachedResumeChip: HTMLElement | null | undefined;
 let welcomeProcess: HTMLElement;
 let welcomeVersion: HTMLElement;
 let welcomeModel: HTMLElement;
@@ -478,15 +479,19 @@ export function updateWelcomeScreen(): void {
     welcomeHints.classList.remove('gsd-hidden');
 
     // Show resume button when process is ready
-    const resumeChip = document.querySelector(".gsd-resume-chip") as HTMLElement | null;
-    if (resumeChip) {
-      resumeChip.classList.remove('gsd-hidden');
+    if (cachedResumeChip === undefined) {
+      cachedResumeChip = document.querySelector(".gsd-resume-chip") as HTMLElement | null;
+    }
+    if (cachedResumeChip) {
+      cachedResumeChip.classList.remove('gsd-hidden');
     }
   } else {
     welcomeHints.classList.add('gsd-hidden');
-    const resumeChip = document.querySelector(".gsd-resume-chip") as HTMLElement | null;
-    if (resumeChip) {
-      resumeChip.classList.add('gsd-hidden');
+    if (cachedResumeChip === undefined) {
+      cachedResumeChip = document.querySelector(".gsd-resume-chip") as HTMLElement | null;
+    }
+    if (cachedResumeChip) {
+      cachedResumeChip.classList.add('gsd-hidden');
     }
   }
 }

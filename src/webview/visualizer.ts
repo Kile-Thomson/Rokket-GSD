@@ -16,6 +16,7 @@ import { createFocusTrap, saveFocus, restoreFocus } from "./a11y";
 // ============================================================
 
 let overlayEl: HTMLElement | null = null;
+let cachedMessagesContainer: HTMLElement | null | undefined;
 let visible = false;
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 let currentData: DashboardData | null = null;
@@ -134,16 +135,20 @@ export function handleKeyDown(e: KeyboardEvent): boolean {
 // ============================================================
 
 function ensureOverlayElement(): void {
-  overlayEl = document.getElementById("workflowVisualizer");
+  if (!overlayEl || !overlayEl.isConnected) {
+    overlayEl = document.getElementById("workflowVisualizer");
+  }
   if (!overlayEl) {
     overlayEl = document.createElement("div");
     overlayEl.id = "workflowVisualizer";
     overlayEl.className = "gsd-visualizer-overlay gsd-hidden";
     overlayEl.setAttribute("role", "dialog");
     overlayEl.setAttribute("aria-label", "Workflow Visualizer");
-    const messagesContainer = document.getElementById("messagesContainer");
-    if (messagesContainer?.parentElement) {
-      messagesContainer.parentElement.insertBefore(overlayEl, messagesContainer);
+    if (cachedMessagesContainer === undefined || (cachedMessagesContainer && !cachedMessagesContainer.isConnected)) {
+      cachedMessagesContainer = document.getElementById("messagesContainer");
+    }
+    if (cachedMessagesContainer?.parentElement) {
+      cachedMessagesContainer.parentElement.insertBefore(overlayEl, cachedMessagesContainer);
     }
   }
   overlayEl.classList.remove("gsd-hidden");
