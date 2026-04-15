@@ -5,8 +5,8 @@
 .gsd-toast-container {
   position: absolute;
   bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   z-index: 300;
   display: flex;
   flex-direction: column;
@@ -24,10 +24,8 @@
   font-size: var(--gsd-font-size-md);
   font-family: var(--gsd-font-family);
   box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-  white-space: nowrap;
   max-width: calc(100% - 32px);
-  text-overflow: ellipsis;
-  overflow: hidden;
+  text-align: center;
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.2s ease-out, transform 0.2s ease-out;
