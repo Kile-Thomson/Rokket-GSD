@@ -37,6 +37,8 @@ import {
   isAutoScrollSuppressed,
 } from "./helpers";
 
+import { shouldDebounce } from "./send-debounce";
+
 import * as slashMenu from "./slash-menu";
 import * as modelPicker from "./model-picker";
 import * as thinkingPicker from "./thinking-picker";
@@ -426,6 +428,9 @@ promptInput.addEventListener("input", () => {
 function sendMessage(): void {
   slashMenu.hide();
   modelPicker.hide();
+
+  // Debounce rapid double-clicks (skip guard during streaming — steer path must stay responsive)
+  if (!state.isStreaming && shouldDebounce()) return;
 
   // Block sending during compaction
   if (state.isCompacting) return;

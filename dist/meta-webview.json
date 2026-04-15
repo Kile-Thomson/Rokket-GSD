@@ -95,6 +95,11 @@
       ],
       "format": "esm"
     },
+    "src/webview/send-debounce.ts": {
+      "bytes": 297,
+      "imports": [],
+      "format": "esm"
+    },
     "src/webview/slash-menu.ts": {
       "bytes": 16320,
       "imports": [
@@ -455,7 +460,7 @@
       "format": "esm"
     },
     "src/webview/index.ts": {
-      "bytes": 29941,
+      "bytes": 30152,
       "imports": [
         {
           "path": "src/webview/styles/tokens.css",
@@ -548,6 +553,11 @@
           "original": "./helpers"
         },
         {
+          "path": "src/webview/send-debounce.ts",
+          "kind": "import-statement",
+          "original": "./send-debounce"
+        },
+        {
           "path": "src/webview/slash-menu.ts",
           "kind": "import-statement",
           "original": "./slash-menu"
@@ -626,7 +636,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 871216
+      "bytes": 871994
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -694,6 +704,9 @@
         "src/webview/helpers.ts": {
           "bytesInOutput": 12415
         },
+        "src/webview/send-debounce.ts": {
+          "bytesInOutput": 69
+        },
         "src/webview/slash-menu.ts": {
           "bytesInOutput": 7403
         },
@@ -743,10 +756,10 @@
           "bytesInOutput": 7187
         },
         "src/webview/index.ts": {
-          "bytesInOutput": 18561
+          "bytesInOutput": 18583
         }
       },
-      "bytes": 232648
+      "bytes": 232739
     },
     "dist/webview/index.css.map": {
       "imports": [],
