@@ -164,6 +164,59 @@ describe("Session history ARIA", () => {
 });
 
 // ============================================================
+// ARIA semantics — regression tests (T03, M024/S02)
+// ============================================================
+
+describe("ARIA semantics", () => {
+  const srcDir = path.resolve(__dirname, "..");
+
+  it("toast container has role=status and aria-live=polite", () => {
+    const indexTs = fs.readFileSync(path.join(srcDir, "index.ts"), "utf-8");
+    expect(indexTs).toContain('id="toastContainer"');
+    expect(indexTs).toMatch(/toastContainer.*role="status"/s);
+    expect(indexTs).toMatch(/toastContainer.*aria-live="polite"/s);
+  });
+
+  it("conversation entries get role=listitem via renderer", () => {
+    const rendererTs = fs.readFileSync(path.join(srcDir, "renderer.ts"), "utf-8");
+    expect(rendererTs).toContain('setAttribute("role", "listitem")');
+  });
+
+  it("visualizer has tablist and tabpanel roles", () => {
+    const vizTs = fs.readFileSync(path.join(srcDir, "visualizer.ts"), "utf-8");
+    expect(vizTs).toContain('role="tablist"');
+    expect(vizTs).toContain('role="tabpanel"');
+  });
+
+  it("overlay panels have role=dialog and aria-modal=true", () => {
+    const overlayFiles = [
+      "model-picker.ts",
+      "thinking-picker.ts",
+      "keyboard.ts",
+      "session-history.ts",
+    ];
+    for (const file of overlayFiles) {
+      const content = fs.readFileSync(path.join(srcDir, file), "utf-8");
+      expect(content).toContain('role", "dialog"');
+      expect(content).toContain('aria-modal", "true"');
+    }
+  });
+
+  it("announceToScreenReader is exported from a11y.ts", () => {
+    const a11yTs = fs.readFileSync(path.join(srcDir, "a11y.ts"), "utf-8");
+    expect(a11yTs).toMatch(/export\s+function\s+announceToScreenReader/);
+  });
+
+  it("message-handler calls announceToScreenReader at least 5 times", () => {
+    const handlerTs = fs.readFileSync(path.join(srcDir, "message-handler.ts"), "utf-8");
+    const calls = handlerTs.match(/announceToScreenReader\(/g) || [];
+    const importCount = handlerTs.match(/import.*announceToScreenReader/g)?.length || 0;
+    const actualCalls = calls.length - importCount;
+    expect(actualCalls).toBeGreaterThanOrEqual(5);
+  });
+});
+
+// ============================================================
 // Focus trap helper test
 // ============================================================
 
