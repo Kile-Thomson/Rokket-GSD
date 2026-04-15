@@ -228,9 +228,52 @@
 .gsd-session-history-close:focus-visible,
 .gsd-ui-cancel-btn:focus-visible,
 .gsd-ui-multi-cancel:focus-visible,
-.gsd-parallel-batch-header:focus-visible {
+.gsd-parallel-batch-header:focus-visible,
+.gsd-model-picker-close:focus-visible,
+.gsd-thinking-picker-close:focus-visible,
+.gsd-update-btn:focus-visible,
+.gsd-file-chip-remove:focus-visible,
+.gsd-image-remove:focus-visible,
+.gsd-visualizer-tab:focus-visible,
+.gsd-model-badge:focus-visible,
+.gsd-thinking-badge:focus-visible,
+.gsd-file-link:focus-visible,
+.gsd-session-action-btn:focus-visible,
+.gsd-ui-multi-option:focus-visible,
+.gsd-link:focus-visible,
+.gsd-welcome-attribution:focus-visible {
   outline: 2px solid var(--gsd-color-border-focus);
   outline-offset: 2px;
+}
+
+/* ============================================================
+   Pressed / active states
+   ============================================================ */
+
+.gsd-icon-btn:active,
+.gsd-overlay-btn:active,
+.gsd-copy-btn:active,
+.gsd-copy-response-btn:active,
+.gsd-model-picker-close:active,
+.gsd-thinking-picker-close:active,
+.gsd-visualizer-close:active,
+.gsd-changelog-close:active,
+.gsd-session-history-close:active,
+.gsd-whats-new-close:active,
+.gsd-update-btn:active,
+.gsd-file-chip-remove:active,
+.gsd-session-action-btn:active,
+.gsd-ui-multi-option:active,
+.gsd-model-badge:active,
+.gsd-thinking-badge:active,
+.gsd-visualizer-tab:active,
+.gsd-file-link:active,
+.gsd-link:active,
+.gsd-welcome-attribution:active,
+.gsd-fork-btn:active,
+.gsd-stale-echo-bar:active,
+.gsd-header-version:active {
+  opacity: 0.8;
 }
 
 /* ============================================================

@@ -46,7 +46,7 @@
       "imports": []
     },
     "src/webview/styles/misc.css": {
-      "bytes": 10644,
+      "bytes": 11915,
       "imports": []
     },
     "src/webview/styles/auto-progress.css": {
@@ -898,7 +898,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 254527
+      "bytes": 256521
     },
     "dist/webview/index.css": {
       "imports": [],
@@ -934,7 +934,7 @@
           "bytesInOutput": 952
         },
         "src/webview/styles/misc.css": {
-          "bytesInOutput": 7745
+          "bytesInOutput": 8812
         },
         "src/webview/styles/auto-progress.css": {
           "bytesInOutput": 3762
@@ -952,7 +952,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 122426
+      "bytes": 123493
     }
   }
 }
