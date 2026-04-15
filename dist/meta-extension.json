@@ -1,7 +1,12 @@
 {
   "inputs": {
+    "src/shared/constants.ts": {
+      "bytes": 2360,
+      "imports": [],
+      "format": "esm"
+    },
     "src/extension/rpc-client.ts": {
-      "bytes": 30654,
+      "bytes": 31142,
       "imports": [
         {
           "path": "child_process",
@@ -22,12 +27,17 @@
           "path": "fs",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
         }
       ],
       "format": "esm"
     },
     "src/extension/update-checker.ts": {
-      "bytes": 18416,
+      "bytes": 18445,
       "imports": [
         {
           "path": "vscode",
@@ -58,6 +68,11 @@
           "path": "child_process",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
         }
       ],
       "format": "esm"
@@ -116,7 +131,7 @@
       "format": "esm"
     },
     "src/extension/parallel-status.ts": {
-      "bytes": 3957,
+      "bytes": 3994,
       "imports": [
         {
           "path": "fs",
@@ -127,12 +142,17 @@
           "path": "path",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
         }
       ],
       "format": "esm"
     },
     "src/extension/auto-progress-poller.ts": {
-      "bytes": 11092,
+      "bytes": 11167,
       "imports": [
         {
           "path": "vscode",
@@ -153,6 +173,11 @@
           "path": "src/extension/parallel-status.ts",
           "kind": "import-statement",
           "original": "./parallel-status"
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
         }
       ],
       "format": "esm"
@@ -184,12 +209,17 @@
       "format": "esm"
     },
     "src/extension/watchdogs.ts": {
-      "bytes": 12606,
+      "bytes": 12731,
       "imports": [
         {
           "path": "vscode",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
         }
       ],
       "format": "esm"
@@ -253,7 +283,7 @@
       "format": "esm"
     },
     "src/extension/command-fallback.ts": {
-      "bytes": 25511,
+      "bytes": 25599,
       "imports": [
         {
           "path": "vscode",
@@ -269,6 +299,11 @@
           "path": "path",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
         }
       ],
       "format": "esm"
@@ -356,7 +391,7 @@
       "format": "esm"
     },
     "src/extension/polling.ts": {
-      "bytes": 5419,
+      "bytes": 5633,
       "imports": [
         {
           "path": "vscode",
@@ -367,6 +402,11 @@
           "path": "src/extension/state-parser.ts",
           "kind": "import-statement",
           "original": "./state-parser"
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
         }
       ],
       "format": "esm"
@@ -469,7 +509,7 @@
       "format": "esm"
     },
     "src/extension/health-check.ts": {
-      "bytes": 9449,
+      "bytes": 9571,
       "imports": [
         {
           "path": "vscode",
@@ -495,6 +535,11 @@
           "path": "os",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
         }
       ],
       "format": "esm"
@@ -546,7 +591,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 405147
+      "bytes": 406014
     },
     "dist/extension.js": {
       "imports": [
@@ -813,16 +858,16 @@
           "bytesInOutput": 2896
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 10482
+          "bytesInOutput": 10483
         },
         "src/extension/rpc-client.ts": {
-          "bytesInOutput": 10284
+          "bytesInOutput": 10280
         },
         "src/extension/update-checker.ts": {
-          "bytesInOutput": 6217
+          "bytesInOutput": 6211
         },
         "src/extension/auto-progress-poller.ts": {
-          "bytesInOutput": 4270
+          "bytesInOutput": 4215
         },
         "src/extension/dashboard-parser.ts": {
           "bytesInOutput": 2979
@@ -834,7 +879,7 @@
           "bytesInOutput": 288
         },
         "src/extension/parallel-status.ts": {
-          "bytesInOutput": 1258
+          "bytesInOutput": 1256
         },
         "src/extension/session-state.ts": {
           "bytesInOutput": 1417
@@ -843,7 +888,7 @@
           "bytesInOutput": 548
         },
         "src/extension/watchdogs.ts": {
-          "bytesInOutput": 3669
+          "bytesInOutput": 3651
         },
         "src/extension/rpc-events.ts": {
           "bytesInOutput": 4795
@@ -858,7 +903,7 @@
           "bytesInOutput": 2502
         },
         "src/extension/command-fallback.ts": {
-          "bytesInOutput": 15867
+          "bytesInOutput": 15871
         },
         "src/extension/file-ops.ts": {
           "bytesInOutput": 6000
@@ -873,7 +918,7 @@
           "bytesInOutput": 4420
         }
       },
-      "bytes": 102399
+      "bytes": 102319
     }
   }
 }

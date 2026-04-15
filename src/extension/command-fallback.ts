@@ -10,6 +10,7 @@ import * as path from "path";
 import type { GsdRpcClient } from "./rpc-client";
 import type { SessionState } from "./session-state";
 import type { ExtensionToWebviewMessage } from "../shared/types";
+import { COMMAND_FALLBACK_DELAY_MS } from "../shared/constants";
 
 // ── Regexes ─────────────────────────────────────────────────────────────
 
@@ -82,7 +83,7 @@ export function startGsdFallbackTimer(
       ctx.output.appendLine(`[${sessionId}] /gsd command produced no agent turn — applying workaround`);
       await handleGsdAutoFallback(ctx, client, webview, sessionId, message);
     }
-  }, 500);
+  }, COMMAND_FALLBACK_DELAY_MS);
   ctx.getSession(sessionId).gsdFallbackTimer = fallbackTimer;
 }
 

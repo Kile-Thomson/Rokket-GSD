@@ -14,6 +14,15 @@ import type { SessionState } from "./session-state";
 import type { GsdRpcClient } from "./rpc-client";
 import type { ExtensionToWebviewMessage } from "../shared/types";
 import type { StatusBarUpdate } from "./webview-provider";
+import {
+  PROMPT_WATCHDOG_TIMEOUT_MS,
+  SLASH_WATCHDOG_TIMEOUT_MS,
+  ACTIVITY_CHECK_INTERVAL_MS,
+  ACTIVITY_PING_TIMEOUT_MS,
+  ABORT_SETTLE_DELAY_MS,
+  ABORT_RETRY_DELAY_MS,
+  ABORT_MAX_ATTEMPTS,
+} from "../shared/constants";
 
 // ============================================================
 // WatchdogContext — dependency injection for standalone functions
@@ -45,7 +54,6 @@ export function startPromptWatchdog(
 ): void {
   clearPromptWatchdog(ctx, sessionId);
 
-  const WATCHDOG_TIMEOUT_MS = 8000;
   const nonce = ctx.nextPromptWatchdogNonce();
 
   const timer = setTimeout(async () => {
@@ -61,7 +69,7 @@ export function startPromptWatchdog(
 
     if (!watchdog.retried) {
       // First timeout — retry the prompt once
-      ctx.output.appendLine(`[${sessionId}] Prompt watchdog: no agent_start after ${WATCHDOG_TIMEOUT_MS / 1000}s — retrying prompt`);
+      ctx.output.appendLine(`[${sessionId}] Prompt watchdog: no agent_start after ${PROMPT_WATCHDOG_TIMEOUT_MS / 1000}s — retrying prompt`);
       watchdog.retried = true;
 
       try {
@@ -77,7 +85,7 @@ export function startPromptWatchdog(
             type: "error",
             message: "GSD accepted the command but didn't start processing. Try sending it again.",
           } as ExtensionToWebviewMessage);
-        }, WATCHDOG_TIMEOUT_MS);
+        }, PROMPT_WATCHDOG_TIMEOUT_MS);
 
         await client.prompt(message, images);
         // Re-check nonce after await — a new prompt may have started during the retry
@@ -93,7 +101,7 @@ export function startPromptWatchdog(
         // Don't show error — the prompt() catch block already handles this
       }
     }
-  }, WATCHDOG_TIMEOUT_MS);
+  }, PROMPT_WATCHDOG_TIMEOUT_MS);
 
   ctx.getSession(sessionId).promptWatchdog = { timer, retried: false, nonce, message, images };
 }
@@ -129,7 +137,6 @@ export function startSlashCommandWatchdog(
   const existing = ctx.getSession(sessionId).slashWatchdog;
   if (existing) clearTimeout(existing);
 
-  const TIMEOUT_MS = 10_000;
   const sentAt = Date.now();
 
   const timer = setTimeout(async () => {
@@ -146,7 +153,7 @@ export function startSlashCommandWatchdog(
     if (!client?.isRunning) return;
 
     // Retry once
-    ctx.output.appendLine(`[${sessionId}] Slash watchdog: no events after ${TIMEOUT_MS / 1000}s for "${message}" — retrying`);
+    ctx.output.appendLine(`[${sessionId}] Slash watchdog: no events after ${SLASH_WATCHDOG_TIMEOUT_MS / 1000}s for "${message}" — retrying`);
     try {
       const retrySentAt = Date.now();
       // Start the final-chance watchdog BEFORE awaiting — if prompt()
@@ -161,14 +168,14 @@ export function startSlashCommandWatchdog(
           type: "error",
           message: `Command "${message}" was sent but got no response. Try sending it again.`,
         } as ExtensionToWebviewMessage);
-      }, TIMEOUT_MS);
+      }, SLASH_WATCHDOG_TIMEOUT_MS);
       ctx.getSession(sessionId).slashWatchdog = retryTimer;
 
       await client.prompt(message, images);
     } catch (err: any) {
       ctx.postToWebview(webview, { type: "error", message: err.message });
     }
-  }, TIMEOUT_MS);
+  }, SLASH_WATCHDOG_TIMEOUT_MS);
 
   ctx.getSession(sessionId).slashWatchdog = timer;
 }
@@ -200,8 +207,6 @@ export function startActivityMonitor(
 ): void {
   stopActivityMonitor(ctx, sessionId);
 
-  const CHECK_INTERVAL_MS = 30_000; // check every 30s
-  const PING_TIMEOUT_MS = 15_000;   // individual ping timeout
   let consecutiveFailures = 0;
 
   const timer = setInterval(async () => {
@@ -216,7 +221,7 @@ export function startActivityMonitor(
       return;
     }
 
-    const isAlive = await client.ping(PING_TIMEOUT_MS);
+    const isAlive = await client.ping(ACTIVITY_PING_TIMEOUT_MS);
 
     if (isAlive) {
       // Process is responsive — reset failure count
@@ -245,14 +250,14 @@ export function startActivityMonitor(
 
     ctx.postToWebview(webview, {
       type: "error",
-      message: `GSD process unresponsive for ${consecutiveFailures * CHECK_INTERVAL_MS / 1000}s — aborting to recover.`,
+      message: `GSD process unresponsive for ${consecutiveFailures * ACTIVITY_CHECK_INTERVAL_MS / 1000}s — aborting to recover.`,
     } as ExtensionToWebviewMessage);
 
     // Try graceful abort first
     try {
       await client.abort();
       // Wait a moment for agent_end to arrive naturally
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise(r => setTimeout(r, ABORT_SETTLE_DELAY_MS));
       // If still streaming, force-push agent_end to unblock the webview
       if (ctx.getSession(sessionId).isStreaming) {
         ctx.output.appendLine(`[${sessionId}] Activity monitor: abort succeeded but no agent_end — forcing`);
@@ -268,7 +273,7 @@ export function startActivityMonitor(
       ctx.postToWebview(webview, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
       client.forceKill();
     }
-  }, CHECK_INTERVAL_MS);
+  }, ACTIVITY_CHECK_INTERVAL_MS);
 
   ctx.getSession(sessionId).activityTimer = timer;
 }
@@ -308,16 +313,14 @@ export async function abortAndPrompt(
   }));
 
   // Bounded retry — wait for stream teardown before sending the command
-  const MAX_ATTEMPTS = 5;
-  const RETRY_DELAY_MS = 150;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < ABORT_MAX_ATTEMPTS; attempt++) {
     try {
       await client.prompt(message, imgs);
       return;
     } catch (err: any) {
-      if (err.message?.includes("streaming") && attempt < MAX_ATTEMPTS - 1) {
-        ctx.output.appendLine(`[abortAndPrompt] Retry ${attempt + 1}/${MAX_ATTEMPTS - 1}: stream not yet settled`);
-        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      if (err.message?.includes("streaming") && attempt < ABORT_MAX_ATTEMPTS - 1) {
+        ctx.output.appendLine(`[abortAndPrompt] Retry ${attempt + 1}/${ABORT_MAX_ATTEMPTS - 1}: stream not yet settled`);
+        await new Promise((r) => setTimeout(r, ABORT_RETRY_DELAY_MS));
         continue;
       }
       ctx.postToWebview(webview, { type: "error", message: err.message });

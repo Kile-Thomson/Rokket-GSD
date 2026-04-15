@@ -5,6 +5,7 @@ import * as path from "path";
 import * as os from "os";
 import { execSync } from "child_process";
 import type { GsdWebviewProvider } from "./webview-provider";
+import { UPDATE_CHECK_INTERVAL_MS } from "../shared/constants";
 
 // ============================================================
 // Auto-Update Checker — polls GitHub Releases for new versions
@@ -20,7 +21,6 @@ const GITHUB_REPO = "Rokket-GSD";
 const RELEASES_API = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
 
 /** Check interval: 1 hour */
-const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 /** Skip repeated prompts for the same version the user dismissed */
 const DISMISSED_VERSION_KEY = "gsd.dismissedUpdateVersion";
@@ -145,7 +145,7 @@ export function startUpdateChecker(
   // Then check periodically
   const interval = setInterval(
     () => checkForUpdate(context, currentVersion),
-    CHECK_INTERVAL_MS
+    UPDATE_CHECK_INTERVAL_MS
   );
   context.subscriptions.push({ dispose: () => clearInterval(interval) });
 }
