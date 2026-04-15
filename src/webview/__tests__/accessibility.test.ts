@@ -207,12 +207,20 @@ describe("ARIA semantics", () => {
     expect(a11yTs).toMatch(/export\s+function\s+announceToScreenReader/);
   });
 
-  it("message-handler calls announceToScreenReader at least 5 times", () => {
-    const handlerTs = fs.readFileSync(path.join(srcDir, "message-handler.ts"), "utf-8");
-    const calls = handlerTs.match(/announceToScreenReader\(/g) || [];
-    const importCount = handlerTs.match(/import.*announceToScreenReader/g)?.length || 0;
-    const actualCalls = calls.length - importCount;
-    expect(actualCalls).toBeGreaterThanOrEqual(5);
+  it("message-handler + handler sub-modules call announceToScreenReader at least 5 times", () => {
+    const files = [
+      path.join(srcDir, "message-handler.ts"),
+      ...fs.readdirSync(path.join(srcDir, "handlers")).map(f => path.join(srcDir, "handlers", f)),
+    ];
+    let totalCalls = 0;
+    for (const file of files) {
+      if (!file.endsWith(".ts")) continue;
+      const content = fs.readFileSync(file, "utf-8");
+      const calls = content.match(/announceToScreenReader\(/g) || [];
+      const importCount = content.match(/import.*announceToScreenReader/g)?.length || 0;
+      totalCalls += calls.length - importCount;
+    }
+    expect(totalCalls).toBeGreaterThanOrEqual(5);
   });
 });
 

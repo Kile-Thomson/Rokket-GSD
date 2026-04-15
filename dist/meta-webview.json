@@ -451,8 +451,101 @@
       ],
       "format": "esm"
     },
+    "src/webview/handlers/handler-state.ts": {
+      "bytes": 7861,
+      "imports": [
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "../helpers"
+        },
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "../state"
+        },
+        {
+          "path": "src/webview/renderer.ts",
+          "kind": "import-statement",
+          "original": "../renderer"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/handlers/tool-execution-handlers.ts": {
+      "bytes": 9628,
+      "imports": [
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "../state"
+        },
+        {
+          "path": "src/webview/renderer.ts",
+          "kind": "import-statement",
+          "original": "../renderer"
+        },
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "../helpers"
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../../shared/constants"
+        },
+        {
+          "path": "src/webview/handlers/handler-state.ts",
+          "kind": "import-statement",
+          "original": "./handler-state"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/handlers/streaming-handlers.ts": {
+      "bytes": 15552,
+      "imports": [
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "../state"
+        },
+        {
+          "path": "src/webview/renderer.ts",
+          "kind": "import-statement",
+          "original": "../renderer"
+        },
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "../helpers"
+        },
+        {
+          "path": "src/webview/a11y.ts",
+          "kind": "import-statement",
+          "original": "../a11y"
+        },
+        {
+          "path": "src/webview/ui-dialogs.ts",
+          "kind": "import-statement",
+          "original": "../ui-dialogs"
+        },
+        {
+          "path": "src/webview/handlers/handler-state.ts",
+          "kind": "import-statement",
+          "original": "./handler-state"
+        },
+        {
+          "path": "src/webview/handlers/tool-execution-handlers.ts",
+          "kind": "import-statement",
+          "original": "./tool-execution-handlers"
+        }
+      ],
+      "format": "esm"
+    },
     "src/webview/message-handler.ts": {
-      "bytes": 78887,
+      "bytes": 33511,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -543,6 +636,31 @@
           "path": "src/webview/keyboard.ts",
           "kind": "import-statement",
           "original": "./keyboard"
+        },
+        {
+          "path": "src/webview/handlers/handler-state.ts",
+          "kind": "import-statement",
+          "original": "./handlers/handler-state"
+        },
+        {
+          "path": "src/webview/handlers/handler-state.ts",
+          "kind": "import-statement",
+          "original": "./handlers/handler-state"
+        },
+        {
+          "path": "src/webview/handlers/handler-state.ts",
+          "kind": "import-statement",
+          "original": "./handlers/handler-state"
+        },
+        {
+          "path": "src/webview/handlers/streaming-handlers.ts",
+          "kind": "import-statement",
+          "original": "./handlers/streaming-handlers"
+        },
+        {
+          "path": "src/webview/handlers/tool-execution-handlers.ts",
+          "kind": "import-statement",
+          "original": "./handlers/tool-execution-handlers"
         }
       ],
       "format": "esm"
@@ -765,7 +883,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 887892
+      "bytes": 878742
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -876,7 +994,7 @@
           "bytesInOutput": 10410
         },
         "src/webview/auto-progress.ts": {
-          "bytesInOutput": 6497
+          "bytesInOutput": 6479
         },
         "src/webview/visualizer.ts": {
           "bytesInOutput": 12385
@@ -887,17 +1005,26 @@
         "src/webview/keyboard.ts": {
           "bytesInOutput": 6794
         },
+        "src/webview/handlers/handler-state.ts": {
+          "bytesInOutput": 2365
+        },
         "src/webview/message-handler.ts": {
-          "bytesInOutput": 26423
+          "bytesInOutput": 14445
+        },
+        "src/webview/handlers/tool-execution-handlers.ts": {
+          "bytesInOutput": 4112
+        },
+        "src/webview/handlers/streaming-handlers.ts": {
+          "bytesInOutput": 6571
         },
         "src/webview/ui-updates.ts": {
           "bytesInOutput": 7259
         },
         "src/webview/index.ts": {
-          "bytesInOutput": 18680
+          "bytesInOutput": 18676
         }
       },
-      "bytes": 235763
+      "bytes": 236811
     },
     "dist/webview/index.css.map": {
       "imports": [],
