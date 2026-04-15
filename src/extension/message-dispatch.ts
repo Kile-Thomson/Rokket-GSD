@@ -123,12 +123,12 @@ export async function handleWebviewMessage(
         case "get_available_models": { await handleGetAvailableModels(ctx, webview, sessionId, msg); break; }
         case "cycle_thinking_level": { await handleCycleThinkingLevel(ctx, webview, sessionId, msg); break; }
         case "compact_context": { await handleCompactContext(ctx, webview, sessionId, msg); break; }
-        case "export_html": { await handleExportHtml(ctx.fileOpsCtx, webview, sessionId, msg as any); break; }
+        case "export_html": { await handleExportHtml(ctx.fileOpsCtx, webview, sessionId, msg); break; }
         case "run_bash": { await handleRunBash(ctx, webview, sessionId, msg); break; }
         case "get_session_list": { await handleGetSessionList(ctx, webview, sessionId, msg); break; }
-        case "switch_session": { await handleSwitchSession(ctx, webview, sessionId, msg as any); break; }
-        case "rename_session": { await handleRenameSession(ctx, webview, sessionId, msg as any); break; }
-        case "delete_session": { await handleDeleteSession(ctx, webview, sessionId, msg as any); break; }
+        case "switch_session": { await handleSwitchSession(ctx, webview, sessionId, msg); break; }
+        case "rename_session": { await handleRenameSession(ctx, webview, sessionId, msg); break; }
+        case "delete_session": { await handleDeleteSession(ctx, webview, sessionId, msg); break; }
         case "set_auto_compaction": { await handleSetAutoCompaction(ctx, webview, sessionId, msg); break; }
         case "set_auto_retry": { await handleSetAutoRetry(ctx, webview, sessionId, msg); break; }
         case "abort_retry": { await handleAbortRetry(ctx, webview, sessionId, msg); break; }
@@ -141,14 +141,14 @@ export async function handleWebviewMessage(
         case "update_dismiss": { await handleUpdateDismiss(ctx, webview, sessionId, msg); break; }
         case "update_view_release": { await handleUpdateViewRelease(ctx, webview, sessionId, msg); break; }
         case "extension_ui_response": { await handleExtensionUiResponse(ctx, webview, sessionId, msg); break; }
-        case "check_file_access": { await handleCheckFileAccess(ctx.fileOpsCtx, webview, sessionId, msg as any); break; }
-        case "save_temp_file": { handleSaveTempFile(ctx.fileOpsCtx, webview, sessionId, msg as any); break; }
+        case "check_file_access": { await handleCheckFileAccess(ctx.fileOpsCtx, webview, sessionId, msg); break; }
+        case "save_temp_file": { handleSaveTempFile(ctx.fileOpsCtx, webview, sessionId, msg); break; }
         case "attach_files": { await handleAttachFiles(ctx.fileOpsCtx, webview, sessionId); break; }
-        case "copy_text": { await handleCopyText(ctx.fileOpsCtx, webview, sessionId, msg as any); break; }
-        case "set_theme": { await handleSetTheme(ctx.fileOpsCtx, webview, sessionId, msg as any); break; }
-        case "open_file": { handleOpenFile(ctx.fileOpsCtx, webview, sessionId, msg as any); break; }
-        case "open_url": { handleOpenUrl(ctx.fileOpsCtx, webview, sessionId, msg as any); break; }
-        case "open_diff": { handleOpenDiff(ctx.fileOpsCtx, webview, sessionId, msg as any); break; }
+        case "copy_text": { await handleCopyText(ctx.fileOpsCtx, webview, sessionId, msg); break; }
+        case "set_theme": { await handleSetTheme(ctx.fileOpsCtx, webview, sessionId, msg); break; }
+        case "open_file": { handleOpenFile(ctx.fileOpsCtx, webview, sessionId, msg); break; }
+        case "open_url": { handleOpenUrl(ctx.fileOpsCtx, webview, sessionId, msg); break; }
+        case "open_diff": { handleOpenDiff(ctx.fileOpsCtx, webview, sessionId, msg); break; }
         case "shutdown": { await handleShutdown(ctx, webview, sessionId, msg); break; }
       }
 

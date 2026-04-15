@@ -75,7 +75,7 @@
       "format": "esm"
     },
     "src/webview/state.ts": {
-      "bytes": 8278,
+      "bytes": 8298,
       "imports": [
         {
           "path": "src/shared/constants.ts",
@@ -101,7 +101,7 @@
       "format": "esm"
     },
     "src/webview/helpers.ts": {
-      "bytes": 30549,
+      "bytes": 31249,
       "imports": [
         {
           "path": "node_modules/marked/lib/marked.esm.js",
@@ -238,7 +238,7 @@
       "format": "esm"
     },
     "src/webview/ui-dialogs.ts": {
-      "bytes": 20530,
+      "bytes": 21102,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -276,7 +276,7 @@
       "format": "esm"
     },
     "src/webview/render/html-builders.ts": {
-      "bytes": 24953,
+      "bytes": 24959,
       "imports": [
         {
           "path": "../state",
@@ -302,8 +302,13 @@
       "format": "esm"
     },
     "src/webview/render/streaming.ts": {
-      "bytes": 20550,
+      "bytes": 20634,
       "imports": [
+        {
+          "path": "marked",
+          "kind": "import-statement",
+          "external": true
+        },
         {
           "path": "src/webview/state.ts",
           "kind": "import-statement",
@@ -795,7 +800,7 @@
       "format": "esm"
     },
     "src/webview/message-handler.ts": {
-      "bytes": 7875,
+      "bytes": 7866,
       "imports": [
         {
           "path": "src/shared/errors.ts",
@@ -1058,7 +1063,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 869604
+      "bytes": 871434
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -1121,16 +1126,16 @@
           "bytesInOutput": 1135
         },
         "node_modules/marked/lib/marked.esm.js": {
-          "bytesInOutput": 38670
+          "bytesInOutput": 38668
         },
         "node_modules/dompurify/dist/purify.es.mjs": {
-          "bytesInOutput": 22721
+          "bytesInOutput": 22715
         },
         "src/webview/dispose.ts": {
           "bytesInOutput": 299
         },
         "src/webview/helpers.ts": {
-          "bytesInOutput": 12657
+          "bytesInOutput": 12666
         },
         "src/webview/send-debounce.ts": {
           "bytesInOutput": 69
@@ -1154,7 +1159,7 @@
           "bytesInOutput": 7764
         },
         "src/webview/ui-dialogs.ts": {
-          "bytesInOutput": 7736
+          "bytesInOutput": 7881
         },
         "src/webview/toasts.ts": {
           "bytesInOutput": 355
@@ -1169,16 +1174,16 @@
           "bytesInOutput": 42
         },
         "src/webview/render/streaming.ts": {
-          "bytesInOutput": 9586
+          "bytesInOutput": 9603
         },
         "src/webview/render/batches.ts": {
           "bytesInOutput": 5967
         },
         "src/webview/dashboard.ts": {
-          "bytesInOutput": 10410
+          "bytesInOutput": 10403
         },
         "src/webview/auto-progress.ts": {
-          "bytesInOutput": 6479
+          "bytesInOutput": 6497
         },
         "src/webview/visualizer.ts": {
           "bytesInOutput": 12385
@@ -1217,7 +1222,7 @@
           "bytesInOutput": 18676
         }
       },
-      "bytes": 238164
+      "bytes": 238338
     },
     "dist/webview/index.css.map": {
       "imports": [],

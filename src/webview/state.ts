@@ -30,7 +30,7 @@ export interface ToolCallState {
   startTime: number;
   endTime?: number;
   /** Structured details from tool (e.g. subagent per-agent results) */
-  details?: any;
+  details?: Record<string, unknown>;
   /** True when this tool executed concurrently with other tools */
   isParallel?: boolean;
 }

@@ -2,7 +2,7 @@
 // Webview Helpers — pure functions, formatting, markdown, tools
 // ============================================================
 
-import { marked, type Token } from "marked";
+import { marked, type Token, type TokensList } from "marked";
 import DOMPurify from "dompurify";
 import type { SessionStats } from "../shared/types";
 import type { AppState, ToolCategory, ToolCallState } from "./state";
@@ -216,12 +216,12 @@ export function getToolKeyArg(name: string, args: Record<string, unknown>): stri
     return `${args.condition}${val}`;
   }
   if (n === "browser_assert" && args.checks) {
-    const checks = args.checks as any[];
-    if (checks.length === 1) return truncateArg(String(checks[0].kind || ""), 60);
+    const checks = args.checks as unknown[];
+    if (checks.length === 1) return truncateArg(String((checks[0] as Record<string, unknown>)?.kind || ""), 60);
     return `${checks.length} checks`;
   }
   if (n === "browser_batch" && args.steps) {
-    const steps = args.steps as any[];
+    const steps = args.steps as unknown[];
     return `${steps.length} steps`;
   }
   if (n === "browser_find" && (args.text || args.role)) {
@@ -235,7 +235,7 @@ export function getToolKeyArg(name: string, args: Record<string, unknown>): stri
   if (n === "browser_mock_route" && args.url) return truncateArg(String(args.url), 60);
   if (n === "browser_extract" && args.selector) return truncateArg(String(args.selector), 60);
   if (n === "subagent" || n === "async_subagent") {
-    const agent = args.agent || (args.chain as any)?.[0]?.agent || (args.tasks as any)?.[0]?.agent || "";
+    const agent = args.agent || (args.chain as Record<string, unknown>[] | undefined)?.[0]?.agent || (args.tasks as Record<string, unknown>[] | undefined)?.[0]?.agent || "";
     const task = args.task || "";
     if (agent) return truncateArg(`${agent}: ${task}`, 80);
     if (task) return truncateArg(String(task), 80);
@@ -292,8 +292,8 @@ export function getToolKeyArg(name: string, args: Record<string, unknown>): stri
   if (n === "fetch_page" && args.url) return truncateArg(String(args.url), 60);
   if (n === "search_and_read" && args.query) return truncateArg(String(args.query), 60);
   if (n === "secure_env_collect" && args.keys) {
-    const keys = args.keys as any[];
-    return keys.map((k: any) => k.key || "").filter(Boolean).join(", ");
+    const keys = args.keys as Record<string, unknown>[];
+    return keys.map((k) => String(k.key || "")).filter(Boolean).join(", ");
   }
   if (n.startsWith("mac_") && args.app) return truncateArg(String(args.app), 40);
   for (const [k, v] of Object.entries(args)) {
@@ -312,12 +312,12 @@ export function formatToolResult(toolName: string, resultText: string, args: Rec
     try {
       const parsed = JSON.parse(resultText);
       if (parsed.answers && typeof parsed.answers === "object") {
-        const questions = (args.questions as any[]) || [];
+        const questions = (args.questions as Record<string, unknown>[] | undefined) || [];
         const lines: string[] = [];
-        for (const [id, answer] of Object.entries(parsed.answers) as [string, any][]) {
-          const q = questions.find((q: any) => q.id === id);
+        for (const [id, answer] of Object.entries(parsed.answers as Record<string, Record<string, unknown>>)) {
+          const q = questions.find((q) => q.id === id);
           const header = q?.header || id;
-          const selections = answer.answers || [];
+          const selections = (answer.answers as string[] | undefined) || [];
           lines.push(`✓ ${header}: ${selections.join(", ")}`);
         }
         return lines.join("\n") || resultText;
@@ -341,7 +341,16 @@ function formatTokenCount(count: number): string {
   return `${(count / TOKEN_THRESHOLD_M).toFixed(1)}M`;
 }
 
-export function buildUsagePills(usage: any, model?: string): string {
+export interface UsageInfo {
+  turns?: number;
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  cost?: number;
+}
+
+export function buildUsagePills(usage: UsageInfo | null | undefined, model?: string): string {
   if (!usage) return "";
   const pills: string[] = [];
   if (usage.turns) pills.push(`${usage.turns} turn${usage.turns > 1 ? "s" : ""}`);
@@ -355,7 +364,17 @@ export function buildUsagePills(usage: any, model?: string): string {
   return `<div class="gsd-agent-usage">${pills.map(p => `<span class="gsd-agent-pill">${escapeHtml(p)}</span>`).join("")}</div>`;
 }
 
-function buildAgentCard(r: any, _isRunning: boolean): string {
+export interface SubagentResult {
+  agent: string;
+  task?: string;
+  exitCode: number;
+  stopReason?: string;
+  errorMessage?: string;
+  usage?: UsageInfo;
+  model?: string;
+}
+
+function buildAgentCard(r: SubagentResult, _isRunning: boolean): string {
   const running = r.exitCode === -1;
   const failed = !running && (r.exitCode !== 0 || r.stopReason === "error" || r.stopReason === "aborted");
   const _done = !running && !failed;
@@ -394,15 +413,15 @@ function buildAgentCard(r: any, _isRunning: boolean): string {
 export function buildSubagentOutputHtml(tc: ToolCallState): string {
   const text = tc.resultText;
   const args = tc.args;
-  const details = tc.details as { mode?: string; results?: any[] } | undefined;
+  const details = tc.details as { mode?: string; results?: SubagentResult[] } | undefined;
   const mode = details?.mode || (args.chain ? "chain" : args.tasks ? "parallel" : "single");
   const results = details?.results;
 
   // If we have structured details with per-agent results, render cards
   if (results && results.length > 0) {
-    const running = results.filter((r: any) => r.exitCode === -1).length;
-    const done = results.filter((r: any) => r.exitCode !== -1 && r.exitCode === 0).length;
-    const failed = results.filter((r: any) => r.exitCode > 0 || r.stopReason === "error").length;
+    const running = results.filter((r) => r.exitCode === -1).length;
+    const done = results.filter((r) => r.exitCode !== -1 && r.exitCode === 0).length;
+    const failed = results.filter((r) => r.exitCode > 0 || r.stopReason === "error").length;
     const total = results.length;
 
     const parts: string[] = [];
@@ -456,9 +475,9 @@ export function buildSubagentOutputHtml(tc: ToolCallState): string {
   // Fallback: no structured details, use legacy rendering
   if (tc.isRunning) {
     const agentName = (args.agent as string) ||
-                      (args.chain as any[])?.[0]?.agent ||
-                      (args.tasks as any[])?.[0]?.agent || "agent";
-    const taskCount = (args.chain as any[])?.length || (args.tasks as any[])?.length || 1;
+                      (args.chain as Record<string, unknown>[] | undefined)?.[0]?.agent ||
+                      (args.tasks as Record<string, unknown>[] | undefined)?.[0]?.agent || "agent";
+    const taskCount = (args.chain as unknown[] | undefined)?.length || (args.tasks as unknown[] | undefined)?.length || 1;
 
     const parts: string[] = [];
     parts.push(`<div class="gsd-subagent-live">`);
@@ -519,7 +538,7 @@ export function sanitizeAndPostProcess(html: string): string {
  * Tokenize markdown text into block-level tokens using marked's Lexer.
  * Returns the token array with the `links` property preserved for Parser use.
  */
-export function lexMarkdown(text: string): Token[] {
+export function lexMarkdown(text: string): TokensList {
   const lexer = new marked.Lexer({ breaks: true, gfm: true });
   return lexer.lex(text);
 }

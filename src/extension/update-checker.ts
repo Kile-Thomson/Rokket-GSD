@@ -257,11 +257,11 @@ export async function fetchRecentReleases(count = 10): Promise<Array<{ version: 
       res.on("data", (chunk: Buffer) => { data += chunk.toString(); });
       res.on("end", () => {
         try {
-          const releases = JSON.parse(data);
+          const releases: GitHubRelease[] = JSON.parse(data);
           resolve(
-            (releases as any[])
-              .filter((r: any) => r.body?.trim())
-              .map((r: any) => ({
+            releases
+              .filter((r) => r.body?.trim())
+              .map((r) => ({
                 version: (r.tag_name || "").replace(/^v/, ""),
                 notes: r.body || "",
                 date: r.published_at || r.created_at || "",
@@ -355,6 +355,21 @@ interface ReleaseInfo {
   htmlUrl: string;
   body: string;
   assets: Array<{ name: string; url: string }>;
+}
+
+interface GitHubRelease {
+  tag_name?: string;
+  html_url?: string;
+  body?: string;
+  published_at?: string;
+  created_at?: string;
+  assets?: GitHubAsset[];
+}
+
+interface GitHubAsset {
+  name: string;
+  url: string;
+  browser_download_url?: string;
 }
 
 /** Trusted exact hostnames for GitHub API and web */
@@ -455,15 +470,14 @@ function collectJson(
   });
   res.on("end", () => {
     try {
-      const json = JSON.parse(data);
+      const json: GitHubRelease = JSON.parse(data);
       resolve({
         tag: json.tag_name || "",
         htmlUrl: json.html_url || "",
         body: json.body || "",
-        assets: (json.assets || []).map((a: any) => ({
+        assets: (json.assets || []).map((a) => ({
           name: a.name,
-          // Use API URL for private repo support — browser_download_url returns 404 without cookies
-          url: a.url as string,
+          url: a.url,
         })),
       });
     } catch {

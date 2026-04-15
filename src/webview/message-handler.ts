@@ -165,7 +165,7 @@ export function handleMessage(event: MessageEvent): void {
     case "session_shutdown":        { handleSessionShutdown(); break; }
 
     default:
-      console.warn("[gsd-webview] Unrecognized message type:", (msg as any).type);
+      console.warn("[gsd-webview] Unrecognized message type:", msg.type);
       break;
   }
 

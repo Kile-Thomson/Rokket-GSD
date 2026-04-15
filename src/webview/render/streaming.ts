@@ -1,4 +1,5 @@
-import { state, type ChatEntry, type ToolCallState } from "../state";
+import { type Token, type TokensList } from "marked";
+import { state, type ChatEntry, type ToolCallState, type TurnSegment } from "../state";
 import {
   escapeHtml,
   scrollToBottom,
@@ -23,7 +24,7 @@ let pendingTextRender: number | null = null;
 const incrementalState = new Map<number, {
   frozenBlockCount: number;
   lastLexedText: string;
-  lastTokens: any[];
+  lastTokens: TokensList;
   textLengthAtLastRaf: number;
 }>();
 const liveTextNodes = new Map<number, Text>();
@@ -357,12 +358,12 @@ function tryStreamingCollapse(el: HTMLElement, segIdx: number): void {
   segmentElements.set(segIdx, groupEl);
 }
 
-export function detectStaleEcho(turn: { toolCalls: Map<string, any>; segments: any[]; timestamp: number }): boolean {
+export function detectStaleEcho(turn: { toolCalls: Map<string, ToolCallState>; segments: TurnSegment[]; timestamp: number }): boolean {
   if (turn.toolCalls.size > 0) return false;
-  const textSegments = turn.segments.filter((s: any) => s.type === "text");
+  const textSegments = turn.segments.filter((s): s is TurnSegment & { type: "text"; chunks: string[] } => s.type === "text");
   if (textSegments.length === 0) return false;
-  if (turn.segments.some((s: any) => s.type === "thinking")) return false;
-  const totalText = textSegments.map((s: any) => s.chunks.join("")).join("").trim();
+  if (turn.segments.some((s) => s.type === "thinking")) return false;
+  const totalText = textSegments.map((s) => s.chunks.join("")).join("").trim();
   if (totalText.length > SHORT_TEXT_THRESHOLD) return false;
 
   let lastAssistantIdx = -1;
@@ -422,19 +423,18 @@ function renderTextSegment(segIdx: number): void {
     }
     let incState = incrementalState.get(segIdx);
     if (!incState) {
-      incState = { frozenBlockCount: 0, lastLexedText: "", lastTokens: [], textLengthAtLastRaf: 0 };
+      incState = { frozenBlockCount: 0, lastLexedText: "", lastTokens: Object.assign([] as Token[], { links: {} }) as TokensList, textLengthAtLastRaf: 0 };
       incrementalState.set(segIdx, incState);
     }
-    let tokens: any[];
+    let tokens: TokensList;
     if (incState.lastLexedText === fullText) { tokens = incState.lastTokens; }
     else { tokens = lexMarkdown(fullText); incState.lastLexedText = fullText; incState.lastTokens = tokens; }
-    const contentTokens = tokens.filter((t: any) => t.type !== "space");
+    const contentTokens = tokens.filter((t) => t.type !== "space");
     if (contentTokens.length === 0) return;
     const lastTokenIdx = contentTokens.length - 1;
     const completedCount = lastTokenIdx;
     if (completedCount > incState.frozenBlockCount) {
-      const tokensWithLinks = tokens as any;
-      const links = tokensWithLinks.links || {};
+      const links = tokens.links || {};
       for (let i = incState.frozenBlockCount; i < completedCount; i++) {
         const token = contentTokens[i];
         const singleTokenArr = Object.assign([token], { links });
@@ -457,8 +457,7 @@ function renderTextSegment(segIdx: number): void {
       el.appendChild(trailingEl);
     }
     const trailingToken = contentTokens[lastTokenIdx];
-    const tokensWithLinks = tokens as any;
-    const links = tokensWithLinks.links || {};
+    const links = tokens.links || {};
     const trailingArr = Object.assign([trailingToken], { links });
     trailingEl.innerHTML = sanitizeAndPostProcess(parseTokens(trailingArr));
     incState.textLengthAtLastRaf = fullText.length;

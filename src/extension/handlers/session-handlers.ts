@@ -111,7 +111,7 @@ export async function handleSwitchSession(
         messages: messagesResult?.messages || [],
       });
       if (state?.model) {
-        ctx.emitStatus({ model: (state.model as any).id || (state.model as any).name });
+        ctx.emitStatus({ model: state.model.id || state.model.name });
       }
     } catch (err: unknown) {
       ctx.output.appendLine(`[${sessionId}] Session switch error: ${toErrorMessage(err)}`);
@@ -200,7 +200,7 @@ export async function handleResumeLastSession(
         messages: messagesResult?.messages || [],
       });
       if (state?.model) {
-        ctx.emitStatus({ model: (state.model as any).id || (state.model as any).name });
+        ctx.emitStatus({ model: state.model.id || state.model.name });
       }
     }
   } catch (err: unknown) {

@@ -42,7 +42,7 @@
       "format": "esm"
     },
     "src/extension/update-checker.ts": {
-      "bytes": 18509,
+      "bytes": 18669,
       "imports": [
         {
           "path": "vscode",
@@ -240,7 +240,7 @@
       "format": "esm"
     },
     "src/extension/rpc-events.ts": {
-      "bytes": 13229,
+      "bytes": 13306,
       "imports": [
         {
           "path": "vscode",
@@ -413,7 +413,7 @@
       "format": "esm"
     },
     "src/extension/handlers/session-handlers.ts": {
-      "bytes": 8443,
+      "bytes": 8407,
       "imports": [
         {
           "path": "vscode",
@@ -511,7 +511,7 @@
       "format": "esm"
     },
     "src/extension/message-dispatch.ts": {
-      "bytes": 8205,
+      "bytes": 8128,
       "imports": [
         {
           "path": "vscode",
@@ -772,7 +772,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 415735
+      "bytes": 415911
     },
     "dist/extension.js": {
       "imports": [
@@ -1085,7 +1085,7 @@
           "bytesInOutput": 3655
         },
         "src/extension/rpc-events.ts": {
-          "bytesInOutput": 4795
+          "bytesInOutput": 4799
         },
         "src/extension/file-ops.ts": {
           "bytesInOutput": 5975
@@ -1130,7 +1130,7 @@
           "bytesInOutput": 4419
         }
       },
-      "bytes": 103837
+      "bytes": 103841
     }
   }
 }

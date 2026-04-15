@@ -18,6 +18,7 @@ import {
   buildSubagentOutputHtml,
   buildUsagePills,
   renderMarkdown,
+  type SubagentResult,
 } from "../helpers";
 
 import {
@@ -438,13 +439,13 @@ export function patchToolBlock(el: HTMLElement, tc: ToolCallState): void {
 }
 
 function patchSubagentPanel(panel: HTMLElement, tc: ToolCallState): void {
-  const details = tc.details as { mode?: string; results?: any[] } | undefined;
+  const details = tc.details as { mode?: string; results?: SubagentResult[] } | undefined;
   const results = details?.results;
   if (!results) return;
 
-  const running = results.filter((r: any) => r.exitCode === -1).length;
-  const done = results.filter((r: any) => r.exitCode !== -1 && r.exitCode === 0).length;
-  const failed = results.filter((r: any) => r.exitCode > 0 || r.stopReason === "error").length;
+  const running = results.filter((r) => r.exitCode === -1).length;
+  const done = results.filter((r) => r.exitCode !== -1 && r.exitCode === 0).length;
+  const failed = results.filter((r) => r.exitCode > 0 || r.stopReason === "error").length;
   const total = results.length;
 
   const countsEl = panel.querySelector<HTMLElement>(".gsd-subagent-counts");
@@ -459,7 +460,7 @@ function patchSubagentPanel(panel: HTMLElement, tc: ToolCallState): void {
   if (totalEl) totalEl.textContent = `${done + failed}/${total}`;
 
   const cardEls = panel.querySelectorAll<HTMLElement>(".gsd-agent-card");
-  results.forEach((r: any, i: number) => {
+  results.forEach((r, i) => {
     const card = cardEls[i];
     if (!card) return;
 
