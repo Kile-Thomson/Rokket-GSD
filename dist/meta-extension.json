@@ -295,7 +295,7 @@
       "format": "esm"
     },
     "src/extension/message-dispatch.ts": {
-      "bytes": 44609,
+      "bytes": 44786,
       "imports": [
         {
           "path": "vscode",
@@ -546,7 +546,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 404696
+      "bytes": 405147
     },
     "dist/extension.js": {
       "imports": [
@@ -849,7 +849,7 @@
           "bytesInOutput": 4795
         },
         "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 18176
+          "bytesInOutput": 18216
         },
         "src/extension/session-list-service.ts": {
           "bytesInOutput": 2191
@@ -873,7 +873,7 @@
           "bytesInOutput": 4420
         }
       },
-      "bytes": 102359
+      "bytes": 102399
     }
   }
 }

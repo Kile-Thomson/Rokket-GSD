@@ -1335,4 +1335,70 @@ describe("message-dispatch: handleWebviewMessage", () => {
       expect(errorCalls.length).toBe(1);
     });
   });
+
+  // ─── Image payload sanitization ─────────────────────────────────────
+
+  describe("sanitizeImages filtering", () => {
+    it("filters out images with empty data or invalid MIME types on prompt", async () => {
+      const client = createMockClient();
+      const session = createMockSession({ client: client as any });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "prompt",
+        message: "hello",
+        images: [
+          { data: "base64valid", mimeType: "image/png" },
+          { data: "", mimeType: "image/png" },
+          { data: "base64pdf", mimeType: "application/pdf" },
+        ],
+      } as any);
+
+      expect(client.prompt).toHaveBeenCalledTimes(1);
+      const passedImages = client.prompt.mock.calls[0][1];
+      expect(passedImages).toEqual([
+        { type: "image", data: "base64valid", mimeType: "image/png" },
+      ]);
+    });
+
+    it("passes undefined when all images are invalid on prompt", async () => {
+      const client = createMockClient();
+      const session = createMockSession({ client: client as any });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "prompt",
+        message: "hello",
+        images: [
+          { data: "", mimeType: "image/png" },
+          { data: "base64pdf", mimeType: "application/pdf" },
+        ],
+      } as any);
+
+      expect(client.prompt).toHaveBeenCalledTimes(1);
+      const passedImages = client.prompt.mock.calls[0][1];
+      expect(passedImages).toBeUndefined();
+    });
+
+    it("sanitizes images on follow_up path", async () => {
+      const client = createMockClient();
+      const session = createMockSession({ client: client as any, lastUserActionTime: 0 });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "follow_up",
+        message: "more info",
+        images: [
+          { data: "validdata", mimeType: "image/webp" },
+          { data: "badmime", mimeType: "text/plain" },
+        ],
+      } as any);
+
+      expect(client.followUp).toHaveBeenCalledTimes(1);
+      const passedImages = client.followUp.mock.calls[0][1];
+      expect(passedImages).toEqual([
+        { type: "image", data: "validdata", mimeType: "image/webp" },
+      ]);
+    });
+  });
 });

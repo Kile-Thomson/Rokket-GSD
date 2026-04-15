@@ -45,6 +45,20 @@ import type { StatusBarUpdate } from "./webview-provider";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+// ── Image payload validation ─────────────────────────────────────────────
+
+const ALLOWED_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+function sanitizeImages(
+  images?: Array<{ data: string; mimeType: string }>,
+): Array<{ type: "image"; data: string; mimeType: string }> | undefined {
+  if (!images) return undefined;
+  const valid = images
+    .filter((img) => typeof img.data === "string" && img.data.length > 0 && ALLOWED_IMAGE_MIME.has(img.mimeType))
+    .map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
+  return valid.length > 0 ? valid : undefined;
+}
+
 // ============================================================
 // MessageDispatchContext — Everything the switch statement needs from the provider
 // ============================================================
@@ -248,11 +262,7 @@ export async function handleWebviewMessage(
           const c = ctx.getSession(sessionId).client;
           if (c?.isRunning) {
             try {
-              const images = msg.images?.map((img) => ({
-                type: "image" as const,
-                data: img.data,
-                mimeType: img.mimeType,
-              }));
+              const images = sanitizeImages(msg.images);
               // Start watchdog BEFORE awaiting prompt — if pi never acks the
               // RPC the await hangs forever and the watchdog would never start.
               if (msg.message.startsWith("/")) {
@@ -280,11 +290,7 @@ export async function handleWebviewMessage(
               if (err.message?.includes("streaming")) {
                 const isSlash = msg.message.trimStart().startsWith("/");
                 try {
-                  const imgs = msg.images?.map((img) => ({
-                    type: "image" as const,
-                    data: img.data,
-                    mimeType: img.mimeType,
-                  }));
+                  const imgs = sanitizeImages(msg.images);
                   if (isSlash) {
                     startSlashCommandWatchdog(ctx.watchdogCtx, webview, sessionId, msg.message, imgs);
                     armGsdFallbackProbe(ctx.commandFallbackCtx, msg.message.trim(), sessionId, webview);
@@ -356,11 +362,7 @@ export async function handleWebviewMessage(
                     ].join("\n")
                   : msg.message;
 
-                await client.steer(steerMessage, msg.images?.map((img) => ({
-                  type: "image" as const,
-                  data: img.data,
-                  mimeType: img.mimeType,
-                })));
+                await client.steer(steerMessage, sanitizeImages(msg.images));
               }
             } catch (err: any) {
               ctx.postToWebview(webview, { type: "error", message: `Steer failed: ${err.message}` });
@@ -376,11 +378,7 @@ export async function handleWebviewMessage(
           if (client) {
             ctx.getSession(sessionId).lastUserActionTime = Date.now();
             try {
-              await client.followUp(msg.message, msg.images?.map((img) => ({
-                type: "image" as const,
-                data: img.data,
-                mimeType: img.mimeType,
-              })));
+              await client.followUp(msg.message, sanitizeImages(msg.images));
             } catch (err: any) {
               ctx.postToWebview(webview, { type: "error", message: err.message });
             }
