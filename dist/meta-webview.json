@@ -38,7 +38,7 @@
       "imports": []
     },
     "src/webview/styles/overlays.css": {
-      "bytes": 38042,
+      "bytes": 37264,
       "imports": []
     },
     "src/webview/styles/toasts.css": {
@@ -898,7 +898,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 259212
+      "bytes": 257440
     },
     "dist/webview/index.css": {
       "imports": [],
@@ -928,7 +928,7 @@
           "bytesInOutput": 1827
         },
         "src/webview/styles/overlays.css": {
-          "bytesInOutput": 29266
+          "bytesInOutput": 28874
         },
         "src/webview/styles/toasts.css": {
           "bytesInOutput": 937
@@ -952,7 +952,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 117842
+      "bytes": 117450
     }
   }
 }

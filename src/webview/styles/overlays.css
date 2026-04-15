@@ -12,21 +12,21 @@
 
 .gsd-system-msg.info {
   color: var(--gsd-color-text-muted);
-  background: rgba(128,128,128,0.04);
-  border-left: 2px solid var(--vscode-descriptionForeground);
+  background: var(--gsd-color-surface-faint);
+  border-left: 2px solid var(--gsd-color-text-muted);
   opacity: 0.7;
 }
 
 .gsd-system-msg.error {
   color: var(--gsd-color-text-error);
-  background: rgba(220, 60, 60, 0.06);
-  border-left: 2px solid var(--vscode-inputValidation-errorBorder, #f44336);
+  background: var(--gsd-color-error-subtle);
+  border-left: 2px solid var(--gsd-color-error);
 }
 
 .gsd-system-msg.warning {
   color: var(--gsd-color-text-warning);
-  background: rgba(220, 160, 40, 0.06);
-  border-left: 2px solid var(--vscode-editorWarning-foreground, #cca700);
+  background: var(--gsd-color-warning-subtle);
+  border-left: 2px solid var(--gsd-color-text-warning);
 }
 
 /* ============================================================
@@ -55,7 +55,7 @@
 
 .gsd-slash-item:hover,
 .gsd-slash-item.active {
-  background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.1));
+  background: var(--gsd-color-surface-hover);
 }
 
 .gsd-slash-name {
@@ -99,7 +99,7 @@
   border: 1px solid var(--gsd-color-border-strong);
   border-radius: var(--gsd-radius-xl);
   z-index: 200;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  box-shadow: var(--gsd-overlay-shadow);
   font-size: var(--gsd-font-size-md);
   animation: gsd-picker-in 0.15s ease-out;
 }
@@ -185,11 +185,11 @@
 }
 
 .gsd-model-picker-item:hover {
-  background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.1));
+  background: var(--gsd-color-surface-hover);
 }
 
 .gsd-model-picker-item.current {
-  background: rgba(55, 148, 255, 0.08);
+  background: var(--gsd-color-accent-subtle);
 }
 
 .gsd-model-picker-name {
@@ -233,8 +233,8 @@
 }
 
 .gsd-model-tag.reasoning {
-  background: rgba(160, 100, 255, 0.1);
-  color: rgba(180, 140, 255, 0.8);
+  background: var(--gsd-badge-thinking-bg-hover);
+  color: var(--gsd-badge-thinking-fg);
 }
 
 .gsd-model-badge {
@@ -254,7 +254,7 @@
   border: 1px solid var(--gsd-color-border-strong);
   border-radius: var(--gsd-radius-xl);
   z-index: 200;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  box-shadow: var(--gsd-overlay-shadow);
   font-size: var(--gsd-font-size-md);
   overflow: hidden;
   animation: gsd-picker-in 0.15s ease-out;
@@ -313,11 +313,11 @@
 }
 
 .gsd-thinking-picker-item:hover {
-  background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.1));
+  background: var(--gsd-color-surface-hover);
 }
 
 .gsd-thinking-picker-item.active {
-  background: rgba(160, 100, 255, 0.08);
+  background: var(--gsd-badge-thinking-bg);
 }
 
 .gsd-thinking-picker-item-main {
@@ -327,7 +327,7 @@
 }
 
 .gsd-thinking-picker-dot {
-  color: rgba(180, 140, 255, 0.9);
+  color: var(--gsd-badge-thinking-fg);
   font-size: 8px;
   flex-shrink: 0;
   width: 10px;
@@ -360,7 +360,7 @@
 }
 
 .gsd-thinking-badge.disabled:hover {
-  background: rgba(160, 100, 255, 0.12);
+  background: var(--gsd-badge-thinking-bg-active);
 }
 
 /* ============================================================
@@ -379,7 +379,7 @@
   border: 1px solid var(--gsd-color-border-strong);
   border-radius: var(--gsd-radius-xl);
   z-index: 200;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  box-shadow: var(--gsd-overlay-shadow);
   font-size: var(--gsd-font-size-md);
   animation: gsd-picker-in 0.15s ease-out;
 }
@@ -467,10 +467,10 @@
 .gsd-session-search-input {
   width: 100%;
   padding: 4px 8px;
-  border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.3));
+  border: 1px solid var(--gsd-input-border);
   border-radius: var(--gsd-radius-md);
-  background: var(--vscode-input-background, rgba(0,0,0,0.2));
-  color: var(--vscode-input-foreground, var(--vscode-foreground));
+  background: var(--gsd-input-bg);
+  color: var(--gsd-input-fg);
   font-size: var(--gsd-font-size-md);
   font-family: inherit;
   outline: none;
@@ -482,7 +482,7 @@
 }
 
 .gsd-session-search-input::placeholder {
-  color: var(--vscode-input-placeholderForeground, rgba(128,128,128,0.6));
+  color: var(--gsd-input-placeholder);
 }
 
 .gsd-session-history-list {
@@ -496,7 +496,7 @@
   padding: 8px 12px;
   cursor: pointer;
   transition: background 0.1s;
-  border-bottom: 1px solid rgba(128,128,128,0.06);
+  border-bottom: 1px solid var(--gsd-color-border-faint);
 }
 
 .gsd-session-history-item:last-child {
@@ -504,15 +504,15 @@
 }
 
 .gsd-session-history-item:hover {
-  background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.1));
+  background: var(--gsd-color-surface-hover);
 }
 
 .gsd-session-history-item.current {
-  background: rgba(55, 148, 255, 0.08);
+  background: var(--gsd-color-accent-subtle);
 }
 
 .gsd-session-history-item.highlighted {
-  background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.1));
+  background: var(--gsd-color-surface-hover);
   outline: 1px solid var(--gsd-color-border-focus);
   outline-offset: -1px;
 }
@@ -598,8 +598,8 @@
   padding: 2px 6px;
   border: 1px solid var(--gsd-color-border-focus);
   border-radius: var(--gsd-radius-sm);
-  background: var(--vscode-input-background, rgba(0,0,0,0.2));
-  color: var(--vscode-input-foreground, var(--vscode-foreground));
+  background: var(--gsd-input-bg);
+  color: var(--gsd-input-fg);
   font-size: var(--gsd-font-size-md);
   font-family: inherit;
   outline: none;
@@ -643,7 +643,7 @@
 
 .gsd-ui-option-btn {
   padding: 8px 14px;
-  border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.2));
+  border: 1px solid var(--gsd-input-border);
   border-radius: var(--gsd-radius-lg);
   background: transparent;
   color: var(--gsd-color-text);
@@ -654,7 +654,7 @@
 }
 
 .gsd-ui-option-btn:hover {
-  background: rgba(55, 148, 255, 0.08);
+  background: var(--gsd-color-accent-subtle);
   border-color: var(--gsd-color-text-link);
   transform: translateX(2px);
 }
@@ -691,7 +691,7 @@
   align-items: center;
   gap: var(--gsd-space-md);
   padding: 7px 12px;
-  border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.2));
+  border: 1px solid var(--gsd-input-border);
   border-radius: var(--gsd-radius-lg);
   background: transparent;
   color: var(--gsd-color-text);
@@ -703,12 +703,12 @@
 }
 
 .gsd-ui-multi-option:hover {
-  background: rgba(55, 148, 255, 0.06);
-  border-color: rgba(55, 148, 255, 0.3);
+  background: var(--gsd-color-accent-subtle-06);
+  border-color: var(--gsd-color-accent-subtle-border);
 }
 
 .gsd-ui-multi-option.checked {
-  background: rgba(55, 148, 255, 0.1);
+  background: var(--gsd-color-accent-subtle-hover);
   border-color: var(--gsd-color-text-link);
 }
 
@@ -753,7 +753,7 @@
 .gsd-ui-input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.25));
+  border: 1px solid var(--gsd-input-border);
   border-radius: var(--gsd-radius-lg);
   background: var(--gsd-input-bg);
   color: var(--gsd-input-fg);
@@ -797,12 +797,12 @@
 }
 
 .gsd-ui-btn.secondary {
-  background: var(--vscode-button-secondaryBackground, rgba(128,128,128,0.12));
-  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  background: var(--gsd-btn-secondary-bg);
+  color: var(--gsd-btn-secondary-fg);
 }
 
 .gsd-ui-btn.secondary:hover {
-  background: var(--vscode-button-secondaryHoverBackground, rgba(128,128,128,0.18));
+  background: var(--gsd-btn-secondary-hover-bg);
 }
 
 .gsd-ui-resolved {
@@ -821,7 +821,7 @@
 }
 
 .gsd-ui-resolved.accepted .gsd-ui-resolved-icon {
-  color: var(--vscode-testing-iconPassed, #4caf50);
+  color: var(--gsd-color-success);
 }
 
 .gsd-ui-resolved.cancelled .gsd-ui-resolved-icon {
@@ -897,7 +897,7 @@
 .gsd-changelog-close {
   background: none;
   border: none;
-  color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.5));
+  color: var(--gsd-color-text-muted);
   cursor: pointer;
   font-size: var(--gsd-font-size-lg);
   padding: 2px 6px;
@@ -906,7 +906,7 @@
 }
 
 .gsd-changelog-close:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--gsd-color-surface-highlight);
   color: var(--gsd-color-text);
 }
 
@@ -926,7 +926,7 @@
 }
 
 .gsd-changelog-entry.latest {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--gsd-color-surface-highlight-faint);
 }
 
 .gsd-changelog-entry-header {
@@ -947,8 +947,8 @@
   font-size: var(--gsd-font-size-xs);
   padding: 1px 6px;
   border-radius: var(--gsd-radius-sm);
-  background: var(--vscode-button-background, #0078d4);
-  color: var(--vscode-button-foreground, #fff);
+  background: var(--gsd-color-accent);
+  color: var(--gsd-color-accent-fg);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -956,14 +956,14 @@
 
 .gsd-changelog-date {
   font-size: var(--gsd-font-size-sm);
-  color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.4));
+  color: var(--gsd-color-text-muted);
   margin-left: auto;
 }
 
 .gsd-changelog-entry-notes {
   font-size: var(--gsd-font-size-md);
   line-height: 1.5;
-  color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.7));
+  color: var(--gsd-color-text-muted);
 }
 
 .gsd-changelog-entry-notes h3,
@@ -996,7 +996,7 @@
 }
 
 .gsd-changelog-entry-notes code {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--gsd-color-surface-highlight);
   padding: 1px 4px;
   border-radius: var(--gsd-radius-sm);
   font-family: var(--gsd-font-family-mono);
@@ -1011,7 +1011,7 @@
 .gsd-changelog-empty {
   padding: 20px 14px;
   text-align: center;
-  color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.5));
+  color: var(--gsd-color-text-muted);
   font-size: var(--gsd-font-size-md);
 }
 
@@ -1029,12 +1029,12 @@
   top: calc(100% + 6px);
   right: 0;
   min-width: 180px;
-  background: var(--vscode-dropdown-background, var(--vscode-editor-background));
+  background: var(--gsd-dropdown-bg);
   border: 1px solid var(--gsd-color-border-strong);
   border-radius: var(--gsd-radius-lg);
   padding: 8px 0;
   z-index: 1000;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  box-shadow: var(--gsd-overlay-shadow);
 }
 
 .gsd-settings-dropdown.open {
@@ -1079,14 +1079,14 @@
 }
 
 .gsd-settings-option:hover {
-  background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.1));
+  background: var(--gsd-color-surface-hover);
 }
 
 .gsd-settings-option-dot {
   width: 8px;
   height: 8px;
   border-radius: var(--gsd-radius-circle);
-  border: 1.5px solid var(--vscode-foreground);
+  border: 1.5px solid var(--gsd-color-text);
   opacity: 0.4;
   flex-shrink: 0;
   transition: all 0.15s;
@@ -1108,18 +1108,18 @@
 }
 
 .gsd-settings-theme-tag.phosphor {
-  background: rgba(0, 255, 65, 0.12);
-  color: rgba(0, 255, 65, 0.8);
+  background: var(--gsd-theme-phosphor-bg);
+  color: var(--gsd-theme-phosphor-fg);
 }
 
 .gsd-settings-theme-tag.clarity {
-  background: rgba(100, 160, 255, 0.12);
-  color: rgba(130, 180, 255, 0.8);
+  background: var(--gsd-theme-clarity-bg);
+  color: var(--gsd-theme-clarity-fg);
 }
 
 .gsd-settings-theme-tag.forge {
-  background: rgba(180, 160, 140, 0.15);
-  color: rgba(200, 180, 160, 0.8);
+  background: var(--gsd-theme-forge-bg);
+  color: var(--gsd-theme-forge-fg);
 }
 
 /* ============================================================
@@ -1304,7 +1304,7 @@
   font-size: var(--gsd-font-size-base);
   font-weight: 700;
   opacity: 0.5;
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--gsd-font-family-mono);
 }
 
 .gsd-viz-milestone-title {
@@ -1356,7 +1356,7 @@
 .gsd-viz-progress-pct {
   width: 36px;
   text-align: right;
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--gsd-font-family-mono);
   font-size: var(--gsd-font-size-sm);
   opacity: 0.6;
 }
@@ -1364,7 +1364,7 @@
 .gsd-viz-progress-ratio {
   font-size: var(--gsd-font-size-sm);
   opacity: 0.4;
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--gsd-font-family-mono);
 }
 
 /* Current action */
@@ -1386,7 +1386,7 @@
 }
 
 .gsd-viz-current-value {
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--gsd-font-family-mono);
 }
 
 /* Sections */
@@ -1465,7 +1465,7 @@
 .gsd-viz-slice-progress {
   font-size: var(--gsd-font-size-xs);
   opacity: 0.5;
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--gsd-font-family-mono);
 }
 
 /* Tasks (nested) */
@@ -1536,7 +1536,7 @@
 .gsd-viz-metric-value {
   font-size: 20px;
   font-weight: 700;
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--gsd-font-family-mono);
   margin-bottom: 4px;
 }
 
@@ -1576,7 +1576,7 @@
 .gsd-viz-token-value {
   font-size: var(--gsd-font-size-lg);
   font-weight: 600;
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--gsd-font-family-mono);
 }
 
 .gsd-viz-token-label {
