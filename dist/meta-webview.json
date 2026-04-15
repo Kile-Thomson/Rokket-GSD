@@ -207,7 +207,7 @@
       "format": "esm"
     },
     "src/webview/renderer.ts": {
-      "bytes": 76930,
+      "bytes": 77194,
       "imports": [
         {
           "path": "src/webview/state.ts",
@@ -626,7 +626,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 869755
+      "bytes": 870132
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -719,7 +719,7 @@
           "bytesInOutput": 3598
         },
         "src/webview/renderer.ts": {
-          "bytesInOutput": 29996
+          "bytesInOutput": 30101
         },
         "src/webview/dashboard.ts": {
           "bytesInOutput": 10380
@@ -746,7 +746,7 @@
           "bytesInOutput": 18561
         }
       },
-      "bytes": 231991
+      "bytes": 232096
     },
     "dist/webview/index.css.map": {
       "imports": [],

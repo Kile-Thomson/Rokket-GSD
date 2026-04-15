@@ -1064,8 +1064,16 @@ export function syncBatchState(trackedIds: Set<string>): void {
   if (readySegments.length < 2) return; // Not enough segments yet
 
   if (!activeBatchElement) {
-    // If there's a finalized batch, reopen it instead of creating a new one
-    if (finalizedBatchElement) {
+    // Reopen finalized batch only if its tools overlap the incoming set
+    const canReopen =
+      finalizedBatchElement &&
+      Array.from(
+        finalizedBatchElement.querySelectorAll<HTMLElement>(
+          ".gsd-tool-segment[data-tool-id]",
+        ),
+      ).some((el) => trackedIds.has(el.dataset.toolId!));
+
+    if (canReopen && finalizedBatchElement) {
       activeBatchElement = finalizedBatchElement;
       finalizedBatchElement = null;
       activeBatchElement.classList.remove("done");

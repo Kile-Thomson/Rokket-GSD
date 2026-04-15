@@ -18,6 +18,7 @@ vi.mock("../renderer", () => ({
   renderNewEntry: vi.fn(),
   createParallelBatch: vi.fn(),
   expandParallelBatch: vi.fn(),
+  syncBatchState: vi.fn(),
   updateParallelBatchStatus: vi.fn(),
   finalizeParallelBatch: vi.fn(),
   clearActiveBatch: vi.fn(),
