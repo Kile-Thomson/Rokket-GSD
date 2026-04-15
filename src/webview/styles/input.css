@@ -63,7 +63,7 @@
   outline: none;
   min-height: 38px;
   max-height: 200px;
-  line-height: 1.45;
+  line-height: var(--gsd-line-height);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -98,7 +98,7 @@
   background: var(--gsd-badge-bg);
   color: var(--gsd-badge-fg);
   font-size: var(--gsd-font-size-md);
-  line-height: 1.3;
+  line-height: var(--gsd-line-height-tight);
   max-width: 220px;
 }
 
@@ -129,7 +129,7 @@
   color: var(--gsd-color-text-muted);
   cursor: pointer;
   font-size: var(--gsd-font-size-lg);
-  line-height: 1;
+  line-height: var(--gsd-line-height-none);
   padding: 0;
   flex-shrink: 0;
 }
@@ -262,7 +262,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: 1;
+  line-height: var(--gsd-line-height-none);
   opacity: 0;
   transition: opacity 0.15s;
 }

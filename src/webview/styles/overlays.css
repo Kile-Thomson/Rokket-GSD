@@ -6,7 +6,7 @@
   font-size: var(--gsd-font-size-sm);
   padding: 6px 10px;
   border-radius: var(--gsd-radius-md);
-  line-height: 1.5;
+  line-height: var(--gsd-line-height);
   font-family: var(--gsd-font-family-mono);
 }
 
@@ -228,7 +228,7 @@
   font-size: 9px;
   padding: 0 5px;
   border-radius: var(--gsd-radius-sm);
-  line-height: 1.6;
+  line-height: var(--gsd-line-height-relaxed);
   font-weight: 500;
 }
 
@@ -540,7 +540,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--gsd-font-size-md);
-  line-height: 1.4;
+  line-height: var(--gsd-line-height-tight);
 }
 
 .gsd-session-history-item-meta {
@@ -631,7 +631,7 @@
   font-size: var(--gsd-font-size-md);
   margin-bottom: 12px;
   opacity: 0.8;
-  line-height: 1.5;
+  line-height: var(--gsd-line-height);
 }
 
 .gsd-ui-options {
@@ -714,7 +714,7 @@
 
 .gsd-ui-checkbox {
   font-size: var(--gsd-font-size-lg);
-  line-height: 1;
+  line-height: var(--gsd-line-height-none);
   flex-shrink: 0;
   opacity: 0.5;
   transition: opacity 0.12s;
@@ -902,7 +902,7 @@
   font-size: var(--gsd-font-size-lg);
   padding: 2px 6px;
   border-radius: var(--gsd-radius-md);
-  line-height: 1;
+  line-height: var(--gsd-line-height-none);
 }
 
 .gsd-changelog-close:hover {
@@ -962,7 +962,7 @@
 
 .gsd-changelog-entry-notes {
   font-size: var(--gsd-font-size-md);
-  line-height: 1.5;
+  line-height: var(--gsd-line-height);
   color: var(--gsd-color-text-muted);
 }
 

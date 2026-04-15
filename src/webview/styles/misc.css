@@ -85,7 +85,7 @@
 .gsd-update-notes {
   padding: 10px 14px;
   font-size: var(--gsd-font-size-md);
-  line-height: 1.5;
+  line-height: var(--gsd-line-height);
   color: var(--gsd-color-text-muted);
   max-height: 200px;
   overflow-y: auto;
@@ -322,7 +322,7 @@
   font-size: var(--gsd-font-size-lg);
   padding: 2px 6px;
   border-radius: var(--gsd-radius-md);
-  line-height: 1;
+  line-height: var(--gsd-line-height-none);
 }
 
 .gsd-whats-new-close:hover {
@@ -333,7 +333,7 @@
 .gsd-whats-new-notes {
   padding: 10px 14px;
   font-size: var(--gsd-font-size-md);
-  line-height: 1.5;
+  line-height: var(--gsd-line-height);
   color: var(--gsd-color-text-muted);
   max-height: 200px;
   overflow-y: auto;

@@ -51,7 +51,7 @@
   word-wrap: break-word;
   white-space: pre-wrap;
   font-size: var(--gsd-font-size-base);
-  line-height: 1.5;
+  line-height: var(--gsd-line-height);
 }
 
 .gsd-user-images {
@@ -99,7 +99,7 @@
 
 .gsd-assistant-text {
   padding: 2px 0;
-  line-height: 1.65;
+  line-height: var(--gsd-line-height-relaxed);
   word-wrap: break-word;
   overflow-wrap: break-word;
 }
@@ -195,7 +195,7 @@
   border-bottom: var(--gsd-border-width) solid var(--gsd-color-border-subtle);
   padding: 6px 12px;
   text-align: left;
-  line-height: 1.5;
+  line-height: var(--gsd-line-height);
 }
 
 .gsd-assistant-text tr:last-child td {
@@ -370,6 +370,6 @@
 .gsd-code-block code {
   font-family: var(--gsd-font-family-mono);
   font-size: var(--gsd-font-size-base);
-  line-height: 1.55;
+  line-height: var(--gsd-line-height);
   tab-size: 2;
 }

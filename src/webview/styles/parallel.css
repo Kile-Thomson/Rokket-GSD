@@ -19,7 +19,7 @@
   border-radius: var(--gsd-radius-md);
   padding: 6px 8px;
   font-size: var(--gsd-font-size-sm);
-  line-height: 1.4;
+  line-height: var(--gsd-line-height-tight);
 }
 
 .gsd-auto-progress-worker-card.stale {
