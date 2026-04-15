@@ -1078,6 +1078,9 @@ export function syncBatchState(trackedIds: Set<string>): void {
       finalizedBatchElement = null;
       activeBatchElement.classList.remove("done");
       activeBatchElement.classList.add("running");
+      activeBatchElement.querySelector(".gsd-parallel-batch-footer")?.remove();
+      const elapsed = activeBatchElement.querySelector(".gsd-parallel-batch-elapsed");
+      if (elapsed) elapsed.textContent = "";
       const icon = activeBatchElement.querySelector(".gsd-parallel-batch-header .gsd-tool-icon");
       if (icon) {
         const spinner = document.createElement("span");
