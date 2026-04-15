@@ -100,6 +100,17 @@
       "imports": [],
       "format": "esm"
     },
+    "src/webview/persist-attachments.ts": {
+      "bytes": 1157,
+      "imports": [
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "./state"
+        }
+      ],
+      "format": "esm"
+    },
     "src/webview/slash-menu.ts": {
       "bytes": 16320,
       "imports": [
@@ -286,7 +297,7 @@
       "format": "esm"
     },
     "src/webview/file-handling.ts": {
-      "bytes": 11379,
+      "bytes": 11556,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -297,6 +308,11 @@
           "path": "src/webview/state.ts",
           "kind": "import-statement",
           "original": "./state"
+        },
+        {
+          "path": "src/webview/persist-attachments.ts",
+          "kind": "import-statement",
+          "original": "./persist-attachments"
         }
       ],
       "format": "esm"
@@ -460,7 +476,7 @@
       "format": "esm"
     },
     "src/webview/index.ts": {
-      "bytes": 30152,
+      "bytes": 30507,
       "imports": [
         {
           "path": "src/webview/styles/tokens.css",
@@ -558,6 +574,11 @@
           "original": "./send-debounce"
         },
         {
+          "path": "src/webview/persist-attachments.ts",
+          "kind": "import-statement",
+          "original": "./persist-attachments"
+        },
+        {
           "path": "src/webview/slash-menu.ts",
           "kind": "import-statement",
           "original": "./slash-menu"
@@ -636,7 +657,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 871994
+      "bytes": 874729
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -707,6 +728,9 @@
         "src/webview/send-debounce.ts": {
           "bytesInOutput": 69
         },
+        "src/webview/persist-attachments.ts": {
+          "bytesInOutput": 366
+        },
         "src/webview/slash-menu.ts": {
           "bytesInOutput": 7403
         },
@@ -744,7 +768,7 @@
           "bytesInOutput": 12103
         },
         "src/webview/file-handling.ts": {
-          "bytesInOutput": 5253
+          "bytesInOutput": 5273
         },
         "src/webview/keyboard.ts": {
           "bytesInOutput": 6547
@@ -756,10 +780,10 @@
           "bytesInOutput": 7187
         },
         "src/webview/index.ts": {
-          "bytesInOutput": 18583
+          "bytesInOutput": 18652
         }
       },
-      "bytes": 232739
+      "bytes": 233194
     },
     "dist/webview/index.css.map": {
       "imports": [],

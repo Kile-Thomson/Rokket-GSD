@@ -7,6 +7,15 @@ import {
   SEND_DEBOUNCE_MS,
 } from "../send-debounce";
 
+import {
+  initPersistAttachments,
+  persistAttachments,
+  rehydrateAttachments,
+  _testReset as resetPersist,
+} from "../persist-attachments";
+
+import { state, resetState } from "../state";
+
 describe("send debounce", () => {
   beforeEach(() => {
     _testResetDebounce();
@@ -43,5 +52,66 @@ describe("send debounce", () => {
 
   it("exports SEND_DEBOUNCE_MS as 300", () => {
     expect(SEND_DEBOUNCE_MS).toBe(300);
+  });
+});
+
+describe("attachment persistence", () => {
+  let storedState: unknown = null;
+  const mockVscode = {
+    setState: vi.fn((s: unknown) => { storedState = s; }),
+    getState: vi.fn(() => storedState),
+  };
+
+  beforeEach(() => {
+    storedState = null;
+    resetState();
+    resetPersist();
+    mockVscode.setState.mockClear();
+    mockVscode.getState.mockClear();
+    initPersistAttachments(mockVscode);
+  });
+
+  it("calls setState with current images and files when persistAttachments is called", () => {
+    state.images = [{ type: "image", data: "abc123", mimeType: "image/png" }];
+    state.files = [{ type: "file", path: "/tmp/a.txt", name: "a.txt", extension: "txt" }];
+    persistAttachments();
+    expect(mockVscode.setState).toHaveBeenCalledWith({
+      images: state.images,
+      files: state.files,
+    });
+  });
+
+  it("rehydrates images from getState into state", () => {
+    const saved = [{ type: "image", data: "xyz789", mimeType: "image/jpeg" }];
+    storedState = { images: saved, files: [] };
+    const result = rehydrateAttachments();
+    expect(result.hadImages).toBe(true);
+    expect(state.images).toEqual(saved);
+  });
+
+  it("rehydrates files from getState into state", () => {
+    const saved = [{ type: "file", path: "/tmp/b.pdf", name: "b.pdf", extension: "pdf" }];
+    storedState = { images: [], files: saved };
+    const result = rehydrateAttachments();
+    expect(result.hadFiles).toBe(true);
+    expect(state.files).toEqual(saved);
+  });
+
+  it("returns hadImages/hadFiles false when getState returns null", () => {
+    storedState = null;
+    const result = rehydrateAttachments();
+    expect(result.hadImages).toBe(false);
+    expect(result.hadFiles).toBe(false);
+    expect(state.images).toEqual([]);
+    expect(state.files).toEqual([]);
+  });
+
+  it("persists empty arrays after clearing attachments", () => {
+    state.images = [{ type: "image", data: "abc", mimeType: "image/png" }];
+    persistAttachments();
+    state.images = [];
+    state.files = [];
+    persistAttachments();
+    expect(mockVscode.setState).toHaveBeenLastCalledWith({ images: [], files: [] });
   });
 });

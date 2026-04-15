@@ -38,6 +38,7 @@ import {
 } from "./helpers";
 
 import { shouldDebounce } from "./send-debounce";
+import { initPersistAttachments, rehydrateAttachments, persistAttachments } from "./persist-attachments";
 
 import * as slashMenu from "./slash-menu";
 import * as modelPicker from "./model-picker";
@@ -62,6 +63,8 @@ declare function acquireVsCodeApi(): {
 };
 
 const vscode = acquireVsCodeApi();
+
+initPersistAttachments(vscode);
 
 // ============================================================
 // DOM Setup
@@ -531,6 +534,7 @@ function sendMessage(): void {
 
     promptInput.value = "";
     state.images = [];
+    persistAttachments();
     fileHandling.renderImagePreviews();
     autoResize();
     return;
@@ -567,6 +571,7 @@ function sendMessage(): void {
   promptInput.value = "";
   state.images = [];
   state.files = [];
+  persistAttachments();
   fileHandling.renderImagePreviews();
   fileHandling.renderFileChips();
   autoResize();
@@ -756,6 +761,10 @@ renderer.init({
 // ============================================================
 // Initialize
 // ============================================================
+
+const restored = rehydrateAttachments();
+if (restored.hadImages) fileHandling.renderImagePreviews();
+if (restored.hadFiles) fileHandling.renderFileChips();
 
 vscode.postMessage({ type: "ready" });
 vscode.postMessage({ type: "launch_gsd" });
