@@ -34,7 +34,7 @@ export class AutoProgressPoller {
   constructor(
     private readonly sessionId: string,
     private readonly client: GsdRpcClient,
-    private readonly webview: vscode.Webview,
+    private webview: vscode.Webview,
     private readonly getCwd: () => string,
     private readonly output: vscode.OutputChannel,
     private readonly onModelChanged?: (oldModel: { id: string; provider: string } | null, newModel: { id: string; provider: string } | null) => void,
@@ -86,6 +86,13 @@ export class AutoProgressPoller {
     this.autoStartTime = 0;
     this.lastModel = null;
     this.sendClear();
+  }
+
+  /**
+   * Update the webview reference after sidebar rebind so polls post to the current webview.
+   */
+  rebindWebview(webview: vscode.Webview): void {
+    this.webview = webview;
   }
 
   /**

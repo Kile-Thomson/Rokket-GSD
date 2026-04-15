@@ -151,6 +151,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       existingClient.removeAllListeners("error");
       existingClient.removeAllListeners("log");
       this.getSession(sessionId).webview = webviewView.webview;
+      this.getSession(sessionId).autoProgressPoller?.rebindWebview(webviewView.webview);
       this._bindClientListeners(existingClient, webviewView.webview, sessionId);
       this.output.appendLine(`[${sessionId}] Sidebar re-resolved — reusing existing session, all listeners rebound`);
     } else {
@@ -402,6 +403,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   /** Stop all monitoring timers, watchdogs, and reset streaming state for a session. */
   private _cleanupTimersAndWatchdogs(sessionId: string): void {
     stopAllPolling(this.pollingCtx, sessionId);
+    this.getSession(sessionId).autoProgressPoller?.onProcessExit();
     this.getSession(sessionId).autoModeState = null;
     stopActivityMonitor(this.watchdogCtx, sessionId);
     this.getSession(sessionId).isStreaming = false;

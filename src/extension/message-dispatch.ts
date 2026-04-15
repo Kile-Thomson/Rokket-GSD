@@ -420,6 +420,7 @@ export async function handleWebviewMessage(
 
         case "new_conversation": {
           ctx.cleanupTempFiles();
+          ctx.getSession(sessionId).autoProgressPoller?.onNewConversation();
           const client = ctx.getSession(sessionId).client;
           if (client?.isRunning) {
             try {

@@ -132,7 +132,7 @@
       "format": "esm"
     },
     "src/extension/auto-progress-poller.ts": {
-      "bytes": 10907,
+      "bytes": 11092,
       "imports": [
         {
           "path": "vscode",
@@ -295,7 +295,7 @@
       "format": "esm"
     },
     "src/extension/message-dispatch.ts": {
-      "bytes": 44531,
+      "bytes": 44609,
       "imports": [
         {
           "path": "vscode",
@@ -388,7 +388,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 22425,
+      "bytes": 22584,
       "imports": [
         {
           "path": "vscode",
@@ -546,7 +546,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 404013
+      "bytes": 404628
     },
     "dist/extension.js": {
       "imports": [
@@ -813,7 +813,7 @@
           "bytesInOutput": 2896
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 10363
+          "bytesInOutput": 10482
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 10284
@@ -822,7 +822,7 @@
           "bytesInOutput": 6217
         },
         "src/extension/auto-progress-poller.ts": {
-          "bytesInOutput": 4238
+          "bytesInOutput": 4270
         },
         "src/extension/dashboard-parser.ts": {
           "bytesInOutput": 2979
@@ -849,7 +849,7 @@
           "bytesInOutput": 4764
         },
         "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 18120
+          "bytesInOutput": 18176
         },
         "src/extension/session-list-service.ts": {
           "bytesInOutput": 2191
@@ -873,7 +873,7 @@
           "bytesInOutput": 4420
         }
       },
-      "bytes": 102121
+      "bytes": 102328
     }
   }
 }
