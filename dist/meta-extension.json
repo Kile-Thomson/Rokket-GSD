@@ -266,22 +266,6 @@
       ],
       "format": "esm"
     },
-    "src/extension/metrics-parser.ts": {
-      "bytes": 9537,
-      "imports": [
-        {
-          "path": "fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        }
-      ],
-      "format": "esm"
-    },
     "src/extension/command-fallback.ts": {
       "bytes": 25599,
       "imports": [
@@ -329,8 +313,77 @@
       ],
       "format": "esm"
     },
+    "src/extension/handlers/config-handlers.ts": {
+      "bytes": 5746,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/metrics-parser.ts": {
+      "bytes": 9537,
+      "imports": [
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/handlers/dispatch-utils.ts": {
+      "bytes": 1971,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/extension/dashboard-parser.ts",
+          "kind": "import-statement",
+          "original": "../dashboard-parser"
+        },
+        {
+          "path": "src/extension/metrics-parser.ts",
+          "kind": "import-statement",
+          "original": "../metrics-parser"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/handlers/query-handlers.ts": {
+      "bytes": 4273,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/extension/update-checker.ts",
+          "kind": "import-statement",
+          "original": "../update-checker"
+        },
+        {
+          "path": "src/extension/handlers/dispatch-utils.ts",
+          "kind": "import-statement",
+          "original": "./dispatch-utils"
+        }
+      ],
+      "format": "esm"
+    },
     "src/extension/message-dispatch.ts": {
-      "bytes": 44786,
+      "bytes": 35782,
       "imports": [
         {
           "path": "vscode",
@@ -346,16 +399,6 @@
           "path": "src/extension/update-checker.ts",
           "kind": "import-statement",
           "original": "./update-checker"
-        },
-        {
-          "path": "src/extension/dashboard-parser.ts",
-          "kind": "import-statement",
-          "original": "./dashboard-parser"
-        },
-        {
-          "path": "src/extension/metrics-parser.ts",
-          "kind": "import-statement",
-          "original": "./metrics-parser"
         },
         {
           "path": "src/shared/types.ts",
@@ -376,6 +419,21 @@
           "path": "src/extension/file-ops.ts",
           "kind": "import-statement",
           "original": "./file-ops"
+        },
+        {
+          "path": "src/extension/handlers/config-handlers.ts",
+          "kind": "import-statement",
+          "original": "./handlers/config-handlers"
+        },
+        {
+          "path": "src/extension/handlers/query-handlers.ts",
+          "kind": "import-statement",
+          "original": "./handlers/query-handlers"
+        },
+        {
+          "path": "src/extension/handlers/dispatch-utils.ts",
+          "kind": "import-statement",
+          "original": "./handlers/dispatch-utils"
         },
         {
           "path": "node:fs",
@@ -591,7 +649,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 406014
+      "bytes": 411463
     },
     "dist/extension.js": {
       "imports": [
@@ -756,6 +814,11 @@
           "external": true
         },
         {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
           "path": "fs",
           "kind": "require-call",
           "external": true
@@ -894,19 +957,28 @@
           "bytesInOutput": 4795
         },
         "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 18216
+          "bytesInOutput": 14209
         },
         "src/extension/session-list-service.ts": {
           "bytesInOutput": 2191
-        },
-        "src/extension/metrics-parser.ts": {
-          "bytesInOutput": 2502
         },
         "src/extension/command-fallback.ts": {
           "bytesInOutput": 15871
         },
         "src/extension/file-ops.ts": {
           "bytesInOutput": 6000
+        },
+        "src/extension/handlers/config-handlers.ts": {
+          "bytesInOutput": 2413
+        },
+        "src/extension/handlers/dispatch-utils.ts": {
+          "bytesInOutput": 592
+        },
+        "src/extension/metrics-parser.ts": {
+          "bytesInOutput": 2502
+        },
+        "src/extension/handlers/query-handlers.ts": {
+          "bytesInOutput": 1715
         },
         "src/extension/polling.ts": {
           "bytesInOutput": 1769
@@ -918,7 +990,7 @@
           "bytesInOutput": 4420
         }
       },
-      "bytes": 102319
+      "bytes": 103037
     }
   }
 }

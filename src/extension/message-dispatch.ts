@@ -1,17 +1,12 @@
 import * as vscode from "vscode";
 import { listSessions, deleteSession, validateSessionPath } from "./session-list-service";
-import { downloadAndInstallUpdate, dismissUpdateVersion, fetchRecentReleases } from "./update-checker";
-import { buildDashboardData } from "./dashboard-parser";
-import { loadMetricsLedger, buildMetricsData } from "./metrics-parser";
+import { downloadAndInstallUpdate, dismissUpdateVersion } from "./update-checker";
 import type { SessionState } from "./session-state";
 import type {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
-  SessionStats,
   SessionListItem,
   RpcCommandsResult,
-  RpcModelsResult,
-  RpcThinkingResult,
   RpcStateResult,
   BashResult,
   AgentMessage,
@@ -41,6 +36,26 @@ import {
   handleSetTheme,
   type FileOpsContext,
 } from "./file-ops";
+import {
+  handleSetModel,
+  handleSetThinkingLevel,
+  handleCycleThinkingLevel,
+  handleCompactContext,
+  handleSetAutoCompaction,
+  handleSetAutoRetry,
+  handleAbortRetry,
+  handleSetSteeringMode,
+  handleSetFollowUpMode,
+} from "./handlers/config-handlers";
+import {
+  handleGetState,
+  handleGetSessionStats,
+  handleGetCommands,
+  handleGetAvailableModels,
+  handleGetDashboard,
+  handleGetChangelog,
+} from "./handlers/query-handlers";
+import { sendDashboardData } from "./handlers/dispatch-utils";
 import type { StatusBarUpdate } from "./webview-provider";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -125,56 +140,6 @@ async function appendOverrideFile(cwd: string, change: string): Promise<void> {
     } else {
       throw err;
     }
-  }
-}
-
-// ============================================================
-// sendDashboardData — Build and send dashboard data to the webview
-// ============================================================
-
-async function sendDashboardData(
-  ctx: MessageDispatchContext,
-  webview: vscode.Webview,
-  sessionId: string,
-): Promise<void> {
-  const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
-  try {
-    const data = await buildDashboardData(cwd);
-    // Merge session stats if available
-    if (data) {
-      const client = ctx.getSession(sessionId).client;
-      if (client?.isRunning) {
-        try {
-          const statsResult = await client.getSessionStats() as Record<string, unknown> | null;
-          if (statsResult) {
-            data.stats = {
-              cost: statsResult.cost as number | undefined,
-              tokens: statsResult.tokens as { input: number; output: number; cacheRead: number; cacheWrite: number; total: number } | undefined,
-              toolCalls: statsResult.toolCalls as number | undefined,
-              userMessages: statsResult.userMessages as number | undefined,
-            };
-            ctx.applySessionCostFloor(sessionId, data.stats);
-          }
-        } catch {
-          // Stats not available — that's fine
-        }
-      }
-    }
-    // Merge metrics data if available
-    if (data) {
-      try {
-        const ledger = await loadMetricsLedger(cwd);
-        if (ledger && ledger.units.length > 0) {
-          const remainingSlices = data.slices.filter(s => !s.done).length;
-          data.metrics = buildMetricsData(ledger, remainingSlices);
-        }
-      } catch {
-        // Metrics not available — that's fine
-      }
-    }
-    ctx.postToWebview(webview, { type: "dashboard_data", data } as ExtensionToWebviewMessage);
-  } catch (_err: unknown) {
-    ctx.postToWebview(webview, { type: "dashboard_data", data: null } as ExtensionToWebviewMessage);
   }
 }
 
@@ -448,163 +413,52 @@ export async function handleWebviewMessage(
         }
 
         case "set_model": {
-          const client = ctx.getSession(sessionId).client;
-          if (client) {
-            try {
-              await client.setModel(msg.provider, msg.modelId);
-            } catch (err: any) {
-              ctx.postToWebview(webview, { type: "error", message: err.message });
-            }
-          }
+          await handleSetModel(ctx, webview, sessionId, msg);
           break;
         }
 
         case "set_thinking_level": {
-          const client = ctx.getSession(sessionId).client;
-          ctx.output.appendLine(`[${sessionId}] set_thinking_level: level=${msg.level}, client=${!!client}, isRunning=${client?.isRunning}`);
-          if (client) {
-            try {
-              await client.setThinkingLevel(msg.level);
-              const updatedState = await client.getState();
-              const confirmedLevel = (updatedState as RpcStateResult)?.thinkingLevel ?? "off";
-              ctx.output.appendLine(`[${sessionId}] set_thinking_level: RPC succeeded, confirmed=${JSON.stringify(confirmedLevel)}`);
-              ctx.postToWebview(webview, { type: "thinking_level_changed", level: confirmedLevel });
-              ctx.postToWebview(webview, { type: "state", data: updatedState } as ExtensionToWebviewMessage);
-            } catch (err: any) {
-              ctx.output.appendLine(`[${sessionId}] set_thinking_level: ERROR — ${err.message}`);
-              ctx.postToWebview(webview, { type: "error", message: err.message });
-            }
-          }
+          await handleSetThinkingLevel(ctx, webview, sessionId, msg);
           break;
         }
 
         case "get_dashboard": {
-          await sendDashboardData(ctx, webview, sessionId);
+          await handleGetDashboard(ctx, webview, sessionId, msg);
           break;
         }
 
         case "get_changelog": {
-          ctx.output.appendLine(`[${sessionId}] Fetching changelog...`);
-          try {
-            const entries = await fetchRecentReleases(15);
-            ctx.output.appendLine(`[${sessionId}] Changelog fetched: ${entries.length} entries`);
-            ctx.postToWebview(webview, { type: "changelog", entries } as ExtensionToWebviewMessage);
-          } catch (err: any) {
-            ctx.output.appendLine(`[${sessionId}] Changelog fetch error: ${err?.message}`);
-            ctx.postToWebview(webview, { type: "changelog", entries: [] } as ExtensionToWebviewMessage);
-          }
+          await handleGetChangelog(ctx, webview, sessionId, msg);
           break;
         }
 
         case "get_state": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              const state = await client.getState();
-              ctx.postToWebview(webview, { type: "state", data: state } as ExtensionToWebviewMessage);
-            } catch (err: any) {
-              ctx.postToWebview(webview, { type: "error", message: err.message });
-            }
-          }
+          await handleGetState(ctx, webview, sessionId, msg);
           break;
         }
 
         case "get_session_stats": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              const stats = await client.getSessionStats() as SessionStats | null;
-              if (stats) {
-                ctx.applySessionCostFloor(sessionId, stats);
-                ctx.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
-              }
-            } catch { /* ignored */ }
-          }
+          await handleGetSessionStats(ctx, webview, sessionId, msg);
           break;
         }
 
         case "get_commands": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              const result = await client.getCommands() as RpcCommandsResult;
-              ctx.postToWebview(webview, { type: "commands", commands: result?.commands || [] });
-            } catch (err: any) {
-              ctx.output.appendLine(`[${sessionId}] get_commands error: ${err.message}`);
-              // Send empty commands so the webview at least marks commandsLoaded
-              // and doesn't keep retrying on every keystroke
-              ctx.postToWebview(webview, { type: "commands", commands: [] });
-            }
-          } else {
-            // Process not running yet — queue a retry after a short delay.
-            // This handles the race where the webview requests commands before
-            // the GSD process has fully started.
-            ctx.output.appendLine(`[${sessionId}] get_commands: client not running, will retry in 2s`);
-            setTimeout(async () => {
-              const retryClient = ctx.getSession(sessionId).client;
-              if (retryClient?.isRunning) {
-                try {
-                  const result = await retryClient.getCommands() as RpcCommandsResult;
-                  ctx.postToWebview(webview, { type: "commands", commands: result?.commands || [] });
-                } catch (err: any) {
-                  ctx.output.appendLine(`[${sessionId}] get_commands retry error: ${err.message}`);
-                  ctx.postToWebview(webview, { type: "commands", commands: [] });
-                }
-              }
-            }, 2000);
-          }
+          await handleGetCommands(ctx, webview, sessionId, msg);
           break;
         }
 
         case "get_available_models": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              const result = await client.getAvailableModels() as RpcModelsResult;
-              ctx.postToWebview(webview, { type: "available_models", models: result?.models || [] });
-            } catch (err: any) {
-              ctx.output.appendLine(`[${sessionId}] get_available_models error: ${err.message}`);
-            }
-          }
+          await handleGetAvailableModels(ctx, webview, sessionId, msg);
           break;
         }
 
         case "cycle_thinking_level": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              const result = await client.cycleThinkingLevel() as RpcThinkingResult;
-              if (result?.level) {
-                ctx.postToWebview(webview, { type: "thinking_level_changed", level: result.level });
-              }
-              // Refresh full state
-              const state = await client.getState();
-              ctx.postToWebview(webview, { type: "state", data: state } as ExtensionToWebviewMessage);
-            } catch (err: any) {
-              ctx.postToWebview(webview, { type: "error", message: err.message });
-            }
-          }
+          await handleCycleThinkingLevel(ctx, webview, sessionId, msg);
           break;
         }
 
         case "compact_context": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              ctx.postToWebview(webview, { type: "auto_compaction_start", reason: "manual" } as ExtensionToWebviewMessage);
-              await client.compact();
-              ctx.postToWebview(webview, { type: "auto_compaction_end", result: {}, aborted: false } as ExtensionToWebviewMessage);
-              // Refresh stats
-              const stats = await client.getSessionStats() as SessionStats | null;
-              if (stats) {
-                ctx.applySessionCostFloor(sessionId, stats);
-                ctx.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
-              }
-            } catch (err: any) {
-              ctx.postToWebview(webview, { type: "auto_compaction_end", result: {}, aborted: true } as ExtensionToWebviewMessage);
-              ctx.postToWebview(webview, { type: "error", message: `Compact failed: ${err.message}` });
-            }
-          }
+          await handleCompactContext(ctx, webview, sessionId, msg);
           break;
         }
 
@@ -756,62 +610,27 @@ export async function handleWebviewMessage(
         }
 
         case "set_auto_compaction": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              await client.setAutoCompaction(msg.enabled);
-            } catch (err: any) {
-              ctx.postToWebview(webview, { type: "error", message: err.message });
-            }
-          }
+          await handleSetAutoCompaction(ctx, webview, sessionId, msg);
           break;
         }
 
         case "set_auto_retry": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              await client.setAutoRetry(msg.enabled);
-            } catch (err: any) {
-              ctx.postToWebview(webview, { type: "error", message: err.message });
-            }
-          }
+          await handleSetAutoRetry(ctx, webview, sessionId, msg);
           break;
         }
 
         case "abort_retry": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              await client.abortRetry();
-            } catch (err: any) {
-              ctx.postToWebview(webview, { type: "error", message: err.message });
-            }
-          }
+          await handleAbortRetry(ctx, webview, sessionId, msg);
           break;
         }
 
         case "set_steering_mode": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              await client.setSteeringMode(msg.mode);
-            } catch (err: any) {
-              ctx.postToWebview(webview, { type: "error", message: err.message });
-            }
-          }
+          await handleSetSteeringMode(ctx, webview, sessionId, msg);
           break;
         }
 
         case "set_follow_up_mode": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              await client.setFollowUpMode(msg.mode);
-            } catch (err: any) {
-              ctx.postToWebview(webview, { type: "error", message: err.message });
-            }
-          }
+          await handleSetFollowUpMode(ctx, webview, sessionId, msg);
           break;
         }
 
