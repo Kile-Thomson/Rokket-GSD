@@ -6,6 +6,7 @@ import { GsdRpcClient } from "./rpc-client";
 import { fetchReleaseNotes } from "./update-checker";
 import { AutoProgressPoller } from "./auto-progress-poller";
 import { createSessionState, cleanupSessionState, type SessionState } from "./session-state";
+import { toErrorMessage } from "../shared/errors";
 import type { ExtensionToWebviewMessage, RpcCommandsResult, RpcStateResult } from "../shared/types";
 import { toGsdState } from "../shared/types";
 import { clearPromptWatchdog, stopActivityMonitor, type WatchdogContext } from "./watchdogs";
@@ -390,9 +391,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     });
 
     client.on("error", (err: Error) => {
-      this.output.appendLine(`[${sessionId}] Process error: ${err.message}`);
+      this.output.appendLine(`[${sessionId}] Process error: ${toErrorMessage(err)}`);
       const currentWebview = this.getSession(sessionId).webview ?? webview;
-      this.postToWebview(currentWebview, { type: "process_exit", code: null, signal: null, detail: `Failed to start GSD: ${err.message}` });
+      this.postToWebview(currentWebview, { type: "process_exit", code: null, signal: null, detail: `Failed to start GSD: ${toErrorMessage(err)}` });
       this.postToWebview(currentWebview, { type: "process_status", status: "crashed" } as ExtensionToWebviewMessage);
 
       // T05: Clean up timers on error too (mirrors exit handler)
@@ -444,8 +445,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         } else {
           this.output.appendLine(`[${sessionId}] RPC protocol v1 (server does not support v2)`);
         }
-      } catch (initErr: any) {
-        this.output.appendLine(`[${sessionId}] v2 init failed (using v1): ${initErr.message}`);
+      } catch (initErr: unknown) {
+        this.output.appendLine(`[${sessionId}] v2 init failed (using v1): ${toErrorMessage(initErr)}`);
       }
 
       const autoPoller = new AutoProgressPoller(
@@ -461,25 +462,25 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
         this.postToWebview(webview, { type: "state", data: toGsdState(rpcState) } as ExtensionToWebviewMessage);
         if (rpcState?.model) this.emitStatus({ model: rpcState.model.id || rpcState.model.name });
-      } catch (err: any) {
-        this.output.appendLine(`[${sessionId}] Initial getState failed: ${err.message}`);
+      } catch (err: unknown) {
+        this.output.appendLine(`[${sessionId}] Initial getState failed: ${toErrorMessage(err)}`);
         this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
       }
 
       try {
         const cmdResult = await client.getCommands() as RpcCommandsResult;
         this.postToWebview(webview, { type: "commands", commands: cmdResult?.commands || [] });
-      } catch (err: any) {
-        this.output.appendLine(`[${sessionId}] Initial get_commands failed: ${err.message}`);
+      } catch (err: unknown) {
+        this.output.appendLine(`[${sessionId}] Initial get_commands failed: ${toErrorMessage(err)}`);
       }
 
       startStatsPolling(this.pollingCtx, webview, sessionId);
       startHealthMonitoring(this.pollingCtx, webview, sessionId);
       startWorkflowPolling(this.pollingCtx, webview, sessionId);
-    } catch (err: any) {
+    } catch (err: unknown) {
       this.postToWebview(webview, {
         type: "process_exit", code: null, signal: null,
-        detail: `Failed to start GSD: ${err.message}. Make sure 'gsd' is installed and in your PATH.`,
+        detail: `Failed to start GSD: ${toErrorMessage(err)}. Make sure 'gsd' is installed and in your PATH.`,
       });
       this.postToWebview(webview, { type: "process_status", status: "crashed" } as ExtensionToWebviewMessage);
     }

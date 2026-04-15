@@ -483,6 +483,11 @@
       ],
       "format": "esm"
     },
+    "src/shared/errors.ts": {
+      "bytes": 116,
+      "imports": [],
+      "format": "esm"
+    },
     "src/webview/handlers/handler-state.ts": {
       "bytes": 7861,
       "imports": [
@@ -790,8 +795,13 @@
       "format": "esm"
     },
     "src/webview/message-handler.ts": {
-      "bytes": 7716,
+      "bytes": 7771,
       "imports": [
+        {
+          "path": "src/shared/errors.ts",
+          "kind": "import-statement",
+          "original": "../shared/errors"
+        },
         {
           "path": "src/webview/dispose.ts",
           "kind": "import-statement",
@@ -1048,7 +1058,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 870036
+      "bytes": 870364
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -1176,6 +1186,9 @@
         "src/webview/file-handling.ts": {
           "bytesInOutput": 5269
         },
+        "src/shared/errors.ts": {
+          "bytesInOutput": 61
+        },
         "src/webview/handlers/handler-state.ts": {
           "bytesInOutput": 2364
         },
@@ -1195,7 +1208,7 @@
           "bytesInOutput": 5314
         },
         "src/webview/message-handler.ts": {
-          "bytesInOutput": 2235
+          "bytesInOutput": 2227
         },
         "src/webview/ui-updates.ts": {
           "bytesInOutput": 7259
@@ -1204,7 +1217,7 @@
           "bytesInOutput": 18676
         }
       },
-      "bytes": 238326
+      "bytes": 238379
     },
     "dist/webview/index.css.map": {
       "imports": [],

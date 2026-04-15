@@ -10,6 +10,7 @@
  */
 
 import * as vscode from "vscode";
+import { toErrorMessage } from "../shared/errors";
 import type { SessionState } from "./session-state";
 import type { GsdRpcClient } from "./rpc-client";
 import type { ExtensionToWebviewMessage } from "../shared/types";
@@ -91,8 +92,8 @@ export function startPromptWatchdog(
         // Re-check nonce after await — a new prompt may have started during the retry
         const current = ctx.getSession(sessionId).promptWatchdog;
         if (!current || current.nonce !== nonce) return;
-      } catch (err: any) {
-        ctx.output.appendLine(`[${sessionId}] Prompt watchdog: retry failed — ${err.message}`);
+      } catch (err: unknown) {
+        ctx.output.appendLine(`[${sessionId}] Prompt watchdog: retry failed — ${toErrorMessage(err)}`);
         // Only clear if this watchdog is still current
         const current = ctx.getSession(sessionId).promptWatchdog;
         if (current?.nonce === nonce) {
@@ -172,8 +173,8 @@ export function startSlashCommandWatchdog(
       ctx.getSession(sessionId).slashWatchdog = retryTimer;
 
       await client.prompt(message, images);
-    } catch (err: any) {
-      ctx.postToWebview(webview, { type: "error", message: err.message });
+    } catch (err: unknown) {
+      ctx.postToWebview(webview, { type: "error", message: toErrorMessage(err) });
     }
   }, SLASH_WATCHDOG_TIMEOUT_MS);
 
@@ -317,13 +318,13 @@ export async function abortAndPrompt(
     try {
       await client.prompt(message, imgs);
       return;
-    } catch (err: any) {
-      if (err.message?.includes("streaming") && attempt < ABORT_MAX_ATTEMPTS - 1) {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes("streaming") && attempt < ABORT_MAX_ATTEMPTS - 1) {
         ctx.output.appendLine(`[abortAndPrompt] Retry ${attempt + 1}/${ABORT_MAX_ATTEMPTS - 1}: stream not yet settled`);
         await new Promise((r) => setTimeout(r, ABORT_RETRY_DELAY_MS));
         continue;
       }
-      ctx.postToWebview(webview, { type: "error", message: err.message });
+      ctx.postToWebview(webview, { type: "error", message: toErrorMessage(err) });
       return;
     }
   }

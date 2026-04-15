@@ -1,5 +1,10 @@
 {
   "inputs": {
+    "src/shared/errors.ts": {
+      "bytes": 116,
+      "imports": [],
+      "format": "esm"
+    },
     "src/shared/constants.ts": {
       "bytes": 2756,
       "imports": [],
@@ -37,7 +42,7 @@
       "format": "esm"
     },
     "src/extension/update-checker.ts": {
-      "bytes": 18445,
+      "bytes": 18509,
       "imports": [
         {
           "path": "vscode",
@@ -68,6 +73,11 @@
           "path": "child_process",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/shared/errors.ts",
+          "kind": "import-statement",
+          "original": "../shared/errors"
         },
         {
           "path": "src/shared/constants.ts",
@@ -209,12 +219,17 @@
       "format": "esm"
     },
     "src/extension/watchdogs.ts": {
-      "bytes": 12731,
+      "bytes": 12842,
       "imports": [
         {
           "path": "vscode",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/shared/errors.ts",
+          "kind": "import-statement",
+          "original": "../shared/errors"
         },
         {
           "path": "src/shared/constants.ts",
@@ -246,7 +261,7 @@
       "format": "esm"
     },
     "src/extension/file-ops.ts": {
-      "bytes": 13596,
+      "bytes": 13704,
       "imports": [
         {
           "path": "vscode",
@@ -262,17 +277,27 @@
           "path": "path",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/shared/errors.ts",
+          "kind": "import-statement",
+          "original": "../shared/errors"
         }
       ],
       "format": "esm"
     },
     "src/extension/handlers/config-handlers.ts": {
-      "bytes": 5746,
+      "bytes": 5916,
       "imports": [
         {
           "path": "vscode",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/shared/errors.ts",
+          "kind": "import-statement",
+          "original": "../../shared/errors"
         }
       ],
       "format": "esm"
@@ -315,12 +340,17 @@
       "format": "esm"
     },
     "src/extension/handlers/query-handlers.ts": {
-      "bytes": 4273,
+      "bytes": 4386,
       "imports": [
         {
           "path": "vscode",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/shared/errors.ts",
+          "kind": "import-statement",
+          "original": "../../shared/errors"
         },
         {
           "path": "src/extension/update-checker.ts",
@@ -336,7 +366,7 @@
       "format": "esm"
     },
     "src/extension/handlers/process-handlers.ts": {
-      "bytes": 6930,
+      "bytes": 7040,
       "imports": [
         {
           "path": "vscode",
@@ -347,6 +377,11 @@
           "path": "src/extension/update-checker.ts",
           "kind": "import-statement",
           "original": "../update-checker"
+        },
+        {
+          "path": "src/shared/errors.ts",
+          "kind": "import-statement",
+          "original": "../../shared/errors"
         },
         {
           "path": "src/shared/types.ts",
@@ -378,7 +413,7 @@
       "format": "esm"
     },
     "src/extension/handlers/session-handlers.ts": {
-      "bytes": 8261,
+      "bytes": 8443,
       "imports": [
         {
           "path": "vscode",
@@ -391,6 +426,11 @@
           "original": "../session-list-service"
         },
         {
+          "path": "src/shared/errors.ts",
+          "kind": "import-statement",
+          "original": "../../shared/errors"
+        },
+        {
           "path": "src/shared/types.ts",
           "kind": "import-statement",
           "original": "../../shared/types"
@@ -399,7 +439,7 @@
       "format": "esm"
     },
     "src/extension/command-fallback.ts": {
-      "bytes": 25599,
+      "bytes": 25663,
       "imports": [
         {
           "path": "vscode",
@@ -417,6 +457,11 @@
           "external": true
         },
         {
+          "path": "src/shared/errors.ts",
+          "kind": "import-statement",
+          "original": "../shared/errors"
+        },
+        {
           "path": "src/shared/constants.ts",
           "kind": "import-statement",
           "original": "../shared/constants"
@@ -425,7 +470,7 @@
       "format": "esm"
     },
     "src/extension/handlers/prompt-handlers.ts": {
-      "bytes": 10790,
+      "bytes": 11006,
       "imports": [
         {
           "path": "vscode",
@@ -441,6 +486,11 @@
           "path": "node:path",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/shared/errors.ts",
+          "kind": "import-statement",
+          "original": "../../shared/errors"
         },
         {
           "path": "src/extension/watchdogs.ts",
@@ -461,12 +511,17 @@
       "format": "esm"
     },
     "src/extension/message-dispatch.ts": {
-      "bytes": 8120,
+      "bytes": 8205,
       "imports": [
         {
           "path": "vscode",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/shared/errors.ts",
+          "kind": "import-statement",
+          "original": "../shared/errors"
         },
         {
           "path": "src/extension/file-ops.ts",
@@ -539,7 +594,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 22584,
+      "bytes": 22700,
       "imports": [
         {
           "path": "vscode",
@@ -582,6 +637,11 @@
           "original": "./session-state"
         },
         {
+          "path": "src/shared/errors.ts",
+          "kind": "import-statement",
+          "original": "../shared/errors"
+        },
+        {
           "path": "src/shared/types.ts",
           "kind": "import-statement",
           "original": "../shared/types"
@@ -620,7 +680,7 @@
       "format": "esm"
     },
     "src/extension/health-check.ts": {
-      "bytes": 9571,
+      "bytes": 9635,
       "imports": [
         {
           "path": "vscode",
@@ -648,6 +708,11 @@
           "external": true
         },
         {
+          "path": "src/shared/errors.ts",
+          "kind": "import-statement",
+          "original": "../shared/errors"
+        },
+        {
           "path": "src/shared/constants.ts",
           "kind": "import-statement",
           "original": "../shared/constants"
@@ -656,7 +721,7 @@
       "format": "esm"
     },
     "src/extension/index.ts": {
-      "bytes": 6335,
+      "bytes": 6399,
       "imports": [
         {
           "path": "vscode",
@@ -677,6 +742,11 @@
           "path": "os",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/shared/errors.ts",
+          "kind": "import-statement",
+          "original": "../shared/errors"
         },
         {
           "path": "src/extension/webview-provider.ts",
@@ -702,7 +772,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 412370
+      "bytes": 414808
     },
     "dist/extension.js": {
       "imports": [
@@ -976,16 +1046,19 @@
       "entryPoint": "src/extension/index.ts",
       "inputs": {
         "src/extension/index.ts": {
-          "bytesInOutput": 2896
+          "bytesInOutput": 2891
+        },
+        "src/shared/errors.ts": {
+          "bytesInOutput": 60
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 10483
+          "bytesInOutput": 10453
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 10280
         },
         "src/extension/update-checker.ts": {
-          "bytesInOutput": 6211
+          "bytesInOutput": 6206
         },
         "src/extension/auto-progress-poller.ts": {
           "bytesInOutput": 4215
@@ -1009,16 +1082,16 @@
           "bytesInOutput": 548
         },
         "src/extension/watchdogs.ts": {
-          "bytesInOutput": 3651
+          "bytesInOutput": 3655
         },
         "src/extension/rpc-events.ts": {
           "bytesInOutput": 4795
         },
         "src/extension/file-ops.ts": {
-          "bytesInOutput": 6000
+          "bytesInOutput": 5975
         },
         "src/extension/handlers/config-handlers.ts": {
-          "bytesInOutput": 2413
+          "bytesInOutput": 2363
         },
         "src/extension/handlers/dispatch-utils.ts": {
           "bytesInOutput": 592
@@ -1027,25 +1100,25 @@
           "bytesInOutput": 2502
         },
         "src/extension/handlers/query-handlers.ts": {
-          "bytesInOutput": 1715
+          "bytesInOutput": 1689
         },
         "src/extension/handlers/process-handlers.ts": {
-          "bytesInOutput": 3228
+          "bytesInOutput": 3203
         },
         "src/extension/handlers/session-handlers.ts": {
-          "bytesInOutput": 4254
+          "bytesInOutput": 4194
         },
         "src/extension/session-list-service.ts": {
           "bytesInOutput": 2191
         },
         "src/extension/handlers/prompt-handlers.ts": {
-          "bytesInOutput": 5146
+          "bytesInOutput": 5150
         },
         "src/extension/command-fallback.ts": {
-          "bytesInOutput": 15871
+          "bytesInOutput": 15866
         },
         "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 2532
+          "bytesInOutput": 2545
         },
         "src/extension/polling.ts": {
           "bytesInOutput": 1769
@@ -1054,10 +1127,10 @@
           "bytesInOutput": 860
         },
         "src/extension/health-check.ts": {
-          "bytesInOutput": 4420
+          "bytesInOutput": 4419
         }
       },
-      "bytes": 103988
+      "bytes": 103837
     }
   }
 }

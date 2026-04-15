@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { listSessions, deleteSession, validateSessionPath } from "../session-list-service";
+import { toErrorMessage } from "../../shared/errors";
 import { toGsdState } from "../../shared/types";
 import type { MessageDispatchContext } from "../message-dispatch";
 import type {
@@ -31,8 +32,8 @@ export async function handleNewConversation(
           if (sess.slashWatchdog) { clearTimeout(sess.slashWatchdog); sess.slashWatchdog = null; }
           if (sess.gsdFallbackTimer) { clearTimeout(sess.gsdFallbackTimer); sess.gsdFallbackTimer = null; }
           ctx.output.appendLine(`[${sessionId}] Aborted streaming before new conversation`);
-        } catch (abortErr: any) {
-          ctx.output.appendLine(`[${sessionId}] Abort before new conversation failed: ${abortErr.message}`);
+        } catch (abortErr: unknown) {
+          ctx.output.appendLine(`[${sessionId}] Abort before new conversation failed: ${toErrorMessage(abortErr)}`);
         }
       }
       await client.newSession();
@@ -40,8 +41,8 @@ export async function handleNewConversation(
       ctx.emitStatus({ cost: 0 });
       const state = await client.getState();
       ctx.postToWebview(webview, { type: "state", data: state } as ExtensionToWebviewMessage);
-    } catch (err: any) {
-      ctx.postToWebview(webview, { type: "error", message: err.message });
+    } catch (err: unknown) {
+      ctx.postToWebview(webview, { type: "error", message: toErrorMessage(err) });
     }
   }
 }
@@ -66,9 +67,9 @@ export async function handleGetSessionList(
     }));
     ctx.output.appendLine(`[${sessionId}] Listed ${items.length} sessions`);
     ctx.postToWebview(webview, { type: "session_list", sessions: items });
-  } catch (err: any) {
-    ctx.output.appendLine(`[${sessionId}] Session list error: ${err.message}`);
-    ctx.postToWebview(webview, { type: "session_list_error", message: err.message });
+  } catch (err: unknown) {
+    ctx.output.appendLine(`[${sessionId}] Session list error: ${toErrorMessage(err)}`);
+    ctx.postToWebview(webview, { type: "session_list_error", message: toErrorMessage(err) });
   }
 }
 
@@ -90,8 +91,8 @@ export async function handleSwitchSession(
           if (sess.slashWatchdog) { clearTimeout(sess.slashWatchdog); sess.slashWatchdog = null; }
           if (sess.gsdFallbackTimer) { clearTimeout(sess.gsdFallbackTimer); sess.gsdFallbackTimer = null; }
           ctx.output.appendLine(`[${sessionId}] Aborted streaming before session switch`);
-        } catch (abortErr: any) {
-          ctx.output.appendLine(`[${sessionId}] Abort before session switch failed: ${abortErr.message}`);
+        } catch (abortErr: unknown) {
+          ctx.output.appendLine(`[${sessionId}] Abort before session switch failed: ${toErrorMessage(abortErr)}`);
         }
       }
       const result = await client.switchSession(msg.path) as { cancelled?: boolean } | null;
@@ -112,9 +113,9 @@ export async function handleSwitchSession(
       if (state?.model) {
         ctx.emitStatus({ model: (state.model as any).id || (state.model as any).name });
       }
-    } catch (err: any) {
-      ctx.output.appendLine(`[${sessionId}] Session switch error: ${err.message}`);
-      ctx.postToWebview(webview, { type: "error", message: `Failed to switch session: ${err.message}` });
+    } catch (err: unknown) {
+      ctx.output.appendLine(`[${sessionId}] Session switch error: ${toErrorMessage(err)}`);
+      ctx.postToWebview(webview, { type: "error", message: `Failed to switch session: ${toErrorMessage(err)}` });
     }
   }
 }
@@ -130,8 +131,8 @@ export async function handleRenameSession(
     try {
       await client.setSessionName(msg.name);
       ctx.output.appendLine(`[${sessionId}] Session renamed to: ${msg.name}`);
-    } catch (err: any) {
-      ctx.postToWebview(webview, { type: "error", message: `Failed to rename session: ${err.message}` });
+    } catch (err: unknown) {
+      ctx.postToWebview(webview, { type: "error", message: `Failed to rename session: ${toErrorMessage(err)}` });
     }
   }
 }
@@ -157,9 +158,9 @@ export async function handleDeleteSession(
       messageCount: s.messageCount,
     }));
     ctx.postToWebview(webview, { type: "session_list", sessions: items });
-  } catch (err: any) {
-    ctx.output.appendLine(`[${sessionId}] Delete session error: ${err.message}`);
-    ctx.postToWebview(webview, { type: "error", message: `Failed to delete session: ${err.message}` });
+  } catch (err: unknown) {
+    ctx.output.appendLine(`[${sessionId}] Delete session error: ${toErrorMessage(err)}`);
+    ctx.postToWebview(webview, { type: "error", message: `Failed to delete session: ${toErrorMessage(err)}` });
   }
 }
 
@@ -202,8 +203,8 @@ export async function handleResumeLastSession(
         ctx.emitStatus({ model: (state.model as any).id || (state.model as any).name });
       }
     }
-  } catch (err: any) {
-    ctx.output.appendLine(`[${sessionId}] Resume error: ${err.message}`);
-    ctx.postToWebview(webview, { type: "error", message: `Failed to resume: ${err.message}` });
+  } catch (err: unknown) {
+    ctx.output.appendLine(`[${sessionId}] Resume error: ${toErrorMessage(err)}`);
+    ctx.postToWebview(webview, { type: "error", message: `Failed to resume: ${toErrorMessage(err)}` });
   }
 }

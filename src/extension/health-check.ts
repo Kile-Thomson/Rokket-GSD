@@ -3,6 +3,7 @@ import { execSync, execFileSync } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
+import { toErrorMessage } from "../shared/errors";
 import { EXEC_TIMEOUT_MS, MIN_NODE_MAJOR_VERSION } from "../shared/constants";
 
 // ============================================================
@@ -165,10 +166,10 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
         fix: "Run 'gsd' in a terminal once to set up authentication.",
       });
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     result.issues.push({
       severity: "warning",
-      message: `Could not read auth config: ${err.message}`,
+      message: `Could not read auth config: ${toErrorMessage(err)}`,
     });
   }
 

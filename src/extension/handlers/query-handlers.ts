@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { toErrorMessage } from "../../shared/errors";
 import { fetchRecentReleases } from "../update-checker";
 import { sendDashboardData } from "./dispatch-utils";
 import type { MessageDispatchContext } from "../message-dispatch";
@@ -23,8 +24,8 @@ export async function handleGetState(
     try {
       const state = await client.getState();
       ctx.postToWebview(webview, { type: "state", data: state } as ExtensionToWebviewMessage);
-    } catch (err: any) {
-      ctx.postToWebview(webview, { type: "error", message: err.message });
+    } catch (err: unknown) {
+      ctx.postToWebview(webview, { type: "error", message: toErrorMessage(err) });
     }
   }
 }
@@ -58,8 +59,8 @@ export async function handleGetCommands(
     try {
       const result = await client.getCommands() as RpcCommandsResult;
       ctx.postToWebview(webview, { type: "commands", commands: result?.commands || [] });
-    } catch (err: any) {
-      ctx.output.appendLine(`[${sessionId}] get_commands error: ${err.message}`);
+    } catch (err: unknown) {
+      ctx.output.appendLine(`[${sessionId}] get_commands error: ${toErrorMessage(err)}`);
       ctx.postToWebview(webview, { type: "commands", commands: [] });
     }
   } else {
@@ -70,8 +71,8 @@ export async function handleGetCommands(
         try {
           const result = await retryClient.getCommands() as RpcCommandsResult;
           ctx.postToWebview(webview, { type: "commands", commands: result?.commands || [] });
-        } catch (err: any) {
-          ctx.output.appendLine(`[${sessionId}] get_commands retry error: ${err.message}`);
+        } catch (err: unknown) {
+          ctx.output.appendLine(`[${sessionId}] get_commands retry error: ${toErrorMessage(err)}`);
           ctx.postToWebview(webview, { type: "commands", commands: [] });
         }
       }
@@ -90,8 +91,8 @@ export async function handleGetAvailableModels(
     try {
       const result = await client.getAvailableModels() as RpcModelsResult;
       ctx.postToWebview(webview, { type: "available_models", models: result?.models || [] });
-    } catch (err: any) {
-      ctx.output.appendLine(`[${sessionId}] get_available_models error: ${err.message}`);
+    } catch (err: unknown) {
+      ctx.output.appendLine(`[${sessionId}] get_available_models error: ${toErrorMessage(err)}`);
     }
   }
 }
@@ -116,8 +117,8 @@ export async function handleGetChangelog(
     const entries = await fetchRecentReleases(15);
     ctx.output.appendLine(`[${sessionId}] Changelog fetched: ${entries.length} entries`);
     ctx.postToWebview(webview, { type: "changelog", entries } as ExtensionToWebviewMessage);
-  } catch (err: any) {
-    ctx.output.appendLine(`[${sessionId}] Changelog fetch error: ${err?.message}`);
+  } catch (err: unknown) {
+    ctx.output.appendLine(`[${sessionId}] Changelog fetch error: ${toErrorMessage(err)}`);
     ctx.postToWebview(webview, { type: "changelog", entries: [] } as ExtensionToWebviewMessage);
   }
 }

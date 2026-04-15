@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { downloadAndInstallUpdate, dismissUpdateVersion } from "../update-checker";
+import { toErrorMessage } from "../../shared/errors";
 import { toGsdState } from "../../shared/types";
 import type { MessageDispatchContext } from "../message-dispatch";
 import type {
@@ -84,9 +85,9 @@ export async function handleForceRestart(
         ctx.getSession(sessionId).client = null;
         await ctx.launchGsd(webview, sessionId);
         ctx.output.appendLine(`[${sessionId}] GSD re-launched after force-kill`);
-      } catch (err: any) {
-        ctx.output.appendLine(`[${sessionId}] Force-restart failed: ${err.message}`);
-        ctx.postToWebview(webview, { type: "error", message: `[GSD-ERR-030] Force-restart failed: ${err.message}` });
+      } catch (err: unknown) {
+        ctx.output.appendLine(`[${sessionId}] Force-restart failed: ${toErrorMessage(err)}`);
+        ctx.postToWebview(webview, { type: "error", message: `[GSD-ERR-030] Force-restart failed: ${toErrorMessage(err)}` });
       } finally {
         try { ctx.getSession(sessionId).isRestarting = false; } catch { /* disposed */ }
       }
@@ -105,12 +106,12 @@ export async function handleShutdown(
     ctx.output.appendLine(`[${sessionId}] Graceful shutdown requested`);
     try {
       await client.shutdown();
-    } catch (err: any) {
-      ctx.output.appendLine(`[${sessionId}] Shutdown command failed: ${err.message}`);
+    } catch (err: unknown) {
+      ctx.output.appendLine(`[${sessionId}] Shutdown command failed: ${toErrorMessage(err)}`);
       try {
         await client.stop();
-      } catch (stopErr: any) {
-        ctx.output.appendLine(`[${sessionId}] Fallback stop also failed: ${stopErr.message}`);
+      } catch (stopErr: unknown) {
+        ctx.output.appendLine(`[${sessionId}] Fallback stop also failed: ${toErrorMessage(stopErr)}`);
       }
     }
   }
@@ -149,8 +150,8 @@ export async function handleRunBash(
     try {
       const result = await client.executeBash(msg.command) as BashResult;
       ctx.postToWebview(webview, { type: "bash_result", result });
-    } catch (err: any) {
-      ctx.postToWebview(webview, { type: "error", message: `Bash error: ${err.message}` });
+    } catch (err: unknown) {
+      ctx.postToWebview(webview, { type: "error", message: `Bash error: ${toErrorMessage(err)}` });
     }
   }
 }

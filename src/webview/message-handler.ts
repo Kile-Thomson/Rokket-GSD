@@ -2,6 +2,7 @@
 // Message Handler — thin router delegating to handler sub-modules
 // ============================================================
 
+import { toErrorMessage } from "../shared/errors";
 import type { ExtensionToWebviewMessage } from "../shared/types";
 import { registerCleanup } from "./dispose";
 
@@ -168,11 +169,11 @@ export function handleMessage(event: MessageEvent): void {
       break;
   }
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     const errorId = `GSD-ERR-${Date.now().toString(36).toUpperCase()}`;
     console.error(`[${errorId}] Message handler error for "${msg.type}":`, err);
     addSystemEntry(
-      `Internal error processing "${msg.type}" (${errorId}): ${err?.message || err}. Check browser console for details.`,
+      `Internal error processing "${msg.type}" (${errorId}): ${toErrorMessage(err)}. Check browser console for details.`,
       "error"
     );
   }

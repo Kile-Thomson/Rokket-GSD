@@ -4,6 +4,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { execSync } from "child_process";
+import { toErrorMessage } from "../shared/errors";
 import type { GsdWebviewProvider } from "./webview-provider";
 import { UPDATE_CHECK_INTERVAL_MS } from "../shared/constants";
 
@@ -183,8 +184,8 @@ export async function downloadAndInstallUpdate(
         if (choice === "Reload Now") {
           vscode.commands.executeCommand("workbench.action.reloadWindow");
         }
-      } catch (err: any) {
-        vscode.window.showErrorMessage(`Update failed: ${err.message}`);
+      } catch (err: unknown) {
+        vscode.window.showErrorMessage(`Update failed: ${toErrorMessage(err)}`);
       } finally {
         // Delay cleanup — VS Code may still be reading the file
         setTimeout(() => {

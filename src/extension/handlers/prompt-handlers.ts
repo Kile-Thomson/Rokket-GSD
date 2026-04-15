@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { toErrorMessage } from "../../shared/errors";
 import {
   startPromptWatchdog,
   startSlashCommandWatchdog,
@@ -55,8 +56,8 @@ async function appendOverrideFile(cwd: string, change: string): Promise<void> {
   try {
     const existing = await fs.promises.readFile(overridesPath, "utf-8");
     await fs.promises.writeFile(overridesPath, existing.trimEnd() + "\n\n" + entry, "utf-8");
-  } catch (err: any) {
-    if (err.code === "ENOENT") {
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
       await fs.promises.mkdir(gsdDir, { recursive: true });
       const header = [
         "# GSD Overrides",
@@ -102,8 +103,8 @@ export async function handlePrompt(
           ctx.getSession(sessionId).client = null;
           await ctx.launchGsd(webview, sessionId);
         }
-      } catch (restartErr: any) {
-        ctx.output.appendLine(`[${sessionId}] Restart failed: ${restartErr.message}`);
+      } catch (restartErr: unknown) {
+        ctx.output.appendLine(`[${sessionId}] Restart failed: ${toErrorMessage(restartErr)}`);
         ctx.getSession(sessionId).client = null;
         await ctx.launchGsd(webview, sessionId);
       }
@@ -134,8 +135,8 @@ export async function handlePrompt(
           (/^\s*\/gsd\s+auto\b/i.test(trimmed) && /\bstatus\b/i.test(trimmed))) {
         sendDashboardData(ctx, webview, sessionId).catch(() => {});
       }
-    } catch (err: any) {
-      if (err.message?.includes("streaming")) {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes("streaming")) {
         const isSlash = msg.message.trimStart().startsWith("/");
         try {
           const imgs = sanitizeImages(msg.images);
@@ -152,16 +153,16 @@ export async function handlePrompt(
           } else {
             await c.steer(msg.message, imgs);
           }
-        } catch (steerErr: any) {
-          ctx.postToWebview(webview, { type: "error", message: steerErr.message });
+        } catch (steerErr: unknown) {
+          ctx.postToWebview(webview, { type: "error", message: toErrorMessage(steerErr) });
         }
-      } else if (err.message?.includes("process exited")) {
+      } else if (err instanceof Error && err.message.includes("process exited")) {
         ctx.postToWebview(webview, {
           type: "error",
           message: "GSD process exited unexpectedly. Try sending your message again to auto-restart.",
         });
       } else {
-        ctx.postToWebview(webview, { type: "error", message: err.message });
+        ctx.postToWebview(webview, { type: "error", message: toErrorMessage(err) });
       }
     }
   } else {
@@ -192,8 +193,8 @@ export async function handleSteer(
             await appendOverrideFile(session.lastStartOptions.cwd, msg.message);
             ctx.output.appendLine(`[${sessionId}] Auto-mode steer persisted to OVERRIDES.md`);
             ctx.postToWebview(webview, { type: "steer_persisted" } as ExtensionToWebviewMessage);
-          } catch (overrideErr: any) {
-            ctx.output.appendLine(`[${sessionId}] Failed to persist override: ${overrideErr.message}`);
+          } catch (overrideErr: unknown) {
+            ctx.output.appendLine(`[${sessionId}] Failed to persist override: ${toErrorMessage(overrideErr)}`);
           }
         }
 
@@ -209,8 +210,8 @@ export async function handleSteer(
 
         await client.steer(steerMessage, sanitizeImages(msg.images));
       }
-    } catch (err: any) {
-      ctx.postToWebview(webview, { type: "error", message: `Steer failed: ${err.message}` });
+    } catch (err: unknown) {
+      ctx.postToWebview(webview, { type: "error", message: `Steer failed: ${toErrorMessage(err)}` });
     }
   } else {
     ctx.postToWebview(webview, { type: "error", message: "Could not deliver message — no active GSD session. Send it again to start a new session." });
@@ -228,8 +229,8 @@ export async function handleFollowUp(
     ctx.getSession(sessionId).lastUserActionTime = Date.now();
     try {
       await client.followUp(msg.message, sanitizeImages(msg.images));
-    } catch (err: any) {
-      ctx.postToWebview(webview, { type: "error", message: err.message });
+    } catch (err: unknown) {
+      ctx.postToWebview(webview, { type: "error", message: toErrorMessage(err) });
     }
   } else {
     ctx.postToWebview(webview, { type: "error", message: "Could not deliver message — no active GSD session. Send it again to start a new session." });
@@ -250,8 +251,8 @@ export async function handleInterrupt(
       if (sess.promptWatchdog) { clearTimeout(sess.promptWatchdog.timer); sess.promptWatchdog = null; }
       if (sess.slashWatchdog) { clearTimeout(sess.slashWatchdog); sess.slashWatchdog = null; }
       if (sess.gsdFallbackTimer) { clearTimeout(sess.gsdFallbackTimer); sess.gsdFallbackTimer = null; }
-    } catch (err: any) {
-      ctx.output.appendLine(`[${sessionId}] Interrupt/abort failed: ${err.message}`);
+    } catch (err: unknown) {
+      ctx.output.appendLine(`[${sessionId}] Interrupt/abort failed: ${toErrorMessage(err)}`);
       ctx.getSession(sessionId).isStreaming = false;
       stopActivityMonitor(ctx.watchdogCtx, sessionId);
       ctx.emitStatus({ isStreaming: false });

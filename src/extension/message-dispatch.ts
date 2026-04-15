@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import type { SessionState } from "./session-state";
+import { toErrorMessage } from "../shared/errors";
 import type {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
@@ -151,10 +152,10 @@ export async function handleWebviewMessage(
         case "shutdown": { await handleShutdown(ctx, webview, sessionId, msg); break; }
       }
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     const errorId = `ERR-${Date.now().toString(36)}`;
-    ctx.output.appendLine(`[${sessionId}] [${errorId}] Unhandled error in message handler for "${msg.type}": ${err.message}`);
-    ctx.output.appendLine(`[${sessionId}] [${errorId}] Stack: ${err.stack || "no stack"}`);
+    ctx.output.appendLine(`[${sessionId}] [${errorId}] Unhandled error in message handler for "${msg.type}": ${toErrorMessage(err)}`);
+    ctx.output.appendLine(`[${sessionId}] [${errorId}] Stack: ${err instanceof Error ? err.stack : "no stack"}`);
     ctx.postToWebview(webview, {
       type: "error",
       message: `[${errorId}] Internal error processing "${msg.type}". Check Output panel (Rokket GSD) for details.`,
