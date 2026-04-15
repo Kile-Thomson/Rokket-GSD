@@ -384,6 +384,8 @@ export async function handleWebviewMessage(
             } catch (err: any) {
               ctx.postToWebview(webview, { type: "error", message: err.message });
             }
+          } else {
+            ctx.postToWebview(webview, { type: "error", message: "Could not deliver message — no active GSD session. Send it again to start a new session." });
           }
           break;
         }

@@ -587,7 +587,8 @@ function handleMessage(event: MessageEvent): void {
           if (block) {
             const isToolBlock = block.type === "toolCall" || block.type === "tool_use" || block.type === "tool-use";
             if (isToolBlock && block.id && block.name) {
-              const turn = state.currentTurn!;
+              const turn = state.currentTurn;
+              if (!turn) break;
               if (!turn.toolCalls.has(block.id)) {
                 const tc: ToolCallState = {
                   id: block.id,
@@ -1218,7 +1219,7 @@ function handleMessage(event: MessageEvent): void {
       const note = document.querySelector(".gsd-steer-note");
       if (note) {
         note.textContent = "⚡ Override saved — applies to current and future tasks";
-        setTimeout(() => note.remove(), 4000);
+        setTimeout(() => note.isConnected && note.remove(), 4000);
       }
       break;
     }

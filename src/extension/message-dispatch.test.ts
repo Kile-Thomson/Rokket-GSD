@@ -956,6 +956,19 @@ describe("message-dispatch: handleWebviewMessage", () => {
       expect(client.followUp).toHaveBeenCalled();
       expect(session.lastUserActionTime).toBeGreaterThan(0);
     });
+
+    it("posts error when client is null", async () => {
+      const session = createMockSession({ client: null as any });
+      const { ctx, webview } = createMockDispatchContext(session);
+      await handleWebviewMessage(ctx, webview, SESSION_ID, {
+        type: "follow_up",
+        message: "tell me more",
+      } as WebviewToExtensionMessage);
+      expect(ctx.postToWebview).toHaveBeenCalledWith(webview, {
+        type: "error",
+        message: expect.stringContaining("no active GSD session"),
+      });
+    });
   });
 
   // ── get_commands ────────────────────────────────────────────────────
