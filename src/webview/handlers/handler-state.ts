@@ -1,6 +1,7 @@
 import { escapeHtml, scrollToBottom } from "../helpers";
 import { state, nextId, pruneOldEntries, type ChatEntry } from "../state";
 import * as renderer from "../renderer";
+import type { WorkflowState } from "../../shared/types";
 
 // ============================================================
 // Dependencies — set via initHandlerDeps()
@@ -16,8 +17,8 @@ export interface HandlerDeps {
   updateFooterUI: () => void;
   updateInputUI: () => void;
   updateOverlayIndicators: () => void;
-  updateWorkflowBadge: (wf: any) => void;
-  handleModelRouted: (oldModel: any, newModel: any) => void;
+  updateWorkflowBadge: (wf: WorkflowState | null) => void;
+  handleModelRouted: (oldModel: { id: string; provider: string } | null, newModel: { id: string; provider: string } | null) => void;
   autoResize: () => void;
 }
 

@@ -3,7 +3,7 @@
 // ============================================================
 
 import { toErrorMessage } from "../shared/errors";
-import type { ExtensionToWebviewMessage } from "../shared/types";
+import type { ExtensionToWebviewMessage, WorkflowState } from "../shared/types";
 import { registerCleanup } from "./dispose";
 
 // Handler sub-modules
@@ -81,8 +81,8 @@ export interface MessageHandlerDeps {
   updateFooterUI: () => void;
   updateInputUI: () => void;
   updateOverlayIndicators: () => void;
-  updateWorkflowBadge: (wf: any) => void;
-  handleModelRouted: (oldModel: any, newModel: any) => void;
+  updateWorkflowBadge: (wf: WorkflowState | null) => void;
+  handleModelRouted: (oldModel: { id: string; provider: string } | null, newModel: { id: string; provider: string } | null) => void;
   autoResize: () => void;
 }
 

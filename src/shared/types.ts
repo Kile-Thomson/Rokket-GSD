@@ -77,13 +77,13 @@ export type WebviewToExtensionMessage =
 export type ExtensionToWebviewMessage =
   | { type: "state"; data: GsdState }
   | { type: "session_stats"; data: SessionStats }
-  | { type: "agent_start" }
+  | { type: "agent_start"; isContinuation?: boolean }
   | { type: "agent_end"; messages: AgentMessage[] }
   | { type: "turn_start" }
   | { type: "turn_end"; message: AgentMessage; toolResults: AgentMessage[] }
   | { type: "message_start"; message: AgentMessage }
   | { type: "message_update"; message: AgentMessage; assistantMessageEvent: StreamDelta }
-  | { type: "message_end"; message: AgentMessage }
+  | { type: "message_end"; message: AgentMessage & { stopReason?: string; errorMessage?: string; usage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } } } }
   | { type: "tool_execution_start"; toolCallId: string; toolName: string; args: Record<string, unknown> }
   | { type: "tool_execution_update"; toolCallId: string; toolName: string; partialResult: ToolResult }
   | { type: "tool_execution_end"; toolCallId: string; toolName: string; result: ToolResult; isError: boolean; durationMs?: number }
@@ -115,8 +115,8 @@ export type ExtensionToWebviewMessage =
   | { type: "auto_progress"; data: AutoProgressData | null }
   | { type: "model_routed"; oldModel: { id: string; provider: string } | null; newModel: { id: string; provider: string } | null }
   | { type: "fallback_provider_switch"; from: string; to: string; reason: string }
-  | { type: "fallback_provider_restored"; provider: string; reason: string }
-  | { type: "fallback_chain_exhausted"; reason: string }
+  | { type: "fallback_provider_restored"; provider: string; reason: string; model?: { id: string; name?: string; provider: string; contextWindow?: number } }
+  | { type: "fallback_chain_exhausted"; reason: string; lastError?: string }
   | { type: "session_shutdown" }
   | { type: "extension_error"; extensionPath: string; event: string; error: string }
   | { type: "steer_persisted" }
@@ -265,6 +265,11 @@ export interface AgentMessage {
   [key: string]: unknown;
 }
 
+export interface TextBlock { type: "text"; text: string; [key: string]: unknown; }
+export interface ToolUseBlock { type: "tool_use" | "toolCall" | "tool-use"; id: string; name: string; input?: unknown; arguments?: Record<string, unknown>; [key: string]: unknown; }
+export interface ThinkingBlock { type: "thinking"; thinking: string; [key: string]: unknown; }
+export type ContentBlock = TextBlock | ToolUseBlock | ThinkingBlock | { type: string; [key: string]: unknown };
+
 /**
  * A streaming update delta received during an assistant turn.
  *
@@ -282,7 +287,9 @@ export interface StreamDelta {
     id: string;
     name: string;
     arguments: Record<string, unknown>;
+    externalResult?: { content: unknown; details?: Record<string, unknown>; isError?: boolean };
   };
+  partial?: { content?: unknown[] };
   [key: string]: unknown;
 }
 

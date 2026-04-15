@@ -1,3 +1,5 @@
+import type { ExtensionToWebviewMessage } from "../../shared/types";
+type Msg<T extends ExtensionToWebviewMessage['type']> = Extract<ExtensionToWebviewMessage, { type: T }>;
 import { state, type ToolCallState } from "../state";
 import * as renderer from "../renderer";
 import { scrollToBottom } from "../helpers";
@@ -17,7 +19,7 @@ import {
 // Staggered tool-end queue
 // ============================================================
 
-const toolEndQueue: Array<Record<string, any>> = [];
+const toolEndQueue: Array<Msg<'tool_execution_end'>> = [];
 let toolEndRafId: number | null = null;
 
 function processToolEndQueue(): void {
@@ -42,7 +44,7 @@ export function flushToolEndQueue(): void {
   }
 }
 
-function renderToolEnd(data: Record<string, any>): void {
+function renderToolEnd(data: Msg<'tool_execution_end'>): void {
   renderer.updateToolSegmentElement(data.toolCallId);
   const { messagesContainer } = getDeps();
 
@@ -78,7 +80,7 @@ function renderToolEnd(data: Record<string, any>): void {
 // Tool execution handlers
 // ============================================================
 
-export function handleToolExecutionStart(msg: any): void {
+export function handleToolExecutionStart(msg: Msg<'tool_execution_start'>): void {
   if (!state.currentTurn) return;
   const data = msg;
   const activeBatch = getActiveBatchToolIds();
@@ -219,7 +221,7 @@ export function handleToolExecutionStart(msg: any): void {
   scrollToBottom(messagesContainer);
 }
 
-export function handleToolExecutionUpdate(msg: any): void {
+export function handleToolExecutionUpdate(msg: Msg<'tool_execution_update'>): void {
   const data = msg;
   let tc = state.currentTurn?.toolCalls.get(data.toolCallId);
   if (!tc) {
@@ -233,7 +235,7 @@ export function handleToolExecutionUpdate(msg: any): void {
   }
   if (tc && data.partialResult) {
     const text = data.partialResult.content
-      ?.map((c: any) => c.text || "")
+      ?.map(c => c.text || "")
       .filter(Boolean)
       .join("\n");
     const filtered = text
@@ -247,7 +249,7 @@ export function handleToolExecutionUpdate(msg: any): void {
   }
 }
 
-export function handleToolExecutionEnd(msg: any): void {
+export function handleToolExecutionEnd(msg: Msg<'tool_execution_end'>): void {
   if (!state.currentTurn) return;
   console.debug(`[gsd:parallel] tool_exec_end: id=${msg.toolCallId} isError=${msg.isError} inBatch=${getActiveBatchToolIds()?.has(msg.toolCallId) ?? false}`);
   toolEndQueue.push(msg);
@@ -259,7 +261,7 @@ export function handleToolExecutionEnd(msg: any): void {
     if (msg.durationMs) earlyTc.endTime = earlyTc.startTime + msg.durationMs;
     if (msg.result) {
       const text = msg.result.content
-        ?.map((c: any) => c.text || "")
+        ?.map(c => c.text || "")
         .filter(Boolean)
         .join("\n");
       const filtered = text

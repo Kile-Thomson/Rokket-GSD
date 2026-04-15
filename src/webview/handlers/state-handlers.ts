@@ -1,4 +1,5 @@
-import type { ExtensionToWebviewMessage, ProcessStatus } from "../../shared/types";
+import type { ExtensionToWebviewMessage, ProcessStatus, AvailableModelInfo } from "../../shared/types";
+type Msg<T extends ExtensionToWebviewMessage['type']> = Extract<ExtensionToWebviewMessage, { type: T }>;
 import { scrollToBottom } from "../helpers";
 import {
   state,
@@ -34,27 +35,26 @@ import {
 } from "./handler-state";
 import { applyTheme } from "./ui-notification-handlers";
 
-export function handleConfig(msg: ExtensionToWebviewMessage): void {
+export function handleConfig(msg: Msg<'config'>): void {
   const deps = getDeps();
-  const data = msg as any;
-  state.useCtrlEnterToSend = data.useCtrlEnterToSend ?? false;
-  if (data.theme) {
-    state.theme = data.theme;
-    try { applyTheme(data.theme); } catch (e) { console.warn("applyTheme error:", e); }
+  state.useCtrlEnterToSend = msg.useCtrlEnterToSend ?? false;
+  if (msg.theme) {
+    state.theme = msg.theme;
+    try { applyTheme(msg.theme); } catch (e) { console.warn("applyTheme error:", e); }
   }
-  if (data.cwd) state.cwd = data.cwd;
-  if (data.version) state.version = data.version;
-  if (data.extensionVersion) {
-    state.extensionVersion = data.extensionVersion;
+  if (msg.cwd) state.cwd = msg.cwd;
+  if (msg.version) state.version = msg.version;
+  if (msg.extensionVersion) {
+    state.extensionVersion = msg.extensionVersion;
     const headerVer = getHeaderVersion();
-    if (headerVer) headerVer.textContent = `v${data.extensionVersion}`;
+    if (headerVer) headerVer.textContent = `v${msg.extensionVersion}`;
   }
   deps.updateAllUI();
 }
 
-export function handleState(msg: ExtensionToWebviewMessage): void {
+export function handleState(msg: Msg<'state'>): void {
   const deps = getDeps();
-  const data = (msg as any).data;
+  const data = msg.data;
   if (data) {
     state.model = data.model || null;
     if ("thinkingLevel" in data) {
@@ -81,9 +81,9 @@ export function handleState(msg: ExtensionToWebviewMessage): void {
   }
 }
 
-export function handleSessionStats(msg: ExtensionToWebviewMessage): void {
+export function handleSessionStats(msg: Msg<'session_stats'>): void {
   const deps = getDeps();
-  const data = (msg as any).data;
+  const data = msg.data;
   if (data) {
     if (data.autoCompactionEnabled != null) {
       state.sessionStats.autoCompactionEnabled = data.autoCompactionEnabled;
@@ -96,13 +96,12 @@ export function handleSessionStats(msg: ExtensionToWebviewMessage): void {
   }
 }
 
-export function handleProcessStatus(msg: ExtensionToWebviewMessage): void {
+export function handleProcessStatus(msg: Msg<'process_status'>): void {
   const deps = getDeps();
-  const data = msg as any;
   const prevStatus = state.processStatus;
-  state.processStatus = data.status as ProcessStatus;
+  state.processStatus = msg.status;
 
-  if (data.status === "running" && prevStatus !== "running") {
+  if (msg.status === "running" && prevStatus !== "running") {
     state.isStreaming = false;
     state.isCompacting = false;
     state.lastExitDetail = null;
@@ -115,36 +114,34 @@ export function handleProcessStatus(msg: ExtensionToWebviewMessage): void {
   dashboard.updateWelcomeScreen();
 }
 
-export function handleWorkflowState(msg: ExtensionToWebviewMessage): void {
-  getDeps().updateWorkflowBadge((msg as any).state);
+export function handleWorkflowState(msg: Msg<'workflow_state'>): void {
+  getDeps().updateWorkflowBadge(msg.state);
 }
 
-export function handleDashboardData(msg: ExtensionToWebviewMessage): void {
+export function handleDashboardData(msg: Msg<'dashboard_data'>): void {
   if (visualizer.isVisible()) {
-    visualizer.updateData((msg as any).data);
+    visualizer.updateData(msg.data);
   } else {
-    dashboard.renderDashboard((msg as any).data);
+    dashboard.renderDashboard(msg.data);
   }
 }
 
-export function handleAutoProgress(msg: ExtensionToWebviewMessage): void {
-  autoProgress.update((msg as any).data);
+export function handleAutoProgress(msg: Msg<'auto_progress'>): void {
+  autoProgress.update(msg.data);
 }
 
-export function handleModelRouted(msg: ExtensionToWebviewMessage): void {
+export function handleModelRouted(msg: Msg<'model_routed'>): void {
   const deps = getDeps();
-  const data = msg as any;
-  deps.handleModelRouted(data.oldModel, data.newModel);
-  const oldName = data.oldModel?.id || "unknown";
-  const newName = data.newModel?.id || "unknown";
+  deps.handleModelRouted(msg.oldModel, msg.newModel);
+  const oldName = msg.oldModel?.id || "unknown";
+  const newName = msg.newModel?.id || "unknown";
   toasts.show(`Model routed: ${oldName} → ${newName}`, TOAST_SHORT_DURATION_MS);
   announceToScreenReader(`Model switched to ${newName}`);
 }
 
-export function handleCommands(msg: ExtensionToWebviewMessage): void {
+export function handleCommands(msg: Msg<'commands'>): void {
   const deps = getDeps();
-  const data = msg as any;
-  state.commands = data.commands || [];
+  state.commands = msg.commands || [];
   state.commandsLoaded = true;
   if (slashMenu.isVisible()) {
     const filter = deps.promptInput.value.slice(1).trim();
@@ -152,10 +149,9 @@ export function handleCommands(msg: ExtensionToWebviewMessage): void {
   }
 }
 
-export function handleAvailableModels(msg: ExtensionToWebviewMessage): void {
+export function handleAvailableModels(msg: Msg<'available_models'>): void {
   const deps = getDeps();
-  const data = msg as any;
-  state.availableModels = (data.models || []).map((m: any) => ({
+  state.availableModels = (msg.models || []).map((m: AvailableModelInfo) => ({
     id: m.id,
     name: m.name || m.id,
     provider: m.provider,
@@ -179,27 +175,25 @@ export function handleAvailableModels(msg: ExtensionToWebviewMessage): void {
   }
 }
 
-export function handleThinkingLevelChanged(msg: ExtensionToWebviewMessage): void {
+export function handleThinkingLevelChanged(msg: Msg<'thinking_level_changed'>): void {
   const deps = getDeps();
-  const data = msg as any;
-  state.thinkingLevel = data.level || "off";
+  state.thinkingLevel = msg.level || "off";
   deps.updateHeaderUI();
   deps.updateFooterUI();
   thinkingPicker.refresh();
   toasts.show(`Thinking: ${state.thinkingLevel}`);
 }
 
-export function handleSessionList(msg: ExtensionToWebviewMessage): void {
-  sessionHistory.updateSessions((msg as any).sessions || []);
+export function handleSessionList(msg: Msg<'session_list'>): void {
+  sessionHistory.updateSessions(msg.sessions || []);
 }
 
-export function handleSessionListError(msg: ExtensionToWebviewMessage): void {
-  sessionHistory.showError((msg as any).message);
+export function handleSessionListError(msg: Msg<'session_list_error'>): void {
+  sessionHistory.showError(msg.message);
 }
 
-export function handleSessionSwitched(msg: ExtensionToWebviewMessage): void {
+export function handleSessionSwitched(msg: Msg<'session_switched'>): void {
   const deps = getDeps();
-  const data = msg as any;
 
   state.entries = [];
   state.currentTurn = null;
@@ -217,22 +211,22 @@ export function handleSessionSwitched(msg: ExtensionToWebviewMessage): void {
 
   resetDerivedSessionTracking();
 
-  if (data.state) {
-    state.model = data.state.model || null;
-    if ("thinkingLevel" in data.state) {
-      state.thinkingLevel = data.state.thinkingLevel ?? null;
+  if (msg.state) {
+    state.model = msg.state.model || null;
+    if ("thinkingLevel" in msg.state) {
+      state.thinkingLevel = msg.state.thinkingLevel ?? null;
     }
-    state.isStreaming = data.state.isStreaming || false;
-    state.isCompacting = data.state.isCompacting || false;
+    state.isStreaming = msg.state.isStreaming || false;
+    state.isCompacting = msg.state.isCompacting || false;
     if (state.processStatus !== "crashed") state.processStatus = "running";
   }
 
-  if (data.messages && data.messages.length > 0) {
-    renderHistoricalMessages(data.messages, deps.messagesContainer, deps.welcomeScreen);
+  if (msg.messages && msg.messages.length > 0) {
+    renderHistoricalMessages(msg.messages, deps.messagesContainer, deps.welcomeScreen);
   }
 
-  if (data.state?.sessionId) {
-    sessionHistory.setCurrentSessionId(data.state.sessionId as string);
+  if (msg.state?.sessionId) {
+    sessionHistory.setCurrentSessionId(msg.state.sessionId);
   }
 
   sessionHistory.hide();
@@ -241,18 +235,18 @@ export function handleSessionSwitched(msg: ExtensionToWebviewMessage): void {
   scrollToBottom(deps.messagesContainer, true);
 }
 
-export function handleCostUpdate(msg: ExtensionToWebviewMessage): void {
+export function handleCostUpdate(msg: Msg<'cost_update'>): void {
   const deps = getDeps();
   setHasCostUpdateSource(true);
-  const cu = (msg as any).data || (msg as any);
+  const cu = msg;
 
-  const tok = cu.tokens || {};
-  const totalInput = tok.input || cu.totalInput || 0;
-  const totalOutput = tok.output || cu.totalOutput || 0;
-  const totalCacheRead = tok.cacheRead || cu.totalCacheRead || 0;
-  const totalCacheWrite = tok.cacheWrite || cu.totalCacheWrite || 0;
+  const tok = cu.tokens;
+  const totalInput = tok.input || 0;
+  const totalOutput = tok.output || 0;
+  const totalCacheRead = tok.cacheRead || 0;
+  const totalCacheWrite = tok.cacheWrite || 0;
 
-  const costValue = cu.cumulativeCost ?? cu.totalCost;
+  const costValue = cu.cumulativeCost;
 
   const prev = getPrevCostTotals();
   const turnInput = totalInput - prev.input;

@@ -317,10 +317,10 @@ describe("ui-notification-handlers", () => {
     it("resets session tracking state on process exit", () => {
       sendMessage({
         type: "cost_update",
-        data: {
-          tokens: { input: 5000, output: 2000, cacheRead: 0, cacheWrite: 0 },
-          cumulativeCost: 0.10,
-        },
+        runId: "r1",
+        turnCost: 0.10,
+        cumulativeCost: 0.10,
+        tokens: { input: 5000, output: 2000, cacheRead: 0, cacheWrite: 0 },
       });
       expect(state.sessionStats.tokens?.input).toBe(5000);
       sendMessage({ type: "process_exit", code: 0 });

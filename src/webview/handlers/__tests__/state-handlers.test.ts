@@ -254,10 +254,13 @@ describe("state-handlers", () => {
       expect(state.sessionStats.cost).toBe(0.15);
     });
 
-    it("falls back to flat field names (totalInput)", () => {
+    it("handles cost_update with tokens at top level", () => {
       sendMessage({
         type: "cost_update",
-        data: { totalCost: 0.20, totalInput: 60000, totalOutput: 3000, totalCacheRead: 0, totalCacheWrite: 0 },
+        runId: "r1",
+        turnCost: 0.20,
+        cumulativeCost: 0.20,
+        tokens: { input: 60000, output: 3000, cacheRead: 0, cacheWrite: 0 },
       });
       expect(state.sessionStats.tokens?.input).toBe(60000);
       expect(state.sessionStats.tokens?.output).toBe(3000);
@@ -449,9 +452,10 @@ describe("state-handlers", () => {
       state.sessionStats.cost = 0.05;
       sendMessage({
         type: "cost_update",
-        data: {
-          tokens: { input: 1000, output: 500, cacheRead: 200, cacheWrite: 100 },
-        },
+        runId: "r1",
+        turnCost: 0,
+        cumulativeCost: undefined as unknown as number,
+        tokens: { input: 1000, output: 500, cacheRead: 200, cacheWrite: 100 },
       });
       expect(state.sessionStats.tokens?.input).toBe(1000);
       expect(state.sessionStats.tokens?.output).toBe(500);
@@ -461,18 +465,18 @@ describe("state-handlers", () => {
     it("computes per-turn cost deltas from cumulative totals", () => {
       sendMessage({
         type: "cost_update",
-        data: {
-          tokens: { input: 1000, output: 500, cacheRead: 0, cacheWrite: 0 },
-          cumulativeCost: 0.01,
-        },
+        runId: "r1",
+        turnCost: 0.01,
+        cumulativeCost: 0.01,
+        tokens: { input: 1000, output: 500, cacheRead: 0, cacheWrite: 0 },
       });
       expect(state.sessionStats.cost).toBe(0.01);
       sendMessage({
         type: "cost_update",
-        data: {
-          tokens: { input: 2000, output: 1000, cacheRead: 100, cacheWrite: 50 },
-          cumulativeCost: 0.03,
-        },
+        runId: "r1",
+        turnCost: 0.02,
+        cumulativeCost: 0.03,
+        tokens: { input: 2000, output: 1000, cacheRead: 100, cacheWrite: 50 },
       });
       expect(state.sessionStats.cost).toBe(0.03);
       expect(state.sessionStats.tokens?.input).toBe(2000);

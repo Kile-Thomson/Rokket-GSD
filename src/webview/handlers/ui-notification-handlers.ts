@@ -2,6 +2,7 @@ import type {
   ExtensionToWebviewMessage,
   WebviewToExtensionMessage,
 } from "../../shared/types";
+type Msg<T extends ExtensionToWebviewMessage['type']> = Extract<ExtensionToWebviewMessage, { type: T }>;
 import {
   escapeHtml,
   formatMarkdownNotes,
@@ -48,43 +49,40 @@ export function handleAutoCompactionStart(): void {
   deps.updateInputUI();
 }
 
-export function handleAutoCompactionEnd(msg: ExtensionToWebviewMessage): void {
+export function handleAutoCompactionEnd(msg: Msg<'auto_compaction_end'>): void {
   state.isCompacting = false;
   const deps = getDeps();
   deps.updateOverlayIndicators();
   deps.updateInputUI();
-  if (!(msg as any).aborted) {
+  if (!msg.aborted) {
     toasts.show("Context compacted successfully");
   }
 }
 
-export function handleAutoRetryStart(msg: ExtensionToWebviewMessage): void {
-  const data = msg as any;
+export function handleAutoRetryStart(msg: Msg<'auto_retry_start'>): void {
   state.isRetrying = true;
   state.retryInfo = {
-    attempt: data.attempt,
-    maxAttempts: data.maxAttempts,
-    errorMessage: data.errorMessage || "",
+    attempt: msg.attempt,
+    maxAttempts: msg.maxAttempts,
+    errorMessage: msg.errorMessage || "",
   };
   getDeps().updateOverlayIndicators();
 }
 
-export function handleAutoRetryEnd(msg: ExtensionToWebviewMessage): void {
-  const data = msg as any;
+export function handleAutoRetryEnd(msg: Msg<'auto_retry_end'>): void {
   state.isRetrying = false;
   state.retryInfo = undefined;
   getDeps().updateOverlayIndicators();
-  if (!data.success && data.finalError) {
-    addSystemEntry(data.finalError, "error");
+  if (!msg.success && msg.finalError) {
+    addSystemEntry(msg.finalError, "error");
   }
 }
 
-export function handleFallbackProviderSwitch(msg: ExtensionToWebviewMessage): void {
+export function handleFallbackProviderSwitch(msg: Msg<'fallback_provider_switch'>): void {
   const deps = getDeps();
-  const data = msg as any;
-  const from = data.from || "unknown";
-  const to = data.to || "unknown";
-  const reason = data.reason || "rate limit";
+  const from = msg.from || "unknown";
+  const to = msg.to || "unknown";
+  const reason = msg.reason || "rate limit";
   toasts.show(`⚠ Model switched: ${from} → ${to} (${reason})`, TOAST_LONG_DURATION_MS);
   const parts = to.split("/");
   if (parts.length >= 2) {
@@ -99,10 +97,9 @@ export function handleFallbackProviderSwitch(msg: ExtensionToWebviewMessage): vo
   addSystemEntry(`Provider fallback: ${from} → ${to} (${reason})`, "warning");
 }
 
-export function handleFallbackProviderRestored(msg: ExtensionToWebviewMessage): void {
+export function handleFallbackProviderRestored(msg: Msg<'fallback_provider_restored'>): void {
   const deps = getDeps();
-  const data = msg as any;
-  const model = data.model;
+  const model = msg.model;
   if (model) {
     toasts.show(`✓ Original provider restored: ${model.provider}/${model.id}`, TOAST_MEDIUM_DURATION_MS);
     state.model = {
@@ -117,9 +114,8 @@ export function handleFallbackProviderRestored(msg: ExtensionToWebviewMessage): 
   }
 }
 
-export function handleFallbackChainExhausted(msg: ExtensionToWebviewMessage): void {
-  const data = msg as any;
-  const lastError = data.lastError || "All providers failed";
+export function handleFallbackChainExhausted(msg: Msg<'fallback_chain_exhausted'>): void {
+  const lastError = msg.lastError || "All providers failed";
   addSystemEntry(`All fallback providers exhausted: ${lastError}. Check your API keys or try again later.`, "error");
   toasts.show("⚠ All model providers failed", TOAST_LONG_DURATION_MS);
 }
@@ -145,9 +141,8 @@ export function handleSessionShutdown(): void {
   deps.updateOverlayIndicators();
 }
 
-export function handleExtensionError(msg: ExtensionToWebviewMessage): void {
-  const data = msg as any;
-  const extError = data.error as string || "unknown error";
+export function handleExtensionError(msg: Msg<'extension_error'>): void {
+  const extError = msg.error || "unknown error";
   addSystemEntry(`Command error: ${extError}`, "error");
   announceToScreenReader(`Error: ${extError}`);
 }
@@ -160,28 +155,26 @@ export function handleSteerPersisted(): void {
   }
 }
 
-export function handleExtensionUiRequest(msg: ExtensionToWebviewMessage): void {
+export function handleExtensionUiRequest(msg: Msg<'extension_ui_request'>): void {
   const deps = getDeps();
-  const data = msg as any;
-  if (data.method === "notify" && data.message) {
-    const notifyType = data.notifyType as string || "info";
+  if (msg.method === "notify" && msg.message) {
+    const notifyType = msg.notifyType || "info";
     const kind = notifyType === "error" ? "error" : notifyType === "warning" ? "warning" : "info";
-    addSystemEntry(data.message as string, kind);
-  } else if (data.method === "setStatus" && data.statusText) {
+    addSystemEntry(msg.message, kind);
+  } else if (msg.method === "setStatus" && msg.statusText) {
     // Status text — could update footer
-  } else if (data.method === "setWidget") {
-    renderWidget(data.widgetKey as string, data.widgetLines as string[] | undefined, data.widgetPlacement as string | undefined);
-  } else if (data.method === "set_editor_text" && data.text) {
-    deps.promptInput.value = data.text;
+  } else if (msg.method === "setWidget") {
+    renderWidget(msg.widgetKey as string, msg.widgetLines, msg.widgetPlacement as string | undefined);
+  } else if (msg.method === "set_editor_text" && msg.text) {
+    deps.promptInput.value = msg.text;
     deps.autoResize();
-  } else if (data.method === "select" || data.method === "confirm" || data.method === "input") {
-    uiDialogs.handleRequest(data);
+  } else if (msg.method === "select" || msg.method === "confirm" || msg.method === "input") {
+    uiDialogs.handleRequest(msg as Record<string, unknown>);
   }
 }
 
-export function handleBashResult(msg: ExtensionToWebviewMessage): void {
-  const data = msg as any;
-  const result = data.result;
+export function handleBashResult(msg: Msg<'bash_result'>): void {
+  const result = msg.result;
   if (result) {
     const output = result.stdout || result.stderr || result.output || JSON.stringify(result);
     const isError = result.exitCode !== 0 || result.error;
@@ -189,16 +182,14 @@ export function handleBashResult(msg: ExtensionToWebviewMessage): void {
   }
 }
 
-export function handleError(msg: ExtensionToWebviewMessage): void {
-  const data = msg as any;
+export function handleError(msg: Msg<'error'>): void {
   removeSteerNotes();
-  addSystemEntry(data.message, "error");
-  announceToScreenReader(`Error: ${data.message}`);
+  addSystemEntry(msg.message, "error");
+  announceToScreenReader(`Error: ${msg.message}`);
 }
 
-export function handleProcessExit(msg: ExtensionToWebviewMessage): void {
+export function handleProcessExit(msg: Msg<'process_exit'>): void {
   const deps = getDeps();
-  const data = msg as any;
   state.isStreaming = false;
   state.isCompacting = false;
   state.isRetrying = false;
@@ -216,37 +207,35 @@ export function handleProcessExit(msg: ExtensionToWebviewMessage): void {
   deps.updateInputUI();
   deps.updateOverlayIndicators();
 
-  const detail = data.detail as string | undefined;
+  const detail = msg.detail;
   state.lastExitDetail = detail || null;
-  state.lastExitCode = typeof data.code === "number" ? data.code : null;
+  state.lastExitCode = typeof msg.code === "number" ? msg.code : null;
   let message: string;
   if (detail) {
     message = detail;
-  } else if (data.code === 0) {
+  } else if (msg.code === 0) {
     message = "GSD process exited.";
   } else {
-    message = `GSD process exited (code: ${data.code}).`;
+    message = `GSD process exited (code: ${msg.code}).`;
   }
-  addSystemEntry(message, data.code === 0 ? "info" : "error");
+  addSystemEntry(message, msg.code === 0 ? "info" : "error");
 }
 
-export function handleProcessHealth(msg: ExtensionToWebviewMessage): void {
+export function handleProcessHealth(msg: Msg<'process_health'>): void {
   const deps = getDeps();
-  const data = msg as any;
-  state.processHealth = data.status;
-  if (data.status === "unresponsive") {
+  state.processHealth = msg.status;
+  if (msg.status === "unresponsive") {
     deps.updateOverlayIndicators();
-  } else if (data.status === "recovered") {
+  } else if (msg.status === "recovered") {
     deps.updateOverlayIndicators();
     addSystemEntry("GSD process recovered", "info");
   }
 }
 
-export function handleFileAccessResult(msg: ExtensionToWebviewMessage): void {
-  const data = msg as any;
-  const denied = data.results.filter((r: { path: string; readable: boolean }) => !r.readable);
+export function handleFileAccessResult(msg: Msg<'file_access_result'>): void {
+  const denied = msg.results.filter(r => !r.readable);
   if (denied.length > 0) {
-    const names = denied.map((r: { path: string }) => {
+    const names = denied.map((r) => {
       const parts = r.path.replace(/\\/g, "/").split("/");
       return parts[parts.length - 1] || r.path;
     });
@@ -254,28 +243,26 @@ export function handleFileAccessResult(msg: ExtensionToWebviewMessage): void {
   }
 }
 
-export function handleTempFileSaved(msg: ExtensionToWebviewMessage): void {
-  fileHandling.addFileAttachments([(msg as any).path], true);
+export function handleTempFileSaved(msg: Msg<'temp_file_saved'>): void {
+  fileHandling.addFileAttachments([msg.path], true);
 }
 
-export function handleFilesAttached(msg: ExtensionToWebviewMessage): void {
-  const data = msg as any;
-  if (data.paths.length > 0) {
-    fileHandling.addFileAttachments(data.paths, true);
+export function handleFilesAttached(msg: Msg<'files_attached'>): void {
+  if (msg.paths.length > 0) {
+    fileHandling.addFileAttachments(msg.paths, true);
   }
 }
 
-export function handleUpdateAvailable(msg: ExtensionToWebviewMessage): void {
-  const data = msg as any;
-  showUpdateCard(data.version, data.currentVersion, data.releaseNotes, data.downloadUrl);
+export function handleUpdateAvailable(msg: Msg<'update_available'>): void {
+  showUpdateCard(msg.version, msg.currentVersion, msg.releaseNotes, msg.downloadUrl);
 }
 
-export function handleWhatsNew(msg: ExtensionToWebviewMessage): void {
-  showWhatsNew((msg as any).version, (msg as any).notes);
+export function handleWhatsNew(msg: Msg<'whats_new'>): void {
+  showWhatsNew(msg.version, msg.notes);
 }
 
-export function handleChangelog(msg: ExtensionToWebviewMessage): void {
-  showChangelog((msg as any).entries);
+export function handleChangelog(msg: Msg<'changelog'>): void {
+  showChangelog(msg.entries);
 }
 
 // ============================================================

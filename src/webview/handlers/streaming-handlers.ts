@@ -1,3 +1,5 @@
+import type { ExtensionToWebviewMessage } from "../../shared/types";
+type Msg<T extends ExtensionToWebviewMessage['type']> = Extract<ExtensionToWebviewMessage, { type: T }>;
 import { state, nextId, type ToolCallState } from "../state";
 import * as renderer from "../renderer";
 import { scrollToBottom } from "../helpers";
@@ -20,7 +22,7 @@ import {
 } from "./handler-state";
 import { flushToolEndQueue } from "./tool-execution-handlers";
 
-export function handleAgentStart(msg: any): void {
+export function handleAgentStart(msg: Msg<'agent_start'>): void {
   if (uiDialogs.hasPending()) {
     uiDialogs.expireAllPending("New turn started");
   }
@@ -51,7 +53,7 @@ export function handleAgentStart(msg: any): void {
   removeSteerNotes();
 }
 
-export function handleAgentEnd(_msg: any): void {
+export function handleAgentEnd(_msg: Msg<'agent_end'>): void {
   state.isStreaming = false;
   announceToScreenReader("Response complete.");
   state.processHealth = "responsive";
@@ -74,7 +76,7 @@ export function handleAgentEnd(_msg: any): void {
   vscode.postMessage({ type: "get_session_stats" });
 }
 
-export function handleTurnStart(_msg: any): void {
+export function handleTurnStart(_msg: Msg<'turn_start'>): void {
   if (!state.currentTurn) {
     state.currentTurn = {
       id: nextId(),
@@ -87,17 +89,17 @@ export function handleTurnStart(_msg: any): void {
   }
 }
 
-export function handleTurnEnd(_msg: any): void {
+export function handleTurnEnd(_msg: Msg<'turn_end'>): void {
   // No-op
 }
 
-export function handleMessageStart(_msg: any): void {
+export function handleMessageStart(_msg: Msg<'message_start'>): void {
   removeSteerNotes();
   setMessageParallelToolIds(null);
   setLastMessageUsage(null);
 }
 
-export function handleMessageUpdate(msg: any): void {
+export function handleMessageUpdate(msg: Msg<'message_update'>): void {
   if (!state.currentTurn) return;
   const delta = msg.assistantMessageEvent;
   const { messagesContainer, updateHeaderUI } = getDeps();
@@ -160,12 +162,12 @@ export function handleMessageUpdate(msg: any): void {
     const partial = delta.partial;
     const content = partial?.content;
     const idx = delta.contentIndex;
-    let block: any = null;
+    let block: Record<string, unknown> | null = null;
     if (Array.isArray(content) && typeof idx === "number" && idx >= 0 && idx < content.length) {
-      block = content[idx];
+      block = content[idx] as Record<string, unknown>;
     }
     if (!block && delta.toolCall) {
-      block = delta.toolCall;
+      block = delta.toolCall as Record<string, unknown>;
     }
     console.debug(`[gsd:parallel] toolcall_start: block=${block?.name || 'null'} id=${block?.id || 'null'} type=${block?.type || 'null'}`);
     if (block) {
@@ -268,7 +270,7 @@ export function handleMessageUpdate(msg: any): void {
         const resultContent = tc2.externalResult.content;
         if (Array.isArray(resultContent)) {
           const text = resultContent
-            .map((c: any) => c.text || "")
+            .map((c: Record<string, unknown>) => (c.text as string) || "")
             .filter(Boolean)
             .join("\n");
           const filtered = text
@@ -303,31 +305,30 @@ export function handleMessageUpdate(msg: any): void {
   }
 }
 
-export function handleAsyncSubagentProgress(msg: any): void {
-  const data = msg;
-  if (data.type !== "async_subagent_progress" || !data.toolCallId) return;
+export function handleAsyncSubagentProgress(msg: Msg<'async_subagent_progress'>): void {
+  if (!msg.toolCallId) return;
 
   const allToolBlocks = document.querySelectorAll<HTMLElement>(`[data-tool-id]`);
   let toolBlock: HTMLElement | null = null;
   allToolBlocks.forEach(el => {
-    if (el.dataset.toolId === data.toolCallId) toolBlock = el;
+    if (el.dataset.toolId === msg.toolCallId) toolBlock = el;
   });
 
   let tc: ToolCallState | undefined;
-  tc = state.currentTurn?.toolCalls.get(data.toolCallId);
+  tc = state.currentTurn?.toolCalls.get(msg.toolCallId);
   if (!tc) {
     for (let i = state.entries.length - 1; i >= 0; i--) {
-      tc = state.entries[i].turn?.toolCalls.get(data.toolCallId);
+      tc = state.entries[i].turn?.toolCalls.get(msg.toolCallId);
       if (tc) break;
     }
   }
 
   if (tc) {
-    tc.details = { ...(tc.details || {}), mode: data.mode, results: data.results };
-    const done = data.results?.filter((r: any) => r.exitCode === 0).length || 0;
-    const running = data.results?.filter((r: any) => r.exitCode === -1).length || 0;
-    const failed = data.results?.filter((r: any) => r.exitCode > 0).length || 0;
-    const total = data.results?.length || 0;
+    tc.details = { ...(tc.details || {}), mode: msg.mode, results: msg.results };
+    const done = msg.results?.filter(r => r.exitCode === 0).length || 0;
+    const running = msg.results?.filter(r => r.exitCode === -1).length || 0;
+    const failed = msg.results?.filter(r => r.exitCode > 0).length || 0;
+    const total = msg.results?.length || 0;
     tc.resultText = `${done}/${total} done, ${running} running${failed ? `, ${failed} failed` : ""}`;
     tc.isRunning = running > 0;
     tc.isError = failed > 0;
@@ -338,16 +339,16 @@ export function handleAsyncSubagentProgress(msg: any): void {
   }
 }
 
-export function handleMessageEnd(msg: any): void {
+export function handleMessageEnd(msg: Msg<'message_end'>): void {
   const endMsg = msg.message;
   const { updateHeaderUI, updateFooterUI } = getDeps();
 
   if (endMsg?.content && state.currentTurn) {
-    const blocks = Array.isArray(endMsg.content) ? endMsg.content : [];
-    console.debug(`[gsd:parallel] message_end: ${blocks.length} content blocks, types=[${blocks.map((b: any) => b.type).join(",")}]`);
+    const blocks = Array.isArray(endMsg.content) ? endMsg.content as Array<Record<string, unknown>> : [];
+    console.debug(`[gsd:parallel] message_end: ${blocks.length} content blocks, types=[${blocks.map(b => b.type).join(",")}]`);
     const toolIds = blocks
-      .filter((b: any) => b.type === "tool_use" || b.type === "toolCall" || b.type === "tool-use")
-      .map((b: any) => b.id)
+      .filter(b => b.type === "tool_use" || b.type === "toolCall" || b.type === "tool-use")
+      .map(b => b.id)
       .filter(Boolean) as string[];
     console.debug(`[gsd:parallel] message_end: ${toolIds.length} tool IDs found`);
     if (toolIds.length >= 2) {
@@ -376,15 +377,13 @@ export function handleMessageEnd(msg: any): void {
     }
   }
   if (endMsg?.role === "assistant") {
-    const stopReason = (endMsg as any).stopReason as string | undefined;
-    const errorMessage = (endMsg as any).errorMessage as string | undefined;
-    if (stopReason === "error" && errorMessage) {
-      addSystemEntry(errorMessage, "error");
-      announceToScreenReader(`Error: ${errorMessage}`);
+    if (endMsg.stopReason === "error" && endMsg.errorMessage) {
+      addSystemEntry(endMsg.errorMessage, "error");
+      announceToScreenReader(`Error: ${endMsg.errorMessage}`);
     }
 
-    if ((endMsg as any).usage) {
-      const u = (endMsg as any).usage as { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } };
+    if (endMsg.usage) {
+      const u = endMsg.usage;
       setLastMessageUsage(u);
 
       if (!getHasCostUpdateSource()) {
