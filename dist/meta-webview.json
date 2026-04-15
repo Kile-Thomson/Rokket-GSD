@@ -26,7 +26,7 @@
       "imports": []
     },
     "src/webview/styles/dashboard.css": {
-      "bytes": 9723,
+      "bytes": 9553,
       "imports": []
     },
     "src/webview/styles/input.css": {
@@ -898,7 +898,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 257440
+      "bytes": 257134
     },
     "dist/webview/index.css": {
       "imports": [],
@@ -919,7 +919,7 @@
           "bytesInOutput": 15147
         },
         "src/webview/styles/dashboard.css": {
-          "bytesInOutput": 7591
+          "bytesInOutput": 7464
         },
         "src/webview/styles/input.css": {
           "bytesInOutput": 4460
@@ -952,7 +952,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 117450
+      "bytes": 117323
     }
   }
 }
