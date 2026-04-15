@@ -382,8 +382,29 @@
       ],
       "format": "esm"
     },
+    "src/extension/handlers/process-handlers.ts": {
+      "bytes": 6930,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/extension/update-checker.ts",
+          "kind": "import-statement",
+          "original": "../update-checker"
+        },
+        {
+          "path": "src/shared/types.ts",
+          "kind": "import-statement",
+          "original": "../../shared/types"
+        }
+      ],
+      "format": "esm"
+    },
     "src/extension/message-dispatch.ts": {
-      "bytes": 35782,
+      "bytes": 29964,
       "imports": [
         {
           "path": "vscode",
@@ -394,11 +415,6 @@
           "path": "src/extension/session-list-service.ts",
           "kind": "import-statement",
           "original": "./session-list-service"
-        },
-        {
-          "path": "src/extension/update-checker.ts",
-          "kind": "import-statement",
-          "original": "./update-checker"
         },
         {
           "path": "src/shared/types.ts",
@@ -434,6 +450,11 @@
           "path": "src/extension/handlers/dispatch-utils.ts",
           "kind": "import-statement",
           "original": "./handlers/dispatch-utils"
+        },
+        {
+          "path": "src/extension/handlers/process-handlers.ts",
+          "kind": "import-statement",
+          "original": "./handlers/process-handlers"
         },
         {
           "path": "node:fs",
@@ -649,7 +670,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 411463
+      "bytes": 414124
     },
     "dist/extension.js": {
       "imports": [
@@ -859,6 +880,11 @@
           "external": true
         },
         {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
           "path": "node:fs",
           "kind": "require-call",
           "external": true
@@ -957,7 +983,7 @@
           "bytesInOutput": 4795
         },
         "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 14209
+          "bytesInOutput": 11467
         },
         "src/extension/session-list-service.ts": {
           "bytesInOutput": 2191
@@ -980,6 +1006,9 @@
         "src/extension/handlers/query-handlers.ts": {
           "bytesInOutput": 1715
         },
+        "src/extension/handlers/process-handlers.ts": {
+          "bytesInOutput": 3228
+        },
         "src/extension/polling.ts": {
           "bytesInOutput": 1769
         },
@@ -990,7 +1019,7 @@
           "bytesInOutput": 4420
         }
       },
-      "bytes": 103037
+      "bytes": 103523
     }
   }
 }

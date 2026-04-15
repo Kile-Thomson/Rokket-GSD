@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 import { listSessions, deleteSession, validateSessionPath } from "./session-list-service";
-import { downloadAndInstallUpdate, dismissUpdateVersion } from "./update-checker";
 import type { SessionState } from "./session-state";
 import type {
   WebviewToExtensionMessage,
@@ -8,7 +7,6 @@ import type {
   SessionListItem,
   RpcCommandsResult,
   RpcStateResult,
-  BashResult,
   AgentMessage,
 } from "../shared/types";
 import { toGsdState } from "../shared/types";
@@ -56,6 +54,18 @@ import {
   handleGetChangelog,
 } from "./handlers/query-handlers";
 import { sendDashboardData } from "./handlers/dispatch-utils";
+import {
+  handleReady,
+  handleLaunchGsd,
+  handleForceKill,
+  handleForceRestart,
+  handleShutdown,
+  handleRunBash,
+  handleUpdateInstall,
+  handleUpdateDismiss,
+  handleUpdateViewRelease,
+  handleExtensionUiResponse,
+} from "./handlers/process-handlers";
 import type { StatusBarUpdate } from "./webview-provider";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -158,36 +168,12 @@ export async function handleWebviewMessage(
 
       switch (msg.type) {
         case "ready": {
-          const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
-          const extVersion = vscode.extensions.getExtension("rokketek.rokket-gsd")?.packageJSON?.version;
-          ctx.postToWebview(webview, {
-            type: "config",
-            useCtrlEnterToSend: ctx.getUseCtrlEnter(),
-            theme: ctx.getTheme(),
-            cwd,
-            version: ctx.gsdVersion,
-            extensionVersion: extVersion,
-          });
-
-          // Check if this is a first launch after an update — show "What's New"
-          ctx.checkWhatsNew(webview).catch(() => {});
+          await handleReady(ctx, webview, sessionId, msg);
           break;
         }
 
         case "launch_gsd": {
-          // Guard: don't launch a second process if one already exists for this session
-          const existingLaunch = ctx.getSession(sessionId).client;
-          if (existingLaunch?.isRunning) {
-            ctx.output.appendLine(`[${sessionId}] launch_gsd: process already running (PID ${existingLaunch.pid}) — skipping`);
-            // Re-push state so the webview knows it's running
-            ctx.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
-            try {
-              const rpcState = await existingLaunch.getState();
-              ctx.postToWebview(webview, { type: "state", data: toGsdState(rpcState as RpcStateResult) } as ExtensionToWebviewMessage);
-            } catch { /* best effort */ }
-          } else {
-            await ctx.launchGsd(webview, sessionId, msg.cwd);
-          }
+          await handleLaunchGsd(ctx, webview, sessionId, msg);
           break;
         }
 
@@ -468,38 +454,7 @@ export async function handleWebviewMessage(
         }
 
         case "run_bash": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            // Security: check for destructive shell patterns before execution
-            const destructivePatterns = [
-              /\brm\s+(-[a-zA-Z]*f|-[a-zA-Z]*r|--force|--recursive)\b/,
-              /\bformat\b/i,
-              /\bmkfs\b/,
-              /\bdd\b\s+/,
-              /\b(chmod|chown)\s+.*-R/,
-            ];
-            const isDestructive = destructivePatterns.some((p) => p.test(msg.command));
-            if (isDestructive) {
-              const choice = await vscode.window.showWarningMessage(
-                `This command may be destructive: ${msg.command.slice(0, 100)}`,
-                { modal: true },
-                "Run Anyway",
-              );
-              if (choice !== "Run Anyway") {
-                ctx.postToWebview(webview, {
-                  type: "bash_result",
-                  result: { exitCode: 1, stdout: "", stderr: "Cancelled by user" } as BashResult,
-                });
-                break;
-              }
-            }
-            try {
-              const result = await client.executeBash(msg.command) as BashResult;
-              ctx.postToWebview(webview, { type: "bash_result", result });
-            } catch (err: any) {
-              ctx.postToWebview(webview, { type: "error", message: `Bash error: ${err.message}` });
-            }
-          }
+          await handleRunBash(ctx, webview, sessionId, msg);
           break;
         }
 
@@ -677,84 +632,32 @@ export async function handleWebviewMessage(
         }
 
         case "force_kill": {
-          const client = ctx.getSession(sessionId).client;
-          if (client) {
-            ctx.output.appendLine(`[${sessionId}] Force-killing GSD process (PID: ${client.pid})`);
-            client.forceKill();
-          }
+          await handleForceKill(ctx, webview, sessionId, msg);
           break;
         }
 
         case "force_restart": {
-          if (ctx.getSession(sessionId).isRestarting) {
-            ctx.output.appendLine(`[${sessionId}] Force-restart already in progress — ignoring`);
-            break;
-          }
-          const client = ctx.getSession(sessionId).client;
-          if (client) {
-            ctx.getSession(sessionId).isRestarting = true;
-            ctx.output.appendLine(`[${sessionId}] Force-restarting GSD process`);
-            client.forceKill();
-            // Clean up existing timers before restart
-            ctx.cleanupSession(sessionId);
-            // Wait a moment for cleanup, then re-launch from scratch
-            setTimeout(async () => {
-              try {
-                // getSession auto-creates if the session was disposed, which is
-                // harmless — launchGsd will simply wire up a fresh session.
-                ctx.getSession(sessionId).client = null;
-                await ctx.launchGsd(webview, sessionId);
-                ctx.output.appendLine(`[${sessionId}] GSD re-launched after force-kill`);
-              } catch (err: any) {
-                ctx.output.appendLine(`[${sessionId}] Force-restart failed: ${err.message}`);
-                ctx.postToWebview(webview, { type: "error", message: `[GSD-ERR-030] Force-restart failed: ${err.message}` });
-              } finally {
-                // Guard: session may have been re-created or cleaned up — only
-                // flip the flag if it still exists in the map.
-                try { ctx.getSession(sessionId).isRestarting = false; } catch { /* disposed */ }
-              }
-            }, 1000);
-          }
+          await handleForceRestart(ctx, webview, sessionId, msg);
           break;
         }
 
         case "update_install": {
-          // Security: only allow downloads from GitHub API
-          const dlUrl = String(msg.downloadUrl || "");
-          if (!dlUrl.startsWith("https://api.github.com/") && !dlUrl.startsWith("https://github.com/")) {
-            ctx.output.appendLine(`[${sessionId}] Blocked update download from untrusted URL: ${dlUrl}`);
-            ctx.postToWebview(webview, { type: "error", message: "Update blocked: download URL is not from GitHub." });
-            break;
-          }
-          await downloadAndInstallUpdate(dlUrl, ctx.extensionContext);
+          await handleUpdateInstall(ctx, webview, sessionId, msg);
           break;
         }
 
         case "update_dismiss": {
-          await dismissUpdateVersion(msg.version, ctx.extensionContext);
+          await handleUpdateDismiss(ctx, webview, sessionId, msg);
           break;
         }
 
         case "update_view_release": {
-          const releaseUrl = String(msg.htmlUrl || "");
-          if (/^https?:\/\//i.test(releaseUrl)) {
-            vscode.env.openExternal(vscode.Uri.parse(releaseUrl));
-          }
+          await handleUpdateViewRelease(ctx, webview, sessionId, msg);
           break;
         }
 
         case "extension_ui_response": {
-          const client = ctx.getSession(sessionId).client;
-          if (client) {
-            client.sendExtensionUiResponse({
-              type: "extension_ui_response",
-              id: msg.id,
-              value: msg.value,
-              values: msg.values,
-              confirmed: msg.confirmed,
-              cancelled: msg.cancelled,
-            });
-          }
+          await handleExtensionUiResponse(ctx, webview, sessionId, msg);
           break;
         }
 
@@ -799,21 +702,7 @@ export async function handleWebviewMessage(
         }
 
         case "shutdown": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            ctx.output.appendLine(`[${sessionId}] Graceful shutdown requested`);
-            try {
-              await client.shutdown();
-            } catch (err: any) {
-              ctx.output.appendLine(`[${sessionId}] Shutdown command failed: ${err.message}`);
-              // Fall back to stop
-              try {
-                await client.stop();
-              } catch (stopErr: any) {
-                ctx.output.appendLine(`[${sessionId}] Fallback stop also failed: ${stopErr.message}`);
-              }
-            }
-          }
+          await handleShutdown(ctx, webview, sessionId, msg);
           break;
         }
       }
