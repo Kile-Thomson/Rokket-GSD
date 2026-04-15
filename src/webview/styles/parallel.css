@@ -7,15 +7,15 @@
   flex-wrap: wrap;
   gap: var(--gsd-space-sm);
   padding: 6px 8px 4px;
-  border-top: 1px solid var(--vscode-widget-border, rgba(255,255,255,0.1));
+  border-top: 1px solid var(--gsd-color-border-subtle);
 }
 
 .gsd-auto-progress-worker-card {
   flex: 1 1 140px;
   min-width: 120px;
   max-width: 200px;
-  background: var(--vscode-editor-background, #1e1e1e);
-  border: 1px solid var(--vscode-widget-border, rgba(255,255,255,0.1));
+  background: var(--gsd-color-bg);
+  border: 1px solid var(--gsd-color-border-subtle);
   border-radius: var(--gsd-radius-md);
   padding: 6px 8px;
   font-size: var(--gsd-font-size-sm);
@@ -35,7 +35,7 @@
 
 .gsd-worker-id {
   font-weight: 600;
-  color: var(--vscode-foreground, #ccc);
+  color: var(--gsd-color-text);
 }
 
 .gsd-worker-state {
@@ -47,39 +47,39 @@
 }
 
 .gsd-worker-state-running {
-  background: var(--vscode-charts-green, #89d185);
-  color: var(--vscode-editor-background, #1e1e1e);
+  background: var(--gsd-color-chart-green);
+  color: var(--gsd-color-bg);
 }
 
 .gsd-worker-state-paused {
-  background: var(--vscode-charts-yellow, #e2c08d);
-  color: var(--vscode-editor-background, #1e1e1e);
+  background: var(--gsd-color-warning);
+  color: var(--gsd-color-bg);
 }
 
 .gsd-worker-state-stopped {
-  background: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
-  color: var(--vscode-editor-background, #1e1e1e);
+  background: var(--gsd-color-text-muted);
+  color: var(--gsd-color-bg);
 }
 
 .gsd-worker-state-error {
-  background: var(--vscode-charts-red, #f48771);
-  color: var(--vscode-editor-background, #1e1e1e);
+  background: var(--gsd-color-chart-red);
+  color: var(--gsd-color-bg);
 }
 
 .gsd-worker-stale-label {
   font-size: var(--gsd-font-size-xs);
-  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  color: var(--gsd-color-text-muted);
   font-style: italic;
 }
 
 .gsd-worker-unit {
-  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  color: var(--gsd-color-text-muted);
   font-size: var(--gsd-font-size-xs);
   margin-bottom: 2px;
 }
 
 .gsd-worker-cost {
-  color: var(--vscode-foreground, #ccc);
+  color: var(--gsd-color-text);
   font-size: var(--gsd-font-size-sm);
   margin-bottom: 2px;
 }
@@ -93,7 +93,7 @@
 .gsd-worker-budget-track {
   flex: 1;
   height: 4px;
-  background: var(--vscode-widget-border, rgba(255,255,255,0.1));
+  background: var(--gsd-color-border-subtle);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -105,25 +105,25 @@
 }
 
 .gsd-worker-budget-fill.gsd-budget-ok {
-  background: var(--vscode-charts-green, #89d185);
+  background: var(--gsd-color-chart-green);
 }
 
 .gsd-worker-budget-fill.gsd-budget-warn {
-  background: var(--vscode-charts-orange, #d18616);
+  background: var(--gsd-color-chart-orange);
 }
 
 .gsd-worker-budget-fill.gsd-budget-over {
-  background: var(--vscode-charts-red, #f48771);
+  background: var(--gsd-color-chart-red);
 }
 
 .gsd-worker-budget-label {
   font-size: var(--gsd-font-size-xs);
-  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  color: var(--gsd-color-text-muted);
   min-width: 28px;
   text-align: right;
 }
 
 .gsd-auto-progress-budget-alert {
-  color: var(--vscode-charts-orange, #d18616) !important;
+  color: var(--gsd-color-chart-orange) !important;
   font-weight: 600;
 }

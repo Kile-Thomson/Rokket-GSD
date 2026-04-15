@@ -7,7 +7,7 @@
   gap: var(--gsd-space-sm);
   padding: 4px 16px;
   font-size: var(--gsd-font-size-md);
-  color: var(--vscode-descriptionForeground, #888);
+  color: var(--gsd-color-text-muted);
   opacity: 0.7;
 }
 .gsd-skipped-icon { font-size: var(--gsd-font-size-xs); opacity: 0.8; }
@@ -18,7 +18,7 @@
    ============================================================ */
 .gsd-steer-note {
   font-size: var(--gsd-font-size-md);
-  color: var(--vscode-descriptionForeground, #888);
+  color: var(--gsd-color-text-muted);
   padding: 4px 16px;
   opacity: 0.8;
 }
@@ -43,7 +43,7 @@
   cursor: pointer;
   font-size: var(--gsd-font-size-sm);
   font-weight: 500;
-  color: rgba(140, 180, 255, 0.7);
+  color: var(--gsd-color-tool-group-fg);
   list-style: none;
   letter-spacing: 0.3px;
 }
@@ -109,7 +109,7 @@
   cursor: pointer;
   font-size: var(--gsd-font-size-sm);
   font-weight: 500;
-  color: rgba(180, 140, 255, 0.7);
+  color: var(--gsd-color-thinking-fg);
   list-style: none;
   letter-spacing: 0.3px;
 }
@@ -158,7 +158,7 @@
   width: 5px;
   height: 5px;
   border-radius: var(--gsd-radius-circle);
-  background: var(--vscode-textLink-foreground, #3794ff);
+  background: var(--gsd-color-text-link);
   opacity: 0.25;
   animation: gsd-dot-pulse 1.4s ease-in-out infinite;
 }
@@ -206,12 +206,12 @@
 }
 
 .gsd-tool-block.running {
-  border-color: rgba(55, 148, 255, 0.4);
-  box-shadow: 0 0 0 1px rgba(55, 148, 255, 0.08);
+  border-color: var(--gsd-color-accent-border);
+  box-shadow: 0 0 0 1px var(--gsd-color-accent-subtle);
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(55, 148, 255, 0.03) 50%,
+    var(--gsd-color-accent-bg-faint) 50%,
     transparent 100%
   );
   background-size: 200% 100%;
@@ -228,12 +228,12 @@
 }
 
 @keyframes gsd-tool-complete {
-  from { border-color: rgba(55, 148, 255, 0.4); }
-  to { border-color: var(--vscode-panel-border, rgba(128,128,128,0.15)); }
+  from { border-color: var(--gsd-color-accent-border); }
+  to { border-color: var(--gsd-color-border); }
 }
 
 .gsd-tool-block.error {
-  border-color: rgba(244, 67, 54, 0.4);
+  border-color: var(--gsd-color-error-border);
 }
 
 .gsd-tool-header {
@@ -241,7 +241,7 @@
   align-items: center;
   gap: var(--gsd-space-sm);
   padding: 4px 10px;
-  background: rgba(128,128,128,0.03);
+  background: var(--gsd-color-surface-faintest);
   cursor: pointer;
   user-select: none;
   min-height: 28px;
@@ -249,14 +249,14 @@
 }
 
 .gsd-tool-header:hover {
-  background: rgba(128,128,128,0.06);
+  background: var(--gsd-color-border-faint);
 }
 
 /* Spinner for running tools */
 .gsd-tool-spinner {
   width: 11px;
   height: 11px;
-  border: 1.5px solid rgba(55, 148, 255, 0.3);
+  border: 1.5px solid var(--gsd-color-accent-subtle-border);
   border-top-color: var(--gsd-color-text-link);
   border-radius: var(--gsd-radius-circle);
   animation: gsd-spin 0.8s linear infinite;
@@ -273,11 +273,11 @@
 }
 
 .gsd-tool-icon.success {
-  color: var(--vscode-testing-iconPassed, #4caf50);
+  color: var(--gsd-color-success);
 }
 
 .gsd-tool-icon.error {
-  color: var(--vscode-testing-iconFailed, #f44336);
+  color: var(--gsd-color-error-fg);
 }
 
 .gsd-tool-cat-icon {
@@ -329,7 +329,7 @@
 
 .gsd-tool-parallel-badge {
   font-size: var(--gsd-font-size-xs);
-  color: var(--vscode-charts-yellow, #cca700);
+  color: var(--gsd-color-warning);
   opacity: 0.85;
   letter-spacing: 0;
 }
@@ -355,9 +355,9 @@
 }
 
 .gsd-parallel-batch.running {
-  border-color: var(--vscode-charts-yellow, #cca700);
+  border-color: var(--gsd-color-warning);
   border-style: solid;
-  box-shadow: 0 0 0 1px rgba(204, 167, 0, 0.08);
+  box-shadow: 0 0 0 1px var(--gsd-color-warning-glow);
 }
 
 .gsd-parallel-batch.done {
@@ -374,7 +374,7 @@
   background: var(--gsd-color-surface-hover);
   font-size: var(--gsd-font-size-sm);
   font-weight: 500;
-  color: var(--vscode-charts-yellow, #cca700);
+  color: var(--gsd-color-warning);
   list-style: none;
   letter-spacing: 0.3px;
 }
@@ -427,7 +427,7 @@
   border: none;
   border-left: 2px solid transparent;
   border-radius: var(--gsd-radius-md);
-  background: var(--vscode-textCodeBlock-background, rgba(128,128,128,0.06));
+  background: var(--gsd-code-bg);
   padding: 4px 8px;
   transition: border-color 0.2s;
 }
@@ -436,7 +436,7 @@
   border-left-color: var(--gsd-color-text-link);
 }
 .gsd-parallel-batch-content .gsd-tool-block.done {
-  border-left-color: var(--vscode-terminal-ansiGreen, #89d185);
+  border-left-color: var(--gsd-color-ansi-green);
 }
 .gsd-parallel-batch-content .gsd-tool-block.error {
   border-left-color: var(--gsd-color-text-error);
@@ -495,7 +495,7 @@
   max-height: 300px;
   overflow-y: auto;
   overflow-x: auto;
-  background: rgba(0,0,0,0.04);
+  background: var(--gsd-color-surface-dim);
 }
 
 .gsd-tool-block.collapsed .gsd-tool-output {
@@ -556,7 +556,7 @@
   font-size: var(--gsd-font-size-xs);
   letter-spacing: 0.05em;
   color: var(--gsd-color-text-link);
-  background: rgba(55, 148, 255, 0.08);
+  background: var(--gsd-color-accent-subtle);
   padding: 2px 7px;
   border-radius: var(--gsd-radius-sm);
 }
@@ -572,7 +572,7 @@
   font-size: 10.5px;
   font-weight: 500;
 }
-.gsd-agent-stat.done { color: var(--vscode-terminal-ansiGreen, #89d185); }
+.gsd-agent-stat.done { color: var(--gsd-color-ansi-green); }
 .gsd-agent-stat.running { color: var(--gsd-color-text-link); }
 .gsd-agent-stat.error { color: var(--gsd-color-text-error); }
 .gsd-agent-sep { color: var(--gsd-color-text-muted); opacity: 0.4; font-size: var(--gsd-font-size-xs); }
@@ -596,11 +596,11 @@
   padding: 7px 9px;
   border-radius: var(--gsd-radius-md);
   border-left: 2px solid transparent;
-  background: var(--vscode-textCodeBlock-background, rgba(128,128,128,0.06));
+  background: var(--gsd-code-bg);
   transition: border-color 0.2s;
 }
 .gsd-agent-card.running { border-left-color: var(--gsd-color-text-link); }
-.gsd-agent-card.done { border-left-color: var(--vscode-terminal-ansiGreen, #89d185); }
+.gsd-agent-card.done { border-left-color: var(--gsd-color-ansi-green); }
 .gsd-agent-card.error { border-left-color: var(--gsd-color-text-error); }
 
 .gsd-agent-header {
@@ -623,7 +623,7 @@
   line-height: 1;
   flex-shrink: 0;
 }
-.gsd-agent-icon.done { color: var(--vscode-terminal-ansiGreen, #89d185); }
+.gsd-agent-icon.done { color: var(--gsd-color-ansi-green); }
 .gsd-agent-icon.error { color: var(--gsd-color-text-error); }
 
 .gsd-agent-name {
@@ -666,7 +666,7 @@
   font-size: 9.5px;
   font-weight: 500;
   color: var(--gsd-color-text-muted);
-  background: rgba(128,128,128,0.08);
+  background: var(--gsd-color-surface-neutral-08);
   padding: 1px 5px;
   border-radius: var(--gsd-radius-sm);
   white-space: nowrap;
@@ -676,7 +676,7 @@
 .gsd-subagent-footer {
   margin-top: 8px;
   padding-top: 6px;
-  border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.12));
+  border-top: 1px solid var(--gsd-color-border);
   display: flex;
   justify-content: flex-end;
 }
@@ -749,7 +749,7 @@
 }
 .gsd-subagent-result .gsd-table-wrapper { margin: 6px 0; }
 .gsd-subagent-result blockquote {
-  border-left: 2px solid rgba(55, 148, 255, 0.3);
+  border-left: 2px solid var(--gsd-color-accent-subtle-border);
   padding: 4px 10px;
   margin: 6px 0;
   opacity: 0.8;
@@ -766,12 +766,12 @@
 .gsd-subagent-result strong { font-weight: 600; }
 
 /* Tool category accent colors */
-.gsd-tool-block.cat-file .gsd-tool-name { color: var(--vscode-symbolIcon-fileForeground, #d4a959); }
-.gsd-tool-block.cat-shell .gsd-tool-name { color: var(--vscode-terminal-ansiGreen, #89d185); }
-.gsd-tool-block.cat-browser .gsd-tool-name { color: var(--vscode-terminal-ansiCyan, #89d1d1); }
-.gsd-tool-block.cat-search .gsd-tool-name { color: var(--vscode-terminal-ansiMagenta, #d189d1); }
-.gsd-tool-block.cat-agent .gsd-tool-name { color: var(--vscode-terminal-ansiYellow, #d1c589); }
-.gsd-tool-block.cat-process .gsd-tool-name { color: var(--vscode-terminal-ansiBlue, #6cb6ff); }
+.gsd-tool-block.cat-file .gsd-tool-name { color: var(--gsd-color-icon-file); }
+.gsd-tool-block.cat-shell .gsd-tool-name { color: var(--gsd-color-ansi-green); }
+.gsd-tool-block.cat-browser .gsd-tool-name { color: var(--gsd-color-ansi-cyan); }
+.gsd-tool-block.cat-search .gsd-tool-name { color: var(--gsd-color-ansi-magenta); }
+.gsd-tool-block.cat-agent .gsd-tool-name { color: var(--gsd-color-ansi-yellow); }
+.gsd-tool-block.cat-process .gsd-tool-name { color: var(--gsd-color-ansi-blue); }
 
 /* ============================================================
    Server-Side Tool (Anthropic native web search, etc.)
@@ -790,12 +790,12 @@
   border: 1px solid var(--gsd-tool-border);
   background: var(--gsd-color-surface-hover);
   font-size: var(--gsd-font-size-sm);
-  color: var(--vscode-descriptionForeground, #888);
+  color: var(--gsd-color-text-muted);
   max-width: 100%;
 }
 
 .gsd-server-tool-card.running {
-  border-color: var(--vscode-terminal-ansiMagenta, #d189d1);
+  border-color: var(--gsd-color-ansi-magenta);
   border-style: dashed;
 }
 
@@ -810,12 +810,12 @@
 
 .gsd-server-tool-name {
   font-weight: 500;
-  color: var(--vscode-terminal-ansiMagenta, #d189d1);
+  color: var(--gsd-color-ansi-magenta);
   white-space: nowrap;
 }
 
 .gsd-server-tool-query {
-  color: var(--vscode-descriptionForeground, #888);
+  color: var(--gsd-color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -824,7 +824,7 @@
 }
 
 .gsd-server-tool-check {
-  color: var(--vscode-terminal-ansiGreen, #89d185);
+  color: var(--gsd-color-ansi-green);
   font-weight: bold;
 }
 

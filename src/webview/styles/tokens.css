@@ -263,6 +263,34 @@
   --gsd-color-btn-border: var(--vscode-button-border, rgba(255, 255, 255, 0.1));
 
   /* ----------------------------------------------------------
+     Color — accent states
+     ---------------------------------------------------------- */
+  --gsd-color-accent-border: rgba(55, 148, 255, 0.4);
+  --gsd-color-accent-bg-faint: rgba(55, 148, 255, 0.03);
+
+  /* ----------------------------------------------------------
+     Color — error/warning states
+     ---------------------------------------------------------- */
+  --gsd-color-error-border: rgba(244, 67, 54, 0.4);
+  --gsd-color-error-hover: rgba(220, 60, 60, 0.3);
+  --gsd-color-warning-glow: rgba(204, 167, 0, 0.08);
+
+  /* ----------------------------------------------------------
+     Color — surface fine grades
+     ---------------------------------------------------------- */
+  --gsd-color-surface-faintest: rgba(128, 128, 128, 0.03);
+  --gsd-color-surface-dim: rgba(0, 0, 0, 0.04);
+  --gsd-color-surface-highlight-dim: rgba(255, 255, 255, 0.06);
+  --gsd-color-surface-neutral-08: rgba(128, 128, 128, 0.08);
+  --gsd-color-overlay-dark: rgba(0, 0, 0, 0.7);
+
+  /* ----------------------------------------------------------
+     Component — tool/thinking accents
+     ---------------------------------------------------------- */
+  --gsd-color-tool-group-fg: rgba(140, 180, 255, 0.7);
+  --gsd-color-thinking-fg: rgba(180, 140, 255, 0.7);
+
+  /* ----------------------------------------------------------
      Opacity
      ---------------------------------------------------------- */
   --gsd-opacity-muted: 0.7;
