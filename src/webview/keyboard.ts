@@ -532,6 +532,11 @@ function setupButtonHandlers(): void {
 }
 
 export function handleNewConversation(): void {
+  const hasDraftContent = promptInput.value.trim() || state.images.length > 0 || state.files.length > 0;
+  if (hasDraftContent) {
+    const confirmed = confirm('You have an unsent draft. Start a new conversation and discard it?');
+    if (!confirmed) return;
+  }
   vscode.postMessage({ type: "new_conversation" });
   state.entries = [];
   state.currentTurn = null;

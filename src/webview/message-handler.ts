@@ -33,6 +33,7 @@ import * as dashboard from "./dashboard";
 import * as autoProgress from "./auto-progress";
 import * as visualizer from "./visualizer";
 import * as fileHandling from "./file-handling";
+import { persistAttachments } from "./persist-attachments";
 import { createFocusTrap, restoreFocus } from "./a11y";
 import { setChangelogHandlers, getChangelogTriggerEl, dismissChangelog } from "./keyboard";
 
@@ -1426,6 +1427,12 @@ function handleMessage(event: MessageEvent): void {
       state.loadedSkills.clear();
       updateSkillPills();
       resetPrunedCount();
+
+      // Clear draft attachments and prompt
+      state.images = [];
+      state.files = [];
+      persistAttachments();
+      promptInput.value = '';
 
       resetDerivedSessionTracking();
 

@@ -743,6 +743,7 @@ sessionHistory.init({
     updateAllUI();
   },
   onNewConversation: keyboard.handleNewConversation,
+  hasDraft: () => !!(promptInput.value.trim() || state.images.length > 0 || state.files.length > 0),
 });
 
 uiDialogs.init({

@@ -28,6 +28,7 @@ let panelEl: HTMLElement;
 let vscode: { postMessage(msg: unknown): void };
 let _onSessionSwitched: () => void;
 let onNewConversation: () => void;
+let hasDraft: () => boolean;
 
 // ============================================================
 // Public API
@@ -174,6 +175,10 @@ function getFilteredSessions(): SessionListItem[] {
 // ============================================================
 
 function selectSession(sessionPath: string, sessionId: string): void {
+  if (hasDraft()) {
+    const confirmed = confirm('You have an unsent draft. Switch sessions and discard it?');
+    if (!confirmed) return;
+  }
   // Mark switching state
   const item = panelEl.querySelector(`[data-session-id="${escapeAttr(sessionId)}"]`);
   item?.classList.add("switching");
@@ -493,6 +498,7 @@ export interface SessionHistoryDeps {
   vscode: { postMessage(msg: unknown): void };
   _onSessionSwitched: () => void;
   onNewConversation: () => void;
+  hasDraft: () => boolean;
 }
 
 export function init(deps: SessionHistoryDeps): void {
@@ -500,6 +506,7 @@ export function init(deps: SessionHistoryDeps): void {
   vscode = deps.vscode;
   _onSessionSwitched = deps._onSessionSwitched;
   onNewConversation = deps.onNewConversation;
+  hasDraft = deps.hasDraft;
 
   // Wire up click handler
   deps.historyBtn.addEventListener("click", toggle);
@@ -517,4 +524,9 @@ export function init(deps: SessionHistoryDeps): void {
       }
     }
   });
+}
+
+/** @internal — exported for testing */
+export function _testSelectSession(sessionPath: string, sessionId: string): void {
+  selectSession(sessionPath, sessionId);
 }

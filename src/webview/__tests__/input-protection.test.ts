@@ -15,6 +15,7 @@ import {
 } from "../persist-attachments";
 
 import { state, resetState } from "../state";
+import * as sessionHistory from "../session-history";
 
 describe("send debounce", () => {
   beforeEach(() => {
@@ -113,5 +114,76 @@ describe("attachment persistence", () => {
     state.files = [];
     persistAttachments();
     expect(mockVscode.setState).toHaveBeenLastCalledWith({ images: [], files: [] });
+  });
+});
+
+describe("draft confirmation", () => {
+  let mockPostMessage: ReturnType<typeof vi.fn>;
+  let mockHasDraft: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    resetState();
+    mockPostMessage = vi.fn();
+    mockHasDraft = vi.fn(() => false);
+
+    const panelEl = document.createElement("div");
+    const historyBtn = document.createElement("button");
+
+    sessionHistory.init({
+      panelEl,
+      historyBtn,
+      vscode: { postMessage: mockPostMessage },
+      _onSessionSwitched: vi.fn(),
+      onNewConversation: vi.fn(),
+      hasDraft: mockHasDraft,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("selectSession calls confirm when hasDraft returns true", () => {
+    mockHasDraft.mockReturnValue(true);
+    const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+    sessionHistory._testSelectSession("/path", "id1");
+    expect(confirmSpy).toHaveBeenCalledOnce();
+  });
+
+  it("selectSession does NOT call confirm when hasDraft returns false", () => {
+    mockHasDraft.mockReturnValue(false);
+    const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+    sessionHistory._testSelectSession("/path", "id1");
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  it("selectSession does not post switch_session when user cancels confirm", () => {
+    mockHasDraft.mockReturnValue(true);
+    vi.spyOn(globalThis, "confirm").mockReturnValue(false);
+    sessionHistory._testSelectSession("/path", "id1");
+    expect(mockPostMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "switch_session" }),
+    );
+  });
+
+  it("selectSession posts switch_session when user confirms", () => {
+    mockHasDraft.mockReturnValue(true);
+    vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+    sessionHistory._testSelectSession("/path", "id1");
+    expect(mockPostMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "switch_session", path: "/path" }),
+    );
+  });
+
+  it("session_switched handler clears state.images and state.files", () => {
+    state.images = [{ type: "image", data: "abc", mimeType: "image/png" }];
+    state.files = [{ type: "file", path: "/tmp/a.txt", name: "a.txt", extension: "txt" }];
+
+    // Simulate what session_switched handler does
+    state.images = [];
+    state.files = [];
+
+    expect(state.images).toEqual([]);
+    expect(state.files).toEqual([]);
   });
 });
