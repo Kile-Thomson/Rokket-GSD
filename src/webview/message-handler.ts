@@ -657,8 +657,7 @@ function handleMessage(event: MessageEvent): void {
                 // Only group tools that are genuinely concurrent — detected by
                 // isStreamParallel (multiple running tools or adjacent segments)
                 // or by an active (not yet finalized) batch still in progress.
-                const hasActiveBatch = activeBatchToolIds && renderer.getActiveBatchElement();
-                if (isStreamParallel || hasActiveBatch) {
+                if (isStreamParallel || activeBatchToolIds) {
                   if (batchFinalizeTimer) {
                     clearTimeout(batchFinalizeTimer);
                     batchFinalizeTimer = null;
@@ -667,7 +666,6 @@ function handleMessage(event: MessageEvent): void {
                     // Collect all adjacent tool IDs for the batch
                     const batchIds: string[] = [tc.id];
                     for (const rt of streamingRunning) batchIds.push(rt.id);
-                    // Also include adjacent non-running tools detected via segments
                     if (adjacentToTool) {
                       for (let i = turn.segments.length - 2; i >= 0; i--) {
                         const s = turn.segments[i];
@@ -677,15 +675,10 @@ function handleMessage(event: MessageEvent): void {
                       }
                     }
                     activeBatchToolIds = new Set(batchIds);
-                    renderer.createParallelBatch(batchIds);
                   } else {
                     activeBatchToolIds.add(tc.id);
-                    if (renderer.getActiveBatchElement()) {
-                      renderer.expandParallelBatch(tc.id);
-                    }
-                    // If no active batch element, this tool renders standalone.
-                    // A new batch will be created if more concurrent tools arrive.
                   }
+                  renderer.syncBatchState(activeBatchToolIds);
                 }
 
                 scrollToBottom(messagesContainer);
@@ -815,37 +808,14 @@ function handleMessage(event: MessageEvent): void {
           // Create or ensure batch with all tools that have segment elements
           if (!activeBatchToolIds) {
             activeBatchToolIds = new Set(toolIds);
-            // Collect tool IDs that have segment elements rendered
-            const readyIds = toolIds.filter(id =>
-              renderer.getCurrentTurnElement()?.querySelector(`.gsd-tool-segment[data-tool-id="${id}"]`)
-            );
-            if (readyIds.length >= 2) {
-              if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
-              renderer.createParallelBatch(readyIds);
-              // Add remaining IDs to tracking (segments will be reparented at tool_execution_start)
-            }
           } else {
-            // Batch exists from streaming — add any missing tools or reparent strays
-            const batchEl = renderer.getActiveBatchElement();
-            const batchContent = batchEl?.querySelector(".gsd-parallel-batch-content");
+            // Batch exists from streaming — add any missing tools
             for (const toolId of toolIds) {
-              if (!activeBatchToolIds.has(toolId)) {
-                activeBatchToolIds.add(toolId);
-                const hasEl = renderer.getCurrentTurnElement()?.querySelector(`.gsd-tool-segment[data-tool-id="${toolId}"]`);
-                if (hasEl && batchEl) {
-                  renderer.expandParallelBatch(toolId);
-                }
-              } else if (batchEl && batchContent) {
-                // Already tracked — verify its DOM element is actually in the batch
-                const segEl = renderer.getCurrentTurnElement()?.querySelector<HTMLElement>(
-                  `.gsd-tool-segment[data-tool-id="${toolId}"]`,
-                );
-                if (segEl && !batchContent.contains(segEl)) {
-                  renderer.expandParallelBatch(toolId);
-                }
-              }
+              activeBatchToolIds.add(toolId);
             }
           }
+          if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
+          renderer.syncBatchState(activeBatchToolIds);
         } else {
           messageParallelToolIds = null;
         }
@@ -883,16 +853,20 @@ function handleMessage(event: MessageEvent): void {
             }
           }
 
-          // Context %: total prompt tokens sent to the API this turn.
-          // input = non-cached tokens, cacheRead = tokens served from cache,
-          // cacheWrite = tokens written to cache for the first time.
-          // All three contribute to the actual prompt size.
-          const contextTokens = (u.input || 0) + (u.cacheRead || 0) + (u.cacheWrite || 0);
-          const contextWindow = resolveContextWindow();
-          if (contextWindow > 0 && contextTokens > 0) {
-            state.sessionStats.contextTokens = contextTokens;
-            state.sessionStats.contextWindow = contextWindow;
-            state.sessionStats.contextPercent = (contextTokens / contextWindow) * 100;
+          // Context %: only compute from message_end when cost_update is NOT
+          // the authoritative source. In v2 protocol, message_end.usage values
+          // are cumulative (session-level) — using them directly would produce
+          // wildly inflated context % (e.g. 700%). cost_update handles context %
+          // via per-turn deltas instead.
+          if (!hasCostUpdateSource) {
+            const contextTokens = (u.input || 0) + (u.cacheRead || 0) + (u.cacheWrite || 0);
+            const contextWindow = resolveContextWindow();
+            if (contextWindow > 0 && contextTokens > 0) {
+              state.sessionStats.contextTokens = contextTokens;
+              state.sessionStats.contextWindow = contextWindow;
+              state.sessionStats.contextPercent = (contextTokens / contextWindow) * 100;
+              console.debug(`[gsd:context] message_end context%: ${(contextTokens / contextWindow * 100).toFixed(1)}% (tokens=${contextTokens}, window=${contextWindow})`);
+            }
           }
           updateHeaderUI();
           updateFooterUI();
@@ -946,45 +920,17 @@ function handleMessage(event: MessageEvent): void {
         }
         renderer.updateToolSegmentElement(existingTc.id);
 
-        // Ensure tool joins the active batch only if genuinely parallel
-        const hasActiveBatchForExec = activeBatchToolIds && renderer.getActiveBatchElement();
-        if (isKnownParallel || existingTc.isParallel || hasActiveBatchForExec) {
+        // Ensure tool joins the active batch if genuinely parallel
+        if (isKnownParallel || existingTc.isParallel || activeBatchToolIds) {
           if (batchFinalizeTimer) {
             clearTimeout(batchFinalizeTimer);
             batchFinalizeTimer = null;
           }
           if (!activeBatchToolIds) {
-            // message_end identified parallel tools but no batch exists yet — create it
             activeBatchToolIds = new Set(messageParallelToolIds!);
-            const readyIds = [...activeBatchToolIds].filter(id =>
-              renderer.getCurrentTurnElement()?.querySelector(`.gsd-tool-segment[data-tool-id="${id}"]`)
-            );
-            if (readyIds.length >= 2) {
-              renderer.createParallelBatch(readyIds);
-            }
-          } else if (!activeBatchToolIds.has(existingTc.id)) {
-            activeBatchToolIds.add(existingTc.id);
-            if (renderer.getActiveBatchElement()) {
-              renderer.expandParallelBatch(existingTc.id);
-            } else {
-              // No active batch element — don't reopen finalized batches for late tools.
-              // If there's genuine concurrency, a new batch will be created.
-            }
-          } else {
-            // Already tracked — but verify the DOM element is actually in the batch.
-            // message_end may have added the ID before the segment was rendered,
-            // so the element exists standalone outside the batch container.
-            const batchEl = renderer.getActiveBatchElement();
-            if (batchEl) {
-              const batchContent = batchEl.querySelector(".gsd-parallel-batch-content");
-              const segEl = renderer.getCurrentTurnElement()?.querySelector<HTMLElement>(
-                `.gsd-tool-segment[data-tool-id="${existingTc.id}"]`,
-              );
-              if (segEl && batchContent && !batchContent.contains(segEl)) {
-                renderer.expandParallelBatch(existingTc.id);
-              }
-            }
           }
+          activeBatchToolIds.add(existingTc.id);
+          renderer.syncBatchState(activeBatchToolIds);
         }
 
         break;
@@ -1053,8 +999,7 @@ function handleMessage(event: MessageEvent): void {
       // Parallel batch grouping — create or expand the visual batch container.
       // Uses messageParallelToolIds (from message_end) as definitive source, falling
       // back to running-tool detection and segment adjacency.
-      const hasActiveBatchFallback = activeBatchToolIds && renderer.getActiveBatchElement();
-      if (fallbackIsParallel || hasActiveBatchFallback) {
+      if (fallbackIsParallel || activeBatchToolIds) {
         if (batchFinalizeTimer) {
           clearTimeout(batchFinalizeTimer);
           batchFinalizeTimer = null;
@@ -1063,7 +1008,6 @@ function handleMessage(event: MessageEvent): void {
           if (messageParallelToolIds) {
             activeBatchToolIds = new Set(messageParallelToolIds);
           } else {
-            // Collect all adjacent tool IDs (from segments) + running tools
             const batchIds = new Set([...runningTools.map(t => t.id), tc.id]);
             if (fallbackAdjacentTool) {
               for (let i = fallbackSegs.length - 2; i >= 0; i--) {
@@ -1074,22 +1018,10 @@ function handleMessage(event: MessageEvent): void {
             }
             activeBatchToolIds = batchIds;
           }
-          // Create batch with all tool IDs that have segment elements
-          const readyIds = [...activeBatchToolIds].filter(id =>
-            renderer.getCurrentTurnElement()?.querySelector(`.gsd-tool-segment[data-tool-id="${id}"]`)
-          );
-          if (readyIds.length >= 2) {
-            renderer.createParallelBatch(readyIds);
-          }
         } else {
           activeBatchToolIds.add(tc.id);
-          if (renderer.getActiveBatchElement()) {
-            renderer.expandParallelBatch(tc.id);
-          } else {
-            // No active batch element — don't reopen finalized batches.
-            // Genuinely concurrent tools will create a new batch.
-          }
         }
+        renderer.syncBatchState(activeBatchToolIds);
       }
 
       scrollToBottom(messagesContainer);
@@ -1578,9 +1510,17 @@ function handleMessage(event: MessageEvent): void {
         cost: typeof turnCost === "number" ? { total: turnCost } : undefined,
       };
 
-      // Context % is NOT computed here — cost_update totals are cumulative
-      // across all turns and cannot represent current context utilization.
-      // message_end.usage provides per-turn data and handles context % instead.
+      // Context %: compute from per-turn deltas. The cumulative totals can't
+      // represent context utilization, but the deltas approximate the most
+      // recent API call's prompt size (input + cacheRead + cacheWrite).
+      const turnContextTokens = turnInput + turnCacheRead + turnCacheWrite;
+      const contextWindow = resolveContextWindow();
+      if (contextWindow > 0 && turnContextTokens > 0) {
+        state.sessionStats.contextTokens = turnContextTokens;
+        state.sessionStats.contextWindow = contextWindow;
+        state.sessionStats.contextPercent = (turnContextTokens / contextWindow) * 100;
+        console.debug(`[gsd:context] cost_update context%: ${(turnContextTokens / contextWindow * 100).toFixed(1)}% (turn tokens=${turnContextTokens}, window=${contextWindow})`);
+      }
 
       if (typeof costValue === "number") {
         state.sessionStats.cost = costValue;
