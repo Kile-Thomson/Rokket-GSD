@@ -6,7 +6,7 @@
       "format": "esm"
     },
     "src/webview/styles/tokens.css": {
-      "bytes": 9920,
+      "bytes": 11787,
       "imports": []
     },
     "src/webview/styles/base.css": {
@@ -898,13 +898,13 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 256113
+      "bytes": 259212
     },
     "dist/webview/index.css": {
       "imports": [],
       "inputs": {
         "src/webview/styles/tokens.css": {
-          "bytesInOutput": 5253
+          "bytesInOutput": 6659
         },
         "src/webview/styles/base.css": {
           "bytesInOutput": 689
@@ -952,7 +952,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 116436
+      "bytes": 117842
     }
   }
 }

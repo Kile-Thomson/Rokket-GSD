@@ -80,6 +80,7 @@
   --gsd-color-border-subtle: var(--vscode-widget-border, rgba(128, 128, 128, 0.15));
   --gsd-color-border-strong: var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(128, 128, 128, 0.3)));
   --gsd-color-border-focus: var(--vscode-focusBorder);
+  --gsd-color-border-faint: rgba(128, 128, 128, 0.06);
 
   /* ----------------------------------------------------------
      Color — accent & status
@@ -90,6 +91,17 @@
   --gsd-color-success: var(--vscode-testing-iconPassed, var(--vscode-charts-green, #4ec9b0));
   --gsd-color-error: var(--vscode-errorForeground, #f14c4c);
   --gsd-color-warning: var(--vscode-charts-yellow, #cca700);
+  --gsd-color-success-subtle: rgba(40, 167, 69, 0.15);
+  --gsd-color-error-subtle: rgba(220, 60, 60, 0.15);
+  --gsd-color-warning-subtle: rgba(220, 160, 40, 0.06);
+  --gsd-color-active-subtle: rgba(0, 122, 204, 0.15);
+  --gsd-color-accent-subtle: rgba(55, 148, 255, 0.08);
+  --gsd-color-accent-subtle-hover: rgba(55, 148, 255, 0.1);
+  --gsd-color-accent-subtle-border: rgba(55, 148, 255, 0.3);
+  --gsd-color-accent-subtle-06: rgba(55, 148, 255, 0.06);
+  --gsd-color-surface-faint: rgba(128, 128, 128, 0.04);
+  --gsd-color-surface-highlight: rgba(255, 255, 255, 0.08);
+  --gsd-color-surface-highlight-faint: rgba(255, 255, 255, 0.02);
 
   /* ----------------------------------------------------------
      Color — input
@@ -98,6 +110,7 @@
   --gsd-input-fg: var(--vscode-input-foreground);
   --gsd-input-border: var(--vscode-input-border, var(--vscode-panel-border));
   --gsd-input-placeholder: var(--vscode-input-placeholderForeground);
+  --gsd-dropdown-bg: var(--vscode-dropdown-background, var(--vscode-editor-background));
 
   /* ----------------------------------------------------------
      Color — badge
@@ -174,6 +187,25 @@
   --gsd-badge-context-crit-fg: rgba(240, 100, 100, 0.9);
   --gsd-badge-thinking-bg: rgba(160, 100, 255, 0.08);
   --gsd-badge-thinking-fg: rgba(180, 140, 255, 0.85);
+  --gsd-badge-thinking-bg-hover: rgba(160, 100, 255, 0.1);
+  --gsd-badge-thinking-bg-active: rgba(160, 100, 255, 0.12);
+
+  /* ----------------------------------------------------------
+     Component — button (secondary)
+     ---------------------------------------------------------- */
+  --gsd-btn-secondary-bg: var(--vscode-button-secondaryBackground, rgba(128, 128, 128, 0.12));
+  --gsd-btn-secondary-fg: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  --gsd-btn-secondary-hover-bg: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, 0.18));
+
+  /* ----------------------------------------------------------
+     Component — theme accents
+     ---------------------------------------------------------- */
+  --gsd-theme-phosphor-bg: rgba(0, 255, 65, 0.12);
+  --gsd-theme-phosphor-fg: rgba(0, 255, 65, 0.8);
+  --gsd-theme-clarity-bg: rgba(100, 160, 255, 0.12);
+  --gsd-theme-clarity-fg: rgba(130, 180, 255, 0.8);
+  --gsd-theme-forge-bg: rgba(180, 160, 140, 0.15);
+  --gsd-theme-forge-fg: rgba(200, 180, 160, 0.8);
 
   /* ----------------------------------------------------------
      Component — visualizer
