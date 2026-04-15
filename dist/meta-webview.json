@@ -14,31 +14,31 @@
       "imports": []
     },
     "src/webview/styles/layout.css": {
-      "bytes": 13932,
+      "bytes": 13597,
       "imports": []
     },
     "src/webview/styles/entries.css": {
-      "bytes": 8357,
+      "bytes": 8174,
       "imports": []
     },
     "src/webview/styles/tools.css": {
-      "bytes": 20707,
+      "bytes": 20267,
       "imports": []
     },
     "src/webview/styles/dashboard.css": {
-      "bytes": 9553,
+      "bytes": 9470,
       "imports": []
     },
     "src/webview/styles/input.css": {
-      "bytes": 5927,
+      "bytes": 5679,
       "imports": []
     },
     "src/webview/styles/footer.css": {
-      "bytes": 2614,
+      "bytes": 2509,
       "imports": []
     },
     "src/webview/styles/overlays.css": {
-      "bytes": 37563,
+      "bytes": 36673,
       "imports": []
     },
     "src/webview/styles/toasts.css": {
@@ -46,15 +46,15 @@
       "imports": []
     },
     "src/webview/styles/misc.css": {
-      "bytes": 10859,
+      "bytes": 10644,
       "imports": []
     },
     "src/webview/styles/auto-progress.css": {
-      "bytes": 5193,
+      "bytes": 5031,
       "imports": []
     },
     "src/webview/styles/parallel.css": {
-      "bytes": 2821,
+      "bytes": 2774,
       "imports": []
     },
     "src/webview/styles/themes/phosphor.css": {
@@ -62,7 +62,7 @@
       "imports": []
     },
     "src/webview/styles/themes/clarity.css": {
-      "bytes": 7643,
+      "bytes": 7749,
       "imports": []
     },
     "src/webview/styles/themes/forge.css": {
@@ -898,7 +898,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 261552
+      "bytes": 254527
     },
     "dist/webview/index.css": {
       "imports": [],
@@ -910,49 +910,49 @@
           "bytesInOutput": 685
         },
         "src/webview/styles/layout.css": {
-          "bytesInOutput": 10291
+          "bytesInOutput": 10571
         },
         "src/webview/styles/entries.css": {
-          "bytesInOutput": 6136
+          "bytesInOutput": 6328
         },
         "src/webview/styles/tools.css": {
-          "bytesInOutput": 15157
+          "bytesInOutput": 15553
         },
         "src/webview/styles/dashboard.css": {
-          "bytesInOutput": 7464
+          "bytesInOutput": 7788
         },
         "src/webview/styles/input.css": {
-          "bytesInOutput": 4449
+          "bytesInOutput": 4473
         },
         "src/webview/styles/footer.css": {
-          "bytesInOutput": 1859
+          "bytesInOutput": 1883
         },
         "src/webview/styles/overlays.css": {
-          "bytesInOutput": 29173
+          "bytesInOutput": 29933
         },
         "src/webview/styles/toasts.css": {
           "bytesInOutput": 952
         },
         "src/webview/styles/misc.css": {
-          "bytesInOutput": 7523
+          "bytesInOutput": 7745
         },
         "src/webview/styles/auto-progress.css": {
-          "bytesInOutput": 3706
+          "bytesInOutput": 3762
         },
         "src/webview/styles/parallel.css": {
-          "bytesInOutput": 2176
+          "bytesInOutput": 2258
         },
         "src/webview/styles/themes/phosphor.css": {
           "bytesInOutput": 5276
         },
         "src/webview/styles/themes/clarity.css": {
-          "bytesInOutput": 5331
+          "bytesInOutput": 5437
         },
         "src/webview/styles/themes/forge.css": {
           "bytesInOutput": 9942
         }
       },
-      "bytes": 119960
+      "bytes": 122426
     }
   }
 }

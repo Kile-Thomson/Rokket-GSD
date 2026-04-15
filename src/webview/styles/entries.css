@@ -129,7 +129,7 @@
 
 .gsd-assistant-text h1 {
   font-size: 1.3em;
-  font-weight: 700;
+  font-weight: var(--gsd-font-weight-bold);
   margin: 18px 0 8px;
   padding-bottom: 5px;
   border-bottom: var(--gsd-border-width) solid var(--gsd-color-border-subtle);
@@ -137,20 +137,20 @@
 
 .gsd-assistant-text h2 {
   font-size: 1.15em;
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   margin: 14px 0 6px;
 }
 
 .gsd-assistant-text h3 {
   font-size: 1.05em;
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   margin: 12px 0 4px;
 }
 
 .gsd-assistant-text h4,
 .gsd-assistant-text h5,
 .gsd-assistant-text h6 {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   margin: 10px 0 4px;
   opacity: 0.85;
 }
@@ -204,7 +204,7 @@
 
 .gsd-assistant-text th {
   background: var(--gsd-color-surface-neutral-08);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   font-size: var(--gsd-font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -227,7 +227,7 @@
 }
 
 .gsd-assistant-text strong {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
 }
 
 .gsd-assistant-text a,
@@ -291,7 +291,7 @@
   font-size: var(--gsd-font-size-xs);
   opacity: 0.5;
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   letter-spacing: 0.5px;
   font-family: var(--gsd-font-family-mono);
 }

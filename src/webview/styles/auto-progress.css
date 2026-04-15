@@ -54,7 +54,7 @@
 }
 
 .gsd-auto-progress-phase {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-chart-blue);
   text-transform: uppercase;
   font-size: var(--gsd-font-size-xs);
@@ -162,7 +162,7 @@
 
 .gsd-auto-progress-captures {
   color: var(--gsd-color-warning);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
 }
 
 /* Responsive: collapse to single line on narrow viewports */

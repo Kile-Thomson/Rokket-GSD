@@ -59,7 +59,7 @@
 }
 
 .gsd-slash-name {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text-link);
   white-space: nowrap;
   font-family: var(--gsd-font-family-mono);
@@ -122,7 +122,7 @@
 }
 
 .gsd-model-picker-title {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   font-size: var(--gsd-font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -167,7 +167,7 @@
 .gsd-model-picker-provider {
   padding: 4px 12px 2px;
   font-size: var(--gsd-font-size-xs);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--gsd-color-text-muted);
@@ -229,7 +229,7 @@
   padding: 0 5px;
   border-radius: var(--gsd-radius-sm);
   line-height: var(--gsd-line-height-relaxed);
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
 }
 
 .gsd-model-tag.reasoning {
@@ -274,7 +274,7 @@
 }
 
 .gsd-thinking-picker-title {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   font-size: var(--gsd-font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -342,7 +342,7 @@
 .gsd-thinking-picker-label {
   font-family: var(--gsd-font-family-mono);
   font-size: var(--gsd-font-size-md);
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
 }
 
 .gsd-thinking-picker-desc {
@@ -406,7 +406,7 @@
 }
 
 .gsd-session-history-title {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   font-size: var(--gsd-font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -622,7 +622,7 @@
 }
 
 .gsd-ui-title {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   font-size: var(--gsd-font-size-base);
   margin-bottom: 10px;
 }
@@ -779,7 +779,7 @@
   border-radius: var(--gsd-radius-md);
   cursor: pointer;
   font-size: var(--gsd-font-size-md);
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
   transition: background 0.15s, transform 0.1s;
 }
 
@@ -889,7 +889,7 @@
 
 .gsd-changelog-title {
   font-size: var(--gsd-font-size-base);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text);
   flex: 1;
 }
@@ -938,7 +938,7 @@
 
 .gsd-changelog-version {
   font-size: var(--gsd-font-size-md);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text);
   font-family: var(--gsd-font-family-mono);
 }
@@ -949,7 +949,7 @@
   border-radius: var(--gsd-radius-sm);
   background: var(--gsd-color-accent);
   color: var(--gsd-color-accent-fg);
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -968,7 +968,7 @@
 
 .gsd-changelog-entry-notes h3,
 .gsd-changelog-entry-notes h4 {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text);
 }
 
@@ -1005,7 +1005,7 @@
 
 .gsd-changelog-entry-notes strong {
   color: var(--gsd-color-text);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
 }
 
 .gsd-changelog-empty {
@@ -1048,7 +1048,7 @@
 .gsd-settings-label {
   display: block;
   font-size: var(--gsd-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   opacity: 0.5;
@@ -1100,7 +1100,7 @@
 
 .gsd-settings-theme-tag {
   font-size: 9px;
-  font-weight: 700;
+  font-weight: var(--gsd-font-weight-bold);
   letter-spacing: 0.5px;
   padding: 1px 5px;
   border-radius: var(--gsd-radius-sm);
@@ -1155,7 +1155,7 @@
 }
 
 .gsd-visualizer-title {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   font-size: var(--gsd-font-size-lg);
   flex: 1;
 }
@@ -1178,7 +1178,7 @@
 
 .gsd-visualizer-auto-badge {
   font-size: var(--gsd-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   padding: 2px 8px;
   border-radius: var(--gsd-radius-md);
   background: var(--gsd-badge-auto-bg);
@@ -1188,7 +1188,7 @@
 
 .gsd-visualizer-phase {
   font-size: var(--gsd-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   padding: 2px 8px;
   border-radius: var(--gsd-radius-md);
   background: var(--gsd-color-surface-hover);
@@ -1242,7 +1242,7 @@
 .gsd-visualizer-tab.active {
   opacity: 1;
   border-bottom-color: var(--gsd-color-border-focus);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
 }
 
 /* Body */
@@ -1302,14 +1302,14 @@
 
 .gsd-viz-milestone-id {
   font-size: var(--gsd-font-size-base);
-  font-weight: 700;
+  font-weight: var(--gsd-font-weight-bold);
   opacity: 0.5;
   font-family: var(--gsd-font-family-mono);
 }
 
 .gsd-viz-milestone-title {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
 }
 
 /* Progress bars */
@@ -1381,7 +1381,7 @@
 }
 
 .gsd-viz-current-label {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   opacity: 0.7;
 }
 
@@ -1392,7 +1392,7 @@
 /* Sections */
 .gsd-viz-section-title {
   font-size: var(--gsd-font-size-sm);
-  font-weight: 700;
+  font-weight: var(--gsd-font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   opacity: 0.5;
@@ -1454,7 +1454,7 @@
   padding: 1px 6px;
   border-radius: var(--gsd-radius-sm);
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   letter-spacing: 0.3px;
 }
 
@@ -1535,7 +1535,7 @@
 
 .gsd-viz-metric-value {
   font-size: 20px;
-  font-weight: 700;
+  font-weight: var(--gsd-font-weight-bold);
   font-family: var(--gsd-font-family-mono);
   margin-bottom: 4px;
 }
@@ -1575,7 +1575,7 @@
 
 .gsd-viz-token-value {
   font-size: var(--gsd-font-size-lg);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   font-family: var(--gsd-font-family-mono);
 }
 
@@ -1597,7 +1597,7 @@
 
 .gsd-visualizer-section-title {
   font-size: var(--gsd-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   opacity: 0.6;

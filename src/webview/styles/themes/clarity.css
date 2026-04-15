@@ -82,13 +82,13 @@
 .gsd-app[data-theme="clarity"] .gsd-header { border-bottom: none; padding: 12px 20px; box-shadow: 0 1px 0 var(--clarity-border); }
 
 /* Title: lighter weight, no uppercase */
-.gsd-app[data-theme="clarity"] .gsd-title { font-weight: 500; letter-spacing: 0.3px; text-transform: none; font-size: 15px; }
+.gsd-app[data-theme="clarity"] .gsd-title { font-weight: var(--gsd-font-weight-medium); letter-spacing: 0.3px; text-transform: none; font-size: 15px; }
 
 /* Logo working glow */
 .gsd-app[data-theme="clarity"] .gsd-logo.working::after { background: radial-gradient(circle, rgba(129, 140, 248, 0.4) 0%, rgba(129, 140, 248, 0.12) 50%, transparent 70%); }
 
 /* Badge/workflow sizing + pill workflow shape */
-.gsd-app[data-theme="clarity"] .gsd-model-badge, .gsd-app[data-theme="clarity"] .gsd-thinking-badge, .gsd-app[data-theme="clarity"] .gsd-cost-badge, .gsd-app[data-theme="clarity"] .gsd-context-badge { font-weight: 400; font-size: 12px; }
+.gsd-app[data-theme="clarity"] .gsd-model-badge, .gsd-app[data-theme="clarity"] .gsd-thinking-badge, .gsd-app[data-theme="clarity"] .gsd-cost-badge, .gsd-app[data-theme="clarity"] .gsd-context-badge { font-weight: var(--gsd-font-weight-normal); font-size: 12px; }
 .gsd-app[data-theme="clarity"] .gsd-workflow-badge { border: none; border-radius: 20px; padding: 3px 12px; font-size: 12px; }
 
 /* User messages: pill shape with asymmetric radius */
@@ -96,7 +96,7 @@
 
 /* Assistant text: wider line-height; headings bold borderless */
 .gsd-app[data-theme="clarity"] .gsd-assistant-text { line-height: var(--gsd-line-height-relaxed); padding: 4px 0; }
-.gsd-app[data-theme="clarity"] .gsd-assistant-text h1, .gsd-app[data-theme="clarity"] .gsd-assistant-text h2, .gsd-app[data-theme="clarity"] .gsd-assistant-text h3 { font-weight: 600; border: none; }
+.gsd-app[data-theme="clarity"] .gsd-assistant-text h1, .gsd-app[data-theme="clarity"] .gsd-assistant-text h2, .gsd-app[data-theme="clarity"] .gsd-assistant-text h3 { font-weight: var(--gsd-font-weight-semibold); border: none; }
 
 /* Tool block shimmer animation */
 .gsd-app[data-theme="clarity"] .gsd-tool-block.running { animation: gsd-clarity-shimmer 2.5s ease-in-out infinite; box-shadow: 0 0 0 1px var(--clarity-accent-soft); }
@@ -127,7 +127,7 @@
 .gsd-app[data-theme="clarity"] .gsd-action-btn { border-radius: 20px; background: transparent; padding: 5px 12px; }
 
 /* Welcome: subtle */
-.gsd-app[data-theme="clarity"] .gsd-welcome-title { font-weight: 500; opacity: 0.7; }
+.gsd-app[data-theme="clarity"] .gsd-welcome-title { font-weight: var(--gsd-font-weight-medium); opacity: 0.7; }
 .gsd-app[data-theme="clarity"] .gsd-welcome-chip, .gsd-app[data-theme="clarity"] .gsd-welcome-ascii, .gsd-app[data-theme="clarity"] .gsd-assistant-text table { border: none; }
 
 /* Scrollbar: narrow + hover; resize handle */

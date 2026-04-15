@@ -72,7 +72,7 @@
 
 .gsd-update-title {
   font-size: var(--gsd-font-size-base);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text);
   flex: 1;
 }
@@ -93,7 +93,7 @@
 
 .gsd-update-notes h3 {
   font-size: var(--gsd-font-size-base);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text);
   margin: 8px 0 4px;
 }
@@ -104,7 +104,7 @@
 
 .gsd-update-notes h4 {
   font-size: var(--gsd-font-size-md);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text);
   margin: 6px 0 3px;
 }
@@ -128,7 +128,7 @@
 
 .gsd-update-notes strong {
   color: var(--gsd-color-text);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
 }
 
 .gsd-update-actions {
@@ -157,7 +157,7 @@
   background: var(--gsd-color-accent);
   color: var(--gsd-color-accent-fg);
   border-color: transparent;
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
 }
 
 .gsd-update-btn.primary:hover {
@@ -309,7 +309,7 @@
 
 .gsd-whats-new-title {
   font-size: var(--gsd-font-size-base);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text);
   flex: 1;
 }
@@ -341,7 +341,7 @@
 
 .gsd-whats-new-notes h3,
 .gsd-whats-new-notes h4 {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text);
 }
 
@@ -378,7 +378,7 @@
 
 .gsd-whats-new-notes strong {
   color: var(--gsd-color-text);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
 }
 
 /* ============================================================

@@ -184,7 +184,7 @@
   color: var(--gsd-color-accent-fg);
   cursor: pointer;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: var(--gsd-font-weight-bold);
   flex-shrink: 0;
   transition: background 0.15s, transform 0.1s;
 }

@@ -68,7 +68,7 @@
 }
 
 .gsd-title {
-  font-weight: 700;
+  font-weight: var(--gsd-font-weight-bold);
   font-size: var(--gsd-font-size-xl);
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -81,7 +81,7 @@
   padding: 3px 10px;
   border-radius: var(--gsd-radius-md);
   white-space: nowrap;
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
   font-family: var(--gsd-font-family-mono);
   letter-spacing: 0.2px;
   background: var(--gsd-badge-workflow-bg);
@@ -133,7 +133,7 @@
   border-radius: var(--gsd-radius-md);
   white-space: nowrap;
   line-height: var(--gsd-line-height-relaxed);
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
   font-family: var(--gsd-font-family-mono);
   letter-spacing: 0.2px;
   min-height: 28px;
@@ -173,7 +173,7 @@
 .gsd-cost-badge {
   background: var(--gsd-badge-cost-bg);
   color: var(--gsd-badge-cost-fg);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
 }
 
 .gsd-context-badge {
@@ -236,7 +236,7 @@
   cursor: pointer;
   font-size: var(--gsd-font-size-base);
   font-family: var(--gsd-font-family);
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
   opacity: 0.6;
   transition: opacity 0.15s, background 0.15s, border-color 0.15s;
   white-space: nowrap;
@@ -338,7 +338,7 @@
   gap: var(--gsd-space-md);
   padding: 5px 14px;
   font-size: var(--gsd-font-size-sm);
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
   border-bottom: var(--gsd-border-width) solid var(--gsd-color-border-subtle);
   font-family: var(--gsd-font-family-mono);
 }
@@ -404,7 +404,7 @@
   color: inherit;
   cursor: pointer;
   font-size: var(--gsd-font-size-xs);
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
   transition: background 0.15s;
 }
 
@@ -458,7 +458,7 @@
   color: var(--gsd-color-text);
   cursor: pointer;
   font-size: var(--gsd-font-size-lg);
-  font-weight: 700;
+  font-weight: var(--gsd-font-weight-bold);
   box-shadow: var(--gsd-shadow-fab);
   z-index: var(--gsd-z-sticky);
   align-items: center;
@@ -515,13 +515,13 @@
 
 .gsd-welcome-title {
   font-size: var(--gsd-font-size-lg);
-  font-weight: 700;
+  font-weight: var(--gsd-font-weight-bold);
   letter-spacing: 0.5px;
   opacity: 0.8;
 }
 
 .gsd-welcome-version {
-  font-weight: 400;
+  font-weight: var(--gsd-font-weight-normal);
   font-size: var(--gsd-font-size-sm);
   opacity: 0.6;
   font-family: var(--gsd-font-family-mono);
@@ -607,7 +607,7 @@
 
 .gsd-rokketek-mark {
   font-size: 9px;
-  font-weight: 700;
+  font-weight: var(--gsd-font-weight-bold);
   letter-spacing: 2.5px;
   text-transform: uppercase;
   font-family: var(--gsd-font-family-mono);

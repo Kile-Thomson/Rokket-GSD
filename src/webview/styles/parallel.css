@@ -34,7 +34,7 @@
 }
 
 .gsd-worker-id {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text);
 }
 
@@ -43,7 +43,7 @@
   padding: 1px 5px;
   border-radius: var(--gsd-radius-sm);
   text-transform: uppercase;
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
 }
 
 .gsd-worker-state-running {
@@ -125,5 +125,5 @@
 
 .gsd-auto-progress-budget-alert {
   color: var(--gsd-color-chart-orange) !important;
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
 }

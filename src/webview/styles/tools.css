@@ -42,7 +42,7 @@
   background: var(--gsd-color-surface-hover);
   cursor: pointer;
   font-size: var(--gsd-font-size-sm);
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
   color: var(--gsd-color-tool-group-fg);
   list-style: none;
   letter-spacing: 0.3px;
@@ -67,7 +67,7 @@
 .gsd-tool-group-count {
   font-size: var(--gsd-font-size-xs);
   opacity: 0.4;
-  font-weight: 400;
+  font-weight: var(--gsd-font-weight-normal);
   margin-left: auto;
 }
 
@@ -108,7 +108,7 @@
   background: var(--gsd-color-surface-hover);
   cursor: pointer;
   font-size: var(--gsd-font-size-sm);
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
   color: var(--gsd-color-thinking-fg);
   list-style: none;
   letter-spacing: 0.3px;
@@ -140,7 +140,7 @@
   margin-left: auto;
   font-size: var(--gsd-font-size-xs);
   opacity: 0.4;
-  font-weight: 400;
+  font-weight: var(--gsd-font-weight-normal);
 }
 
 /* ============================================================
@@ -292,7 +292,7 @@
 }
 
 .gsd-tool-name {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text-link);
   flex-shrink: 0;
   font-size: var(--gsd-font-size-sm);
@@ -373,7 +373,7 @@
   padding: 5px 10px;
   background: var(--gsd-color-surface-hover);
   font-size: var(--gsd-font-size-sm);
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
   color: var(--gsd-color-warning);
   list-style: none;
   letter-spacing: 0.3px;
@@ -551,7 +551,7 @@
 }
 
 .gsd-subagent-mode {
-  font-weight: 700;
+  font-weight: var(--gsd-font-weight-bold);
   text-transform: uppercase;
   font-size: var(--gsd-font-size-xs);
   letter-spacing: 0.05em;
@@ -570,7 +570,7 @@
 
 .gsd-agent-stat {
   font-size: 10.5px;
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
 }
 .gsd-agent-stat.done { color: var(--gsd-color-ansi-green); }
 .gsd-agent-stat.running { color: var(--gsd-color-text-link); }
@@ -579,7 +579,7 @@
 
 .gsd-subagent-total {
   font-size: 10.5px;
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text-muted);
   opacity: 0.7;
   font-variant-numeric: tabular-nums;
@@ -628,7 +628,7 @@
 
 .gsd-agent-name {
   font-size: 11.5px;
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text);
   white-space: nowrap;
   overflow: hidden;
@@ -664,7 +664,7 @@
 
 .gsd-agent-pill {
   font-size: 9.5px;
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
   color: var(--gsd-color-text-muted);
   background: var(--gsd-color-surface-neutral-08);
   padding: 1px 5px;
@@ -695,7 +695,7 @@
   align-items: center;
   gap: var(--gsd-space-md);
   font-size: var(--gsd-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text-link);
   margin-bottom: 4px;
 }
@@ -763,7 +763,7 @@
   border-top: var(--gsd-border-width) solid var(--gsd-color-border-subtle);
   margin: 10px 0;
 }
-.gsd-subagent-result strong { font-weight: 600; }
+.gsd-subagent-result strong { font-weight: var(--gsd-font-weight-semibold); }
 
 /* Tool category accent colors */
 .gsd-tool-block.cat-file .gsd-tool-name { color: var(--gsd-color-icon-file); }
@@ -809,7 +809,7 @@
 }
 
 .gsd-server-tool-name {
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
   color: var(--gsd-color-ansi-magenta);
   white-space: nowrap;
 }
@@ -825,7 +825,7 @@
 
 .gsd-server-tool-check {
   color: var(--gsd-color-ansi-green);
-  font-weight: bold;
+  font-weight: var(--gsd-font-weight-bold);
 }
 
 .gsd-server-tool-count {
