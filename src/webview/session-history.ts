@@ -233,7 +233,8 @@ function render(): void {
 
   if (loading) {
     panelEl.classList.remove('gsd-hidden');
-    panelEl.setAttribute("role", "complementary");
+    panelEl.setAttribute("role", "dialog");
+    panelEl.setAttribute("aria-modal", "true");
     panelEl.setAttribute("aria-label", "Session history");
     panelEl.innerHTML = `
       <div class="gsd-session-history-header">
@@ -249,7 +250,8 @@ function render(): void {
   }
 
   panelEl.classList.remove('gsd-hidden');
-  panelEl.setAttribute("role", "complementary");
+  panelEl.setAttribute("role", "dialog");
+  panelEl.setAttribute("aria-modal", "true");
   panelEl.setAttribute("aria-label", "Session history");
 
   let html = `

@@ -253,6 +253,9 @@ function setupClickHandlers(): void {
       loader.id = "gsd-changelog";
       loader.className = "gsd-changelog";
       loader.setAttribute("tabindex", "-1");
+      loader.setAttribute("role", "dialog");
+      loader.setAttribute("aria-modal", "true");
+      loader.setAttribute("aria-label", "Changelog");
       loader.innerHTML = `
         <div class="gsd-changelog-header">
           <span class="gsd-changelog-title">📋 Changelog</span>

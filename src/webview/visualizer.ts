@@ -212,12 +212,12 @@ function render(): void {
       <span class="gsd-visualizer-phase ${phaseClass}">${escapeHtml(phaseLabel)}</span>
       <button class="gsd-visualizer-close" id="vizClose" aria-label="Close visualizer">✕</button>
     </div>
-    <div class="gsd-visualizer-tabs">
-      <button class="gsd-visualizer-tab${activeTab === "progress" ? " active" : ""}" data-tab="progress">Progress</button>
-      <button class="gsd-visualizer-tab${activeTab === "metrics" ? " active" : ""}" data-tab="metrics">Metrics</button>
-      <button class="gsd-visualizer-tab${activeTab === "health" ? " active" : ""}" data-tab="health">Health</button>
+    <div class="gsd-visualizer-tabs" role="tablist" aria-label="Visualizer tabs">
+      <button class="gsd-visualizer-tab${activeTab === "progress" ? " active" : ""}" data-tab="progress" id="vizTab-progress">Progress</button>
+      <button class="gsd-visualizer-tab${activeTab === "metrics" ? " active" : ""}" data-tab="metrics" id="vizTab-metrics">Metrics</button>
+      <button class="gsd-visualizer-tab${activeTab === "health" ? " active" : ""}" data-tab="health" id="vizTab-health">Health</button>
     </div>
-    <div class="gsd-visualizer-body">
+    <div class="gsd-visualizer-body" role="tabpanel" id="vizPanel-${activeTab}" aria-labelledby="vizTab-${activeTab}">
       ${activeTab === "progress" ? renderProgressTab(data) : activeTab === "metrics" ? renderMetricsTab(data) : renderHealthTab()}
     </div>
   `;
@@ -590,6 +590,7 @@ function wireTabs(): void {
     tab.tabIndex = t === activeTab ? 0 : -1;
     tab.setAttribute("role", "tab");
     tab.setAttribute("aria-selected", String(t === activeTab));
+    tab.setAttribute("aria-controls", `vizPanel-${t}`);
     tab.addEventListener("click", () => {
       if (t && t !== activeTab) {
         activeTab = t;

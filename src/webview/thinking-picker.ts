@@ -172,6 +172,9 @@ function render(): void {
 
   pickerEl.classList.remove("gsd-hidden");
   pickerEl.innerHTML = parts.join("");
+  pickerEl.setAttribute("role", "dialog");
+  pickerEl.setAttribute("aria-modal", "true");
+  pickerEl.setAttribute("aria-labelledby", "thinkingPickerTitle");
 
   // Attach focus trap (remove old one first to avoid duplicates on re-render)
   if (focusTrapHandler) {
