@@ -37,6 +37,7 @@ import {
   shouldCollapseWithPredecessor,
   collapseToolIntoGroup,
 } from "./tool-grouping";
+import { registerCleanup } from "./dispose";
 
 // ============================================================
 // Dependencies injected via init()
@@ -107,7 +108,7 @@ function startElapsedTimer(): void {
 }
 
 /** Stop the live elapsed timer. */
-function stopElapsedTimer(): void {
+export function stopElapsedTimer(): void {
   if (elapsedTimerHandle) {
     clearInterval(elapsedTimerHandle);
     elapsedTimerHandle = null;
@@ -1947,4 +1948,5 @@ export interface RendererDeps {
 export function init(deps: RendererDeps): void {
   messagesContainer = deps.messagesContainer;
   welcomeScreen = deps.welcomeScreen;
+  registerCleanup("renderer-elapsed", stopElapsedTimer);
 }

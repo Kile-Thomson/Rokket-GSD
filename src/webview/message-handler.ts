@@ -13,6 +13,7 @@ import {
   formatShortDate,
   scrollToBottom,
 } from "./helpers";
+import { registerCleanup } from "./dispose";
 import {
   state,
   nextId,
@@ -234,6 +235,7 @@ export function init(deps: MessageHandlerDeps): void {
   resetDerivedSessionTracking();
 
   window.addEventListener("message", handleMessage);
+  registerCleanup("message-handler", () => window.removeEventListener("message", handleMessage));
 }
 
 // ============================================================
@@ -269,7 +271,7 @@ function updateSkillPills(): void {
 // Main message handler
 // ============================================================
 
-function handleMessage(event: MessageEvent): void {
+export function handleMessage(event: MessageEvent): void {
   const raw = event.data as Record<string, unknown>;
   if (!raw || !raw.type) return;
   const msg = raw as ExtensionToWebviewMessage;

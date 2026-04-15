@@ -6,6 +6,7 @@ import { marked, type Token } from "marked";
 import DOMPurify from "dompurify";
 import type { SessionStats } from "../shared/types";
 import type { AppState, ToolCategory, ToolCallState } from "./state";
+import { registerCleanup } from "./dispose";
 
 // ============================================================
 // URL safety
@@ -668,6 +669,7 @@ export function initAutoScroll(container: HTMLElement): void {
     });
   });
   _mutationObserver.observe(container, { childList: true, subtree: true, characterData: true });
+  registerCleanup("auto-scroll-observer", () => { _mutationObserver?.disconnect(); _mutationObserver = null; });
 }
 
 /** Reset scroll tracking (e.g. new session, clear messages) */

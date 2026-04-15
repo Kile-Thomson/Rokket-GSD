@@ -37,6 +37,7 @@ import {
   isAutoScrollSuppressed,
 } from "./helpers";
 
+import { registerInterval, disposeAll } from "./dispose";
 import { shouldDebounce } from "./send-debounce";
 import { initPersistAttachments, rehydrateAttachments, persistAttachments } from "./persist-attachments";
 
@@ -382,7 +383,7 @@ function refreshTimestamps(): void {
 }
 
 // Refresh timestamps every 30s
-setInterval(refreshTimestamps, 30_000);
+registerInterval("timestamp-refresh", setInterval(refreshTimestamps, 30_000));
 
 // ============================================================
 // Welcome quick actions
@@ -771,3 +772,5 @@ vscode.postMessage({ type: "ready" });
 vscode.postMessage({ type: "launch_gsd" });
 promptInput.focus();
 updateAllUI();
+
+window.addEventListener("beforeunload", disposeAll);
