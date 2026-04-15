@@ -275,33 +275,126 @@
       ],
       "format": "esm"
     },
-    "src/webview/renderer.ts": {
-      "bytes": 77930,
+    "src/webview/render/html-builders.ts": {
+      "bytes": 24953,
       "imports": [
         {
-          "path": "src/webview/state.ts",
+          "path": "../state",
           "kind": "import-statement",
-          "original": "./state"
+          "external": true
         },
         {
           "path": "src/webview/helpers.ts",
           "kind": "import-statement",
-          "original": "./helpers"
+          "original": "../helpers"
         },
         {
           "path": "src/webview/tool-grouping.ts",
           "kind": "import-statement",
-          "original": "./tool-grouping"
-        },
-        {
-          "path": "src/webview/dispose.ts",
-          "kind": "import-statement",
-          "original": "./dispose"
+          "original": "../tool-grouping"
         },
         {
           "path": "src/shared/constants.ts",
           "kind": "import-statement",
-          "original": "../shared/constants"
+          "original": "../../shared/constants"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/render/streaming.ts": {
+      "bytes": 20550,
+      "imports": [
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "../state"
+        },
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "../helpers"
+        },
+        {
+          "path": "src/webview/tool-grouping.ts",
+          "kind": "import-statement",
+          "original": "../tool-grouping"
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../../shared/constants"
+        },
+        {
+          "path": "src/webview/dispose.ts",
+          "kind": "import-statement",
+          "original": "../dispose"
+        },
+        {
+          "path": "src/webview/render/html-builders.ts",
+          "kind": "import-statement",
+          "original": "./html-builders"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/render/batches.ts": {
+      "bytes": 15712,
+      "imports": [
+        {
+          "path": "src/webview/state.ts",
+          "kind": "import-statement",
+          "original": "../state"
+        },
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "../helpers"
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../../shared/constants"
+        },
+        {
+          "path": "src/webview/render/html-builders.ts",
+          "kind": "import-statement",
+          "original": "./html-builders"
+        },
+        {
+          "path": "src/webview/render/streaming.ts",
+          "kind": "import-statement",
+          "original": "./streaming"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/webview/renderer.ts": {
+      "bytes": 1375,
+      "imports": [
+        {
+          "path": "src/webview/render/html-builders.ts",
+          "kind": "import-statement",
+          "original": "./render/html-builders"
+        },
+        {
+          "path": "src/webview/render/streaming.ts",
+          "kind": "import-statement",
+          "original": "./render/streaming"
+        },
+        {
+          "path": "src/webview/render/batches.ts",
+          "kind": "import-statement",
+          "original": "./render/batches"
+        },
+        {
+          "path": "src/webview/render/streaming.ts",
+          "kind": "import-statement",
+          "original": "./render/streaming"
+        },
+        {
+          "path": "src/webview/render/batches.ts",
+          "kind": "import-statement",
+          "original": "./render/batches"
         }
       ],
       "format": "esm"
@@ -955,7 +1048,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 886819
+      "bytes": 870036
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -1059,14 +1152,23 @@
         "src/webview/tool-grouping.ts": {
           "bytesInOutput": 3598
         },
+        "src/webview/render/html-builders.ts": {
+          "bytesInOutput": 15082
+        },
         "src/webview/renderer.ts": {
-          "bytesInOutput": 30478
+          "bytesInOutput": 42
+        },
+        "src/webview/render/streaming.ts": {
+          "bytesInOutput": 9586
+        },
+        "src/webview/render/batches.ts": {
+          "bytesInOutput": 5967
         },
         "src/webview/dashboard.ts": {
           "bytesInOutput": 10410
         },
         "src/webview/auto-progress.ts": {
-          "bytesInOutput": 6497
+          "bytesInOutput": 6479
         },
         "src/webview/visualizer.ts": {
           "bytesInOutput": 12385
@@ -1102,7 +1204,7 @@
           "bytesInOutput": 18676
         }
       },
-      "bytes": 238145
+      "bytes": 238326
     },
     "dist/webview/index.css.map": {
       "imports": [],

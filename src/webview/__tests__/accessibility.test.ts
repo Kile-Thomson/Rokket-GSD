@@ -178,7 +178,7 @@ describe("ARIA semantics", () => {
   });
 
   it("conversation entries get role=listitem via renderer", () => {
-    const rendererTs = fs.readFileSync(path.join(srcDir, "renderer.ts"), "utf-8");
+    const rendererTs = fs.readFileSync(path.join(srcDir, "render", "html-builders.ts"), "utf-8");
     expect(rendererTs).toContain('setAttribute("role", "listitem")');
   });
 
