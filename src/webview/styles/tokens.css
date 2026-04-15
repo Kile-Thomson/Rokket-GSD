@@ -281,6 +281,7 @@
   --gsd-color-surface-faintest: rgba(128, 128, 128, 0.03);
   --gsd-color-surface-dim: rgba(0, 0, 0, 0.04);
   --gsd-color-surface-highlight-dim: rgba(255, 255, 255, 0.06);
+  --gsd-color-surface-neutral-06: rgba(128, 128, 128, 0.06);
   --gsd-color-surface-neutral-08: rgba(128, 128, 128, 0.08);
   --gsd-color-overlay-dark: rgba(0, 0, 0, 0.7);
 
@@ -289,6 +290,30 @@
      ---------------------------------------------------------- */
   --gsd-color-tool-group-fg: rgba(140, 180, 255, 0.7);
   --gsd-color-thinking-fg: rgba(180, 140, 255, 0.7);
+
+  /* ----------------------------------------------------------
+     Component — context bar
+     ---------------------------------------------------------- */
+  --gsd-context-bar-track: var(--gsd-color-surface-neutral-08);
+  --gsd-context-bar-ok: rgba(80, 180, 80, 0.5);
+  --gsd-context-bar-warn: rgba(220, 170, 40, 0.65);
+  --gsd-context-bar-crit: rgba(220, 70, 60, 0.7);
+
+  /* ----------------------------------------------------------
+     Component — overlay indicators
+     ---------------------------------------------------------- */
+  --gsd-overlay-compacting-bg: rgba(100, 140, 220, 0.12);
+  --gsd-overlay-retrying-bg: rgba(220, 160, 40, 0.06);
+  --gsd-overlay-starting-bg: rgba(100, 140, 220, 0.04);
+  --gsd-overlay-crashed-bg: rgba(220, 60, 60, 0.06);
+  --gsd-overlay-unresponsive-bg: rgba(220, 150, 30, 0.08);
+
+  /* ----------------------------------------------------------
+     Component — decorative / brand
+     ---------------------------------------------------------- */
+  --gsd-rocket-glow: radial-gradient(circle, rgba(255, 140, 30, 0.5) 0%, rgba(255, 80, 10, 0.25) 50%, transparent 70%);
+  --gsd-shadow-fab: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --gsd-color-accent-tint: rgba(55, 148, 255, 0.08);
 
   /* ----------------------------------------------------------
      Opacity

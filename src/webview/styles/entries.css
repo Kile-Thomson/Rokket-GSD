@@ -76,7 +76,7 @@
 
 .gsd-entry-assistant + .gsd-entry-assistant {
   padding-top: 12px;
-  border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.12));
+  border-top: 1px solid var(--gsd-color-border);
 }
 
 /* Streaming cursor — only on the last text block (the one actively receiving tokens).
@@ -156,11 +156,11 @@
 }
 
 .gsd-assistant-text blockquote {
-  border-left: 2px solid var(--vscode-textLink-foreground, rgba(55, 148, 255, 0.5));
+  border-left: 2px solid var(--gsd-color-text-link);
   padding: 6px 14px;
   margin: 8px 0;
   opacity: 0.85;
-  background: var(--vscode-textBlockQuote-background, rgba(128,128,128,0.04));
+  background: var(--gsd-color-blockquote-bg);
   border-radius: 0 4px 4px 0;
   font-style: italic;
 }
@@ -203,7 +203,7 @@
 }
 
 .gsd-assistant-text th {
-  background: rgba(128,128,128,0.08);
+  background: var(--gsd-color-surface-neutral-08);
   font-weight: 600;
   font-size: var(--gsd-font-size-sm);
   text-transform: uppercase;
@@ -214,16 +214,16 @@
 }
 
 .gsd-assistant-text tr:hover td {
-  background: rgba(128,128,128,0.04);
+  background: var(--gsd-color-surface-faint);
 }
 
 /* Zebra striping */
 .gsd-assistant-text tbody tr:nth-child(even) td {
-  background: rgba(128,128,128,0.025);
+  background: var(--gsd-color-surface-faintest);
 }
 
 .gsd-assistant-text tbody tr:nth-child(even):hover td {
-  background: rgba(128,128,128,0.06);
+  background: var(--gsd-color-surface-neutral-06);
 }
 
 .gsd-assistant-text strong {
@@ -283,7 +283,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 4px 12px;
-  background: rgba(128,128,128,0.06);
+  background: var(--gsd-color-surface-neutral-06);
   border-bottom: var(--gsd-border-width) solid var(--gsd-color-border-subtle);
 }
 
@@ -369,7 +369,7 @@
 
 .gsd-code-block code {
   font-family: var(--gsd-font-family-mono);
-  font-size: var(--vscode-editor-fontSize, 12px);
+  font-size: var(--gsd-font-size-base);
   line-height: 1.55;
   tab-size: 2;
 }

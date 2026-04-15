@@ -48,7 +48,7 @@
 }
 
 .gsd-widget-segment.ok {
-  color: var(--vscode-terminal-ansiGreen, #89d185);
+  color: var(--gsd-color-ansi-green);
 }
 
 .gsd-widget-segment.warning {

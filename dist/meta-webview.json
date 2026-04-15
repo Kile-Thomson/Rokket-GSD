@@ -6,19 +6,19 @@
       "format": "esm"
     },
     "src/webview/styles/tokens.css": {
-      "bytes": 15315,
+      "bytes": 16623,
       "imports": []
     },
     "src/webview/styles/base.css": {
-      "bytes": 1935,
+      "bytes": 1931,
       "imports": []
     },
     "src/webview/styles/layout.css": {
-      "bytes": 13830,
+      "bytes": 13750,
       "imports": []
     },
     "src/webview/styles/entries.css": {
-      "bytes": 8320,
+      "bytes": 8275,
       "imports": []
     },
     "src/webview/styles/tools.css": {
@@ -34,7 +34,7 @@
       "imports": []
     },
     "src/webview/styles/footer.css": {
-      "bytes": 2582,
+      "bytes": 2568,
       "imports": []
     },
     "src/webview/styles/overlays.css": {
@@ -898,22 +898,22 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 257536
+      "bytes": 259210
     },
     "dist/webview/index.css": {
       "imports": [],
       "inputs": {
         "src/webview/styles/tokens.css": {
-          "bytesInOutput": 8712
+          "bytesInOutput": 9440
         },
         "src/webview/styles/base.css": {
-          "bytesInOutput": 689
+          "bytesInOutput": 685
         },
         "src/webview/styles/layout.css": {
-          "bytesInOutput": 9999
+          "bytesInOutput": 10109
         },
         "src/webview/styles/entries.css": {
-          "bytesInOutput": 6030
+          "bytesInOutput": 6054
         },
         "src/webview/styles/tools.css": {
           "bytesInOutput": 14979
@@ -925,7 +925,7 @@
           "bytesInOutput": 4332
         },
         "src/webview/styles/footer.css": {
-          "bytesInOutput": 1827
+          "bytesInOutput": 1813
         },
         "src/webview/styles/overlays.css": {
           "bytesInOutput": 28874
@@ -952,7 +952,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 117702
+      "bytes": 118546
     }
   }
 }
