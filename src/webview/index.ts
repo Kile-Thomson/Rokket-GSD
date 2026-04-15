@@ -39,6 +39,7 @@ import {
 } from "./helpers";
 
 import { registerInterval, disposeAll } from "./dispose";
+import { announceToScreenReader } from "./a11y";
 import { shouldDebounce } from "./send-debounce";
 import { initPersistAttachments, rehydrateAttachments, persistAttachments } from "./persist-attachments";
 
@@ -180,7 +181,7 @@ root.innerHTML = `
     <div id="srAnnouncer" role="status" aria-live="polite" class="sr-only"></div>
     <button class="gsd-scroll-fab" id="scrollFab" title="Scroll to bottom" aria-label="Scroll to bottom">↓</button>
 
-    <div class="gsd-toast-container" id="toastContainer"></div>
+    <div class="gsd-toast-container" id="toastContainer" role="status" aria-live="polite"></div>
     <div class="gsd-slash-menu gsd-hidden" id="slashMenu"></div>
     <div class="gsd-model-picker gsd-hidden" id="modelPicker"></div>
     <div class="gsd-thinking-picker gsd-hidden" id="thinkingPicker"></div>
@@ -297,12 +298,6 @@ const footerRight = document.getElementById("footerRight")!;
 
 let manualMinHeight = 0;
 
-function announceToScreenReader(text: string): void {
-  const el = document.getElementById("srAnnouncer");
-  if (!el) return;
-  el.textContent = "";
-  requestAnimationFrame(() => { el.textContent = text; });
-}
 
 function autoResize(): void {
   // Reset manual min height when input is empty (after send)
@@ -668,7 +663,6 @@ messageHandler.init({
   updateWorkflowBadge,
   handleModelRouted,
   autoResize,
-  announceToScreenReader,
 });
 
 slashMenu.init({

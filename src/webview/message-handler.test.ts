@@ -17,7 +17,7 @@ vi.mock("./dashboard", () => ({}));
 vi.mock("./auto-progress", () => ({}));
 vi.mock("./visualizer", () => ({}));
 vi.mock("./file-handling", () => ({}));
-vi.mock("./a11y", () => ({ createFocusTrap: vi.fn(), restoreFocus: vi.fn() }));
+vi.mock("./a11y", () => ({ createFocusTrap: vi.fn(), restoreFocus: vi.fn(), announceToScreenReader: vi.fn() }));
 vi.mock("./keyboard", () => ({
   setChangelogHandlers: vi.fn(),
   getChangelogTriggerEl: vi.fn(),
@@ -45,7 +45,6 @@ function makeDeps() {
     updateWorkflowBadge: vi.fn(),
     handleModelRouted: vi.fn(),
     autoResize: vi.fn(),
-    announceToScreenReader: vi.fn(),
   };
 }
 

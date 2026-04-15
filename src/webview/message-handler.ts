@@ -43,7 +43,7 @@ import * as autoProgress from "./auto-progress";
 import * as visualizer from "./visualizer";
 import * as fileHandling from "./file-handling";
 import { persistAttachments } from "./persist-attachments";
-import { createFocusTrap, restoreFocus } from "./a11y";
+import { createFocusTrap, restoreFocus, announceToScreenReader } from "./a11y";
 import { setChangelogHandlers, getChangelogTriggerEl, dismissChangelog } from "./keyboard";
 
 // ============================================================
@@ -64,7 +64,6 @@ let updateOverlayIndicators: () => void;
 let updateWorkflowBadge: (wf: any) => void;
 let handleModelRouted: (oldModel: any, newModel: any) => void;
 let autoResize: () => void;
-let announceToScreenReader: (text: string) => void;
 
 // Parallel batch tracking — tracks tool IDs in the current active batch
 let activeBatchToolIds: Set<string> | null = null;
@@ -257,7 +256,6 @@ export interface MessageHandlerDeps {
   updateWorkflowBadge: (wf: any) => void;
   handleModelRouted: (oldModel: any, newModel: any) => void;
   autoResize: () => void;
-  announceToScreenReader: (text: string) => void;
 }
 
 /** Reset per-session derived tracking state. Called on init, session switch, and process exit. */
@@ -283,7 +281,6 @@ export function init(deps: MessageHandlerDeps): void {
   updateWorkflowBadge = deps.updateWorkflowBadge;
   handleModelRouted = deps.handleModelRouted;
   autoResize = deps.autoResize;
-  announceToScreenReader = deps.announceToScreenReader;
 
   resetDerivedSessionTracking();
 
@@ -458,6 +455,7 @@ export function handleMessage(event: MessageEvent): void {
       const oldName = msg.oldModel?.id || "unknown";
       const newName = msg.newModel?.id || "unknown";
       toasts.show(`Model routed: ${oldName} → ${newName}`, TOAST_SHORT_DURATION_MS);
+      announceToScreenReader(`Model switched to ${newName}`);
       break;
     }
 
@@ -890,6 +888,7 @@ export function handleMessage(event: MessageEvent): void {
         const errorMessage = (endMsg as any).errorMessage as string | undefined;
         if (stopReason === "error" && errorMessage) {
           addSystemEntry(errorMessage, "error");
+          announceToScreenReader(`Error: ${errorMessage}`);
         }
 
         if ((endMsg as any).usage) {
@@ -1269,6 +1268,7 @@ export function handleMessage(event: MessageEvent): void {
       const data = msg;
       const extError = (data as any).error as string || "unknown error";
       addSystemEntry(`Command error: ${extError}`, "error");
+      announceToScreenReader(`Error: ${extError}`);
       break;
     }
 
@@ -1371,10 +1371,9 @@ export function handleMessage(event: MessageEvent): void {
 
     case "error": {
       const data = msg;
-      // Clear steer note — if the steer RPC failed, the "Redirecting agent..."
-      // indicator would otherwise stay forever since no agent_start will follow.
       removeSteerNotes();
       addSystemEntry(data.message, "error");
+      announceToScreenReader(`Error: ${data.message}`);
       break;
     }
 

@@ -1157,6 +1157,9 @@ function createEntryElement(entry: ChatEntry): HTMLElement {
   const el = document.createElement("div");
   el.className = `gsd-entry gsd-entry-${entry.type}`;
   el.dataset.entryId = entry.id;
+  el.setAttribute("role", "listitem");
+  const labelMap: Record<string, string> = { user: "User message", assistant: "Assistant response", system: "System message" };
+  el.setAttribute("aria-label", labelMap[entry.type] || entry.type);
 
   if (entry.type === "user") {
     el.innerHTML = buildUserHtml(entry);

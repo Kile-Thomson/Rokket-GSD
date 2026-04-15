@@ -91,11 +91,13 @@ vi.mock("../a11y", () => ({
   createFocusTrap: vi.fn(() => vi.fn()),
   saveFocus: vi.fn(() => null),
   restoreFocus: vi.fn(),
+  announceToScreenReader: vi.fn(),
 }));
 
 import { init, addSystemEntry } from "../message-handler";
 import * as renderer from "../renderer";
 import * as uiDialogs from "../ui-dialogs";
+import { announceToScreenReader } from "../a11y";
 // session-history imported transitively via message-handler
 import * as autoProgress from "../auto-progress";
 import * as dashboard from "../dashboard";
@@ -119,7 +121,6 @@ let mockUpdateOverlayIndicators: ReturnType<typeof vi.fn>;
 let mockUpdateWorkflowBadge: ReturnType<typeof vi.fn>;
 let mockHandleModelRouted: ReturnType<typeof vi.fn>;
 let mockAutoResize: ReturnType<typeof vi.fn>;
-let mockAnnounce: ReturnType<typeof vi.fn>;
 
 function resetState(): void {
   state.entries = [];
@@ -166,7 +167,6 @@ describe("message-handler", () => {
     mockUpdateWorkflowBadge = vi.fn();
     mockHandleModelRouted = vi.fn();
     mockAutoResize = vi.fn();
-    mockAnnounce = vi.fn();
 
     resetState();
     vi.clearAllMocks();
@@ -184,7 +184,6 @@ describe("message-handler", () => {
       updateWorkflowBadge: mockUpdateWorkflowBadge,
       handleModelRouted: mockHandleModelRouted,
       autoResize: mockAutoResize,
-      announceToScreenReader: mockAnnounce,
     });
   });
 
@@ -378,7 +377,7 @@ describe("message-handler", () => {
       expect(state.isStreaming).toBe(true);
       expect(state.currentTurn).not.toBeNull();
       expect(renderer.ensureCurrentTurnElement).toHaveBeenCalled();
-      expect(mockAnnounce).toHaveBeenCalledWith("Assistant is responding...");
+      expect(announceToScreenReader).toHaveBeenCalledWith("Assistant is responding...");
     });
 
     it("expires pending dialogs", () => {
