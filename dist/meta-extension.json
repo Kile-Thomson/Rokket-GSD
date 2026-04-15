@@ -195,7 +195,7 @@
       "format": "esm"
     },
     "src/extension/rpc-events.ts": {
-      "bytes": 13192,
+      "bytes": 13229,
       "imports": [
         {
           "path": "vscode",
@@ -546,7 +546,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 404628
+      "bytes": 404696
     },
     "dist/extension.js": {
       "imports": [
@@ -846,7 +846,7 @@
           "bytesInOutput": 3669
         },
         "src/extension/rpc-events.ts": {
-          "bytesInOutput": 4764
+          "bytesInOutput": 4795
         },
         "src/extension/message-dispatch.ts": {
           "bytesInOutput": 18176
@@ -873,7 +873,7 @@
           "bytesInOutput": 4420
         }
       },
-      "bytes": 102328
+      "bytes": 102359
     }
   }
 }

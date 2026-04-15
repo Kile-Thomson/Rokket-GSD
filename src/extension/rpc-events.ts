@@ -107,7 +107,7 @@ export function handleRpcEvent(
   } else if (eventType === "message_end") {
     const msg = event.message as Record<string, unknown> | undefined;
     const usage = (msg?.usage as { cost?: { total?: number } }) ?? undefined;
-    if (msg?.role === "assistant" && usage?.cost?.total) {
+    if (msg?.role === "assistant" && usage?.cost?.total && Number.isFinite(usage.cost.total)) {
       const session = ctx.getSession(sessionId);
       session.accumulatedCost += usage.cost.total;
       ctx.emitStatus({ cost: session.accumulatedCost });

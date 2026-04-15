@@ -1484,7 +1484,7 @@ function handleMessage(event: MessageEvent): void {
       const turnOutput = totalOutput - prevCostTotals.output;
       const turnCacheRead = totalCacheRead - prevCostTotals.cacheRead;
       const turnCacheWrite = totalCacheWrite - prevCostTotals.cacheWrite;
-      const turnCost = typeof costValue === "number" ? costValue - prevCostTotals.cost : undefined;
+      const turnCost = typeof costValue === "number" ? Math.max(0, costValue - prevCostTotals.cost) : undefined;
       prevCostTotals = {
         input: totalInput,
         output: totalOutput,
