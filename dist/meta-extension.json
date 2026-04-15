@@ -245,27 +245,6 @@
       ],
       "format": "esm"
     },
-    "src/extension/session-list-service.ts": {
-      "bytes": 7989,
-      "imports": [
-        {
-          "path": "fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "os",
-          "kind": "import-statement",
-          "external": true
-        }
-      ],
-      "format": "esm"
-    },
     "src/extension/command-fallback.ts": {
       "bytes": 25599,
       "imports": [
@@ -403,8 +382,29 @@
       ],
       "format": "esm"
     },
-    "src/extension/message-dispatch.ts": {
-      "bytes": 29964,
+    "src/extension/session-list-service.ts": {
+      "bytes": 7989,
+      "imports": [
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "os",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/handlers/session-handlers.ts": {
+      "bytes": 8261,
       "imports": [
         {
           "path": "vscode",
@@ -414,12 +414,23 @@
         {
           "path": "src/extension/session-list-service.ts",
           "kind": "import-statement",
-          "original": "./session-list-service"
+          "original": "../session-list-service"
         },
         {
           "path": "src/shared/types.ts",
           "kind": "import-statement",
-          "original": "../shared/types"
+          "original": "../../shared/types"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/message-dispatch.ts": {
+      "bytes": 21962,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
         },
         {
           "path": "src/extension/watchdogs.ts",
@@ -455,6 +466,11 @@
           "path": "src/extension/handlers/process-handlers.ts",
           "kind": "import-statement",
           "original": "./handlers/process-handlers"
+        },
+        {
+          "path": "src/extension/handlers/session-handlers.ts",
+          "kind": "import-statement",
+          "original": "./handlers/session-handlers"
         },
         {
           "path": "node:fs",
@@ -670,7 +686,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 414124
+      "bytes": 415257
     },
     "dist/extension.js": {
       "imports": [
@@ -830,57 +846,57 @@
           "external": true
         },
         {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
           "path": "os",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "vscode",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "vscode",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "vscode",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "vscode",
           "kind": "require-call",
           "external": true
         },
@@ -982,12 +998,6 @@
         "src/extension/rpc-events.ts": {
           "bytesInOutput": 4795
         },
-        "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 11467
-        },
-        "src/extension/session-list-service.ts": {
-          "bytesInOutput": 2191
-        },
         "src/extension/command-fallback.ts": {
           "bytesInOutput": 15871
         },
@@ -1009,6 +1019,15 @@
         "src/extension/handlers/process-handlers.ts": {
           "bytesInOutput": 3228
         },
+        "src/extension/handlers/session-handlers.ts": {
+          "bytesInOutput": 4254
+        },
+        "src/extension/session-list-service.ts": {
+          "bytesInOutput": 2191
+        },
+        "src/extension/message-dispatch.ts": {
+          "bytesInOutput": 7493
+        },
         "src/extension/polling.ts": {
           "bytesInOutput": 1769
         },
@@ -1019,7 +1038,7 @@
           "bytesInOutput": 4420
         }
       },
-      "bytes": 103523
+      "bytes": 103803
     }
   }
 }

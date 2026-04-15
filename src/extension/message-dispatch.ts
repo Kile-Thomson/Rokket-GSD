@@ -1,15 +1,10 @@
 import * as vscode from "vscode";
-import { listSessions, deleteSession, validateSessionPath } from "./session-list-service";
 import type { SessionState } from "./session-state";
 import type {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
-  SessionListItem,
   RpcCommandsResult,
-  RpcStateResult,
-  AgentMessage,
 } from "../shared/types";
-import { toGsdState } from "../shared/types";
 import {
   startPromptWatchdog,
   startSlashCommandWatchdog,
@@ -66,6 +61,14 @@ import {
   handleUpdateViewRelease,
   handleExtensionUiResponse,
 } from "./handlers/process-handlers";
+import {
+  handleNewConversation,
+  handleGetSessionList,
+  handleSwitchSession,
+  handleRenameSession,
+  handleDeleteSession,
+  handleResumeLastSession,
+} from "./handlers/session-handlers";
 import type { StatusBarUpdate } from "./webview-provider";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -368,33 +371,7 @@ export async function handleWebviewMessage(
         }
 
         case "new_conversation": {
-          ctx.cleanupTempFiles();
-          ctx.getSession(sessionId).autoProgressPoller?.onNewConversation();
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              // Abort streaming if active before new session (FT-20/FT-25)
-              const sess = ctx.getSession(sessionId);
-              if (sess.isStreaming) {
-                try {
-                  await client.abort();
-                  if (sess.promptWatchdog) { clearTimeout(sess.promptWatchdog.timer); sess.promptWatchdog = null; }
-                  if (sess.slashWatchdog) { clearTimeout(sess.slashWatchdog); sess.slashWatchdog = null; }
-                  if (sess.gsdFallbackTimer) { clearTimeout(sess.gsdFallbackTimer); sess.gsdFallbackTimer = null; }
-                  ctx.output.appendLine(`[${sessionId}] Aborted streaming before new conversation`);
-                } catch (abortErr: any) {
-                  ctx.output.appendLine(`[${sessionId}] Abort before new conversation failed: ${abortErr.message}`);
-                }
-              }
-              await client.newSession();
-              ctx.getSession(sessionId).accumulatedCost = 0;
-              ctx.emitStatus({ cost: 0 });
-              const state = await client.getState();
-              ctx.postToWebview(webview, { type: "state", data: state } as ExtensionToWebviewMessage);
-            } catch (err: any) {
-              ctx.postToWebview(webview, { type: "error", message: err.message });
-            }
-          }
+          await handleNewConversation(ctx, webview, sessionId, msg);
           break;
         }
 
@@ -459,108 +436,22 @@ export async function handleWebviewMessage(
         }
 
         case "get_session_list": {
-          const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
-          try {
-            const sessions = await listSessions(cwd);
-            const items: SessionListItem[] = sessions.map((s) => ({
-              path: s.path,
-              id: s.id,
-              name: s.name,
-              firstMessage: s.firstMessage,
-              created: s.created.toISOString(),
-              modified: s.modified.toISOString(),
-              messageCount: s.messageCount,
-            }));
-            ctx.output.appendLine(`[${sessionId}] Listed ${items.length} sessions`);
-            ctx.postToWebview(webview, { type: "session_list", sessions: items });
-          } catch (err: any) {
-            ctx.output.appendLine(`[${sessionId}] Session list error: ${err.message}`);
-            ctx.postToWebview(webview, { type: "session_list_error", message: err.message });
-          }
+          await handleGetSessionList(ctx, webview, sessionId, msg);
           break;
         }
 
         case "switch_session": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              // Validate session path is inside sessions directory
-              if (msg.path) validateSessionPath(msg.path);
-              // Abort streaming if active before session switch (FT-20/FT-25)
-              const sess = ctx.getSession(sessionId);
-              if (sess.isStreaming) {
-                try {
-                  await client.abort();
-                  if (sess.promptWatchdog) { clearTimeout(sess.promptWatchdog.timer); sess.promptWatchdog = null; }
-                  if (sess.slashWatchdog) { clearTimeout(sess.slashWatchdog); sess.slashWatchdog = null; }
-                  if (sess.gsdFallbackTimer) { clearTimeout(sess.gsdFallbackTimer); sess.gsdFallbackTimer = null; }
-                  ctx.output.appendLine(`[${sessionId}] Aborted streaming before session switch`);
-                } catch (abortErr: any) {
-                  ctx.output.appendLine(`[${sessionId}] Abort before session switch failed: ${abortErr.message}`);
-                }
-              }
-              const result = await client.switchSession(msg.path) as { cancelled?: boolean } | null;
-              if (result?.cancelled) {
-                ctx.output.appendLine(`[${sessionId}] Session switch cancelled`);
-                break;
-              }
-              ctx.getSession(sessionId).accumulatedCost = 0;
-              ctx.emitStatus({ cost: 0 });
-              // Get the new state and messages after switch
-              const state = await client.getState() as RpcStateResult;
-              const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
-              ctx.output.appendLine(`[${sessionId}] Switched session, ${messagesResult?.messages?.length || 0} messages`);
-              ctx.postToWebview(webview, {
-                type: "session_switched",
-                state: toGsdState(state),
-                messages: messagesResult?.messages || [],
-              });
-              // Update status bar
-              if (state?.model) {
-                ctx.emitStatus({ model: (state.model as any).id || (state.model as any).name });
-              }
-            } catch (err: any) {
-              ctx.output.appendLine(`[${sessionId}] Session switch error: ${err.message}`);
-              ctx.postToWebview(webview, { type: "error", message: `Failed to switch session: ${err.message}` });
-            }
-          }
+          await handleSwitchSession(ctx, webview, sessionId, msg as any);
           break;
         }
 
         case "rename_session": {
-          const client = ctx.getSession(sessionId).client;
-          if (client?.isRunning) {
-            try {
-              await client.setSessionName(msg.name);
-              ctx.output.appendLine(`[${sessionId}] Session renamed to: ${msg.name}`);
-            } catch (err: any) {
-              ctx.postToWebview(webview, { type: "error", message: `Failed to rename session: ${err.message}` });
-            }
-          }
+          await handleRenameSession(ctx, webview, sessionId, msg as any);
           break;
         }
 
         case "delete_session": {
-          try {
-            await deleteSession(msg.path);
-            ctx.output.appendLine(`[${sessionId}] Deleted session: ${msg.path}`);
-            // Refresh the session list
-            const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
-            const sessions = await listSessions(cwd);
-            const items: SessionListItem[] = sessions.map((s) => ({
-              path: s.path,
-              id: s.id,
-              name: s.name,
-              firstMessage: s.firstMessage,
-              created: s.created.toISOString(),
-              modified: s.modified.toISOString(),
-              messageCount: s.messageCount,
-            }));
-            ctx.postToWebview(webview, { type: "session_list", sessions: items });
-          } catch (err: any) {
-            ctx.output.appendLine(`[${sessionId}] Delete session error: ${err.message}`);
-            ctx.postToWebview(webview, { type: "error", message: `Failed to delete session: ${err.message}` });
-          }
+          await handleDeleteSession(ctx, webview, sessionId, msg as any);
           break;
         }
 
@@ -590,44 +481,7 @@ export async function handleWebviewMessage(
         }
 
         case "resume_last_session": {
-          const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-          if (!cwd) {
-            ctx.postToWebview(webview, { type: "error", message: "No workspace folder open" });
-            break;
-          }
-          try {
-            const sessions = await listSessions(cwd);
-            if (sessions.length === 0) {
-              ctx.postToWebview(webview, { type: "error", message: "No previous sessions found" });
-              break;
-            }
-            // Sessions are sorted most-recent first
-            const latest = sessions[0];
-            const client = ctx.getSession(sessionId).client;
-            if (client?.isRunning) {
-              const result = await client.switchSession(latest.path) as { cancelled?: boolean } | null;
-              if (result?.cancelled) {
-                ctx.output.appendLine(`[${sessionId}] Resume cancelled`);
-                break;
-              }
-              ctx.getSession(sessionId).accumulatedCost = 0;
-              ctx.emitStatus({ cost: 0 });
-              const state = await client.getState() as RpcStateResult;
-              const messagesResult = await client.getMessages() as { messages?: AgentMessage[] } | null;
-              ctx.output.appendLine(`[${sessionId}] Resumed last session: ${latest.name || latest.id} (${messagesResult?.messages?.length || 0} messages)`);
-              ctx.postToWebview(webview, {
-                type: "session_switched",
-                state: toGsdState(state),
-                messages: messagesResult?.messages || [],
-              });
-              if (state?.model) {
-                ctx.emitStatus({ model: (state.model as any).id || (state.model as any).name });
-              }
-            }
-          } catch (err: any) {
-            ctx.output.appendLine(`[${sessionId}] Resume error: ${err.message}`);
-            ctx.postToWebview(webview, { type: "error", message: `Failed to resume: ${err.message}` });
-          }
+          await handleResumeLastSession(ctx, webview, sessionId, msg);
           break;
         }
 
