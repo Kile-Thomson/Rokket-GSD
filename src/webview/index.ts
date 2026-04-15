@@ -6,6 +6,7 @@
 import type {
   WebviewToExtensionMessage,
 } from "../shared/types";
+import { throttleRAF, debounce } from "./perf-utils";
 // CSS modules — import order replicates the original cascade
 import "./styles/tokens.css";
 import "./styles/base.css";
@@ -311,7 +312,7 @@ function autoResize(): void {
   const minH = Math.max(manualMinHeight, 36);
   promptInput.style.height = Math.min(Math.max(contentHeight, minH), 400) + "px";
 }
-promptInput.addEventListener("input", autoResize);
+promptInput.addEventListener("input", throttleRAF(autoResize));
 
 // ============================================================
 // Drag-to-resize input
@@ -413,7 +414,7 @@ welcomeActions.addEventListener("click", (e: Event) => {
 // Slash command menu — input listener
 // ============================================================
 
-promptInput.addEventListener("input", () => {
+promptInput.addEventListener("input", debounce(() => {
   const val = promptInput.value;
   if (val.startsWith("/") && !val.includes("\n")) {
     const filter = val.slice(1).trim();
@@ -421,7 +422,7 @@ promptInput.addEventListener("input", () => {
   } else {
     slashMenu.hide();
   }
-});
+}, 100));
 
 
 

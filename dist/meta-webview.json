@@ -1,5 +1,10 @@
 {
   "inputs": {
+    "src/webview/perf-utils.ts": {
+      "bytes": 432,
+      "imports": [],
+      "format": "esm"
+    },
     "src/webview/styles/tokens.css": {
       "bytes": 9920,
       "imports": []
@@ -185,7 +190,7 @@
       "format": "esm"
     },
     "src/webview/session-history.ts": {
-      "bytes": 17021,
+      "bytes": 17078,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -196,6 +201,11 @@
           "path": "src/webview/a11y.ts",
           "kind": "import-statement",
           "original": "./a11y"
+        },
+        {
+          "path": "src/webview/perf-utils.ts",
+          "kind": "import-statement",
+          "original": "./perf-utils"
         }
       ],
       "format": "esm"
@@ -506,8 +516,13 @@
       "format": "esm"
     },
     "src/webview/index.ts": {
-      "bytes": 30763,
+      "bytes": 30846,
       "imports": [
+        {
+          "path": "src/webview/perf-utils.ts",
+          "kind": "import-statement",
+          "original": "./perf-utils"
+        },
         {
           "path": "src/webview/styles/tokens.css",
           "kind": "import-statement",
@@ -692,7 +707,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 883247
+      "bytes": 884272
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -700,6 +715,9 @@
       "entryPoint": "src/webview/index.ts",
       "cssBundle": "dist/webview/index.css",
       "inputs": {
+        "src/webview/perf-utils.ts": {
+          "bytesInOutput": 153
+        },
         "src/webview/styles/tokens.css": {
           "bytesInOutput": 0
         },
@@ -782,7 +800,7 @@
           "bytesInOutput": 3664
         },
         "src/webview/session-history.ts": {
-          "bytesInOutput": 7698
+          "bytesInOutput": 7706
         },
         "src/webview/ui-dialogs.ts": {
           "bytesInOutput": 7736
@@ -818,10 +836,10 @@
           "bytesInOutput": 7259
         },
         "src/webview/index.ts": {
-          "bytesInOutput": 18788
+          "bytesInOutput": 18800
         }
       },
-      "bytes": 234723
+      "bytes": 234896
     },
     "dist/webview/index.css.map": {
       "imports": [],

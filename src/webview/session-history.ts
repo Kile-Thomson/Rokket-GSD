@@ -5,6 +5,7 @@
 import type { SessionListItem } from "../shared/types";
 import { escapeHtml } from "./helpers";
 import { createFocusTrap, saveFocus, restoreFocus } from "./a11y";
+import { debounce } from "./perf-utils";
 
 // ============================================================
 // Module state
@@ -285,11 +286,11 @@ function render(): void {
   // Wire search input
   const searchInput = panelEl.querySelector("#sessionSearchInput") as HTMLInputElement | null;
   if (searchInput) {
-    searchInput.addEventListener("input", () => {
+    searchInput.addEventListener("input", debounce(() => {
       searchText = searchInput.value;
       highlightIndex = 0;
       renderList();
-    });
+    }, 150));
 
     // Keyboard navigation from search input
     searchInput.addEventListener("keydown", (e: KeyboardEvent) => {
