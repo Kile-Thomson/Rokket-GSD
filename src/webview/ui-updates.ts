@@ -88,6 +88,10 @@ export function updateHeaderUI(): void {
     modelBadge.textContent = state.model.name || state.model.id;
     modelBadge.title = `${state.model.provider} / ${state.model.id}`;
     modelBadge.classList.remove('gsd-hidden');
+  } else if (state.processStatus === 'running') {
+    modelBadge.textContent = 'Loading...';
+    modelBadge.title = 'Loading model...';
+    modelBadge.classList.remove('gsd-hidden');
   } else {
     modelBadge.classList.add('gsd-hidden');
   }

@@ -75,6 +75,15 @@
   font-size: var(--gsd-font-size-sm);
 }
 
+.gsd-slash-item.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.gsd-slash-item.disabled:hover {
+  background: none;
+}
+
 /* ============================================================
    Model Picker
    ============================================================ */

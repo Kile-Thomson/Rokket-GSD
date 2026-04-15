@@ -33,7 +33,7 @@
       "imports": []
     },
     "src/webview/styles/overlays.css": {
-      "bytes": 37907,
+      "bytes": 38042,
       "imports": []
     },
     "src/webview/styles/toasts.css": {
@@ -96,7 +96,7 @@
       "format": "esm"
     },
     "src/webview/slash-menu.ts": {
-      "bytes": 16042,
+      "bytes": 16320,
       "imports": [
         {
           "path": "src/webview/state.ts",
@@ -434,7 +434,7 @@
       "format": "esm"
     },
     "src/webview/ui-updates.ts": {
-      "bytes": 14379,
+      "bytes": 14566,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -626,7 +626,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 870586
+      "bytes": 871216
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -695,7 +695,7 @@
           "bytesInOutput": 12415
         },
         "src/webview/slash-menu.ts": {
-          "bytesInOutput": 7141
+          "bytesInOutput": 7403
         },
         "src/webview/a11y.ts": {
           "bytesInOutput": 437
@@ -740,19 +740,19 @@
           "bytesInOutput": 26277
         },
         "src/webview/ui-updates.ts": {
-          "bytesInOutput": 7067
+          "bytesInOutput": 7187
         },
         "src/webview/index.ts": {
           "bytesInOutput": 18561
         }
       },
-      "bytes": 232266
+      "bytes": 232648
     },
     "dist/webview/index.css.map": {
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 255865
+      "bytes": 256113
     },
     "dist/webview/index.css": {
       "imports": [],
@@ -782,7 +782,7 @@
           "bytesInOutput": 1827
         },
         "src/webview/styles/overlays.css": {
-          "bytesInOutput": 29163
+          "bytesInOutput": 29266
         },
         "src/webview/styles/toasts.css": {
           "bytesInOutput": 937
@@ -806,7 +806,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 116333
+      "bytes": 116436
     }
   }
 }
