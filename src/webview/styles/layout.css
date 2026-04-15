@@ -48,7 +48,7 @@
   opacity: 0;
   background: var(--gsd-rocket-glow);
   transition: opacity 0.3s ease;
-  z-index: -1;
+  z-index: var(--gsd-z-behind);
   pointer-events: none;
 }
 
@@ -373,7 +373,7 @@
 
 .gsd-overlay-btn.danger {
   background: var(--gsd-color-error);
-  color: #fff;
+  color: var(--gsd-color-accent-fg);
 }
 
 .gsd-overlay-spinner {
@@ -414,7 +414,7 @@
 
 .gsd-overlay-btn.danger:hover {
   background: color-mix(in srgb, var(--gsd-color-error) 85%, #000);
-  color: #fff;
+  color: var(--gsd-color-accent-fg);
 }
 
 /* ============================================================
@@ -460,7 +460,7 @@
   font-size: var(--gsd-font-size-lg);
   font-weight: 700;
   box-shadow: var(--gsd-shadow-fab);
-  z-index: 50;
+  z-index: var(--gsd-z-sticky);
   align-items: center;
   justify-content: center;
   transition: opacity 0.2s, transform 0.2s;

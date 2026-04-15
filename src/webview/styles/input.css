@@ -256,7 +256,7 @@
   border: none;
   border-radius: var(--gsd-radius-circle);
   background: var(--gsd-color-overlay-dark);
-  color: #fff;
+  color: var(--gsd-color-accent-fg);
   font-size: var(--gsd-font-size-sm);
   cursor: pointer;
   display: flex;

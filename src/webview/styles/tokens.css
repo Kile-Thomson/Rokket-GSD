@@ -54,6 +54,29 @@
   --gsd-font-size-xl: 16px;
   --gsd-line-height: 1.5;
   --gsd-line-height-tight: 1.4;
+  --gsd-line-height-none: 1;
+  --gsd-line-height-relaxed: 1.7;
+
+  /* ----------------------------------------------------------
+     Font Weight
+     ---------------------------------------------------------- */
+  --gsd-font-weight-normal: 400;
+  --gsd-font-weight-medium: 500;
+  --gsd-font-weight-semibold: 600;
+  --gsd-font-weight-bold: 700;
+
+  /* ----------------------------------------------------------
+     Z-Index Scale
+     ---------------------------------------------------------- */
+  --gsd-z-behind: -1;
+  --gsd-z-default: 1;
+  --gsd-z-sticky: 50;
+  --gsd-z-dropdown: 100;
+  --gsd-z-popover: 150;
+  --gsd-z-overlay: 200;
+  --gsd-z-toast: 300;
+  --gsd-z-modal: 1000;
+  --gsd-z-scanlines: 9999;
 
   /* ----------------------------------------------------------
      Color — semantic surface aliases

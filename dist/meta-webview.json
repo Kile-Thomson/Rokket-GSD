@@ -6,7 +6,7 @@
       "format": "esm"
     },
     "src/webview/styles/tokens.css": {
-      "bytes": 16623,
+      "bytes": 17352,
       "imports": []
     },
     "src/webview/styles/base.css": {
@@ -14,7 +14,7 @@
       "imports": []
     },
     "src/webview/styles/layout.css": {
-      "bytes": 13750,
+      "bytes": 13828,
       "imports": []
     },
     "src/webview/styles/entries.css": {
@@ -30,7 +30,7 @@
       "imports": []
     },
     "src/webview/styles/input.css": {
-      "bytes": 5810,
+      "bytes": 5832,
       "imports": []
     },
     "src/webview/styles/footer.css": {
@@ -38,11 +38,11 @@
       "imports": []
     },
     "src/webview/styles/overlays.css": {
-      "bytes": 37264,
+      "bytes": 37402,
       "imports": []
     },
     "src/webview/styles/toasts.css": {
-      "bytes": 1470,
+      "bytes": 1485,
       "imports": []
     },
     "src/webview/styles/misc.css": {
@@ -58,7 +58,7 @@
       "imports": []
     },
     "src/webview/styles/themes/phosphor.css": {
-      "bytes": 7744,
+      "bytes": 7762,
       "imports": []
     },
     "src/webview/styles/themes/clarity.css": {
@@ -898,19 +898,19 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 259210
+      "bytes": 260533
     },
     "dist/webview/index.css": {
       "imports": [],
       "inputs": {
         "src/webview/styles/tokens.css": {
-          "bytesInOutput": 9440
+          "bytesInOutput": 9801
         },
         "src/webview/styles/base.css": {
           "bytesInOutput": 685
         },
         "src/webview/styles/layout.css": {
-          "bytesInOutput": 10109
+          "bytesInOutput": 10187
         },
         "src/webview/styles/entries.css": {
           "bytesInOutput": 6054
@@ -922,16 +922,16 @@
           "bytesInOutput": 7464
         },
         "src/webview/styles/input.css": {
-          "bytesInOutput": 4332
+          "bytesInOutput": 4354
         },
         "src/webview/styles/footer.css": {
           "bytesInOutput": 1813
         },
         "src/webview/styles/overlays.css": {
-          "bytesInOutput": 28874
+          "bytesInOutput": 29012
         },
         "src/webview/styles/toasts.css": {
-          "bytesInOutput": 937
+          "bytesInOutput": 952
         },
         "src/webview/styles/misc.css": {
           "bytesInOutput": 7459
@@ -943,7 +943,7 @@
           "bytesInOutput": 2151
         },
         "src/webview/styles/themes/phosphor.css": {
-          "bytesInOutput": 5258
+          "bytesInOutput": 5276
         },
         "src/webview/styles/themes/clarity.css": {
           "bytesInOutput": 5304
@@ -952,7 +952,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 118546
+      "bytes": 119178
     }
   }
 }

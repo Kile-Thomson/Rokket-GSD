@@ -41,7 +41,7 @@
   border-bottom: none;
   background: var(--gsd-color-surface-elevated);
   font-size: var(--gsd-font-size-md);
-  z-index: 100;
+  z-index: var(--gsd-z-dropdown);
 }
 
 .gsd-slash-item {
@@ -98,7 +98,7 @@
   background: var(--gsd-color-surface-elevated);
   border: 1px solid var(--gsd-color-border-strong);
   border-radius: var(--gsd-radius-xl);
-  z-index: 200;
+  z-index: var(--gsd-z-overlay);
   box-shadow: var(--gsd-overlay-shadow);
   font-size: var(--gsd-font-size-md);
   animation: gsd-picker-in 0.15s ease-out;
@@ -253,7 +253,7 @@
   background: var(--gsd-color-surface-elevated);
   border: 1px solid var(--gsd-color-border-strong);
   border-radius: var(--gsd-radius-xl);
-  z-index: 200;
+  z-index: var(--gsd-z-overlay);
   box-shadow: var(--gsd-overlay-shadow);
   font-size: var(--gsd-font-size-md);
   overflow: hidden;
@@ -378,7 +378,7 @@
   background: var(--gsd-color-surface-elevated);
   border: 1px solid var(--gsd-color-border-strong);
   border-radius: var(--gsd-radius-xl);
-  z-index: 200;
+  z-index: var(--gsd-z-overlay);
   box-shadow: var(--gsd-overlay-shadow);
   font-size: var(--gsd-font-size-md);
   animation: gsd-picker-in 0.15s ease-out;
@@ -402,7 +402,7 @@
   position: sticky;
   top: 0;
   background: var(--gsd-color-surface-elevated);
-  z-index: 1;
+  z-index: var(--gsd-z-default);
 }
 
 .gsd-session-history-title {
@@ -461,7 +461,7 @@
   position: sticky;
   top: 36px;
   background: var(--gsd-color-surface-elevated);
-  z-index: 1;
+  z-index: var(--gsd-z-default);
 }
 
 .gsd-session-search-input {
@@ -1033,7 +1033,7 @@
   border: 1px solid var(--gsd-color-border-strong);
   border-radius: var(--gsd-radius-lg);
   padding: 8px 0;
-  z-index: 1000;
+  z-index: var(--gsd-z-modal);
   box-shadow: var(--gsd-overlay-shadow);
 }
 
@@ -1134,7 +1134,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 150;
+  z-index: var(--gsd-z-popover);
   background: var(--gsd-color-bg);
   overflow: hidden;
   animation: gsd-viz-fade-in 0.2s ease-out;
