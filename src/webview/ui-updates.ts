@@ -217,7 +217,7 @@ export function updateInputUI(): void {
     cachedLogo = document.querySelector(".gsd-logo");
   }
   if (cachedLogo) {
-    cachedLogo.classList.toggle("working", state.isStreaming);
+    cachedLogo.classList.toggle("working", state.isStreaming || state.isPending);
   }
 
   if (state.isCompacting) {

@@ -83,6 +83,7 @@ export interface AvailableModel {
 export interface AppState {
   entries: ChatEntry[];
   isStreaming: boolean;
+  isPending: boolean;
   isCompacting: boolean;
   isRetrying: boolean;
   retryInfo?: { attempt: number; maxAttempts: number; errorMessage: string };
@@ -181,6 +182,7 @@ export function resetPrunedCount(): void {
 export const state: AppState = {
   entries: [],
   isStreaming: false,
+  isPending: false,
   isCompacting: false,
   isRetrying: false,
   model: null,
@@ -227,6 +229,7 @@ export function nextId(): string {
 export function resetState(): void {
   state.entries = [];
   state.isStreaming = false;
+  state.isPending = false;
   state.isCompacting = false;
   state.isRetrying = false;
   state.retryInfo = undefined;

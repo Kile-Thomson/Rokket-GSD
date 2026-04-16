@@ -32,6 +32,7 @@ import {
   setHasCostUpdateSource,
   getPrevCostTotals,
   setPrevCostTotals,
+  confirmBackendActive,
 } from "./handler-state";
 import { applyTheme } from "./ui-notification-handlers";
 
@@ -61,6 +62,7 @@ export function handleState(msg: Msg<'state'>): void {
       state.thinkingLevel = data.thinkingLevel ?? null;
     }
     state.isStreaming = data.isStreaming || false;
+    state.isPending = false;
     state.isCompacting = data.isCompacting || false;
     if (data.cwd) state.cwd = data.cwd;
     if (data.autoCompactionEnabled != null) {
@@ -103,6 +105,7 @@ export function handleProcessStatus(msg: Msg<'process_status'>): void {
 
   if (msg.status === "running" && prevStatus !== "running") {
     state.isStreaming = false;
+    state.isPending = false;
     state.isCompacting = false;
     state.lastExitDetail = null;
     state.commandsLoaded = false;
@@ -127,6 +130,7 @@ export function handleDashboardData(msg: Msg<'dashboard_data'>): void {
 }
 
 export function handleAutoProgress(msg: Msg<'auto_progress'>): void {
+  confirmBackendActive();
   autoProgress.update(msg.data);
 }
 
@@ -217,6 +221,7 @@ export function handleSessionSwitched(msg: Msg<'session_switched'>): void {
       state.thinkingLevel = msg.state.thinkingLevel ?? null;
     }
     state.isStreaming = msg.state.isStreaming || false;
+    state.isPending = false;
     state.isCompacting = msg.state.isCompacting || false;
     if (state.processStatus !== "crashed") state.processStatus = "running";
   }

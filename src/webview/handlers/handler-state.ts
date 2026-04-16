@@ -70,6 +70,18 @@ export function getPrevCostTotals() { return prevCostTotals; }
 export function setPrevCostTotals(v: typeof prevCostTotals): void { prevCostTotals = v; }
 
 // ============================================================
+// Pending → Streaming transition
+// ============================================================
+
+export function confirmBackendActive(): void {
+  if (state.isPending) {
+    state.isPending = false;
+    state.isStreaming = true;
+    getDeps().updateInputUI();
+  }
+}
+
+// ============================================================
 // Reset per-session derived tracking state
 // ============================================================
 

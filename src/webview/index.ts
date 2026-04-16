@@ -551,9 +551,14 @@ function sendMessage(): void {
     welcomeScreen.classList.add('gsd-hidden');
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
     scrollToBottom(messagesContainer, true);
-    // Show thinking dots immediately — before agent_start fires — so the
-    // user sees feedback the instant they send rather than a dead gap.
+    // Show thinking dots immediately so the user sees feedback on send.
+    // isPending shows dots + logo glow but keeps the send button as-is.
+    // The button only flips to stop when the backend confirms activity
+    // (agent_start, streaming content, auto_progress, etc.), preserving
+    // the button as a canary for broken connections.
     renderer.showPendingDots();
+    state.isPending = true;
+    updateInputUI();
   }
 
   const fullMessage = filePrefix + text;

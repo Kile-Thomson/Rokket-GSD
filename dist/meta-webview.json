@@ -58,7 +58,7 @@
       "imports": []
     },
     "src/webview/styles/themes/phosphor.css": {
-      "bytes": 7762,
+      "bytes": 7786,
       "imports": []
     },
     "src/webview/styles/themes/clarity.css": {
@@ -75,7 +75,7 @@
       "format": "esm"
     },
     "src/webview/state.ts": {
-      "bytes": 8298,
+      "bytes": 8370,
       "imports": [
         {
           "path": "src/shared/constants.ts",
@@ -494,7 +494,7 @@
       "format": "esm"
     },
     "src/webview/handlers/handler-state.ts": {
-      "bytes": 8007,
+      "bytes": 8341,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -546,7 +546,7 @@
       "format": "esm"
     },
     "src/webview/handlers/streaming-handlers.ts": {
-      "bytes": 15642,
+      "bytes": 15745,
       "imports": [
         {
           "path": "src/webview/state.ts",
@@ -587,7 +587,7 @@
       "format": "esm"
     },
     "src/webview/keyboard.ts": {
-      "bytes": 19220,
+      "bytes": 19241,
       "imports": [
         {
           "path": "src/shared/constants.ts",
@@ -648,7 +648,7 @@
       "format": "esm"
     },
     "src/webview/handlers/ui-notification-handlers.ts": {
-      "bytes": 16232,
+      "bytes": 16338,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -714,7 +714,7 @@
       "format": "esm"
     },
     "src/webview/handlers/state-handlers.ts": {
-      "bytes": 12521,
+      "bytes": 12658,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -846,7 +846,7 @@
       "format": "esm"
     },
     "src/webview/ui-updates.ts": {
-      "bytes": 15111,
+      "bytes": 15130,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -867,7 +867,7 @@
       "format": "esm"
     },
     "src/webview/index.ts": {
-      "bytes": 30686,
+      "bytes": 30935,
       "imports": [
         {
           "path": "src/webview/perf-utils.ts",
@@ -1063,7 +1063,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 871434
+      "bytes": 872962
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -1123,7 +1123,7 @@
           "bytesInOutput": 0
         },
         "src/webview/state.ts": {
-          "bytesInOutput": 1135
+          "bytesInOutput": 1148
         },
         "node_modules/marked/lib/marked.esm.js": {
           "bytesInOutput": 38668
@@ -1195,40 +1195,40 @@
           "bytesInOutput": 61
         },
         "src/webview/handlers/handler-state.ts": {
-          "bytesInOutput": 2364
+          "bytesInOutput": 2445
         },
         "src/webview/handlers/tool-execution-handlers.ts": {
           "bytesInOutput": 4109
         },
         "src/webview/handlers/streaming-handlers.ts": {
-          "bytesInOutput": 6535
+          "bytesInOutput": 6560
         },
         "src/webview/keyboard.ts": {
-          "bytesInOutput": 6794
+          "bytesInOutput": 6809
         },
         "src/webview/handlers/ui-notification-handlers.ts": {
-          "bytesInOutput": 8164
+          "bytesInOutput": 8199
         },
         "src/webview/handlers/state-handlers.ts": {
-          "bytesInOutput": 5187
+          "bytesInOutput": 5237
         },
         "src/webview/message-handler.ts": {
           "bytesInOutput": 2227
         },
         "src/webview/ui-updates.ts": {
-          "bytesInOutput": 7259
+          "bytesInOutput": 7272
         },
         "src/webview/index.ts": {
-          "bytesInOutput": 18676
+          "bytesInOutput": 18696
         }
       },
-      "bytes": 238338
+      "bytes": 238590
     },
     "dist/webview/index.css.map": {
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 256521
+      "bytes": 256561
     },
     "dist/webview/index.css": {
       "imports": [],
@@ -1273,7 +1273,7 @@
           "bytesInOutput": 2258
         },
         "src/webview/styles/themes/phosphor.css": {
-          "bytesInOutput": 5276
+          "bytesInOutput": 5298
         },
         "src/webview/styles/themes/clarity.css": {
           "bytesInOutput": 5437
@@ -1282,7 +1282,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 123493
+      "bytes": 123515
     }
   }
 }

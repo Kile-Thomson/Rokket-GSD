@@ -37,6 +37,7 @@ import {
   getGsdApp,
   getSettingsDropdown,
   getWidgetContainer,
+  confirmBackendActive,
 } from "./handler-state";
 import { flushToolEndQueue } from "./tool-execution-handlers";
 
@@ -123,6 +124,7 @@ export function handleFallbackChainExhausted(msg: Msg<'fallback_chain_exhausted'
 export function handleSessionShutdown(): void {
   const deps = getDeps();
   state.isStreaming = false;
+  state.isPending = false;
   state.isCompacting = false;
   state.processStatus = "stopped";
   flushToolEndQueue();
@@ -158,6 +160,7 @@ export function handleSteerPersisted(): void {
 export function handleExtensionUiRequest(msg: Msg<'extension_ui_request'>): void {
   const deps = getDeps();
   if (msg.method === "notify" && msg.message) {
+    confirmBackendActive();
     const notifyType = msg.notifyType || "info";
     const kind = notifyType === "error" ? "error" : notifyType === "warning" ? "warning" : "info";
     addSystemEntry(msg.message, kind);
@@ -191,6 +194,7 @@ export function handleError(msg: Msg<'error'>): void {
 export function handleProcessExit(msg: Msg<'process_exit'>): void {
   const deps = getDeps();
   state.isStreaming = false;
+  state.isPending = false;
   state.isCompacting = false;
   state.isRetrying = false;
   state.processHealth = "responsive";

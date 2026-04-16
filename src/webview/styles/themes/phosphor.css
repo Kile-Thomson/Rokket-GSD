@@ -99,7 +99,7 @@
 /* User messages: right border terminal command style */
 .gsd-app[data-theme="phosphor"] .gsd-user-bubble {
   background: transparent; border: none; border-right: 2px solid var(--phosphor);
-  padding: 4px 12px; text-shadow: 0 0 4px rgba(0, 255, 65, 0.15);
+  color: var(--phosphor); padding: 4px 12px; text-shadow: 0 0 4px rgba(0, 255, 65, 0.15);
 }
 
 /* Heading glow */

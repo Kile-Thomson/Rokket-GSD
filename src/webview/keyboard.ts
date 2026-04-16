@@ -175,7 +175,7 @@ function setupKeyboardHandlers(): void {
         if (!state.isCompacting) sendMessage();
       }
     }
-    if (e.key === "Escape" && state.isStreaming) {
+    if (e.key === "Escape" && (state.isStreaming || state.isPending)) {
       vscode.postMessage({ type: "interrupt" });
     }
   });

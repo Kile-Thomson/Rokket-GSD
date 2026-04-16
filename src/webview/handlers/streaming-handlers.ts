@@ -19,6 +19,7 @@ import {
   removeSteerNotes,
   resolveContextWindow,
   addSystemEntry,
+  confirmBackendActive,
 } from "./handler-state";
 import { flushToolEndQueue } from "./tool-execution-handlers";
 
@@ -26,6 +27,7 @@ export function handleAgentStart(msg: Msg<'agent_start'>): void {
   if (uiDialogs.hasPending()) {
     uiDialogs.expireAllPending("New turn started");
   }
+  confirmBackendActive();
   state.isStreaming = true;
   const { updateInputUI } = getDeps();
   const isContinuation = !!msg.isContinuation && state.currentTurn === null;
@@ -55,6 +57,7 @@ export function handleAgentStart(msg: Msg<'agent_start'>): void {
 
 export function handleAgentEnd(_msg: Msg<'agent_end'>): void {
   state.isStreaming = false;
+  state.isPending = false;
   announceToScreenReader("Response complete.");
   state.processHealth = "responsive";
   flushToolEndQueue();
@@ -100,6 +103,7 @@ export function handleMessageStart(_msg: Msg<'message_start'>): void {
 }
 
 export function handleMessageUpdate(msg: Msg<'message_update'>): void {
+  confirmBackendActive();
   if (!state.currentTurn) return;
   const delta = msg.assistantMessageEvent;
   const { messagesContainer, updateHeaderUI } = getDeps();
