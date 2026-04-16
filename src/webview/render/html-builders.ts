@@ -305,7 +305,7 @@ export function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void 
 
   const stateClass = tc.isRunning ? "running" : tc.isSkipped ? "skipped" : tc.isError ? "error" : "done";
   const n = tc.name.toLowerCase();
-  const isSubagent = n === "subagent" || n === "async_subagent" || n === "await_subagent";
+  const isSubagent = n === "subagent" || n === "async_subagent" || n === "await_subagent" || n === "agent";
   const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
   const shouldCollapse = !tc.isRunning && !isSubagent && (lines > 5 || tc.isSkipped);
 
@@ -567,7 +567,7 @@ export function buildToolCallHtml(tc: ToolCallState): string {
   const stateClass = tc.isRunning ? "running" : tc.isSkipped ? "skipped" : tc.isError ? "error" : "done";
   const parallelClass = tc.isParallel ? " parallel" : "";
   const n = tc.name.toLowerCase();
-  const isSubagent = n === "subagent" || n === "async_subagent" || n === "await_subagent";
+  const isSubagent = n === "subagent" || n === "async_subagent" || n === "await_subagent" || n === "agent";
 
   const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
   const shouldCollapse = !tc.isRunning && !isSubagent && (lines > 5 || tc.isSkipped);

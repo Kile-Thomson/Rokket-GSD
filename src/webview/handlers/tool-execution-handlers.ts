@@ -113,10 +113,12 @@ export function handleToolExecutionStart(msg: Msg<'tool_execution_start'>): void
     existingTc.isRunning = true;
     if (isKnownParallel) existingTc.isParallel = true;
     if (!existingTc.isParallel) {
-      const segs = state.currentTurn.segments;
-      const myIdx = segs.findIndex(s => s.type === "tool" && s.toolCallId === existingTc.id);
-      if (myIdx > 0 && segs[myIdx - 1]?.type === "tool") existingTc.isParallel = true;
-      if (myIdx >= 0 && myIdx < segs.length - 1 && segs[myIdx + 1]?.type === "tool") existingTc.isParallel = true;
+      for (const [, other] of state.currentTurn.toolCalls) {
+        if (other.id !== existingTc.id && other.isRunning) {
+          existingTc.isParallel = true;
+          break;
+        }
+      }
     }
     renderer.updateToolSegmentElement(existingTc.id);
 
@@ -144,11 +146,7 @@ export function handleToolExecutionStart(msg: Msg<'tool_execution_start'>): void
     if (existing.isRunning) runningTools.push(existing);
   }
 
-  const fallbackSegs = state.currentTurn.segments;
-  const fallbackPrevSeg = fallbackSegs.length > 0 ? fallbackSegs[fallbackSegs.length - 1] : null;
-  const fallbackAdjacentTool = fallbackPrevSeg?.type === "tool";
-  const runningToolsAreParallel = !msgParallel && runningTools.length > 0;
-  const fallbackIsParallel = isKnownParallel || runningToolsAreParallel || fallbackAdjacentTool;
+  const fallbackIsParallel = isKnownParallel || runningTools.length > 0;
 
   const tc: ToolCallState = {
     id: data.toolCallId,
@@ -174,19 +172,6 @@ export function handleToolExecutionStart(msg: Msg<'tool_execution_start'>): void
   const segIdx = state.currentTurn.segments.length;
   state.currentTurn.segments.push({ type: "tool", toolCallId: data.toolCallId });
 
-  if (fallbackAdjacentTool) {
-    for (let i = fallbackSegs.length - 2; i >= 0; i--) {
-      const s = fallbackSegs[i];
-      if (s.type === "tool" && s.toolCallId) {
-        const adj = state.currentTurn.toolCalls.get(s.toolCallId);
-        if (adj && !adj.isParallel) {
-          adj.isParallel = true;
-          renderer.updateToolSegmentElement(adj.id);
-        }
-      } else break;
-    }
-  }
-
   renderer.appendToolSegmentElement(tc, segIdx);
 
   if (fallbackIsParallel || activeBatch) {
@@ -200,15 +185,7 @@ export function handleToolExecutionStart(msg: Msg<'tool_execution_start'>): void
       if (msgParallel) {
         batch = new Set(msgParallel);
       } else {
-        const batchIds = new Set([...runningTools.map(t => t.id), tc.id]);
-        if (fallbackAdjacentTool) {
-          for (let i = fallbackSegs.length - 2; i >= 0; i--) {
-            const s = fallbackSegs[i];
-            if (s.type === "tool" && s.toolCallId) batchIds.add(s.toolCallId);
-            else break;
-          }
-        }
-        batch = batchIds;
+        batch = new Set([...runningTools.map(t => t.id), tc.id]);
       }
       setActiveBatchToolIds(batch);
     } else {

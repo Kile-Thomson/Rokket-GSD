@@ -165,7 +165,7 @@ export function getToolCategory(name: string): ToolCategory {
   if (n.startsWith("browser_") || n.startsWith("mac_")) return "browser";
   if (["search-the-web", "search_and_read", "fetch_page", "google_search",
        "resolve_library", "get_library_docs", "web_search"].includes(n)) return "search";
-  if (n === "subagent" || n === "async_subagent" || n === "await_subagent") return "agent";
+  if (n === "subagent" || n === "async_subagent" || n === "await_subagent" || n === "agent") return "agent";
   if (n === "lsp") return "generic";
   if (n.startsWith("github_") || n === "mcp_call" || n === "mcp_discover" || n === "mcp_servers") return "generic";
   if (n.startsWith("gsd_")) return "generic";
@@ -181,7 +181,7 @@ export function getToolIcon(name: string, category: ToolCategory): string {
   if (n === "bash" || n === "async_bash") return "⌨";
   if (n === "await_job" || n === "cancel_job") return "⏳";
   if (n === "bg_shell") return "⚙";
-  if (n === "subagent" || n === "async_subagent" || n === "await_subagent") return "🤖";
+  if (n === "subagent" || n === "async_subagent" || n === "await_subagent" || n === "agent") return "🤖";
   if (n === "lsp") return "🧠";
   if (n.startsWith("browser_")) return "🌐";
   if (n.startsWith("mac_")) return "🖥";
@@ -473,36 +473,85 @@ export function buildSubagentOutputHtml(tc: ToolCallState): string {
   }
 
   // Fallback: no structured details, use legacy rendering
+  const agentName = (args.agent as string) ||
+                    (args.description as string) ||
+                    (args.subagent_type as string) ||
+                    (args.chain as Record<string, unknown>[] | undefined)?.[0]?.agent ||
+                    (args.tasks as Record<string, unknown>[] | undefined)?.[0]?.agent || "agent";
+  const taskCount = (args.chain as unknown[] | undefined)?.length || (args.tasks as unknown[] | undefined)?.length || 1;
+  const taskText = (args.task as string) || (args.prompt as string) || "";
+  const taskPreview = taskText.length > TASK_PREVIEW_MAX_CHARS
+    ? taskText.slice(0, TASK_PREVIEW_MAX_CHARS) + "…"
+    : taskText;
+  const agentModel = args.model as string | undefined;
+
   if (tc.isRunning) {
-    const agentName = (args.agent as string) ||
-                      (args.chain as Record<string, unknown>[] | undefined)?.[0]?.agent ||
-                      (args.tasks as Record<string, unknown>[] | undefined)?.[0]?.agent || "agent";
-    const taskCount = (args.chain as unknown[] | undefined)?.length || (args.tasks as unknown[] | undefined)?.length || 1;
-
     const parts: string[] = [];
-    parts.push(`<div class="gsd-subagent-live">`);
-    parts.push(`<div class="gsd-subagent-status">`);
-    parts.push(`<span class="gsd-tool-spinner"></span>`);
-
+    parts.push(`<div class="gsd-subagent-panel">`);
+    parts.push(`<div class="gsd-subagent-summary">`);
     if (mode === "chain") {
-      parts.push(` Chain: ${taskCount} steps`);
+      parts.push(`<span class="gsd-subagent-mode">Chain</span>`);
+      parts.push(`<span class="gsd-subagent-total">${taskCount} steps</span>`);
     } else if (mode === "parallel") {
-      parts.push(` Parallel: ${taskCount} tasks`);
+      parts.push(`<span class="gsd-subagent-mode">Parallel</span>`);
+      parts.push(`<span class="gsd-subagent-total">${taskCount} tasks</span>`);
     } else {
-      parts.push(` ${escapeHtml(agentName)}`);
+      parts.push(`<span class="gsd-subagent-mode">Agent</span>`);
+      parts.push(`<span class="gsd-subagent-counts"><span class="gsd-agent-stat running">running</span></span>`);
     }
     parts.push(`</div>`);
-
-    if (text) {
-      parts.push(`<div class="gsd-subagent-progress">${escapeHtml(text)}</div>`);
+    parts.push(`<div class="gsd-agent-cards">`);
+    parts.push(`<div class="gsd-agent-card running">`);
+    parts.push(`<div class="gsd-agent-header">`);
+    parts.push(`<div class="gsd-agent-header-left"><span class="gsd-tool-spinner"></span><span class="gsd-agent-name">${escapeHtml(agentName)}</span></div>`);
+    if (agentModel) {
+      parts.push(`<div class="gsd-agent-usage"><span class="gsd-usage-pill">${escapeHtml(agentModel)}</span></div>`);
     }
+    parts.push(`</div>`);
+    if (taskPreview) {
+      parts.push(`<div class="gsd-agent-task">${escapeHtml(taskPreview)}</div>`);
+    }
+    if (text) {
+      parts.push(`<div class="gsd-agent-task gsd-subagent-progress">${escapeHtml(text)}</div>`);
+    }
+    parts.push(`</div>`);
+    parts.push(`</div>`);
     parts.push(`</div>`);
     return parts.join("");
   }
 
-  if (!text) return `<span class="gsd-tool-output-pending">(no output)</span>`;
+  // Completed without structured details — show a done card + result
+  const parts: string[] = [];
+  parts.push(`<div class="gsd-subagent-panel">`);
+  parts.push(`<div class="gsd-subagent-summary">`);
+  parts.push(`<span class="gsd-subagent-mode">Agent</span>`);
+  if (tc.isError) {
+    parts.push(`<span class="gsd-subagent-counts"><span class="gsd-agent-stat error">failed</span></span>`);
+  } else {
+    parts.push(`<span class="gsd-subagent-counts"><span class="gsd-agent-stat done">done</span></span>`);
+  }
+  parts.push(`</div>`);
+  parts.push(`<div class="gsd-agent-cards">`);
+  const cardState = tc.isError ? "error" : "done";
+  const cardIcon = tc.isError
+    ? `<span class="gsd-agent-icon error">✗</span>`
+    : `<span class="gsd-agent-icon done">✓</span>`;
+  parts.push(`<div class="gsd-agent-card ${cardState}">`);
+  parts.push(`<div class="gsd-agent-header">`);
+  parts.push(`<div class="gsd-agent-header-left">${cardIcon}<span class="gsd-agent-name">${escapeHtml(agentName)}</span></div>`);
+  parts.push(`</div>`);
+  if (taskPreview) {
+    parts.push(`<div class="gsd-agent-task">${escapeHtml(taskPreview)}</div>`);
+  }
+  parts.push(`</div>`);
+  parts.push(`</div>`);
+  parts.push(`</div>`);
 
-  return `<div class="gsd-subagent-result">${renderMarkdown(text)}</div>`;
+  if (text) {
+    parts.push(`<div class="gsd-subagent-result">${renderMarkdown(text)}</div>`);
+  }
+
+  return parts.join("");
 }
 
 // ============================================================

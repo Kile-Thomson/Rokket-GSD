@@ -190,19 +190,11 @@ export function handleMessageUpdate(msg: Msg<'message_update'>): void {
             startTime: Date.now(),
             isParallel: false,
           };
-          const prevSeg = turn.segments.length > 0 ? turn.segments[turn.segments.length - 1] : null;
-          const adjacentToTool = prevSeg?.type === "tool";
           const streamingRunning: ToolCallState[] = [];
-          if (adjacentToTool) {
-            for (let i = turn.segments.length - 1; i >= 0; i--) {
-              const s = turn.segments[i];
-              if (s.type === "tool" && s.toolCallId) {
-                const adj = turn.toolCalls.get(s.toolCallId);
-                if (adj?.isRunning) streamingRunning.push(adj);
-              } else break;
-            }
+          for (const [, existing] of turn.toolCalls) {
+            if (existing.isRunning) streamingRunning.push(existing);
           }
-          const isStreamParallel = streamingRunning.length > 0 || adjacentToTool;
+          const isStreamParallel = streamingRunning.length > 0;
 
           if (isStreamParallel) {
             tc.isParallel = true;
@@ -218,19 +210,6 @@ export function handleMessageUpdate(msg: Msg<'message_update'>): void {
           const segIdx = turn.segments.length;
           turn.segments.push({ type: "tool", toolCallId: block.id });
 
-          if (adjacentToTool) {
-            for (let i = turn.segments.length - 2; i >= 0; i--) {
-              const s = turn.segments[i];
-              if (s.type === "tool" && s.toolCallId) {
-                const adj = turn.toolCalls.get(s.toolCallId);
-                if (adj && !adj.isParallel) {
-                  adj.isParallel = true;
-                  renderer.updateToolSegmentElement(adj.id);
-                }
-              } else break;
-            }
-          }
-
           renderer.appendToolSegmentElement(tc, segIdx);
 
           let activeBatch = getActiveBatchToolIds();
@@ -243,14 +222,6 @@ export function handleMessageUpdate(msg: Msg<'message_update'>): void {
             if (!activeBatch) {
               const batchIdList: string[] = [tc.id];
               for (const rt of streamingRunning) batchIdList.push(rt.id);
-              if (adjacentToTool) {
-                for (let i = turn.segments.length - 2; i >= 0; i--) {
-                  const s = turn.segments[i];
-                  if (s.type === "tool" && s.toolCallId && !batchIdList.includes(s.toolCallId)) {
-                    batchIdList.push(s.toolCallId);
-                  } else if (s.type !== "tool") break;
-                }
-              }
               activeBatch = new Set(batchIdList);
               setActiveBatchToolIds(activeBatch);
             } else {
