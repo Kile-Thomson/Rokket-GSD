@@ -47,6 +47,8 @@ export async function handleGetSessionStats(
         ctx.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
       }
     } catch { /* ignored */ }
+  } else {
+    ctx.postToWebview(webview, { type: "session_stats", data: null } as ExtensionToWebviewMessage);
   }
 }
 
@@ -70,16 +72,20 @@ export async function handleGetCommands(
     setTimeout(() => {
       void (async () => {
         try {
-          const retryClient = ctx.getSession(sessionId).client;
+          const sess = ctx.getSession(sessionId);
+          const retryClient = sess.client;
+          // Re-fetch webview from session to avoid posting to a stale panel
+          const currentWebview = sess.webview ?? webview;
           if (!retryClient?.isRunning) {
-            ctx.postToWebview(webview, { type: "commands", commands: [] });
+            ctx.postToWebview(currentWebview, { type: "commands", commands: [] });
             return;
           }
           const result = await retryClient.getCommands() as RpcCommandsResult;
-          ctx.postToWebview(webview, { type: "commands", commands: result?.commands || [] });
+          ctx.postToWebview(currentWebview, { type: "commands", commands: result?.commands || [] });
         } catch (err: unknown) {
           ctx.output.appendLine(`[${sessionId}] get_commands retry error: ${toErrorMessage(err)}`);
-          ctx.postToWebview(webview, { type: "commands", commands: [] });
+          const currentWebview = ctx.getSession(sessionId).webview ?? webview;
+          ctx.postToWebview(currentWebview, { type: "commands", commands: [] });
         }
       })();
     }, 2000);

@@ -76,7 +76,7 @@ export type WebviewToExtensionMessage =
  */
 export type ExtensionToWebviewMessage =
   | { type: "state"; data: GsdState }
-  | { type: "session_stats"; data: SessionStats }
+  | { type: "session_stats"; data: SessionStats | null }
   | { type: "agent_start"; isContinuation?: boolean }
   | { type: "agent_end"; messages: AgentMessage[] }
   | { type: "turn_start" }

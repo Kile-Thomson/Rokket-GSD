@@ -269,8 +269,8 @@ export async function handleInterrupt(
       if (wv) {
         ctx.postToWebview(wv, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
       }
-    } finally {
-      clearSessionWatchdogs(ctx, sessionId);
     }
   }
+  // Always clear watchdog timers — they live on SessionState, not the RPC client
+  clearSessionWatchdogs(ctx, sessionId);
 }

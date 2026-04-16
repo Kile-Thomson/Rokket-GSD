@@ -258,12 +258,15 @@ describe("batches", () => {
 
     it("logs console.warn when entries are pruned", () => {
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-      pushEntries(MAX_ENTRIES + 3);
-      pruneOldEntries(messagesContainer);
-      expect(warnSpy).toHaveBeenCalledWith(
-        `GSD: Pruned 3 oldest entries to maintain ${MAX_ENTRIES}-entry cap`
-      );
-      warnSpy.mockRestore();
+      try {
+        pushEntries(MAX_ENTRIES + 3);
+        pruneOldEntries(messagesContainer);
+        expect(warnSpy).toHaveBeenCalledWith(
+          `GSD: Pruned 3 oldest entries to maintain ${MAX_ENTRIES}-entry cap`
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
 
     it("resetPrunedCount() clears counter and hides indicator", () => {
