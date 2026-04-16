@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from "vitest";
-import { state, type AssistantTurn } from "../state";
-import { detectStaleEcho } from "../renderer";
+import { state, type AssistantTurn } from "../../state";
+import { detectStaleEcho } from "../../renderer";
 
 function makeTurn(overrides: Partial<AssistantTurn> = {}): AssistantTurn {
   return {

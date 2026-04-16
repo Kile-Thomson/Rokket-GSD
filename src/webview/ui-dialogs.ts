@@ -19,6 +19,18 @@ let vscode: { postMessage(msg: unknown): void };
 /** Map of request ID → wrapper element for dialogs still awaiting user input */
 const pendingDialogs = new Map<string, HTMLElement>();
 
+/** Side-channel data for dialog wrappers — avoids expando properties on DOM elements */
+const dialogMeta = new WeakMap<HTMLElement, {
+  linkedIds?: string[];
+  timeoutTimer?: ReturnType<typeof setInterval>;
+}>();
+
+function getMeta(el: HTMLElement) {
+  let m = dialogMeta.get(el);
+  if (!m) { m = {}; dialogMeta.set(el, m); }
+  return m;
+}
+
 /**
  * Expire all pending dialogs — the backend has already auto-resolved them
  * (via abort signal or timeout). Mark them visually so the user knows
@@ -28,12 +40,12 @@ export function expireAllPending(reason: string = "Agent moved on"): void {
   for (const [_id, wrapper] of pendingDialogs) {
     if (!wrapper.classList.contains("resolved")) {
       // Auto-resolve linked duplicates with cancelled response
-      const linkedIds = (wrapper as any).__linkedIds as string[] | undefined;
-      if (linkedIds) {
-        for (const linkedId of linkedIds) {
+      const meta = dialogMeta.get(wrapper);
+      if (meta?.linkedIds) {
+        for (const linkedId of meta.linkedIds) {
           vscode.postMessage({ type: "extension_ui_response", id: linkedId, cancelled: true });
         }
-        (wrapper as any).__linkedIds = [];
+        meta.linkedIds = [];
       }
       disableRequest(wrapper, `Expired: ${reason}`);
     }
@@ -73,7 +85,19 @@ let preFocusEl: HTMLElement | null = null;
  * Two dialogs are considered duplicates if they have the same method, title,
  * message, and options — even if their IDs differ.
  */
-function dialogFingerprint(data: any): string {
+interface DialogRequestData {
+  id: string;
+  method: string;
+  title?: string;
+  message?: string;
+  options?: string[];
+  allowMultiple?: boolean;
+  placeholder?: string;
+  prefill?: string;
+  timeout?: number;
+}
+
+function dialogFingerprint(data: DialogRequestData): string {
   const parts = [
     data.method || "",
     data.title || "",
@@ -97,7 +121,7 @@ const pendingFingerprints = new Map<string, string>(); // fingerprint → reques
 const resolvedResponses = new Map<string, { response: Record<string, unknown>; expiresAt: number }>();
 const RESOLVED_TTL_MS = 10_000;
 
-export function handleRequest(data: any): void {
+export function handleRequest(data: DialogRequestData): void {
   const id = data.id;
   const method = data.method;
 
@@ -130,8 +154,9 @@ export function handleRequest(data: any): void {
     // Link this request to the existing dialog — when the original is resolved,
     // we'll send the same response for this one too.
     const existing = pendingDialogs.get(existingId)!;
-    if (!(existing as any).__linkedIds) (existing as any).__linkedIds = [];
-    (existing as any).__linkedIds.push(id);
+    const existingMeta = getMeta(existing);
+    if (!existingMeta.linkedIds) existingMeta.linkedIds = [];
+    existingMeta.linkedIds.push(id);
     return;
   }
   pendingFingerprints.set(fp, id);
@@ -396,12 +421,12 @@ function sendResponseWithLinked(wrapper: HTMLElement, primaryId: string, respons
   }
 
   // Send responses for any linked duplicate dialogs
-  const linkedIds = (wrapper as any).__linkedIds as string[] | undefined;
-  if (linkedIds && linkedIds.length > 0) {
-    for (const linkedId of linkedIds) {
+  const meta = dialogMeta.get(wrapper);
+  if (meta?.linkedIds && meta.linkedIds.length > 0) {
+    for (const linkedId of meta.linkedIds) {
       vscode.postMessage({ ...response, id: linkedId });
     }
-    (wrapper as any).__linkedIds = [];
+    meta.linkedIds = [];
   }
 }
 
@@ -428,10 +453,10 @@ function disableRequest(wrapper: HTMLElement, summary: string): void {
   }
 
   // Clear any active timeout countdown
-  const timerId = (wrapper as any).__timeoutTimer;
-  if (timerId) {
-    clearInterval(timerId);
-    (wrapper as any).__timeoutTimer = null;
+  const wMeta = dialogMeta.get(wrapper);
+  if (wMeta?.timeoutTimer) {
+    clearInterval(wMeta.timeoutTimer);
+    wMeta.timeoutTimer = undefined;
   }
 
   const req = wrapper.querySelector(".gsd-ui-request");
@@ -465,7 +490,7 @@ function startTimeoutCountdown(wrapper: HTMLElement, id: string, timeoutMs: numb
     const remaining = deadline - Date.now();
     if (remaining <= 0) {
       clearInterval(timer);
-      (wrapper as any).__timeoutTimer = null;
+      getMeta(wrapper).timeoutTimer = undefined;
       // Don't auto-send a response — the backend already auto-resolved.
       // Just mark it visually as expired.
       if (!wrapper.classList.contains("resolved")) {
@@ -483,7 +508,7 @@ function startTimeoutCountdown(wrapper: HTMLElement, id: string, timeoutMs: numb
 
   updateCountdown();
   const timer = setInterval(updateCountdown, 1000);
-  (wrapper as any).__timeoutTimer = timer;
+  getMeta(wrapper).timeoutTimer = timer;
 }
 
 // ============================================================

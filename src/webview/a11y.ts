@@ -51,3 +51,14 @@ export function restoreFocus(el: HTMLElement | null): void {
     el.focus();
   }
 }
+
+/**
+ * Announce text to screen readers via the sr-only live region.
+ * Clears then sets via rAF to force re-announcement of identical text.
+ */
+export function announceToScreenReader(text: string): void {
+  const el = document.getElementById("srAnnouncer");
+  if (!el) return;
+  el.textContent = "";
+  requestAnimationFrame(() => { el.textContent = text; });
+}

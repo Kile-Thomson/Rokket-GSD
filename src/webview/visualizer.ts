@@ -16,6 +16,7 @@ import { createFocusTrap, saveFocus, restoreFocus } from "./a11y";
 // ============================================================
 
 let overlayEl: HTMLElement | null = null;
+let cachedMessagesContainer: HTMLElement | null | undefined;
 let visible = false;
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 let currentData: DashboardData | null = null;
@@ -134,16 +135,20 @@ export function handleKeyDown(e: KeyboardEvent): boolean {
 // ============================================================
 
 function ensureOverlayElement(): void {
-  overlayEl = document.getElementById("workflowVisualizer");
+  if (!overlayEl || !overlayEl.isConnected) {
+    overlayEl = document.getElementById("workflowVisualizer");
+  }
   if (!overlayEl) {
     overlayEl = document.createElement("div");
     overlayEl.id = "workflowVisualizer";
     overlayEl.className = "gsd-visualizer-overlay gsd-hidden";
     overlayEl.setAttribute("role", "dialog");
     overlayEl.setAttribute("aria-label", "Workflow Visualizer");
-    const messagesContainer = document.getElementById("messagesContainer");
-    if (messagesContainer?.parentElement) {
-      messagesContainer.parentElement.insertBefore(overlayEl, messagesContainer);
+    if (cachedMessagesContainer === undefined || (cachedMessagesContainer && !cachedMessagesContainer.isConnected)) {
+      cachedMessagesContainer = document.getElementById("messagesContainer");
+    }
+    if (cachedMessagesContainer?.parentElement) {
+      cachedMessagesContainer.parentElement.insertBefore(overlayEl, cachedMessagesContainer);
     }
   }
   overlayEl.classList.remove("gsd-hidden");
@@ -207,12 +212,12 @@ function render(): void {
       <span class="gsd-visualizer-phase ${phaseClass}">${escapeHtml(phaseLabel)}</span>
       <button class="gsd-visualizer-close" id="vizClose" aria-label="Close visualizer">✕</button>
     </div>
-    <div class="gsd-visualizer-tabs">
-      <button class="gsd-visualizer-tab${activeTab === "progress" ? " active" : ""}" data-tab="progress">Progress</button>
-      <button class="gsd-visualizer-tab${activeTab === "metrics" ? " active" : ""}" data-tab="metrics">Metrics</button>
-      <button class="gsd-visualizer-tab${activeTab === "health" ? " active" : ""}" data-tab="health">Health</button>
+    <div class="gsd-visualizer-tabs" role="tablist" aria-label="Visualizer tabs">
+      <button class="gsd-visualizer-tab${activeTab === "progress" ? " active" : ""}" data-tab="progress" id="vizTab-progress">Progress</button>
+      <button class="gsd-visualizer-tab${activeTab === "metrics" ? " active" : ""}" data-tab="metrics" id="vizTab-metrics">Metrics</button>
+      <button class="gsd-visualizer-tab${activeTab === "health" ? " active" : ""}" data-tab="health" id="vizTab-health">Health</button>
     </div>
-    <div class="gsd-visualizer-body">
+    <div class="gsd-visualizer-body" role="tabpanel" id="vizPanel-${activeTab}" aria-labelledby="vizTab-${activeTab}">
       ${activeTab === "progress" ? renderProgressTab(data) : activeTab === "metrics" ? renderMetricsTab(data) : renderHealthTab()}
     </div>
   `;
@@ -585,6 +590,7 @@ function wireTabs(): void {
     tab.tabIndex = t === activeTab ? 0 : -1;
     tab.setAttribute("role", "tab");
     tab.setAttribute("aria-selected", String(t === activeTab));
+    tab.setAttribute("aria-controls", `vizPanel-${t}`);
     tab.addEventListener("click", () => {
       if (t && t !== activeTab) {
         activeTab = t;

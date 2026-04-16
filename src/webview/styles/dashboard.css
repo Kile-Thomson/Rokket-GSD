@@ -19,14 +19,14 @@
 }
 
 .gsd-dashboard-title {
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   font-size: var(--gsd-font-size-lg);
   color: var(--gsd-color-text);
 }
 
 .gsd-dashboard-phase {
   font-size: var(--gsd-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   padding: 2px 8px;
   border-radius: var(--gsd-radius-md);
   background: var(--gsd-color-surface-hover);
@@ -34,12 +34,12 @@
 }
 
 .gsd-dashboard-phase.complete {
-  background: rgba(40, 167, 69, 0.15);
-  color: var(--vscode-testing-iconPassed, #28a745);
+  background: var(--gsd-color-success-subtle);
+  color: var(--gsd-color-success);
 }
 
 .gsd-dashboard-phase.blocked {
-  background: rgba(220, 60, 60, 0.15);
+  background: var(--gsd-color-error-subtle);
   color: var(--gsd-color-text-error);
 }
 
@@ -56,12 +56,12 @@
 
 .gsd-dash-current-action {
   color: var(--gsd-color-text);
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
 }
 
 .gsd-dash-milestone-title {
   padding: 8px 16px 4px;
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   font-size: var(--gsd-font-size-base);
   color: var(--gsd-color-text);
 }
@@ -104,7 +104,7 @@
   width: 32px;
   text-align: right;
   font-size: var(--gsd-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   color: var(--gsd-color-text-muted);
   flex-shrink: 0;
 }
@@ -142,8 +142,8 @@
   font-size: var(--gsd-font-size-sm);
 }
 
-.gsd-dash-slice.done .gsd-dash-icon { color: var(--vscode-testing-iconPassed, #28a745); }
-.gsd-dash-slice.active .gsd-dash-icon { color: var(--vscode-button-background, #007acc); }
+.gsd-dash-slice.done .gsd-dash-icon { color: var(--gsd-color-success); }
+.gsd-dash-slice.active .gsd-dash-icon { color: var(--gsd-color-accent); }
 .gsd-dash-slice.pending .gsd-dash-icon { color: var(--gsd-color-text-muted); opacity: 0.5; }
 
 .gsd-dash-slice-title {
@@ -155,7 +155,7 @@
 }
 
 .gsd-dash-slice.done .gsd-dash-slice-title { color: var(--gsd-color-text-muted); opacity: 0.6; }
-.gsd-dash-slice.active .gsd-dash-slice-title { color: var(--gsd-color-text); font-weight: 500; }
+.gsd-dash-slice.active .gsd-dash-slice-title { color: var(--gsd-color-text); font-weight: var(--gsd-font-weight-medium); }
 .gsd-dash-slice.pending .gsd-dash-slice-title { color: var(--gsd-color-text-muted); opacity: 0.7; }
 
 .gsd-dash-risk {
@@ -183,8 +183,8 @@
 }
 
 .gsd-dash-task.done { color: var(--gsd-color-text-muted); opacity: 0.6; }
-.gsd-dash-task.done .gsd-dash-icon { color: var(--vscode-testing-iconPassed, #28a745); }
-.gsd-dash-task.active { color: var(--gsd-color-text); font-weight: 500; }
+.gsd-dash-task.done .gsd-dash-icon { color: var(--gsd-color-success); }
+.gsd-dash-task.active { color: var(--gsd-color-text); font-weight: var(--gsd-font-weight-medium); }
 .gsd-dash-task.active .gsd-dash-icon { color: var(--gsd-color-text-warning); }
 .gsd-dash-task.pending { color: var(--gsd-color-text-muted); opacity: 0.5; }
 
@@ -220,7 +220,7 @@
 
 .gsd-dashboard-empty-text {
   font-size: var(--gsd-font-size-lg);
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
   color: var(--gsd-color-text);
   margin-bottom: 4px;
 }
@@ -239,8 +239,8 @@
 
 /* Dashboard phase: executing */
 .gsd-dashboard-phase.executing {
-  background: rgba(0, 122, 204, 0.15);
-  color: var(--vscode-button-background, #007acc);
+  background: var(--gsd-color-active-subtle);
+  color: var(--gsd-color-accent);
 }
 
 /* Dashboard sections (milestones, cost, blockers, next) */
@@ -251,7 +251,7 @@
 
 .gsd-dash-section-title {
   font-size: var(--gsd-font-size-sm);
-  font-weight: 600;
+  font-weight: var(--gsd-font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--gsd-color-text-muted);
@@ -274,9 +274,9 @@
 }
 
 .gsd-dash-milestone.done { color: var(--gsd-color-text-muted); opacity: 0.6; }
-.gsd-dash-milestone.done .gsd-dash-icon { color: var(--vscode-testing-iconPassed, #28a745); }
-.gsd-dash-milestone.active { color: var(--gsd-color-text); font-weight: 500; }
-.gsd-dash-milestone.active .gsd-dash-icon { color: var(--vscode-button-background, #007acc); }
+.gsd-dash-milestone.done .gsd-dash-icon { color: var(--gsd-color-success); }
+.gsd-dash-milestone.active { color: var(--gsd-color-text); font-weight: var(--gsd-font-weight-medium); }
+.gsd-dash-milestone.active .gsd-dash-icon { color: var(--gsd-color-accent); }
 .gsd-dash-milestone.pending { color: var(--gsd-color-text-muted); opacity: 0.7; }
 
 /* Cost & usage */
@@ -287,8 +287,8 @@
 }
 
 .gsd-dash-cost-value {
-  color: var(--vscode-testing-iconPassed, #28a745);
-  font-weight: 600;
+  color: var(--gsd-color-success);
+  font-weight: var(--gsd-font-weight-semibold);
 }
 
 .gsd-dash-cost-detail {
@@ -300,7 +300,7 @@
 
 /* Blockers */
 .gsd-dash-blockers-title {
-  color: var(--vscode-editorWarning-foreground, #cca700) !important;
+  color: var(--gsd-color-text-warning) !important;
 }
 
 .gsd-dash-blocker {
@@ -327,10 +327,10 @@
 
 .gsd-dash-table th {
   text-align: left;
-  font-weight: 500;
+  font-weight: var(--gsd-font-weight-medium);
   color: var(--gsd-color-text-muted);
   padding: 2px 6px 2px 0;
-  border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
+  border-bottom: 1px solid var(--gsd-color-border-subtle);
 }
 
 .gsd-dash-table td {
@@ -394,7 +394,7 @@
 }
 
 .gsd-dash-activity-cost {
-  color: var(--vscode-testing-iconPassed, #28a745);
+  color: var(--gsd-color-success);
   font-family: var(--gsd-font-family-mono);
   font-variant-numeric: tabular-nums;
 }

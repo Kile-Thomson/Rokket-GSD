@@ -7,7 +7,7 @@
   bottom: 80px;
   left: 0;
   right: 0;
-  z-index: 300;
+  z-index: var(--gsd-z-toast);
   display: flex;
   flex-direction: column;
   align-items: center;
