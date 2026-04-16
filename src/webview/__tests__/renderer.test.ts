@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 import {
   init,
@@ -17,15 +17,11 @@ import {
 } from "../renderer";
 
 import {
-  state,
   nextId,
   MAX_ENTRIES,
   pruneOldEntries,
   resetPrunedCount,
   resetState as resetFullState,
-  type ChatEntry,
-  type ToolCallState,
-  type AssistantTurn,
 } from "../state";
 
 vi.mock("../helpers", () => ({

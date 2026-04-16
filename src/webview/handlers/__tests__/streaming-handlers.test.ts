@@ -94,14 +94,10 @@ vi.mock("../../a11y", () => ({
   announceToScreenReader: vi.fn(),
 }));
 
-import { init, addSystemEntry } from "../../message-handler";
+import { init } from "../../message-handler";
 import * as renderer from "../../renderer";
 import * as uiDialogs from "../../ui-dialogs";
 import { announceToScreenReader } from "../../a11y";
-// session-history imported transitively via message-handler
-import * as autoProgress from "../../auto-progress";
-import * as toasts from "../../toasts";
-import * as thinkingPicker from "../../thinking-picker";
 
 // ============================================================
 // Helpers

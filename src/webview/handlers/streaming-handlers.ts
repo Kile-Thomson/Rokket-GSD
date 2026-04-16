@@ -11,7 +11,6 @@ import {
   setActiveBatchToolIds,
   getBatchFinalizeTimer,
   setBatchFinalizeTimer,
-  getMessageParallelToolIds,
   setMessageParallelToolIds,
   getLastMessageUsage,
   setLastMessageUsage,
@@ -122,7 +121,7 @@ export function handleMessageUpdate(msg: Msg<'message_update'>): void {
     }
 
     removeSteerNotes();
-    let activeBatch = getActiveBatchToolIds();
+    const activeBatch = getActiveBatchToolIds();
     const timer = getBatchFinalizeTimer();
     if (activeBatch && !timer) {
       const allDone = [...activeBatch].every(id => {
