@@ -4,6 +4,7 @@ import { buildDashboardData } from "./dashboard-parser";
 import { countPendingCaptures } from "./captures-parser";
 import { readParallelWorkers, readBudgetCeiling } from "./parallel-status";
 import type { AutoProgressData, WorkerProgress, ExtensionToWebviewMessage } from "../shared/types";
+import { AUTO_PROGRESS_POLL_INTERVAL_MS, BUDGET_CEILING_TTL_MS, BUDGET_ALERT_PERCENT } from "../shared/constants";
 
 // ============================================================
 // Auto-Progress Poller
@@ -13,8 +14,6 @@ import type { AutoProgressData, WorkerProgress, ExtensionToWebviewMessage } from
 // Bulletproof lifecycle: starts on setStatus "gsd-auto" = "auto"|"next",
 // stops on undefined/paused, process exit, new conversation, or self-detection.
 // ============================================================
-
-const POLL_INTERVAL_MS = 3000;
 
 export class AutoProgressPoller {
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -26,7 +25,6 @@ export class AutoProgressPoller {
   /** Budget ceiling cache — avoids re-parsing preferences.md every poll */
   private budgetCeiling: number | null = null;
   private budgetCeilingReadAt = 0;
-  private readonly BUDGET_CEILING_TTL_MS = 30_000;
 
   /** Budget alert guard — fires once when any worker crosses 80%, resets when all drop below */
   private lastBudgetAlertFired = false;
@@ -34,7 +32,7 @@ export class AutoProgressPoller {
   constructor(
     private readonly sessionId: string,
     private readonly client: GsdRpcClient,
-    private readonly webview: vscode.Webview,
+    private webview: vscode.Webview,
     private readonly getCwd: () => string,
     private readonly output: vscode.OutputChannel,
     private readonly onModelChanged?: (oldModel: { id: string; provider: string } | null, newModel: { id: string; provider: string } | null) => void,
@@ -86,6 +84,13 @@ export class AutoProgressPoller {
     this.autoStartTime = 0;
     this.lastModel = null;
     this.sendClear();
+  }
+
+  /**
+   * Update the webview reference after sidebar rebind so polls post to the current webview.
+   */
+  rebindWebview(webview: vscode.Webview): void {
+    this.webview = webview;
   }
 
   /**
@@ -166,7 +171,7 @@ export class AutoProgressPoller {
 
     // Do an immediate poll, then schedule interval
     this.poll();
-    this.timer = setInterval(() => this.poll(), POLL_INTERVAL_MS);
+    this.timer = setInterval(() => this.poll(), AUTO_PROGRESS_POLL_INTERVAL_MS);
   }
 
   private stopPolling(): void {
@@ -229,7 +234,7 @@ export class AutoProgressPoller {
       if (rawWorkers) {
         // Refresh budget ceiling cache if stale
         const now = Date.now();
-        if (now - this.budgetCeilingReadAt > this.BUDGET_CEILING_TTL_MS) {
+        if (now - this.budgetCeilingReadAt > BUDGET_CEILING_TTL_MS) {
           this.budgetCeiling = await readBudgetCeiling(cwd);
           this.budgetCeilingReadAt = now;
         }
@@ -243,13 +248,13 @@ export class AutoProgressPoller {
         }));
 
         // Check budget alert threshold
-        const anyOver80 = workers.some(w => w.budgetPercent !== null && w.budgetPercent >= 80);
+        const anyOver80 = workers.some(w => w.budgetPercent !== null && w.budgetPercent >= BUDGET_ALERT_PERCENT);
         budgetAlert = anyOver80;
 
         if (anyOver80 && !this.lastBudgetAlertFired) {
           this.lastBudgetAlertFired = true;
           const overBudget = workers
-            .filter(w => w.budgetPercent !== null && w.budgetPercent >= 80)
+            .filter(w => w.budgetPercent !== null && w.budgetPercent >= BUDGET_ALERT_PERCENT)
             .map(w => `${w.id} (${w.budgetPercent!.toFixed(0)}%)`)
             .join(", ");
           this.output.appendLine(`[${this.sessionId}] Budget alert fired for: ${overBudget}`);

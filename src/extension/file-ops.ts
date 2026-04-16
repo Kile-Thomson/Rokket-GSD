@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
+import { toErrorMessage } from "../shared/errors";
 import type { ExtensionToWebviewMessage } from "../shared/types";
 
 // ============================================================
@@ -92,10 +93,10 @@ export function handleOpenFile(
     }
     vscode.workspace.openTextDocument(realFile).then(
       (doc) => vscode.window.showTextDocument(doc),
-      (err: Error) => vscode.window.showErrorMessage(`Failed to open file: ${err.message}`),
+      (err: Error) => vscode.window.showErrorMessage(`Failed to open file: ${toErrorMessage(err)}`),
     );
-  } catch (err: any) {
-    vscode.window.showErrorMessage(`Failed to open file: ${err.message}`);
+  } catch (err: unknown) {
+    vscode.window.showErrorMessage(`Failed to open file: ${toErrorMessage(err)}`);
   }
 }
 
@@ -123,8 +124,8 @@ export function handleOpenDiff(
     const left = vscode.Uri.file(realLeft);
     const right = vscode.Uri.file(realRight);
     vscode.commands.executeCommand("vscode.diff", left, right);
-  } catch (err: any) {
-    vscode.window.showErrorMessage(`Failed to open diff: ${err.message}`);
+  } catch (err: unknown) {
+    vscode.window.showErrorMessage(`Failed to open diff: ${toErrorMessage(err)}`);
   }
 }
 
@@ -241,8 +242,8 @@ ${exportOverrides}
     // Open in default browser (cross-platform)
     vscode.env.openExternal(vscode.Uri.file(exportPath));
     vscode.window.showInformationMessage(`Exported to ${exportPath}`);
-  } catch (err: any) {
-    ctx.postToWebview(webview, { type: "error", message: `Export failed: ${err.message}` });
+  } catch (err: unknown) {
+    ctx.postToWebview(webview, { type: "error", message: `Export failed: ${toErrorMessage(err)}` });
   }
 }
 
@@ -265,8 +266,8 @@ export function handleSaveTempFile(
     const filePath = path.join(dir, safeName);
     fs.writeFileSync(filePath, Buffer.from(msg.data, "base64"));
     ctx.postToWebview(webview, { type: "temp_file_saved", path: filePath, name: safeName });
-  } catch (err: any) {
-    ctx.postToWebview(webview, { type: "error", message: `Failed to save file: ${err.message}` });
+  } catch (err: unknown) {
+    ctx.postToWebview(webview, { type: "error", message: `Failed to save file: ${toErrorMessage(err)}` });
   }
 }
 

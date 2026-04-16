@@ -409,6 +409,30 @@ describe("AutoProgressPoller", () => {
     poller.dispose();
   });
 
+  it("rebindWebview updates webview reference for subsequent polls", async () => {
+    const webviewA = createMockWebview();
+    const webviewB = createMockWebview();
+    const { poller } = createPoller({ webview: webviewA });
+
+    poller.onAutoModeChanged("auto");
+    await vi.advanceTimersByTimeAsync(0); // initial poll goes to A
+
+    expect(webviewA.postMessage).toHaveBeenCalled();
+    expect(webviewB.postMessage).not.toHaveBeenCalled();
+
+    webviewA.postMessage.mockClear();
+    poller.rebindWebview(webviewB);
+
+    await vi.advanceTimersByTimeAsync(3000); // next poll should go to B
+
+    expect(webviewB.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "auto_progress" }),
+    );
+    expect(webviewA.postMessage).not.toHaveBeenCalled();
+
+    poller.dispose();
+  });
+
   it("resumes polling on auto after paused state", async () => {
     const { poller } = createPoller();
 

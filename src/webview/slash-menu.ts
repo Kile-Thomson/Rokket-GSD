@@ -230,7 +230,12 @@ function render(): void {
       <span class="gsd-slash-name">/${escapeHtml(item.name)}</span>
       <span class="gsd-slash-desc">${escapeHtml(item.description)}</span>
     </div>
-  `).join("");
+  `).join("") + (!state.commandsLoaded ? `
+    <div class="gsd-slash-item disabled" role="option" aria-disabled="true">
+      <span class="gsd-slash-name"><span class="gsd-tool-spinner"></span></span>
+      <span class="gsd-slash-desc">Loading commands\u2026</span>
+    </div>
+  ` : "");
 
   // Link active option to input for screen reader announcement
   if (filteredItems.length > 0 && slashMenuIndex >= 0) {

@@ -135,10 +135,11 @@ function render(): void {
   const levels = getAvailableLevels();
   const currentLevel = state.thinkingLevel || "off";
 
-  let html = `<div class="gsd-thinking-picker-header">
+  const parts: string[] = [];
+  parts.push(`<div class="gsd-thinking-picker-header">
     <span class="gsd-thinking-picker-title" id="thinkingPickerTitle">Thinking Level</span>
     <button class="gsd-thinking-picker-close" id="thinkingPickerClose" aria-label="Close thinking picker">✕</button>
-  </div>`;
+  </div>`);
 
   // Set initial activeIndex to current level
   if (activeIndex < 0) {
@@ -146,7 +147,7 @@ function render(): void {
     if (activeIndex < 0) activeIndex = 0;
   }
 
-  html += `<div class="gsd-thinking-picker-list" role="listbox" aria-labelledby="thinkingPickerTitle">`;
+  parts.push(`<div class="gsd-thinking-picker-list" role="listbox" aria-labelledby="thinkingPickerTitle">`);
 
   for (let i = 0; i < levels.length; i++) {
     const opt = levels[i];
@@ -158,19 +159,22 @@ function render(): void {
       isFocused ? "focused" : "",
     ].filter(Boolean).join(" ");
 
-    html += `<div class="${classes}" role="option" aria-selected="${isCurrent}" tabindex="${isFocused ? "0" : "-1"}" data-level="${opt.level}" data-idx="${i}">
+    parts.push(`<div class="${classes}" role="option" aria-selected="${isCurrent}" tabindex="${isFocused ? "0" : "-1"}" data-level="${opt.level}" data-idx="${i}">
       <div class="gsd-thinking-picker-item-main">
         ${isCurrent ? '<span class="gsd-thinking-picker-dot">●</span>' : '<span class="gsd-thinking-picker-dot-spacer"></span>'}
         <span class="gsd-thinking-picker-label">${escapeHtml(opt.label)}</span>
       </div>
       <span class="gsd-thinking-picker-desc">${escapeHtml(opt.description)}</span>
-    </div>`;
+    </div>`);
   }
 
-  html += `</div>`;
+  parts.push(`</div>`);
 
   pickerEl.classList.remove("gsd-hidden");
-  pickerEl.innerHTML = html;
+  pickerEl.innerHTML = parts.join("");
+  pickerEl.setAttribute("role", "dialog");
+  pickerEl.setAttribute("aria-modal", "true");
+  pickerEl.setAttribute("aria-labelledby", "thinkingPickerTitle");
 
   // Attach focus trap (remove old one first to avoid duplicates on re-render)
   if (focusTrapHandler) {

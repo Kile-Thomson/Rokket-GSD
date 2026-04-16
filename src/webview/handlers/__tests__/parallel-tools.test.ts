@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import { type ToolCallState, type AssistantTurn } from "../state";
+import { type ToolCallState, type AssistantTurn } from "../../state";
 
 /** Create a minimal turn for testing */
 function createTurn(): AssistantTurn {

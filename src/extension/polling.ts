@@ -6,6 +6,7 @@ import type {
 import type { SessionState } from "./session-state";
 import { parseGsdWorkflowState } from "./state-parser";
 import type { StatusBarUpdate } from "./webview-provider";
+import { STATS_POLL_INTERVAL_MS, HEALTH_CHECK_INTERVAL_MS, HEALTH_PING_TIMEOUT_MS, WORKFLOW_POLL_INTERVAL_MS } from "../shared/constants";
 
 // ============================================================
 // Polling — stats, health monitoring, and workflow state
@@ -47,7 +48,7 @@ export function startStatsPolling(ctx: PollingContext, webview: vscode.Webview, 
   };
 
   // Poll every 5 seconds
-  const timer = setInterval(poll, 5000);
+  const timer = setInterval(poll, STATS_POLL_INTERVAL_MS);
   ctx.getSession(sessionId).statsTimer = timer;
 
   // Immediate first poll
@@ -69,7 +70,7 @@ export function startHealthMonitoring(ctx: PollingContext, webview: vscode.Webvi
 
     // Only health-check while streaming — idle processes are just waiting for input
     if (!session.isStreaming) return;
-    const isHealthy = await client.ping(10000);
+    const isHealthy = await client.ping(HEALTH_PING_TIMEOUT_MS);
     const previousState = ctx.getSession(sessionId).healthState || "responsive";
 
     if (!isHealthy && previousState === "responsive") {
@@ -88,7 +89,7 @@ export function startHealthMonitoring(ctx: PollingContext, webview: vscode.Webvi
   };
 
   // Check every 30 seconds
-  const timer = setInterval(check, 30000);
+  const timer = setInterval(check, HEALTH_CHECK_INTERVAL_MS);
   ctx.getSession(sessionId).healthTimer = timer;
 }
 
@@ -111,7 +112,7 @@ export function startWorkflowPolling(ctx: PollingContext, webview: vscode.Webvie
   refreshWorkflowState(ctx, webview, sessionId);
 
   // Poll every 30 seconds
-  const timer = setInterval(() => refreshWorkflowState(ctx, webview, sessionId), 30000);
+  const timer = setInterval(() => refreshWorkflowState(ctx, webview, sessionId), WORKFLOW_POLL_INTERVAL_MS);
   ctx.getSession(sessionId).workflowTimer = timer;
 }
 

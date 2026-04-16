@@ -8,6 +8,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
+import { STALE_WORKER_THRESHOLD_MS } from "../shared/constants";
 
 export interface RawWorkerStatus {
   milestoneId?: string;
@@ -25,7 +26,6 @@ export interface RawWorkerStatus {
 const STATUS_FILE_RE = /^[^(]+\.status\.json$/;
 
 /** Staleness threshold — workers with heartbeat older than this are marked stale */
-const STALE_THRESHOLD_MS = 30_000;
 
 /**
  * Read all parallel worker status files from .gsd/parallel/.
@@ -81,7 +81,7 @@ export async function readParallelWorkers(cwd: string): Promise<Array<{
         completedUnits: typeof data.completedUnits === "number" ? data.completedUnits : 0,
         cost: typeof data.cost === "number" ? data.cost : 0,
         lastHeartbeat,
-        stale: lastHeartbeat > 0 && (now - lastHeartbeat) > STALE_THRESHOLD_MS,
+        stale: lastHeartbeat > 0 && (now - lastHeartbeat) > STALE_WORKER_THRESHOLD_MS,
       };
     } catch {
       return null; // Corrupt/malformed file — skip silently

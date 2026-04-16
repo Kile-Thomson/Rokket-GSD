@@ -29,6 +29,7 @@ coverage/
 tmp/
 nul
 eslint-config-tmp.json
+.claude/
 
 # ── GSD (project management artifacts) ──
 .gsd/
