@@ -143,7 +143,7 @@ export async function handlePrompt(
           if (isSlash) {
             startSlashCommandWatchdog(ctx.watchdogCtx, webview, sessionId, msg.message, imgs);
             armGsdFallbackProbe(ctx.commandFallbackCtx, msg.message.trim(), sessionId, webview);
-            await abortAndPrompt(ctx.watchdogCtx, c, webview, msg.message, msg.images);
+            await abortAndPrompt(ctx.watchdogCtx, c, webview, msg.message, imgs);
             startGsdFallbackTimer(ctx.commandFallbackCtx, msg.message.trim(), sessionId, webview);
             const retryTrimmed = msg.message.trim();
             if (/^\s*\/gsd\s+status\b/i.test(retryTrimmed) ||
@@ -184,7 +184,7 @@ export async function handleSteer(
     ctx.getSession(sessionId).lastUserActionTime = Date.now();
     try {
       if (msg.message.startsWith("/")) {
-        await abortAndPrompt(ctx.watchdogCtx, client, webview, msg.message, msg.images);
+        await abortAndPrompt(ctx.watchdogCtx, client, webview, msg.message, sanitizeImages(msg.images));
       } else {
         const session = ctx.getSession(sessionId);
         const isAutoMode = !!session.autoModeState;

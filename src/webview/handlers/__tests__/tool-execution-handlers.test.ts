@@ -117,6 +117,7 @@ let mockAutoResize: ReturnType<typeof vi.fn>;
 function resetState(): void {
   state.entries = [];
   state.currentTurn = null;
+  state.loadedSkills.clear();
   state.isStreaming = false;
   state.isCompacting = false;
   state.isRetrying = false;

@@ -126,6 +126,8 @@ export function handleSessionShutdown(): void {
   state.isStreaming = false;
   state.isPending = false;
   state.isCompacting = false;
+  state.isRetrying = false;
+  state.retryInfo = undefined;
   state.processStatus = "stopped";
   flushToolEndQueue();
   const timer = getBatchFinalizeTimer();
@@ -138,6 +140,7 @@ export function handleSessionShutdown(): void {
   if (state.currentTurn) {
     renderer.finalizeCurrentTurn();
   }
+  removeSteerNotes();
   addSystemEntry("Session ended", "info");
   deps.updateInputUI();
   deps.updateOverlayIndicators();

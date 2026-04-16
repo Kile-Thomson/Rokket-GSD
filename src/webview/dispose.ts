@@ -23,6 +23,8 @@ export function disposeAll(): void {
   intervals.clear();
   for (const handle of timeouts.values()) clearTimeout(handle);
   timeouts.clear();
-  for (const fn of cleanups.values()) fn();
+  for (const fn of cleanups.values()) {
+    try { fn(); } catch { /* best-effort cleanup — continue to next */ }
+  }
   cleanups.clear();
 }

@@ -13,7 +13,12 @@ export async function sendDashboardData(
   try {
     const data = await buildDashboardData(cwd);
     if (data) {
-      const client = ctx.getSession(sessionId).client;
+      let client;
+      try {
+        client = ctx.getSession(sessionId).client;
+      } catch {
+        client = undefined; // No active session — keep base dashboard data
+      }
       if (client?.isRunning) {
         try {
           const statsResult = await client.getSessionStats() as Record<string, unknown> | null;

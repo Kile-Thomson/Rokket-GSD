@@ -93,6 +93,7 @@ export async function handleGetAvailableModels(
       ctx.postToWebview(webview, { type: "available_models", models: result?.models || [] });
     } catch (err: unknown) {
       ctx.output.appendLine(`[${sessionId}] get_available_models error: ${toErrorMessage(err)}`);
+      ctx.postToWebview(webview, { type: "available_models", models: [] });
     }
   }
 }

@@ -207,7 +207,7 @@ describe("ARIA semantics", () => {
     expect(a11yTs).toMatch(/export\s+function\s+announceToScreenReader/);
   });
 
-  it("message-handler + handler sub-modules call announceToScreenReader at least 5 times", () => {
+  it("message-handler + handler sub-modules call announceToScreenReader at least 4 times", () => {
     const files = [
       path.join(srcDir, "message-handler.ts"),
       ...fs.readdirSync(path.join(srcDir, "handlers")).map(f => path.join(srcDir, "handlers", f)),

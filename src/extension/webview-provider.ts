@@ -452,7 +452,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       const autoPoller = new AutoProgressPoller(
         sessionId, client, webview, () => workingDir, this.output,
         (oldModel, newModel) => {
-          this.postToWebview(webview, { type: "model_routed", oldModel, newModel } as ExtensionToWebviewMessage);
+          const currentWebview = this.getSession(sessionId).webview ?? webview;
+          this.postToWebview(currentWebview, { type: "model_routed", oldModel, newModel } as ExtensionToWebviewMessage);
         },
       );
       this.getSession(sessionId).autoProgressPoller = autoPoller;

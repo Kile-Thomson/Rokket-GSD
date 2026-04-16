@@ -87,12 +87,9 @@ export function handleSessionStats(msg: Msg<'session_stats'>): void {
   const deps = getDeps();
   const data = msg.data;
   if (data) {
-    if (data.autoCompactionEnabled != null) {
-      state.sessionStats.autoCompactionEnabled = data.autoCompactionEnabled;
-    }
-    if (data.contextWindow) {
-      state.sessionStats.contextWindow = data.contextWindow;
-    }
+    // Merge config fields but preserve cost/tokens — those are managed by cost_update
+    const { cost: _c, tokens: _t, ...configFields } = data as Record<string, unknown>;
+    Object.assign(state.sessionStats, configFields);
     deps.updateHeaderUI();
     deps.updateFooterUI();
   }
@@ -332,7 +329,7 @@ export function renderHistoricalMessages(
             } else {
               segments.push({ type: "text", chunks: [block.text as string] });
             }
-          } else if ((block.type === "tool_use" || block.type === "toolCall") && block.name) {
+          } else if ((block.type === "tool_use" || block.type === "toolCall" || block.type === "tool-use") && block.name) {
             const toolId = (block.id as string) || nextId();
             const tc: ToolCallState = {
               id: toolId,

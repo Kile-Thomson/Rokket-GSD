@@ -271,9 +271,9 @@ describe("batches", () => {
       pushEntries(5);
       pruneOldEntries(messagesContainer);
       const newIndicator = messagesContainer.querySelector(".gsd-pruned-indicator");
-      if (newIndicator) {
-        expect(newIndicator.textContent).toContain("5");
-      }
+      // Pruning occurs since prior entries still in DOM push total over MAX_ENTRIES
+      expect(newIndicator).not.toBeNull();
+      expect(newIndicator!.textContent).toContain("5");
     });
   });
 });

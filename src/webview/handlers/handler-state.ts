@@ -22,13 +22,16 @@ export interface HandlerDeps {
   autoResize: () => void;
 }
 
-let _deps: HandlerDeps;
+let _deps: HandlerDeps | null = null;
 
 export function initHandlerDeps(d: HandlerDeps): void {
   _deps = d;
 }
 
 export function getDeps(): HandlerDeps {
+  if (!_deps) {
+    throw new Error("Handler dependencies have not been initialised — call initHandlerDeps() first");
+  }
   return _deps;
 }
 
@@ -221,6 +224,7 @@ export function updateSkillPills(): void {
 // ============================================================
 
 export function addSystemEntry(text: string, kind: "info" | "error" | "warning" = "info"): void {
+  const { messagesContainer } = getDeps();
   const entry: ChatEntry = {
     id: nextId(),
     type: "system",
@@ -229,7 +233,7 @@ export function addSystemEntry(text: string, kind: "info" | "error" | "warning" 
     timestamp: Date.now(),
   };
   state.entries.push(entry);
-  pruneOldEntries(_deps.messagesContainer);
+  pruneOldEntries(messagesContainer);
   renderer.renderNewEntry(entry);
-  scrollToBottom(_deps.messagesContainer);
+  scrollToBottom(messagesContainer);
 }
