@@ -106,7 +106,9 @@ export async function handlePrompt(
             ctx.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
             const cmdResult = await client.getCommands() as RpcCommandsResult;
             ctx.postToWebview(webview, { type: "commands", commands: cmdResult?.commands || [] });
-          } catch { /* ignored */ }
+          } catch (postRestartErr: unknown) {
+            ctx.output.appendLine(`[${sessionId}] Post-restart state/commands fetch failed: ${toErrorMessage(postRestartErr)}`);
+          }
         } else {
           ctx.getSession(sessionId).client = null;
           await ctx.launchGsd(webview, sessionId);
@@ -139,8 +141,8 @@ export async function handlePrompt(
       startGsdFallbackTimer(ctx.commandFallbackCtx, msg.message.trim(), sessionId, webview);
 
       const trimmed = msg.message.trim();
-      if (/^\s*\/gsd\s+status\b/i.test(trimmed) ||
-          (/^\s*\/gsd\s+auto\b/i.test(trimmed) && /\bstatus\b/i.test(trimmed))) {
+      if (/^\/gsd\s+status\b/i.test(trimmed) ||
+          (/^\/gsd\s+auto\b/i.test(trimmed) && /\bstatus\b/i.test(trimmed))) {
         sendDashboardData(ctx, webview, sessionId).catch(() => {});
       }
     } catch (err: unknown) {
@@ -155,8 +157,8 @@ export async function handlePrompt(
             await abortAndPrompt(ctx.watchdogCtx, c, webview, msg.message, imgs);
             startGsdFallbackTimer(ctx.commandFallbackCtx, msg.message.trim(), sessionId, webview);
             const retryTrimmed = msg.message.trim();
-            if (/^\s*\/gsd\s+status\b/i.test(retryTrimmed) ||
-                (/^\s*\/gsd\s+auto\b/i.test(retryTrimmed) && /\bstatus\b/i.test(retryTrimmed))) {
+            if (/^\/gsd\s+status\b/i.test(retryTrimmed) ||
+                (/^\/gsd\s+auto\b/i.test(retryTrimmed) && /\bstatus\b/i.test(retryTrimmed))) {
               sendDashboardData(ctx, webview, sessionId).catch(() => {});
             }
           } else {

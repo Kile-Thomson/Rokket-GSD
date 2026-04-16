@@ -54,8 +54,8 @@ vi.mock("../helpers", () => ({
     }));
     return Object.assign(tokens, { links: {} });
   },
-  parseTokens: (tokens: any[]) =>
-    tokens.map((t: any) => `<p>${t.text || t.raw || ""}</p>`).join("\n"),
+  parseTokens: (tokens: Array<{ text?: string; raw?: string }>) =>
+    tokens.map((t) => `<p>${t.text || t.raw || ""}</p>`).join("\n"),
   scrollToBottom: vi.fn(),
   resetAutoScroll: vi.fn(),
 }));
