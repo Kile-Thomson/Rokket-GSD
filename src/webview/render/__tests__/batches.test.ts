@@ -134,12 +134,15 @@ describe("batches", () => {
       expect(el.classList.contains("streaming")).toBe(false);
     });
 
-    it("cancels pending rAF", () => {
+    it("does not apply deferred updates after finalise", () => {
       startTurn();
       ensureCurrentTurnElement();
       appendToTextSegment("text", "data");
       finalizeCurrentTurn();
+      const entryCountAfterFinalise = state.entries.length;
       vi.advanceTimersByTime(16);
+      expect(state.currentTurn).toBeNull();
+      expect(state.entries.length).toBe(entryCountAfterFinalise);
     });
 
     it("stops running tool calls", () => {

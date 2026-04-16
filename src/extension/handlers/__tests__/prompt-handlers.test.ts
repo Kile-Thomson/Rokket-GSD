@@ -47,11 +47,15 @@ vi.mock("../../command-fallback", () => ({
 const mockReadFile = vi.fn();
 const mockWriteFile = vi.fn();
 const mockMkdir = vi.fn();
+const mockAccess = vi.fn();
+const mockAppendFile = vi.fn();
 vi.mock("node:fs", () => ({
   promises: {
     readFile: (...args: unknown[]) => mockReadFile(...args),
     writeFile: (...args: unknown[]) => mockWriteFile(...args),
     mkdir: (...args: unknown[]) => mockMkdir(...args),
+    access: (...args: unknown[]) => mockAccess(...args),
+    appendFile: (...args: unknown[]) => mockAppendFile(...args),
   },
 }));
 
@@ -203,6 +207,8 @@ describe("prompt-handlers", () => {
     mockReadFile.mockReset();
     mockWriteFile.mockReset().mockResolvedValue(undefined);
     mockMkdir.mockReset().mockResolvedValue(undefined);
+    mockAccess.mockReset().mockResolvedValue(undefined);
+    mockAppendFile.mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -392,7 +398,7 @@ describe("prompt-handlers", () => {
         lastStartOptions: { cwd: "/mock/project" },
       });
       const { ctx, webview } = createMockDispatchContext(session);
-      mockReadFile.mockRejectedValue({ code: "ENOENT" });
+      mockAccess.mockRejectedValue(new Error("ENOENT"));
 
       await handleSteer(ctx, webview, SESSION_ID, {
         type: "steer",
@@ -401,6 +407,11 @@ describe("prompt-handlers", () => {
 
       expect(mockMkdir).toHaveBeenCalled();
       expect(mockWriteFile).toHaveBeenCalledWith(
+        expect.stringContaining("OVERRIDES.md"),
+        expect.stringContaining("GSD Overrides"),
+        "utf-8",
+      );
+      expect(mockAppendFile).toHaveBeenCalledWith(
         expect.stringContaining("OVERRIDES.md"),
         expect.stringContaining("Use Postgres instead of SQLite"),
         "utf-8",
@@ -438,21 +449,17 @@ describe("prompt-handlers", () => {
         lastStartOptions: { cwd: "/mock/project" },
       });
       const { ctx, webview } = createMockDispatchContext(session);
-      mockReadFile.mockResolvedValue("# GSD Overrides\n\n---\n\n## Override: 2026-01-01\n\n**Change:** old\n");
+      mockAccess.mockResolvedValue(undefined);
 
       await handleSteer(ctx, webview, SESSION_ID, {
         type: "steer",
         message: "No in-app messaging",
       } as any);
 
-      expect(mockMkdir).not.toHaveBeenCalled();
-      expect(mockWriteFile).toHaveBeenCalledWith(
+      expect(mockMkdir).toHaveBeenCalled();
+      expect(mockWriteFile).not.toHaveBeenCalled();
+      expect(mockAppendFile).toHaveBeenCalledWith(
         expect.stringContaining("OVERRIDES.md"),
-        expect.stringContaining("old"),
-        "utf-8",
-      );
-      expect(mockWriteFile).toHaveBeenCalledWith(
-        expect.anything(),
         expect.stringContaining("No in-app messaging"),
         "utf-8",
       );
@@ -466,14 +473,14 @@ describe("prompt-handlers", () => {
         lastStartOptions: { cwd: "/mock/project" },
       });
       const { ctx, webview } = createMockDispatchContext(session);
-      mockReadFile.mockRejectedValue(new Error("disk full"));
+      mockAppendFile.mockRejectedValue(new Error("disk full"));
 
       await handleSteer(ctx, webview, SESSION_ID, {
         type: "steer",
         message: "change direction",
       } as any);
 
-      expect(client.steer).toHaveBeenCalled();
+      expect(client.steer).toHaveBeenCalledWith("change direction", undefined);
     });
   });
 

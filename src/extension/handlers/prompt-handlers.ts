@@ -43,6 +43,7 @@ async function appendOverrideFile(cwd: string, change: string): Promise<void> {
   const overridesPath = path.join(gsdDir, "OVERRIDES.md");
   const timestamp = new Date().toISOString();
   const entry = [
+    "",
     `## Override: ${timestamp}`,
     "",
     `**Change:** ${change}`,
@@ -53,25 +54,31 @@ async function appendOverrideFile(cwd: string, change: string): Promise<void> {
     "",
   ].join("\n");
 
+  await fs.promises.mkdir(gsdDir, { recursive: true });
+
   try {
-    const existing = await fs.promises.readFile(overridesPath, "utf-8");
-    await fs.promises.writeFile(overridesPath, existing.trimEnd() + "\n\n" + entry, "utf-8");
-  } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
-      await fs.promises.mkdir(gsdDir, { recursive: true });
-      const header = [
-        "# GSD Overrides",
-        "",
-        "User-issued overrides that supersede plan document content.",
-        "",
-        "---",
-        "",
-      ].join("\n");
-      await fs.promises.writeFile(overridesPath, header + entry, "utf-8");
-    } else {
-      throw err;
-    }
+    await fs.promises.access(overridesPath);
+  } catch {
+    const header = [
+      "# GSD Overrides",
+      "",
+      "User-issued overrides that supersede plan document content.",
+      "",
+      "---",
+    ].join("\n");
+    await fs.promises.writeFile(overridesPath, header, "utf-8");
   }
+
+  await fs.promises.appendFile(overridesPath, entry, "utf-8");
+}
+
+// ── Watchdog cleanup ────────────────────────────────────────────────────
+
+function clearSessionWatchdogs(ctx: MessageDispatchContext, sessionId: string): void {
+  const sess = ctx.getSession(sessionId);
+  if (sess.promptWatchdog) { clearTimeout(sess.promptWatchdog.timer); sess.promptWatchdog = null; }
+  if (sess.slashWatchdog) { clearTimeout(sess.slashWatchdog); sess.slashWatchdog = null; }
+  if (sess.gsdFallbackTimer) { clearTimeout(sess.gsdFallbackTimer); sess.gsdFallbackTimer = null; }
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────
@@ -157,11 +164,13 @@ export async function handlePrompt(
           ctx.postToWebview(webview, { type: "error", message: toErrorMessage(steerErr) });
         }
       } else if (err instanceof Error && err.message.includes("process exited")) {
+        clearSessionWatchdogs(ctx, sessionId);
         ctx.postToWebview(webview, {
           type: "error",
           message: "GSD process exited unexpectedly. Try sending your message again to auto-restart.",
         });
       } else {
+        clearSessionWatchdogs(ctx, sessionId);
         ctx.postToWebview(webview, { type: "error", message: toErrorMessage(err) });
       }
     }
@@ -188,9 +197,11 @@ export async function handleSteer(
       } else {
         const session = ctx.getSession(sessionId);
         const isAutoMode = !!session.autoModeState;
+        let overridePersisted = false;
         if (isAutoMode && session.lastStartOptions?.cwd) {
           try {
             await appendOverrideFile(session.lastStartOptions.cwd, msg.message);
+            overridePersisted = true;
             ctx.output.appendLine(`[${sessionId}] Auto-mode steer persisted to OVERRIDES.md`);
             ctx.postToWebview(webview, { type: "steer_persisted" } as ExtensionToWebviewMessage);
           } catch (overrideErr: unknown) {
@@ -198,7 +209,7 @@ export async function handleSteer(
           }
         }
 
-        const steerMessage = isAutoMode
+        const steerMessage = overridePersisted
           ? [
               "USER OVERRIDE — This instruction has been saved to `.gsd/OVERRIDES.md` and applies to all future tasks.",
               "",
@@ -247,19 +258,18 @@ export async function handleInterrupt(
   if (client) {
     try {
       await client.abort();
-      const sess = ctx.getSession(sessionId);
-      if (sess.promptWatchdog) { clearTimeout(sess.promptWatchdog.timer); sess.promptWatchdog = null; }
-      if (sess.slashWatchdog) { clearTimeout(sess.slashWatchdog); sess.slashWatchdog = null; }
-      if (sess.gsdFallbackTimer) { clearTimeout(sess.gsdFallbackTimer); sess.gsdFallbackTimer = null; }
     } catch (err: unknown) {
       ctx.output.appendLine(`[${sessionId}] Interrupt/abort failed: ${toErrorMessage(err)}`);
-      ctx.getSession(sessionId).isStreaming = false;
+      const sess = ctx.getSession(sessionId);
+      sess.isStreaming = false;
       stopActivityMonitor(ctx.watchdogCtx, sessionId);
       ctx.emitStatus({ isStreaming: false });
-      const wv = ctx.getSession(sessionId).webview;
+      const wv = sess.webview;
       if (wv) {
         ctx.postToWebview(wv, { type: "agent_end", messages: [] } as ExtensionToWebviewMessage);
       }
+    } finally {
+      clearSessionWatchdogs(ctx, sessionId);
     }
   }
 }

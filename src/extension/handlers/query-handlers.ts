@@ -65,17 +65,21 @@ export async function handleGetCommands(
     }
   } else {
     ctx.output.appendLine(`[${sessionId}] get_commands: client not running, will retry in 2s`);
-    setTimeout(async () => {
-      const retryClient = ctx.getSession(sessionId).client;
-      if (retryClient?.isRunning) {
+    setTimeout(() => {
+      void (async () => {
         try {
+          const retryClient = ctx.getSession(sessionId).client;
+          if (!retryClient?.isRunning) {
+            ctx.postToWebview(webview, { type: "commands", commands: [] });
+            return;
+          }
           const result = await retryClient.getCommands() as RpcCommandsResult;
           ctx.postToWebview(webview, { type: "commands", commands: result?.commands || [] });
         } catch (err: unknown) {
           ctx.output.appendLine(`[${sessionId}] get_commands retry error: ${toErrorMessage(err)}`);
           ctx.postToWebview(webview, { type: "commands", commands: [] });
         }
-      }
+      })();
     }, 2000);
   }
 }
@@ -95,6 +99,9 @@ export async function handleGetAvailableModels(
       ctx.output.appendLine(`[${sessionId}] get_available_models error: ${toErrorMessage(err)}`);
       ctx.postToWebview(webview, { type: "available_models", models: [] });
     }
+  } else {
+    ctx.output.appendLine(`[${sessionId}] get_available_models: client not running`);
+    ctx.postToWebview(webview, { type: "available_models", models: [] });
   }
 }
 
