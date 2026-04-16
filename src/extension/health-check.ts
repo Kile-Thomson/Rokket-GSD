@@ -3,6 +3,8 @@ import { execSync, execFileSync } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
+import { toErrorMessage } from "../shared/errors";
+import { EXEC_TIMEOUT_MS, MIN_NODE_MAJOR_VERSION } from "../shared/constants";
 
 // ============================================================
 // Startup Health Check — validates the full environment
@@ -60,7 +62,7 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
   try {
     result.nodeVersion = execSync("node --version", {
       encoding: "utf8",
-      timeout: 5000,
+      timeout: EXEC_TIMEOUT_MS,
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
     }).trim();
@@ -68,7 +70,7 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
 
     // Check minimum version (Node 18+)
     const major = parseInt(result.nodeVersion.replace(/^v/, "").split(".")[0], 10);
-    if (major < 18) {
+    if (major < MIN_NODE_MAJOR_VERSION) {
       result.issues.push({
         severity: "error",
         message: `Node.js ${result.nodeVersion} is too old. GSD requires Node.js 18+.`,
@@ -93,7 +95,7 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
     const whichBin = process.platform === "win32" ? "where" : "which";
     const gsdPath = execFileSync(whichBin, [gsdCommand], {
       encoding: "utf8",
-      timeout: 5000,
+      timeout: EXEC_TIMEOUT_MS,
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
     }).trim().split(/\r?\n/)[0];
@@ -164,10 +166,10 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
         fix: "Run 'gsd' in a terminal once to set up authentication.",
       });
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     result.issues.push({
       severity: "warning",
-      message: `Could not read auth config: ${err.message}`,
+      message: `Could not read auth config: ${toErrorMessage(err)}`,
     });
   }
 

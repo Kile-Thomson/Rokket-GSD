@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { toErrorMessage } from "../shared/errors";
 import { GsdWebviewProvider } from "./webview-provider";
 import { startUpdateChecker } from "./update-checker";
 import { runHealthCheck } from "./health-check";
@@ -59,8 +60,8 @@ async function installBundledExtensions(context: vscode.ExtensionContext, output
         }
         output.appendLine(`[bundled-ext] Installed ${extName} to ${target}`);
       }
-    } catch (err: any) {
-      output.appendLine(`[bundled-ext] Failed to install ${extName}: ${err.message}`);
+    } catch (err: unknown) {
+      output.appendLine(`[bundled-ext] Failed to install ${extName}: ${toErrorMessage(err)}`);
     }
   }
 }

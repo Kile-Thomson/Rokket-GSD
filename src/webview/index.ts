@@ -6,6 +6,7 @@
 import type {
   WebviewToExtensionMessage,
 } from "../shared/types";
+import { throttleRAF, debounce } from "./perf-utils";
 // CSS modules — import order replicates the original cascade
 import "./styles/tokens.css";
 import "./styles/base.css";
@@ -37,6 +38,11 @@ import {
   isAutoScrollSuppressed,
 } from "./helpers";
 
+import { registerInterval, disposeAll } from "./dispose";
+import { announceToScreenReader } from "./a11y";
+import { shouldDebounce } from "./send-debounce";
+import { initPersistAttachments, rehydrateAttachments, persistAttachments } from "./persist-attachments";
+
 import * as slashMenu from "./slash-menu";
 import * as modelPicker from "./model-picker";
 import * as thinkingPicker from "./thinking-picker";
@@ -60,6 +66,8 @@ declare function acquireVsCodeApi(): {
 };
 
 const vscode = acquireVsCodeApi();
+
+initPersistAttachments(vscode);
 
 // ============================================================
 // DOM Setup
@@ -173,7 +181,7 @@ root.innerHTML = `
     <div id="srAnnouncer" role="status" aria-live="polite" class="sr-only"></div>
     <button class="gsd-scroll-fab" id="scrollFab" title="Scroll to bottom" aria-label="Scroll to bottom">↓</button>
 
-    <div class="gsd-toast-container" id="toastContainer"></div>
+    <div class="gsd-toast-container" id="toastContainer" role="status" aria-live="polite"></div>
     <div class="gsd-slash-menu gsd-hidden" id="slashMenu"></div>
     <div class="gsd-model-picker gsd-hidden" id="modelPicker"></div>
     <div class="gsd-thinking-picker gsd-hidden" id="thinkingPicker"></div>
@@ -290,12 +298,6 @@ const footerRight = document.getElementById("footerRight")!;
 
 let manualMinHeight = 0;
 
-function announceToScreenReader(text: string): void {
-  const el = document.getElementById("srAnnouncer");
-  if (!el) return;
-  el.textContent = "";
-  requestAnimationFrame(() => { el.textContent = text; });
-}
 
 function autoResize(): void {
   // Reset manual min height when input is empty (after send)
@@ -305,7 +307,7 @@ function autoResize(): void {
   const minH = Math.max(manualMinHeight, 36);
   promptInput.style.height = Math.min(Math.max(contentHeight, minH), 400) + "px";
 }
-promptInput.addEventListener("input", autoResize);
+promptInput.addEventListener("input", throttleRAF(autoResize));
 
 // ============================================================
 // Drag-to-resize input
@@ -377,7 +379,7 @@ function refreshTimestamps(): void {
 }
 
 // Refresh timestamps every 30s
-setInterval(refreshTimestamps, 30_000);
+registerInterval("timestamp-refresh", setInterval(refreshTimestamps, 30_000));
 
 // ============================================================
 // Welcome quick actions
@@ -407,7 +409,7 @@ welcomeActions.addEventListener("click", (e: Event) => {
 // Slash command menu — input listener
 // ============================================================
 
-promptInput.addEventListener("input", () => {
+promptInput.addEventListener("input", debounce(() => {
   const val = promptInput.value;
   if (val.startsWith("/") && !val.includes("\n")) {
     const filter = val.slice(1).trim();
@@ -415,7 +417,7 @@ promptInput.addEventListener("input", () => {
   } else {
     slashMenu.hide();
   }
-});
+}, 100));
 
 
 
@@ -426,6 +428,9 @@ promptInput.addEventListener("input", () => {
 function sendMessage(): void {
   slashMenu.hide();
   modelPicker.hide();
+
+  // Debounce rapid double-clicks (skip guard during streaming — steer path must stay responsive)
+  if (!state.isStreaming && shouldDebounce()) return;
 
   // Block sending during compaction
   if (state.isCompacting) return;
@@ -526,6 +531,7 @@ function sendMessage(): void {
 
     promptInput.value = "";
     state.images = [];
+    persistAttachments();
     fileHandling.renderImagePreviews();
     autoResize();
     return;
@@ -545,9 +551,14 @@ function sendMessage(): void {
     welcomeScreen.classList.add('gsd-hidden');
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
     scrollToBottom(messagesContainer, true);
-    // Show thinking dots immediately — before agent_start fires — so the
-    // user sees feedback the instant they send rather than a dead gap.
+    // Show thinking dots immediately so the user sees feedback on send.
+    // isPending shows dots + logo glow but keeps the send button as-is.
+    // The button only flips to stop when the backend confirms activity
+    // (agent_start, streaming content, auto_progress, etc.), preserving
+    // the button as a canary for broken connections.
     renderer.showPendingDots();
+    state.isPending = true;
+    updateInputUI();
   }
 
   const fullMessage = filePrefix + text;
@@ -562,6 +573,7 @@ function sendMessage(): void {
   promptInput.value = "";
   state.images = [];
   state.files = [];
+  persistAttachments();
   fileHandling.renderImagePreviews();
   fileHandling.renderFileChips();
   autoResize();
@@ -656,7 +668,6 @@ messageHandler.init({
   updateWorkflowBadge,
   handleModelRouted,
   autoResize,
-  announceToScreenReader,
 });
 
 slashMenu.init({
@@ -733,6 +744,7 @@ sessionHistory.init({
     updateAllUI();
   },
   onNewConversation: keyboard.handleNewConversation,
+  hasDraft: () => !!(promptInput.value.trim() || state.images.length > 0 || state.files.length > 0),
 });
 
 uiDialogs.init({
@@ -752,7 +764,13 @@ renderer.init({
 // Initialize
 // ============================================================
 
+const restored = rehydrateAttachments();
+if (restored.hadImages) fileHandling.renderImagePreviews();
+if (restored.hadFiles) fileHandling.renderFileChips();
+
 vscode.postMessage({ type: "ready" });
 vscode.postMessage({ type: "launch_gsd" });
 promptInput.focus();
 updateAllUI();
+
+window.addEventListener("beforeunload", disposeAll);

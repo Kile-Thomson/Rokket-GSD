@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { WebviewToExtensionMessage } from "../shared/types";
+import { CSS_ANIMATION_SETTLE_MS, COPY_BUTTON_RESET_MS } from "../shared/constants";
 import { scrollToBottom, sanitizeUrl } from "./helpers";
 import { state } from "./state";
 import { createFocusTrap, saveFocus, restoreFocus } from "./a11y";
@@ -81,7 +82,7 @@ export function dismissChangelog(opts?: { silent?: boolean }): void {
     el.remove();
   } else {
     el.classList.add("dismissing");
-    setTimeout(() => el.remove(), 300);
+    setTimeout(() => el.remove(), CSS_ANIMATION_SETTLE_MS);
     restoreFocus(changelogTriggerEl);
     changelogTriggerEl = null;
   }
@@ -174,7 +175,7 @@ function setupKeyboardHandlers(): void {
         if (!state.isCompacting) sendMessage();
       }
     }
-    if (e.key === "Escape" && state.isStreaming) {
+    if (e.key === "Escape" && (state.isStreaming || state.isPending)) {
       vscode.postMessage({ type: "interrupt" });
     }
   });
@@ -252,6 +253,9 @@ function setupClickHandlers(): void {
       loader.id = "gsd-changelog";
       loader.className = "gsd-changelog";
       loader.setAttribute("tabindex", "-1");
+      loader.setAttribute("role", "dialog");
+      loader.setAttribute("aria-modal", "true");
+      loader.setAttribute("aria-label", "Changelog");
       loader.innerHTML = `
         <div class="gsd-changelog-header">
           <span class="gsd-changelog-title">📋 Changelog</span>
@@ -300,7 +304,7 @@ function setupClickHandlers(): void {
       const code = codeBlock?.querySelector("code")?.textContent || "";
       vscode.postMessage({ type: "copy_text", text: code });
       copyBtn.textContent = "✓ Copied";
-      setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
+      setTimeout(() => { copyBtn.textContent = "Copy"; }, COPY_BUTTON_RESET_MS);
       return;
     }
 
@@ -532,6 +536,11 @@ function setupButtonHandlers(): void {
 }
 
 export function handleNewConversation(): void {
+  const hasDraftContent = promptInput.value.trim() || state.images.length > 0 || state.files.length > 0;
+  if (hasDraftContent) {
+    const confirmed = confirm('You have an unsent draft. Start a new conversation and discard it?');
+    if (!confirmed) return;
+  }
   vscode.postMessage({ type: "new_conversation" });
   state.entries = [];
   state.currentTurn = null;

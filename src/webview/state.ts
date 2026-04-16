@@ -12,6 +12,7 @@ import type {
   AutoProgressData,
   ThinkingLevel,
 } from "../shared/types";
+import { MAX_ENTRIES as MAX_ENTRIES_CONST } from "../shared/constants";
 
 // ============================================================
 // Types
@@ -29,7 +30,7 @@ export interface ToolCallState {
   startTime: number;
   endTime?: number;
   /** Structured details from tool (e.g. subagent per-agent results) */
-  details?: any;
+  details?: Record<string, unknown>;
   /** True when this tool executed concurrently with other tools */
   isParallel?: boolean;
 }
@@ -82,6 +83,7 @@ export interface AvailableModel {
 export interface AppState {
   entries: ChatEntry[];
   isStreaming: boolean;
+  isPending: boolean;
   isCompacting: boolean;
   isRetrying: boolean;
   retryInfo?: { attempt: number; maxAttempts: number; errorMessage: string };
@@ -125,7 +127,7 @@ export type ToolCategory = "file" | "shell" | "browser" | "search" | "agent" | "
 // Entry cap — maximum number of entries kept in state/DOM
 // ============================================================
 
-export const MAX_ENTRIES = 300;
+export const MAX_ENTRIES = MAX_ENTRIES_CONST;
 
 /** Running total of entries pruned during this session (for the indicator) */
 let totalPrunedCount = 0;
@@ -180,6 +182,7 @@ export function resetPrunedCount(): void {
 export const state: AppState = {
   entries: [],
   isStreaming: false,
+  isPending: false,
   isCompacting: false,
   isRetrying: false,
   model: null,
@@ -226,6 +229,7 @@ export function nextId(): string {
 export function resetState(): void {
   state.entries = [];
   state.isStreaming = false;
+  state.isPending = false;
   state.isCompacting = false;
   state.isRetrying = false;
   state.retryInfo = undefined;

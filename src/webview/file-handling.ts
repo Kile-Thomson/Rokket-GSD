@@ -4,6 +4,8 @@
 
 import { escapeHtml } from "./helpers";
 import { state } from "./state";
+import { persistAttachments } from "./persist-attachments";
+import { MAX_IMAGE_DIMENSION } from "../shared/constants";
 
 // ============================================================
 // Dependencies — set via init()
@@ -95,8 +97,6 @@ export function init(deps: FileHandlingDeps): void {
 // Image resizing — Anthropic API rejects images > 2000px
 // ============================================================
 
-const MAX_IMAGE_DIMENSION = 1568; // Anthropic recommended max for best quality/token balance
-
 /**
  * Downscale an image if either dimension exceeds MAX_IMAGE_DIMENSION.
  * Returns the (possibly resized) base64 data and mime type.
@@ -155,6 +155,7 @@ export function handleFiles(files: FileList | File[]): void {
           console.debug(`[gsd:files] Resize done, base64 length: ${base64.length}, mime: ${mimeType}`);
           state.images.push({ type: "image", data: base64, mimeType });
           console.debug(`[gsd:files] state.images count: ${state.images.length}`);
+          persistAttachments();
           renderImagePreviews();
         });
       };
@@ -216,6 +217,7 @@ export function addFileAttachments(paths: string[], autoSend = false): void {
       state.files.push({ type: "file", path: p, name, extension });
     }
   }
+  persistAttachments();
   renderFileChips();
 
   // Check read access
@@ -273,6 +275,7 @@ export function renderFileChips(): void {
       e.stopPropagation();
       const idx = parseInt((btn as HTMLElement).dataset.idx!);
       state.files.splice(idx, 1);
+      persistAttachments();
       renderFileChips();
     });
   });
@@ -297,6 +300,7 @@ export function renderImagePreviews(): void {
       e.stopPropagation();
       const idx = parseInt((btn as HTMLElement).dataset.idx!);
       state.images.splice(idx, 1);
+      persistAttachments();
       renderImagePreviews();
     });
   });

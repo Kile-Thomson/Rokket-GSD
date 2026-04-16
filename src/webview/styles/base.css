@@ -22,7 +22,7 @@ html, body {
   height: 100%;
   overflow: hidden;
   font-family: var(--gsd-font-family);
-  font-size: var(--vscode-font-size, 13px);
+  font-size: var(--gsd-font-size-base);
   color: var(--gsd-color-text);
   background: var(--gsd-color-bg);
   line-height: var(--gsd-line-height);

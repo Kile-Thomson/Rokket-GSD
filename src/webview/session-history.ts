@@ -5,6 +5,7 @@
 import type { SessionListItem } from "../shared/types";
 import { escapeHtml } from "./helpers";
 import { createFocusTrap, saveFocus, restoreFocus } from "./a11y";
+import { debounce } from "./perf-utils";
 
 // ============================================================
 // Module state
@@ -28,6 +29,7 @@ let panelEl: HTMLElement;
 let vscode: { postMessage(msg: unknown): void };
 let _onSessionSwitched: () => void;
 let onNewConversation: () => void;
+let hasDraft: () => boolean;
 
 // ============================================================
 // Public API
@@ -174,6 +176,10 @@ function getFilteredSessions(): SessionListItem[] {
 // ============================================================
 
 function selectSession(sessionPath: string, sessionId: string): void {
+  if (hasDraft()) {
+    const confirmed = confirm('You have an unsent draft. Switch sessions and discard it?');
+    if (!confirmed) return;
+  }
   // Mark switching state
   const item = panelEl.querySelector(`[data-session-id="${escapeAttr(sessionId)}"]`);
   item?.classList.add("switching");
@@ -227,7 +233,8 @@ function render(): void {
 
   if (loading) {
     panelEl.classList.remove('gsd-hidden');
-    panelEl.setAttribute("role", "complementary");
+    panelEl.setAttribute("role", "dialog");
+    panelEl.setAttribute("aria-modal", "true");
     panelEl.setAttribute("aria-label", "Session history");
     panelEl.innerHTML = `
       <div class="gsd-session-history-header">
@@ -243,7 +250,8 @@ function render(): void {
   }
 
   panelEl.classList.remove('gsd-hidden');
-  panelEl.setAttribute("role", "complementary");
+  panelEl.setAttribute("role", "dialog");
+  panelEl.setAttribute("aria-modal", "true");
   panelEl.setAttribute("aria-label", "Session history");
 
   let html = `
@@ -280,11 +288,11 @@ function render(): void {
   // Wire search input
   const searchInput = panelEl.querySelector("#sessionSearchInput") as HTMLInputElement | null;
   if (searchInput) {
-    searchInput.addEventListener("input", () => {
+    searchInput.addEventListener("input", debounce(() => {
       searchText = searchInput.value;
       highlightIndex = 0;
       renderList();
-    });
+    }, 150));
 
     // Keyboard navigation from search input
     searchInput.addEventListener("keydown", (e: KeyboardEvent) => {
@@ -314,7 +322,7 @@ function renderList(): void {
     return;
   }
 
-  let html = "";
+  const parts: string[] = [];
 
   for (let i = 0; i < filtered.length; i++) {
     const s = filtered[i];
@@ -331,39 +339,39 @@ function renderList(): void {
       isHighlighted ? "highlighted" : "",
     ].filter(Boolean).join(" ");
 
-    html += `<div class="${classes}"
+    parts.push(`<div class="${classes}"
                  data-session-path="${escapeAttr(s.path)}"
                  data-session-id="${escapeAttr(s.id)}"
-                 data-index="${i}">`;
+                 data-index="${i}">`);
 
-    html += `<div class="gsd-session-history-item-main">`;
-    if (isCurrent) html += '<span class="gsd-session-current-dot">●</span>';
+    parts.push(`<div class="gsd-session-history-item-main">`);
+    if (isCurrent) parts.push('<span class="gsd-session-current-dot">●</span>');
 
     if (isRenaming) {
       const currentName = s.name || "";
-      html += `<input type="text" class="gsd-session-rename-input" value="${escapeAttr(currentName)}"
-                      placeholder="Session name…" />`;
+      parts.push(`<input type="text" class="gsd-session-rename-input" value="${escapeAttr(currentName)}"
+                      placeholder="Session name…" />`);
     } else {
-      html += `<span class="gsd-session-history-preview">${escapeHtml(displayName)}</span>`;
+      parts.push(`<span class="gsd-session-history-preview">${escapeHtml(displayName)}</span>`);
     }
-    html += `</div>`;
+    parts.push(`</div>`);
 
-    html += `<div class="gsd-session-history-item-meta">`;
-    html += `<span class="gsd-session-history-time">${escapeHtml(timeAgo)}</span>`;
-    html += `<span class="gsd-session-history-count">${msgCount} msg${msgCount !== 1 ? "s" : ""}</span>`;
+    parts.push(`<div class="gsd-session-history-item-meta">`);
+    parts.push(`<span class="gsd-session-history-time">${escapeHtml(timeAgo)}</span>`);
+    parts.push(`<span class="gsd-session-history-count">${msgCount} msg${msgCount !== 1 ? "s" : ""}</span>`);
 
     // Action buttons (show on hover via CSS)
     if (isCurrent && !isRenaming) {
-      html += `<button class="gsd-session-action-btn rename-btn" title="Rename session" data-action="rename" data-session-id="${escapeAttr(s.id)}">✎</button>`;
+      parts.push(`<button class="gsd-session-action-btn rename-btn" title="Rename session" data-action="rename" data-session-id="${escapeAttr(s.id)}">✎</button>`);
     }
-    html += `<button class="gsd-session-action-btn delete-btn" title="Delete session" data-action="delete"
+    parts.push(`<button class="gsd-session-action-btn delete-btn" title="Delete session" data-action="delete"
                      data-session-path="${escapeAttr(s.path)}" data-display-name="${escapeAttr(displayName)}"
-                     data-is-current="${isCurrent ? "true" : "false"}">🗑</button>`;
+                     data-is-current="${isCurrent ? "true" : "false"}">🗑</button>`);
 
-    html += `</div></div>`;
+    parts.push(`</div></div>`);
   }
 
-  listEl.innerHTML = html;
+  listEl.innerHTML = parts.join("");
 
   // Wire event handlers
   listEl.querySelectorAll(".gsd-session-history-item").forEach((el) => {
@@ -493,6 +501,7 @@ export interface SessionHistoryDeps {
   vscode: { postMessage(msg: unknown): void };
   _onSessionSwitched: () => void;
   onNewConversation: () => void;
+  hasDraft: () => boolean;
 }
 
 export function init(deps: SessionHistoryDeps): void {
@@ -500,6 +509,7 @@ export function init(deps: SessionHistoryDeps): void {
   vscode = deps.vscode;
   _onSessionSwitched = deps._onSessionSwitched;
   onNewConversation = deps.onNewConversation;
+  hasDraft = deps.hasDraft;
 
   // Wire up click handler
   deps.historyBtn.addEventListener("click", toggle);
@@ -517,4 +527,9 @@ export function init(deps: SessionHistoryDeps): void {
       }
     }
   });
+}
+
+/** @internal — exported for testing */
+export function _testSelectSession(sessionPath: string, sessionId: string): void {
+  selectSession(sessionPath, sessionId);
 }

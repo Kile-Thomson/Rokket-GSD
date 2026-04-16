@@ -164,6 +164,67 @@ describe("Session history ARIA", () => {
 });
 
 // ============================================================
+// ARIA semantics — regression tests (T03, M024/S02)
+// ============================================================
+
+describe("ARIA semantics", () => {
+  const srcDir = path.resolve(__dirname, "..");
+
+  it("toast container has role=status and aria-live=polite", () => {
+    const indexTs = fs.readFileSync(path.join(srcDir, "index.ts"), "utf-8");
+    expect(indexTs).toContain('id="toastContainer"');
+    expect(indexTs).toMatch(/toastContainer.*role="status"/s);
+    expect(indexTs).toMatch(/toastContainer.*aria-live="polite"/s);
+  });
+
+  it("conversation entries get role=listitem via renderer", () => {
+    const rendererTs = fs.readFileSync(path.join(srcDir, "render", "html-builders.ts"), "utf-8");
+    expect(rendererTs).toContain('setAttribute("role", "listitem")');
+  });
+
+  it("visualizer has tablist and tabpanel roles", () => {
+    const vizTs = fs.readFileSync(path.join(srcDir, "visualizer.ts"), "utf-8");
+    expect(vizTs).toContain('role="tablist"');
+    expect(vizTs).toContain('role="tabpanel"');
+  });
+
+  it("overlay panels have role=dialog and aria-modal=true", () => {
+    const overlayFiles = [
+      "model-picker.ts",
+      "thinking-picker.ts",
+      "keyboard.ts",
+      "session-history.ts",
+    ];
+    for (const file of overlayFiles) {
+      const content = fs.readFileSync(path.join(srcDir, file), "utf-8");
+      expect(content).toContain('role", "dialog"');
+      expect(content).toContain('aria-modal", "true"');
+    }
+  });
+
+  it("announceToScreenReader is exported from a11y.ts", () => {
+    const a11yTs = fs.readFileSync(path.join(srcDir, "a11y.ts"), "utf-8");
+    expect(a11yTs).toMatch(/export\s+function\s+announceToScreenReader/);
+  });
+
+  it("message-handler + handler sub-modules call announceToScreenReader at least 4 times", () => {
+    const files = [
+      path.join(srcDir, "message-handler.ts"),
+      ...fs.readdirSync(path.join(srcDir, "handlers")).map(f => path.join(srcDir, "handlers", f)),
+    ];
+    let totalCalls = 0;
+    for (const file of files) {
+      if (!file.endsWith(".ts")) continue;
+      const content = fs.readFileSync(file, "utf-8");
+      const calls = content.match(/announceToScreenReader\(/g) || [];
+      const importCount = content.match(/import.*announceToScreenReader/g)?.length || 0;
+      totalCalls += calls.length - importCount;
+    }
+    expect(totalCalls).toBeGreaterThanOrEqual(4);
+  });
+});
+
+// ============================================================
 // Focus trap helper test
 // ============================================================
 
@@ -591,5 +652,104 @@ describe("R015: prefers-reduced-motion covers all @keyframes", () => {
     );
     expect(reducedMotionBlock).toBeTruthy();
     expect(reducedMotionBlock![1]).toContain("transition-duration");
+  });
+});
+
+// ============================================================
+// Focus-visible coverage — regression tests (T02, M024/S01)
+// ============================================================
+
+describe("Focus-visible coverage", () => {
+  const stylesDir = path.resolve(__dirname, "..", "styles");
+
+  function readAllCss(): { file: string; content: string }[] {
+    const results: { file: string; content: string }[] = [];
+    const entries = fs.readdirSync(stylesDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith(".css")) {
+        results.push({
+          file: entry.name,
+          content: fs.readFileSync(path.join(stylesDir, entry.name), "utf-8"),
+        });
+      }
+    }
+    return results;
+  }
+
+  function extractHoverSelectors(cssFiles: { file: string; content: string }[]): string[] {
+    const hoverRegex = /([^{}\n]+):hover(?:\s*[,{])/g;
+    const selectors: string[] = [];
+    for (const { content } of cssFiles) {
+      let match: RegExpExecArray | null;
+      while ((match = hoverRegex.exec(content)) !== null) {
+        selectors.push(match[1].trim() + ":hover");
+      }
+    }
+    return selectors;
+  }
+
+  function extractBaseClass(selector: string): string {
+    const withoutHover = selector.replace(/:hover$/, "");
+    const classMatch = withoutHover.match(/(\.\w[\w-]*)/);
+    return classMatch ? classMatch[1] : withoutHover;
+  }
+
+  const excludePatterns = [
+    "scrollbar",
+    "::before",
+    "::after",
+    "tr:hover",
+    ".gsd-entry:hover",
+    ".gsd-entry-assistant:hover",
+    ".gsd-session-history-item:hover .gsd-session-action-btn",
+    ".gsd-image-thumb:hover",
+    ".gsd-resize-handle",
+    ".gsd-model-picker-item:hover",
+    ".gsd-thinking-picker-item:hover",
+    ".gsd-session-history-item:hover",
+    ".gsd-slash-item.disabled:hover",
+    ".gsd-thinking-badge.disabled:hover",
+    ".gsd-assistant-text a:hover",
+    ".gsd-link:hover",
+  ];
+
+  function shouldExclude(selector: string): boolean {
+    return excludePatterns.some((pat) => selector.includes(pat));
+  }
+
+  it("every interactive :hover selector has a matching :focus-visible rule", () => {
+    const cssFiles = readAllCss();
+    const hoverSelectors = extractHoverSelectors(cssFiles);
+    const allCss = cssFiles.map((f) => f.content).join("\n");
+
+    const missing: string[] = [];
+    for (const hoverSel of hoverSelectors) {
+      if (shouldExclude(hoverSel)) continue;
+      const full = hoverSel.replace(/:hover$/, "");
+      const base = extractBaseClass(hoverSel);
+      const hasFocusVisible = (sel: string) => {
+        if (allCss.includes(sel + ":focus-visible")) return true;
+        const escaped = sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const attrPattern = new RegExp(escaped + "\\[.*?\\]:focus-visible");
+        return attrPattern.test(allCss);
+      };
+      if (!hasFocusVisible(full) && !hasFocusVisible(base)) {
+        missing.push(hoverSel);
+      }
+    }
+
+    expect(missing).toEqual([]);
+  });
+
+  it("consolidated focus-visible block in misc.css has at least 42 selectors", () => {
+    const miscCss = fs.readFileSync(path.join(stylesDir, "misc.css"), "utf-8");
+    const fvMatches = miscCss.match(/:focus-visible/g) || [];
+    expect(fvMatches.length).toBeGreaterThanOrEqual(42);
+  });
+
+  it("consolidated :active block in misc.css has at least 20 selectors", () => {
+    const miscCss = fs.readFileSync(path.join(stylesDir, "misc.css"), "utf-8");
+    const activeMatches = miscCss.match(/:active/g) || [];
+    expect(activeMatches.length).toBeGreaterThanOrEqual(20);
   });
 });

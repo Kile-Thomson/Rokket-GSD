@@ -10,6 +10,8 @@ import * as path from "path";
 import type { GsdRpcClient } from "./rpc-client";
 import type { SessionState } from "./session-state";
 import type { ExtensionToWebviewMessage } from "../shared/types";
+import { toErrorMessage } from "../shared/errors";
+import { COMMAND_FALLBACK_DELAY_MS } from "../shared/constants";
 
 // ── Regexes ─────────────────────────────────────────────────────────────
 
@@ -82,7 +84,7 @@ export function startGsdFallbackTimer(
       ctx.output.appendLine(`[${sessionId}] /gsd command produced no agent turn — applying workaround`);
       await handleGsdAutoFallback(ctx, client, webview, sessionId, message);
     }
-  }, 500);
+  }, COMMAND_FALLBACK_DELAY_MS);
   ctx.getSession(sessionId).gsdFallbackTimer = fallbackTimer;
 }
 
@@ -396,8 +398,8 @@ export async function handleGsdAutoFallback(
     // Send as a regular prompt — this bypasses the extension command system
     // and goes straight to the LLM, which CAN work in RPC mode
     await client.prompt(fallbackPrompt);
-  } catch (err: any) {
-    ctx.output.appendLine(`[${sessionId}] GSD auto fallback failed: ${err.message}`);
+  } catch (err: unknown) {
+    ctx.output.appendLine(`[${sessionId}] GSD auto fallback failed: ${toErrorMessage(err)}`);
     ctx.postToWebview(webview, {
       type: "error",
       message: `The /gsd command couldn't complete. Try sending a plain text message describing what you want to do instead.`,

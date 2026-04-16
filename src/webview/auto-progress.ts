@@ -8,6 +8,7 @@
 
 import { state } from "./state";
 import { escapeHtml } from "./helpers";
+import { registerInterval, registerCleanup } from "./dispose";
 import type { AutoProgressData, WorkerProgress } from "../shared/types";
 
 // ============================================================
@@ -69,6 +70,8 @@ export function init(): void {
       }
     }
   }, 5_000);
+  registerInterval("auto-progress-stale", staleGuardTimer);
+  registerCleanup("auto-progress", dispose);
 }
 
 /**
@@ -139,6 +142,7 @@ function render(): void {
     elapsedTimer = setInterval(() => {
       updateElapsedDisplay();
     }, ELAPSED_UPDATE_MS);
+    registerInterval("auto-progress-elapsed", elapsedTimer);
   }
 
   const phase = formatPhase(data.phase);

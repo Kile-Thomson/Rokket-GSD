@@ -154,6 +154,147 @@ describe("Loading States", () => {
   });
 });
 
+describe("Slash Menu Loading Placeholder", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("renders loading placeholder when commandsLoaded is false", () => {
+    const container = document.createElement("div");
+    container.setAttribute("role", "listbox");
+    // Replicate slash-menu.ts render() with commandsLoaded=false
+    const commandsLoaded = false;
+    container.innerHTML = `
+      <div class="gsd-slash-item active" role="option" aria-selected="true" id="gsd-slash-opt-0" data-idx="0">
+        <span class="gsd-slash-name">/gsd</span>
+        <span class="gsd-slash-desc">Contextual wizard</span>
+      </div>
+    ` + (!commandsLoaded ? `
+      <div class="gsd-slash-item disabled" role="option" aria-disabled="true">
+        <span class="gsd-slash-name"><span class="gsd-tool-spinner"></span></span>
+        <span class="gsd-slash-desc">Loading commands\u2026</span>
+      </div>
+    ` : "");
+    document.body.appendChild(container);
+
+    const disabledItem = document.querySelector(".gsd-slash-item.disabled");
+    expect(disabledItem).not.toBeNull();
+    expect(disabledItem!.textContent).toContain("Loading commands");
+    expect(disabledItem!.querySelector(".gsd-tool-spinner")).not.toBeNull();
+  });
+
+  it("does not render loading placeholder when commandsLoaded is true", () => {
+    const container = document.createElement("div");
+    const commandsLoaded = true;
+    container.innerHTML = `
+      <div class="gsd-slash-item active" role="option" aria-selected="true" id="gsd-slash-opt-0" data-idx="0">
+        <span class="gsd-slash-name">/gsd</span>
+        <span class="gsd-slash-desc">Contextual wizard</span>
+      </div>
+    ` + (!commandsLoaded ? `
+      <div class="gsd-slash-item disabled" role="option" aria-disabled="true">
+        <span class="gsd-slash-name"><span class="gsd-tool-spinner"></span></span>
+        <span class="gsd-slash-desc">Loading commands\u2026</span>
+      </div>
+    ` : "");
+    document.body.appendChild(container);
+
+    expect(document.querySelector(".gsd-slash-item.disabled")).toBeNull();
+  });
+
+  it("loading placeholder has aria-disabled attribute", () => {
+    const container = document.createElement("div");
+    const commandsLoaded = false;
+    container.innerHTML = (!commandsLoaded ? `
+      <div class="gsd-slash-item disabled" role="option" aria-disabled="true">
+        <span class="gsd-slash-name"><span class="gsd-tool-spinner"></span></span>
+        <span class="gsd-slash-desc">Loading commands\u2026</span>
+      </div>
+    ` : "");
+    document.body.appendChild(container);
+
+    const disabledItem = document.querySelector(".gsd-slash-item.disabled");
+    expect(disabledItem).not.toBeNull();
+    expect(disabledItem!.getAttribute("aria-disabled")).toBe("true");
+  });
+});
+
+describe("Model Badge Loading State", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("shows Loading text when model is null and process is running", () => {
+    const badge = document.createElement("span");
+    badge.className = "gsd-model-badge gsd-hidden";
+    document.body.appendChild(badge);
+
+    // Replicate updateHeaderUI logic: model=null, processStatus='running'
+    const model = null;
+    const processStatus = "running";
+
+    if (model) {
+      badge.textContent = "some-model";
+      badge.classList.remove("gsd-hidden");
+    } else if (processStatus === "running") {
+      badge.textContent = "Loading...";
+      badge.title = "Loading model...";
+      badge.classList.remove("gsd-hidden");
+    } else {
+      badge.classList.add("gsd-hidden");
+    }
+
+    expect(badge.textContent).toBe("Loading...");
+    expect(badge.classList.contains("gsd-hidden")).toBe(false);
+  });
+
+  it("hides badge when model is null and process is not running", () => {
+    const badge = document.createElement("span");
+    badge.className = "gsd-model-badge";
+    document.body.appendChild(badge);
+
+    const model = null;
+    const processStatus = "stopped";
+
+    if (model) {
+      badge.textContent = "some-model";
+      badge.classList.remove("gsd-hidden");
+    } else if (processStatus === "running") {
+      badge.textContent = "Loading...";
+      badge.title = "Loading model...";
+      badge.classList.remove("gsd-hidden");
+    } else {
+      badge.classList.add("gsd-hidden");
+    }
+
+    expect(badge.classList.contains("gsd-hidden")).toBe(true);
+  });
+
+  it("shows model name when model is set", () => {
+    const badge = document.createElement("span");
+    badge.className = "gsd-model-badge gsd-hidden";
+    document.body.appendChild(badge);
+
+    const model = { id: "gpt-4", name: "GPT-4", provider: "openai" };
+    const processStatus = "running";
+
+    if (model) {
+      badge.textContent = model.name || model.id;
+      badge.title = `${model.provider} / ${model.id}`;
+      badge.classList.remove("gsd-hidden");
+    } else if (processStatus === "running") {
+      badge.textContent = "Loading...";
+      badge.title = "Loading model...";
+      badge.classList.remove("gsd-hidden");
+    } else {
+      badge.classList.add("gsd-hidden");
+    }
+
+    expect(badge.textContent).toBe("GPT-4");
+    expect(badge.classList.contains("gsd-hidden")).toBe(false);
+  });
+});
+
 describe("Copy-Button Gating", () => {
   // Replicate the copy-button logic from buildTurnHtml (renderer.ts:324-342)
   function buildCopyButton(turn: { isComplete: boolean; segments: Array<{ type: string; chunks: string[] }>; timestamp?: number }): string {
