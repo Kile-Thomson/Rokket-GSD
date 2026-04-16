@@ -11,7 +11,6 @@ import {
 import {
   state,
   nextId,
-  type AssistantTurn,
 } from "../state";
 
 vi.mock("../helpers", () => ({

@@ -1,4 +1,4 @@
-import type { ExtensionToWebviewMessage, ProcessStatus, AvailableModelInfo } from "../../shared/types";
+import type { ExtensionToWebviewMessage, AvailableModelInfo } from "../../shared/types";
 type Msg<T extends ExtensionToWebviewMessage['type']> = Extract<ExtensionToWebviewMessage, { type: T }>;
 import { scrollToBottom } from "../helpers";
 import {
