@@ -80,7 +80,6 @@ import {
 } from "../prompt-handlers";
 import type { MessageDispatchContext } from "../../message-dispatch";
 import type { SessionState } from "../../session-state";
-import type { WebviewToExtensionMessage } from "../../../shared/types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
