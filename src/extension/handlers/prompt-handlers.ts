@@ -145,6 +145,7 @@ export async function handlePrompt(
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes("streaming")) {
+        clearSessionWatchdogs(ctx, sessionId);
         const isSlash = msg.message.trimStart().startsWith("/");
         try {
           const imgs = sanitizeImages(msg.images);
