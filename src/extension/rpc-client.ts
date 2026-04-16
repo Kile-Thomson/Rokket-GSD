@@ -2,6 +2,18 @@ import { ChildProcess, spawn, spawnSync } from "child_process";
 import { EventEmitter } from "events";
 import * as path from "path";
 import * as fs from "fs";
+import {
+  MAX_STDOUT_BUFFER_BYTES,
+  MAX_STDERR_BUFFER_BYTES,
+  RPC_DEFAULT_TIMEOUT_MS,
+  RPC_COMPACT_TIMEOUT_MS,
+  RPC_INIT_TIMEOUT_MS,
+  RPC_PING_TIMEOUT_MS,
+  EXEC_TIMEOUT_MS,
+  STOP_SIGTERM_DELAY_MS,
+  STOP_FORCE_KILL_DELAY_MS,
+  STOP_POST_KILL_SETTLE_MS,
+} from "../shared/constants";
 
 // ============================================================
 // RPC Client — Manages GSD child process via JSON-RPC over stdin/stdout
@@ -116,7 +128,7 @@ function findNodeBinary(): string {
   try {
     const result = spawnSync(cmd, ["node"], {
       encoding: "utf-8",
-      timeout: 5000,
+      timeout: EXEC_TIMEOUT_MS,
       windowsHide: true,
     });
     if (result.status === 0 && result.stdout) {
@@ -141,7 +153,7 @@ async function resolveGsdWindows(): Promise<{ command: string; args: string[]; u
   try {
     const result = spawnSync("where", ["gsd.cmd"], {
       encoding: "utf-8",
-      timeout: 5000,
+      timeout: EXEC_TIMEOUT_MS,
       windowsHide: true,
     });
     if (result.status === 0 && result.stdout) {
@@ -160,7 +172,7 @@ async function resolveGsdWindows(): Promise<{ command: string; args: string[]; u
     try {
       const result = spawnSync("where", ["gsd"], {
         encoding: "utf-8",
-        timeout: 5000,
+        timeout: EXEC_TIMEOUT_MS,
         windowsHide: true,
       });
       if (result.status === 0 && result.stdout) {
@@ -228,7 +240,7 @@ function resolveGsdUnix(): { command: string; args: string[]; useShell: boolean 
   try {
     const result = spawnSync("which", ["gsd"], {
       encoding: "utf-8",
-      timeout: 5000,
+      timeout: EXEC_TIMEOUT_MS,
     });
     if (result.status === 0 && result.stdout) {
       const firstMatch = result.stdout.trim().split(/\r?\n/)[0];
@@ -354,15 +366,14 @@ export class GsdRpcClient extends EventEmitter {
     this._protocolVersion = 1;
 
     // Read stdout line by line (JSONL) — cap buffer at 10MB to prevent OOM
-    const MAX_BUFFER_SIZE = 10 * 1024 * 1024;
     this.process.stdout?.on("data", (chunk: Buffer) => {
       this.buffer += chunk.toString("utf8");
-      if (this.buffer.length > MAX_BUFFER_SIZE) {
+      if (this.buffer.length > MAX_STDOUT_BUFFER_BYTES) {
         // Preserve any partial line (data after the last newline) so the
         // JSON-RPC stream can resync once the next newline arrives.
         const lastNl = this.buffer.lastIndexOf("\n");
         const partial = lastNl === -1 ? "" : this.buffer.slice(lastNl + 1);
-        this.emit("log", `[rpc-client] Buffer exceeded ${MAX_BUFFER_SIZE / 1024 / 1024}MB — truncating (possible runaway output). Preserving ${partial.length} bytes of partial line.`);
+        this.emit("log", `[rpc-client] Buffer exceeded ${MAX_STDOUT_BUFFER_BYTES / 1024 / 1024}MB — truncating (possible runaway output). Preserving ${partial.length} bytes of partial line.`);
         this.buffer = partial;
       }
       this.processBuffer();
@@ -381,8 +392,8 @@ export class GsdRpcClient extends EventEmitter {
       const text = chunk.toString("utf8");
       // Keep last 2KB of stderr for exit diagnostics
       this._stderrBuffer += text;
-      if (this._stderrBuffer.length > 2048) {
-        this._stderrBuffer = this._stderrBuffer.slice(-2048);
+      if (this._stderrBuffer.length > MAX_STDERR_BUFFER_BYTES) {
+        this._stderrBuffer = this._stderrBuffer.slice(-MAX_STDERR_BUFFER_BYTES);
       }
       this.emit("log", text);
     });
@@ -451,8 +462,8 @@ export class GsdRpcClient extends EventEmitter {
       const forceTimeout = setTimeout(() => {
         this.forceKill();
         // Give forceKill a moment to work, then resolve regardless
-        setTimeout(resolve, 500);
-      }, 5000);
+        setTimeout(resolve, STOP_POST_KILL_SETTLE_MS);
+      }, STOP_FORCE_KILL_DELAY_MS);
 
       this.process!.on("exit", () => {
         clearTimeout(forceTimeout);
@@ -471,7 +482,7 @@ export class GsdRpcClient extends EventEmitter {
         if (this.process && !this.process.killed) {
           this.process.kill("SIGTERM");
         }
-      }, 1000);
+      }, STOP_SIGTERM_DELAY_MS);
     });
   }
 
@@ -541,10 +552,10 @@ export class GsdRpcClient extends EventEmitter {
 
     // User-interactive commands get no timeout (watchdog-covered); others get defaults
     const noTimeoutCommands = ["prompt", "steer", "follow_up"];
-    const longTimeoutCommands: Record<string, number> = { compact: 300_000, get_messages: 60_000 };
+    const longTimeoutCommands: Record<string, number> = { compact: RPC_COMPACT_TIMEOUT_MS, get_messages: RPC_DEFAULT_TIMEOUT_MS };
     const effectiveTimeout = timeoutMs
       ?? (noTimeoutCommands.includes(command.type as string) ? 0
-        : longTimeoutCommands[command.type as string] ?? 60_000);
+        : longTimeoutCommands[command.type as string] ?? RPC_DEFAULT_TIMEOUT_MS);
 
     return new Promise((resolve, reject) => {
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -732,7 +743,7 @@ export class GsdRpcClient extends EventEmitter {
    * Returns true if the process responds, false if it times out or errors.
    * Does NOT throw on failure.
    */
-  async ping(timeoutMs: number = 10000): Promise<boolean> {
+  async ping(timeoutMs: number = RPC_PING_TIMEOUT_MS): Promise<boolean> {
     if (!this._isRunning || !this.process) return false;
     try {
       await this.request({ type: "get_state" }, timeoutMs);
@@ -754,7 +765,7 @@ export class GsdRpcClient extends EventEmitter {
     try {
       const cmd: Record<string, unknown> = { type: "init", protocolVersion: 2 };
       if (clientId) cmd.clientId = clientId;
-      const result = await this.request(cmd, 3000) as Record<string, unknown> | undefined;
+      const result = await this.request(cmd, RPC_INIT_TIMEOUT_MS) as Record<string, unknown> | undefined;
       if (result?.protocolVersion === 2) {
         this._protocolVersion = 2;
         return result as { protocolVersion: 2; sessionId: string; capabilities: { events: string[]; commands: string[] } };

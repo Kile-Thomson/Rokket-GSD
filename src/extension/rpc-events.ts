@@ -88,7 +88,7 @@ export function handleRpcEvent(
     const timeSinceEnd = Date.now() - session.lastAgentEndTime;
     const timeSinceUser = Date.now() - session.lastUserActionTime;
     if (timeSinceEnd < 1500 && timeSinceUser > timeSinceEnd) {
-      (event as any).isContinuation = true;
+      event.isContinuation = true;
       ctx.output.appendLine(`[${sessionId}] Turn coalescing: agent_start is a continuation (${timeSinceEnd}ms since last end, ${timeSinceUser}ms since user action)`);
     }
   } else if (eventType === "agent_end") {
@@ -107,13 +107,13 @@ export function handleRpcEvent(
   } else if (eventType === "message_end") {
     const msg = event.message as Record<string, unknown> | undefined;
     const usage = (msg?.usage as { cost?: { total?: number } }) ?? undefined;
-    if (msg?.role === "assistant" && usage?.cost?.total) {
+    if (msg?.role === "assistant" && usage?.cost?.total && Number.isFinite(usage.cost.total)) {
       const session = ctx.getSession(sessionId);
       session.accumulatedCost += usage.cost.total;
       ctx.emitStatus({ cost: session.accumulatedCost });
     }
     // Check for error stopReason — clear streaming state even if agent_end never arrives
-    const stopReason = (msg as any)?.stopReason as string | undefined;
+    const stopReason = (msg as Record<string, unknown> | undefined)?.stopReason as string | undefined;
     if (stopReason === "error") {
       const session = ctx.getSession(sessionId);
       session.isStreaming = false;
@@ -122,7 +122,7 @@ export function handleRpcEvent(
       ctx.output.appendLine(`[${sessionId}] message_end stopReason=error — cleared streaming state`);
     }
   } else if (eventType === "fallback_provider_switch") {
-    const to = (event as any).to as string || "";
+    const to = event.to as string || "";
     if (to) ctx.emitStatus({ model: to });
   } else if (eventType === "session_shutdown") {
     ctx.emitStatus({ isStreaming: false });
@@ -136,7 +136,8 @@ export function handleRpcEvent(
       client.getMessages().catch(() => null),
     ]).then(([stateResult, msgsResult]) => {
       const gsdState = stateResult ? toGsdState(stateResult as RpcStateResult) : toGsdState({} as RpcStateResult);
-      const messages = Array.isArray((msgsResult as any)?.messages) ? (msgsResult as any).messages : [];
+      const msgsObj = msgsResult as Record<string, unknown> | null;
+      const messages = Array.isArray(msgsObj?.messages) ? msgsObj.messages : [];
       ctx.postToWebview(webview, { type: 'state', data: gsdState });
       ctx.postToWebview(webview, { type: 'session_switched', state: gsdState, messages });
     }).catch((err: unknown) => {
@@ -144,7 +145,7 @@ export function handleRpcEvent(
     });
   } else if (eventType === 'cost_update') {
     // v2 protocol: per-turn cost update — update status bar cost
-    const cumulativeCost = (event as any).cumulativeCost as number | undefined;
+    const cumulativeCost = event.cumulativeCost as number | undefined;
     if (cumulativeCost !== undefined) {
       const session = ctx.getSession(sessionId);
       session.accumulatedCost = cumulativeCost;
@@ -157,7 +158,7 @@ export function handleRpcEvent(
     // gsd-pi 2.44+: extensions finished loading — fetch definitive command list
     ctx.output.appendLine(`[${sessionId}] extensions_ready — refreshing commands`);
     client.getCommands()
-      .then((result: any) => {
+      .then((result: Record<string, unknown> | null) => {
         const commands = Array.isArray(result?.commands) ? result.commands : [];
         ctx.postToWebview(webview, { type: "commands", commands });
       })

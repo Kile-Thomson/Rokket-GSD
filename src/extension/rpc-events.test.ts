@@ -147,6 +147,36 @@ describe("rpc-events", () => {
       expect(ctx.emitStatus).toHaveBeenCalledWith({ cost: 1.75 });
     });
 
+    it("message_end: ignores NaN cost without corrupting accumulatedCost", () => {
+      const { ctx, session } = createCtx(createMockSession({ accumulatedCost: 1.5 }));
+      handleRpcEvent(ctx, webview, sid, {
+        type: "message_end",
+        message: { role: "assistant", usage: { cost: { total: NaN } } },
+      }, client);
+      expect(session.accumulatedCost).toBe(1.5);
+      expect(ctx.emitStatus).not.toHaveBeenCalled();
+    });
+
+    it("message_end: ignores Infinity cost without corrupting accumulatedCost", () => {
+      const { ctx, session } = createCtx(createMockSession({ accumulatedCost: 1.5 }));
+      handleRpcEvent(ctx, webview, sid, {
+        type: "message_end",
+        message: { role: "assistant", usage: { cost: { total: Infinity } } },
+      }, client);
+      expect(session.accumulatedCost).toBe(1.5);
+      expect(ctx.emitStatus).not.toHaveBeenCalled();
+    });
+
+    it("message_end: accumulates valid cost normally", () => {
+      const { ctx, session } = createCtx(createMockSession({ accumulatedCost: 1.0 }));
+      handleRpcEvent(ctx, webview, sid, {
+        type: "message_end",
+        message: { role: "assistant", usage: { cost: { total: 0.25 } } },
+      }, client);
+      expect(session.accumulatedCost).toBe(1.25);
+      expect(ctx.emitStatus).toHaveBeenCalledWith({ cost: 1.25 });
+    });
+
     it("message_end: ignores non-assistant messages", () => {
       const { ctx } = createCtx();
       handleRpcEvent(ctx, webview, sid, {

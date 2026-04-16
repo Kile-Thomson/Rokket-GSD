@@ -13,7 +13,7 @@
   flex-shrink: 0;
   overflow: hidden;
   font-family: var(--gsd-font-family-mono);
-  line-height: 1.6;
+  line-height: var(--gsd-line-height-relaxed);
   opacity: 0.65;
 }
 
@@ -48,7 +48,7 @@
 }
 
 .gsd-widget-segment.ok {
-  color: var(--vscode-terminal-ansiGreen, #89d185);
+  color: var(--gsd-color-ansi-green);
 }
 
 .gsd-widget-segment.warning {
@@ -83,7 +83,7 @@
 
 .gsd-footer-brand {
   font-size: 8px;
-  font-weight: 700;
+  font-weight: var(--gsd-font-weight-bold);
   letter-spacing: 2px;
   opacity: 0.25;
   flex-shrink: 0;
@@ -124,6 +124,6 @@
   font-size: var(--gsd-font-size-xs);
   background: var(--gsd-badge-bg);
   color: var(--gsd-badge-fg);
-  line-height: 1.5;
+  line-height: var(--gsd-line-height);
   white-space: nowrap;
 }

@@ -7,8 +7,8 @@
   flex-direction: column;
   padding: 8px 16px;
   background: var(--gsd-color-surface-elevated);
-  border-top: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(255,255,255,0.08)));
-  border-bottom: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(255,255,255,0.08)));
+  border-top: 1px solid var(--gsd-color-border-strong);
+  border-bottom: 1px solid var(--gsd-color-border-strong);
   font-size: var(--gsd-font-size-md);
   gap: var(--gsd-space-xs);
   animation: gsd-auto-progress-fadein 0.2s ease-out;
@@ -38,7 +38,7 @@
   width: 8px;
   height: 8px;
   border-radius: var(--gsd-radius-circle);
-  background: var(--vscode-charts-green, #4ec9b0);
+  background: var(--gsd-color-chart-green);
   animation: gsd-auto-progress-pulse-anim 1.5s ease-in-out infinite;
   flex-shrink: 0;
 }
@@ -54,15 +54,15 @@
 }
 
 .gsd-auto-progress-phase {
-  font-weight: 600;
-  color: var(--vscode-charts-blue, var(--vscode-textLink-foreground));
+  font-weight: var(--gsd-font-weight-semibold);
+  color: var(--gsd-color-chart-blue);
   text-transform: uppercase;
   font-size: var(--gsd-font-size-xs);
   letter-spacing: 0.5px;
   flex-shrink: 0;
   padding: 1px 6px;
   border-radius: var(--gsd-radius-sm);
-  background: color-mix(in srgb, var(--vscode-charts-blue, var(--vscode-textLink-foreground)) 15%, transparent);
+  background: color-mix(in srgb, var(--gsd-color-chart-blue) 15%, transparent);
 }
 
 .gsd-auto-progress-target {
@@ -74,7 +74,7 @@
 }
 
 .gsd-auto-progress-elapsed {
-  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  color: var(--gsd-color-text-muted);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
   font-size: var(--gsd-font-size-sm);
@@ -93,7 +93,7 @@
 }
 
 .gsd-auto-progress-bar-label {
-  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  color: var(--gsd-color-text-muted);
   font-size: var(--gsd-font-size-sm);
   min-width: 36px;
 }
@@ -101,24 +101,24 @@
 .gsd-auto-progress-bar-track {
   width: 80px;
   height: 4px;
-  background: var(--vscode-progressBar-background, rgba(255,255,255,0.1));
+  background: var(--gsd-color-progress-bar);
   border-radius: 2px;
   overflow: hidden;
 }
 
 .gsd-auto-progress-bar-fill {
   height: 100%;
-  background: var(--vscode-charts-green, #4ec9b0);
+  background: var(--gsd-color-chart-green);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
 
 .gsd-auto-progress-bar-fill--slices {
-  background: var(--vscode-charts-blue, var(--vscode-textLink-foreground));
+  background: var(--gsd-color-chart-blue);
 }
 
 .gsd-auto-progress-bar-value {
-  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  color: var(--gsd-color-text-muted);
   font-size: var(--gsd-font-size-sm);
   font-variant-numeric: tabular-nums;
   min-width: 24px;
@@ -133,7 +133,7 @@
 }
 
 .gsd-auto-progress-stat {
-  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  color: var(--gsd-color-text-muted);
   font-size: var(--gsd-font-size-sm);
   font-variant-numeric: tabular-nums;
 }
@@ -149,7 +149,7 @@
 }
 
 .gsd-auto-progress-health.ok {
-  color: var(--vscode-terminal-ansiGreen, #89d185);
+  color: var(--gsd-color-ansi-green);
 }
 
 .gsd-auto-progress-health.warning {
@@ -161,8 +161,8 @@
 }
 
 .gsd-auto-progress-captures {
-  color: var(--vscode-charts-yellow, #e2c08d);
-  font-weight: 600;
+  color: var(--gsd-color-warning);
+  font-weight: var(--gsd-font-weight-semibold);
 }
 
 /* Responsive: collapse to single line on narrow viewports */
@@ -180,13 +180,13 @@
 
 /* Discussion-pause state — distinct visual treatment */
 .gsd-auto-progress-discussion {
-  border-left: 3px solid var(--vscode-charts-yellow, #e2c08d);
-  background: color-mix(in srgb, var(--vscode-charts-yellow, #e2c08d) 6%, var(--vscode-editorWidget-background, var(--vscode-sideBar-background)));
+  border-left: 3px solid var(--gsd-color-warning);
+  background: color-mix(in srgb, var(--gsd-color-warning) 6%, var(--gsd-color-surface-elevated));
 }
 
 .gsd-auto-progress-hint {
   font-size: var(--gsd-font-size-sm);
-  color: var(--vscode-descriptionForeground, rgba(255,255,255,0.5));
+  color: var(--gsd-color-text-muted);
   padding: 0 0 0 16px;
   font-style: italic;
 }
@@ -201,13 +201,13 @@
 
 @keyframes gsd-model-badge-flash-anim {
   0% {
-    background: var(--vscode-charts-yellow, #e2c08d);
-    color: var(--vscode-editor-background, #1e1e1e);
+    background: var(--gsd-color-warning);
+    color: var(--gsd-color-bg);
     transform: scale(1.15);
   }
   30% {
-    background: var(--vscode-charts-yellow, #e2c08d);
-    color: var(--vscode-editor-background, #1e1e1e);
+    background: var(--gsd-color-warning);
+    color: var(--gsd-color-bg);
     transform: scale(1.05);
   }
   100% {
