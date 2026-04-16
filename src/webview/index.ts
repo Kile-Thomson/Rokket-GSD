@@ -39,7 +39,6 @@ import {
 } from "./helpers";
 
 import { registerInterval, disposeAll } from "./dispose";
-import { announceToScreenReader } from "./a11y";
 import { shouldDebounce } from "./send-debounce";
 import { initPersistAttachments, rehydrateAttachments, persistAttachments } from "./persist-attachments";
 
