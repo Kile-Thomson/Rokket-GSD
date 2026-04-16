@@ -157,7 +157,10 @@ describe("batches", () => {
 
     it("does nothing when no current turn", () => {
       state.currentTurn = null;
+      const entriesBefore = state.entries.length;
       finalizeCurrentTurn();
+      expect(state.currentTurn).toBeNull();
+      expect(state.entries.length).toBe(entriesBefore);
     });
   });
 

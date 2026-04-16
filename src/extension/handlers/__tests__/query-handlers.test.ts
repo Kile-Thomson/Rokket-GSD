@@ -148,6 +148,20 @@ describe("query-handlers", () => {
         expect.objectContaining({ type: "error" }),
       );
     });
+
+    it("posts error when client is not running", async () => {
+      const { ctx, webview } = createMockCtx(null);
+
+      await handleGetState(ctx, webview, SID, { type: "get_state" });
+
+      expect(ctx.postToWebview).toHaveBeenCalledWith(
+        webview,
+        expect.objectContaining({
+          type: "error",
+          message: expect.stringContaining("not running"),
+        }),
+      );
+    });
   });
 
   describe("handleGetSessionStats", () => {

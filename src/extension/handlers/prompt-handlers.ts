@@ -56,17 +56,18 @@ async function appendOverrideFile(cwd: string, change: string): Promise<void> {
 
   await fs.promises.mkdir(gsdDir, { recursive: true });
 
+  const header = [
+    "# GSD Overrides",
+    "",
+    "User-issued overrides that supersede plan document content.",
+    "",
+    "---",
+  ].join("\n");
+
   try {
-    await fs.promises.access(overridesPath);
-  } catch {
-    const header = [
-      "# GSD Overrides",
-      "",
-      "User-issued overrides that supersede plan document content.",
-      "",
-      "---",
-    ].join("\n");
-    await fs.promises.writeFile(overridesPath, header, "utf-8");
+    await fs.promises.writeFile(overridesPath, header, { encoding: "utf-8", flag: "wx" });
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
   }
 
   await fs.promises.appendFile(overridesPath, entry, "utf-8");

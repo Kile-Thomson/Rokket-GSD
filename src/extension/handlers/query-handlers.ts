@@ -27,6 +27,8 @@ export async function handleGetState(
     } catch (err: unknown) {
       ctx.postToWebview(webview, { type: "error", message: toErrorMessage(err) });
     }
+  } else {
+    ctx.postToWebview(webview, { type: "error", message: "GSD process is not running. Send a message to start a session." });
   }
 }
 

@@ -398,7 +398,7 @@ describe("prompt-handlers", () => {
         lastStartOptions: { cwd: "/mock/project" },
       });
       const { ctx, webview } = createMockDispatchContext(session);
-      mockAccess.mockRejectedValue(new Error("ENOENT"));
+      mockWriteFile.mockResolvedValue(undefined);
 
       await handleSteer(ctx, webview, SESSION_ID, {
         type: "steer",
@@ -409,7 +409,7 @@ describe("prompt-handlers", () => {
       expect(mockWriteFile).toHaveBeenCalledWith(
         expect.stringContaining("OVERRIDES.md"),
         expect.stringContaining("GSD Overrides"),
-        "utf-8",
+        expect.objectContaining({ encoding: "utf-8", flag: "wx" }),
       );
       expect(mockAppendFile).toHaveBeenCalledWith(
         expect.stringContaining("OVERRIDES.md"),
@@ -441,7 +441,7 @@ describe("prompt-handlers", () => {
       expect(client.steer).toHaveBeenCalledWith("change direction", undefined);
     });
 
-    it("appends to existing OVERRIDES.md during auto-mode", async () => {
+    it("appends to existing OVERRIDES.md during auto-mode (wx EEXIST is ignored)", async () => {
       const client = createMockClient();
       const session = createMockSession({
         client: client as any,
@@ -449,7 +449,8 @@ describe("prompt-handlers", () => {
         lastStartOptions: { cwd: "/mock/project" },
       });
       const { ctx, webview } = createMockDispatchContext(session);
-      mockAccess.mockResolvedValue(undefined);
+      const eexist = Object.assign(new Error("file already exists"), { code: "EEXIST" });
+      mockWriteFile.mockRejectedValue(eexist);
 
       await handleSteer(ctx, webview, SESSION_ID, {
         type: "steer",
@@ -457,7 +458,7 @@ describe("prompt-handlers", () => {
       } as any);
 
       expect(mockMkdir).toHaveBeenCalled();
-      expect(mockWriteFile).not.toHaveBeenCalled();
+      expect(mockWriteFile).toHaveBeenCalled();
       expect(mockAppendFile).toHaveBeenCalledWith(
         expect.stringContaining("OVERRIDES.md"),
         expect.stringContaining("No in-app messaging"),
