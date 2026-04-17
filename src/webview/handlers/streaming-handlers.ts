@@ -3,6 +3,7 @@ type Msg<T extends ExtensionToWebviewMessage['type']> = Extract<ExtensionToWebvi
 import { state, nextId, type ToolCallState } from "../state";
 import * as renderer from "../renderer";
 import { scrollToBottom } from "../helpers";
+import { BATCH_FINALIZE_DELAY_MS } from "../../shared/constants";
 import { announceToScreenReader } from "../a11y";
 import * as uiDialogs from "../ui-dialogs";
 import {
@@ -11,6 +12,7 @@ import {
   setActiveBatchToolIds,
   getBatchFinalizeTimer,
   setBatchFinalizeTimer,
+  getMessageParallelToolIds,
   setMessageParallelToolIds,
   getLastMessageUsage,
   setLastMessageUsage,
@@ -122,14 +124,16 @@ export function handleMessageUpdate(msg: Msg<'message_update'>): void {
 
     removeSteerNotes();
     const activeBatch = getActiveBatchToolIds();
+    const msgParallel = getMessageParallelToolIds();
     const timer = getBatchFinalizeTimer();
-    if (activeBatch && !timer) {
-      const allDone = [...activeBatch].every(id => {
+    if (activeBatch && msgParallel && !timer) {
+      const fullSet = new Set([...activeBatch, ...msgParallel]);
+      const allDone = [...fullSet].every(id => {
         const t = state.currentTurn?.toolCalls.get(id);
         return t && !t.isRunning;
       });
       if (allDone) {
-        console.debug(`[gsd:parallel] text_delta: finalizing batch (${activeBatch.size} tools) — text arrived`);
+        console.debug(`[gsd:parallel] text_delta: finalizing batch (${fullSet.size} tools) — text arrived`);
         renderer.finalizeParallelBatch(getLastMessageUsage());
         setActiveBatchToolIds(null);
       }
@@ -375,6 +379,19 @@ export function handleMessageEnd(msg: Msg<'message_end'>): void {
       const timer = getBatchFinalizeTimer();
       if (timer) { clearTimeout(timer); setBatchFinalizeTimer(null); }
       renderer.syncBatchState(activeBatch);
+
+      const allDone = [...activeBatch].every(id => {
+        const t = state.currentTurn!.toolCalls.get(id);
+        return t && !t.isRunning;
+      });
+      if (allDone) {
+        setBatchFinalizeTimer(setTimeout(() => {
+          console.debug(`[gsd:parallel] batch FINALIZED (post-message_end) — ${getActiveBatchToolIds()?.size ?? 0} tools`);
+          renderer.finalizeParallelBatch(getLastMessageUsage());
+          setBatchFinalizeTimer(null);
+          setActiveBatchToolIds(null);
+        }, BATCH_FINALIZE_DELAY_MS));
+      }
     } else {
       setMessageParallelToolIds(null);
     }
