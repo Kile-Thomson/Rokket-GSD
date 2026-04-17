@@ -3,6 +3,7 @@ type Msg<T extends ExtensionToWebviewMessage['type']> = Extract<ExtensionToWebvi
 import { state, nextId, type ToolCallState } from "../state";
 import * as renderer from "../renderer";
 import { scrollToBottom } from "../helpers";
+import { BATCH_FINALIZE_DELAY_MS } from "../../shared/constants";
 import { announceToScreenReader } from "../a11y";
 import * as uiDialogs from "../ui-dialogs";
 import {
@@ -375,6 +376,19 @@ export function handleMessageEnd(msg: Msg<'message_end'>): void {
       const timer = getBatchFinalizeTimer();
       if (timer) { clearTimeout(timer); setBatchFinalizeTimer(null); }
       renderer.syncBatchState(activeBatch);
+
+      const allDone = [...activeBatch].every(id => {
+        const t = state.currentTurn!.toolCalls.get(id);
+        return t && !t.isRunning;
+      });
+      if (allDone) {
+        setBatchFinalizeTimer(setTimeout(() => {
+          console.debug(`[gsd:parallel] batch FINALIZED (post-message_end) — ${getActiveBatchToolIds()?.size ?? 0} tools`);
+          renderer.finalizeParallelBatch(getLastMessageUsage());
+          setBatchFinalizeTimer(null);
+          setActiveBatchToolIds(null);
+        }, BATCH_FINALIZE_DELAY_MS));
+      }
     } else {
       setMessageParallelToolIds(null);
     }
