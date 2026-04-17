@@ -12,6 +12,7 @@ import {
   setActiveBatchToolIds,
   getBatchFinalizeTimer,
   setBatchFinalizeTimer,
+  getMessageParallelToolIds,
   setMessageParallelToolIds,
   getLastMessageUsage,
   setLastMessageUsage,
@@ -123,14 +124,16 @@ export function handleMessageUpdate(msg: Msg<'message_update'>): void {
 
     removeSteerNotes();
     const activeBatch = getActiveBatchToolIds();
+    const msgParallel = getMessageParallelToolIds();
     const timer = getBatchFinalizeTimer();
-    if (activeBatch && !timer) {
-      const allDone = [...activeBatch].every(id => {
+    if (activeBatch && msgParallel && !timer) {
+      const fullSet = new Set([...activeBatch, ...msgParallel]);
+      const allDone = [...fullSet].every(id => {
         const t = state.currentTurn?.toolCalls.get(id);
         return t && !t.isRunning;
       });
       if (allDone) {
-        console.debug(`[gsd:parallel] text_delta: finalizing batch (${activeBatch.size} tools) — text arrived`);
+        console.debug(`[gsd:parallel] text_delta: finalizing batch (${fullSet.size} tools) — text arrived`);
         renderer.finalizeParallelBatch(getLastMessageUsage());
         setActiveBatchToolIds(null);
       }
