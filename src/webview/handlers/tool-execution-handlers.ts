@@ -58,8 +58,8 @@ function renderToolEnd(data: Msg<'tool_execution_end'>): void {
       const t = state.currentTurn?.toolCalls.get(id);
       return t && !t.isRunning;
     });
-    console.debug(`[gsd:parallel] renderToolEnd: id=${data.toolCallId} batchSize=${activeBatch?.size} fullSetSize=${fullSet.size} allDone=${allDone}`);
-    if (allDone) {
+    console.debug(`[gsd:parallel] renderToolEnd: id=${data.toolCallId} batchSize=${activeBatch?.size} fullSetSize=${fullSet.size} allDone=${allDone} hasMessageEnd=${!!msgParallel}`);
+    if (allDone && msgParallel) {
       const timer = getBatchFinalizeTimer();
       if (timer) clearTimeout(timer);
       setBatchFinalizeTimer(setTimeout(() => {
