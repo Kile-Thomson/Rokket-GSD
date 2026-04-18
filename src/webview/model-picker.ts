@@ -42,9 +42,7 @@ export function toggle(): void {
 }
 
 export function show(): void {
-  if (!state.modelsLoaded) {
-    vscode.postMessage({ type: "get_available_models" });
-  }
+  vscode.postMessage({ type: "get_available_models" });
   triggerEl = saveFocus();
   visible = true;
   activeIndex = -1;

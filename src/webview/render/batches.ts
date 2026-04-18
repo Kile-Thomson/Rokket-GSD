@@ -21,6 +21,7 @@ import {
 
 let activeBatchElement: HTMLElement | null = null;
 let finalizedBatchElement: HTMLElement | null = null;
+const sealedBatches: Array<{ element: HTMLElement; toolIds: Set<string> }> = [];
 
 export function finalizeCurrentTurn(): void {
   if (!state.currentTurn) return;
@@ -116,6 +117,7 @@ export function resetStreamingState(): void {
   stopElapsedTimer();
   activeBatchElement = null;
   finalizedBatchElement = null;
+  sealedBatches.length = 0;
 }
 
 export function createParallelBatch(toolIds: string[]): void {
@@ -221,11 +223,21 @@ export function updateParallelBatchStatus(): void {
 
 export function finalizeParallelBatch(turnUsage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } } | null): void {
   if (!activeBatchElement || !state.currentTurn) return;
+  finalizeBatchElement(activeBatchElement, turnUsage);
+  finalizedBatchElement = activeBatchElement;
+  activeBatchElement = null;
+}
 
-  const startTime = parseInt(activeBatchElement.dataset.startTime || "0", 10);
+function finalizeBatchElement(
+  element: HTMLElement,
+  turnUsage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } } | null,
+): void {
+  if (!state.currentTurn) return;
+
+  const startTime = parseInt(element.dataset.startTime || "0", 10);
   const totalDuration = startTime ? Date.now() - startTime : 0;
 
-  const content = activeBatchElement.querySelector(".gsd-parallel-batch-content");
+  const content = element.querySelector(".gsd-parallel-batch-content");
   const total = content ? content.children.length : 0;
 
   let errored = 0;
@@ -238,10 +250,10 @@ export function finalizeParallelBatch(turnUsage?: { input?: number; output?: num
     }
   }
 
-  activeBatchElement.classList.remove("running");
-  activeBatchElement.classList.add("done");
+  element.classList.remove("running");
+  element.classList.add("done");
 
-  const spinner = activeBatchElement.querySelector(".gsd-parallel-batch-header .gsd-tool-spinner");
+  const spinner = element.querySelector(".gsd-parallel-batch-header .gsd-tool-spinner");
   if (spinner) {
     const icon = document.createElement("span");
     icon.className = errored > 0 ? "gsd-tool-icon error" : "gsd-tool-icon success";
@@ -266,7 +278,7 @@ export function finalizeParallelBatch(turnUsage?: { input?: number; output?: num
   }
   const actualParallelDuration = latestEnd > earliestStart ? latestEnd - earliestStart : 0;
 
-  const label = activeBatchElement.querySelector(".gsd-parallel-batch-label");
+  const label = element.querySelector(".gsd-parallel-batch-label");
   if (label) {
     const durationStr = formatDuration(actualParallelDuration || totalDuration);
     const statusText = errored > 0
@@ -275,7 +287,7 @@ export function finalizeParallelBatch(turnUsage?: { input?: number; output?: num
     label.textContent = statusText;
   }
 
-  const existingFooter = activeBatchElement.querySelector(".gsd-parallel-batch-footer");
+  const existingFooter = element.querySelector(".gsd-parallel-batch-footer");
   if (!existingFooter) {
     const pills: string[] = [];
 
@@ -302,15 +314,72 @@ export function finalizeParallelBatch(turnUsage?: { input?: number; output?: num
       const footer = document.createElement("div");
       footer.className = "gsd-parallel-batch-footer";
       footer.innerHTML = pills.map(p => `<span class="gsd-batch-pill">${escapeHtml(p)}</span>`).join("");
-      activeBatchElement.appendChild(footer);
+      element.appendChild(footer);
     }
   }
 
-  const elapsed = activeBatchElement.querySelector(".gsd-parallel-batch-elapsed");
+  const elapsed = element.querySelector(".gsd-parallel-batch-elapsed");
   if (elapsed) elapsed.textContent = "";
+}
 
-  finalizedBatchElement = activeBatchElement;
+export function sealActiveBatch(): Set<string> | null {
+  if (!activeBatchElement) return null;
+  const content = activeBatchElement.querySelector(".gsd-parallel-batch-content");
+  if (!content) { activeBatchElement = null; return null; }
+
+  const toolIds = new Set<string>();
+  for (const el of Array.from(content.children) as HTMLElement[]) {
+    const id = el.dataset.toolId;
+    if (id) toolIds.add(id);
+  }
+
+  if (toolIds.size < 2) { activeBatchElement = null; return null; }
+
+  sealedBatches.push({ element: activeBatchElement, toolIds });
   activeBatchElement = null;
+  return toolIds;
+}
+
+export function tickSealedBatches(
+  turnUsage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } } | null,
+): void {
+  if (!state.currentTurn) return;
+  for (let i = sealedBatches.length - 1; i >= 0; i--) {
+    const sealed = sealedBatches[i];
+    let running = 0, done = 0, errored = 0;
+    for (const id of sealed.toolIds) {
+      const tc = state.currentTurn.toolCalls.get(id);
+      if (!tc) continue;
+      if (tc.isRunning) running++;
+      else if (tc.isError) errored++;
+      else done++;
+    }
+    const total = running + done + errored;
+    const label = sealed.element.querySelector(".gsd-parallel-batch-label");
+    if (label && running > 0) {
+      label.textContent = `${total} tools — ${done + errored} done, ${running} running`;
+    }
+    if (running === 0 && total > 0) {
+      finalizeBatchElement(sealed.element, turnUsage);
+      sealedBatches.splice(i, 1);
+    }
+  }
+}
+
+export function isInSealedBatch(toolId: string): boolean {
+  for (const sealed of sealedBatches) {
+    if (sealed.toolIds.has(toolId)) return true;
+  }
+  return false;
+}
+
+export function finalizeAllSealedBatches(
+  turnUsage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } } | null,
+): void {
+  while (sealedBatches.length > 0) {
+    const sealed = sealedBatches.shift()!;
+    finalizeBatchElement(sealed.element, turnUsage);
+  }
 }
 
 export function updateBatchElapsed(): void {
@@ -323,7 +392,7 @@ export function updateBatchElapsed(): void {
 
 export function getActiveBatchElement(): HTMLElement | null { return activeBatchElement; }
 export function getFinalizedBatchElement(): HTMLElement | null { return finalizedBatchElement; }
-export function clearActiveBatch(): void { activeBatchElement = null; finalizedBatchElement = null; }
+export function clearActiveBatch(): void { activeBatchElement = null; finalizedBatchElement = null; sealedBatches.length = 0; }
 
 export function syncBatchState(trackedIds: Set<string>): void {
   const cte = getCurrentTurnElement();
