@@ -249,6 +249,28 @@ describe("rpc-events", () => {
       // setWidget → postToWebview
       expect(ctx.postToWebview).toHaveBeenCalled();
     });
+
+    it("extensions_ready: refreshes both commands and models", async () => {
+      const mockClient = {
+        ...client,
+        getCommands: vi.fn().mockResolvedValue({ commands: [{ name: "/test" }] }),
+        getAvailableModels: vi.fn().mockResolvedValue({
+          models: [{ id: "qwen2.5-coder:14b", name: "Qwen Coder", provider: "ollama" }],
+        }),
+      };
+      const { ctx } = createCtx();
+      handleRpcEvent(ctx, webview, sid, { type: "extensions_ready" }, mockClient);
+      await vi.waitFor(() => {
+        expect(mockClient.getCommands).toHaveBeenCalled();
+        expect(mockClient.getAvailableModels).toHaveBeenCalled();
+      });
+      await vi.waitFor(() => {
+        expect(ctx.postToWebview).toHaveBeenCalledWith(
+          webview,
+          expect.objectContaining({ type: "available_models" }),
+        );
+      });
+    });
   });
 
   // ─── handleExtensionUiRequest ──────────────────────────────────────
