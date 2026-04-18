@@ -517,7 +517,7 @@ export function sanitizeAndPostProcess(html: string): string {
   // Sanitize HTML output — strips script tags, event handlers, dangerous attributes
   let result = DOMPurify.sanitize(html, {
     ADD_TAGS: ["details", "summary"],
-    ADD_ATTR: ["class", "data-code-id", "data-path", "data-idx", "data-value", "data-action", "title"],
+    ADD_ATTR: ["class", "data-code-id", "data-path", "data-idx", "data-value", "data-action", "data-model", "title", "disabled"],
   });
 
   // Wrap bare <table> elements in a scrollable container

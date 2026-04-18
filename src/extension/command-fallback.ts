@@ -7,6 +7,7 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
+import * as http from "http";
 import type { GsdRpcClient } from "./rpc-client";
 import type { SessionState } from "./session-state";
 import type { ExtensionToWebviewMessage } from "../shared/types";
@@ -18,6 +19,10 @@ import { COMMAND_FALLBACK_DELAY_MS } from "../shared/constants";
 /** Matches `/gsd` with optional recognised subcommand. */
 export const GSD_COMMAND_RE =
   /^\/gsd(?:\s+(auto|next|stop|pause|status|queue|quick|mode|help|forensics|doctor|discuss|visualize|capture|steer|knowledge|config|prefs|migrate|remote|changelog|triage|dispatch|history|undo|skip|cleanup|hooks|run-hook|skill-health|init|setup|inspect|new-milestone|parallel|park|unpark|start|templates|extensions|export|keys|logs|rate))?(?:\s|$)/;
+
+/** Matches TUI-only slash commands that need direct fallback (no timer). */
+export const TUI_ONLY_COMMAND_RE =
+  /^\/ollama(?:\s|$)/i;
 
 /**
  * Subcommands that work natively in RPC mode — they don't need fallbacks.
@@ -403,6 +408,402 @@ export async function handleGsdAutoFallback(
     ctx.postToWebview(webview, {
       type: "error",
       message: `The /gsd command couldn't complete. Try sending a plain text message describing what you want to do instead.`,
+    } as ExtensionToWebviewMessage);
+  }
+}
+
+// ── TUI-only command fallback ───────────────────────────────────────────
+
+const OLLAMA_HOST = "http://localhost:11434";
+
+function ollamaGet(urlPath: string, timeoutMs = 5000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const req = http.get(`${OLLAMA_HOST}${urlPath}`, { timeout: timeoutMs }, (res) => {
+      let body = "";
+      res.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+      res.on("end", () => resolve(body));
+    });
+    req.on("error", reject);
+    req.on("timeout", () => { req.destroy(); reject(new Error("timeout")); });
+  });
+}
+
+function ollamaDelete(urlPath: string, payload: Record<string, unknown>, timeoutMs = 10000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(payload);
+    const url = new URL(`${OLLAMA_HOST}${urlPath}`);
+    const req = http.request({
+      hostname: url.hostname,
+      port: url.port,
+      path: url.pathname,
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) },
+      timeout: timeoutMs,
+    }, (res) => {
+      let body = "";
+      res.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+      res.on("end", () => resolve(body));
+    });
+    req.on("error", reject);
+    req.on("timeout", () => { req.destroy(); reject(new Error("timeout")); });
+    req.write(data);
+    req.end();
+  });
+}
+
+function ollamaPost(urlPath: string, payload: Record<string, unknown>, timeoutMs = 120000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(payload);
+    const url = new URL(`${OLLAMA_HOST}${urlPath}`);
+    const req = http.request({
+      hostname: url.hostname,
+      port: url.port,
+      path: url.pathname,
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) },
+      timeout: timeoutMs,
+    }, (res) => {
+      let body = "";
+      res.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+      res.on("end", () => resolve(body));
+    });
+    req.on("error", reject);
+    req.on("timeout", () => { req.destroy(); reject(new Error("timeout")); });
+    req.write(data);
+    req.end();
+  });
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function sendSyntheticResponse(
+  ctx: CommandFallbackContext,
+  webview: vscode.Webview,
+  markdown: string,
+): void {
+  const post = (msg: Record<string, unknown>) => ctx.postToWebview(webview, msg);
+  post({ type: "agent_start" });
+  post({ type: "message_start", message: { role: "assistant" } });
+  post({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: markdown } });
+  post({ type: "message_end", message: { role: "assistant" } });
+  post({ type: "agent_end", messages: [] });
+}
+
+interface OllamaModelInfo {
+  name: string;
+  size: number;
+  size_vram?: number;
+  expires_at?: string;
+  modified_at?: string;
+  digest?: string;
+  details?: { family?: string; parameter_size?: string; quantization_level?: string };
+}
+
+function vramBar(size: number, sizeVram: number): string {
+  const pct = size > 0 ? Math.round((sizeVram / size) * 100) : 0;
+  const filled = Math.round(pct / 10);
+  const bar = "\u2593".repeat(filled) + "\u2591".repeat(10 - filled);
+  return `\`${bar}\` ${pct}%`;
+}
+
+function ollamaBtn(action: "load" | "unload" | "pull" | "remove", model: string, label?: string): string {
+  const labels: Record<string, string> = { load: "Load", unload: "Unload", pull: "Pull", remove: "Remove" };
+  const display = label || labels[action] || action;
+  return `<button class="gsd-ollama-btn gsd-ollama-btn--${action}" data-action="ollama_${action}" data-model="${model}" title="${display} ${model}">${display}</button>`;
+}
+
+function modelDetail(m: OllamaModelInfo): string {
+  const parts: string[] = [];
+  if (m.details?.parameter_size) parts.push(m.details.parameter_size);
+  if (m.details?.quantization_level) parts.push(m.details.quantization_level);
+  if (m.details?.family) parts.push(m.details.family);
+  return parts.length ? parts.join(" · ") : "";
+}
+
+async function handleOllamaStatus(): Promise<string> {
+  try {
+    await ollamaGet("/");
+  } catch {
+    return "## \u{1F534} Ollama Offline\n\nThe Ollama server isn't responding at `localhost:11434`.\n\nStart it with `ollama serve` or launch the Ollama desktop app.";
+  }
+
+  const lines: string[] = ["## \u{1F7E2} Ollama Running\n"];
+
+  try {
+    const versionRaw = await ollamaGet("/api/version");
+    const version = JSON.parse(versionRaw) as { version?: string };
+    if (version.version) lines.push(`**Version:** \`${version.version}\`\n`);
+  } catch { /* version endpoint optional */ }
+
+  // Loaded models (in VRAM)
+  let loadedNames: Set<string> | undefined;
+  try {
+    const psRaw = await ollamaGet("/api/ps");
+    const ps = JSON.parse(psRaw) as { models?: OllamaModelInfo[] };
+    if (ps.models?.length) {
+      loadedNames = new Set(ps.models.map(m => m.name));
+      lines.push("### Loaded in Memory\n");
+      lines.push("| Model | Size | VRAM | Expires | |");
+      lines.push("|-------|------|------|---------|---|");
+      for (const m of ps.models) {
+        const vram = m.size_vram != null ? vramBar(m.size, m.size_vram) : "\u2014";
+        const expires = m.expires_at ? new Date(m.expires_at).toLocaleTimeString() : "\u2014";
+        lines.push(`| \`${m.name}\` | ${formatBytes(m.size)} | ${vram} | ${expires} | ${ollamaBtn("unload", m.name)} |`);
+      }
+      lines.push("");
+    } else {
+      lines.push("*No models loaded in memory.*\n");
+    }
+  } catch { /* ps endpoint optional */ }
+
+  // Available models (installed on disk)
+  try {
+    const tagsRaw = await ollamaGet("/api/tags");
+    const tags = JSON.parse(tagsRaw) as { models?: OllamaModelInfo[] };
+    if (tags.models?.length) {
+      const unloaded = loadedNames ? tags.models.filter(m => !loadedNames!.has(m.name)) : tags.models;
+      if (unloaded.length) {
+        lines.push("### Available on Disk\n");
+        lines.push("| Model | Size | Details | |");
+        lines.push("|-------|------|---------|---|");
+        for (const m of unloaded) {
+          const detail = modelDetail(m) || "\u2014";
+          lines.push(`| \`${m.name}\` | ${formatBytes(m.size)} | ${detail} | ${ollamaBtn("load", m.name)} ${ollamaBtn("remove", m.name)} |`);
+        }
+      }
+      lines.push("");
+      lines.push(`**${tags.models.length}** model${tags.models.length === 1 ? "" : "s"} installed \u00B7 ${loadedNames?.size ?? 0} loaded`);
+    } else {
+      lines.push("No models installed yet.\n\n**Get started:** `/ollama pull llama3.1:8b`");
+    }
+  } catch { /* tags endpoint optional */ }
+
+  return lines.join("\n");
+}
+
+async function handleOllamaList(): Promise<string> {
+  try {
+    const tagsRaw = await ollamaGet("/api/tags");
+    const tags = JSON.parse(tagsRaw) as { models?: OllamaModelInfo[] };
+    if (!tags.models?.length) return "## Ollama Models\n\nNo models installed yet.\n\n**Popular models:** `llama3.1:8b` \u00B7 `qwen2.5-coder:7b` \u00B7 `deepseek-r1:8b` \u00B7 `codestral:22b`\n\n**Install:** `/ollama pull llama3.1:8b`";
+
+    // Check which models are loaded to show appropriate actions
+    let loadedNames: Set<string> | undefined;
+    try {
+      const psRaw = await ollamaGet("/api/ps");
+      const ps = JSON.parse(psRaw) as { models?: OllamaModelInfo[] };
+      if (ps.models?.length) loadedNames = new Set(ps.models.map(m => m.name));
+    } catch { /* ps optional */ }
+
+    let totalSize = 0;
+    const lines = ["## Ollama Models\n", "| Model | Size | Details | |", "|-------|------|---------|---|"];
+    for (const m of tags.models) {
+      totalSize += m.size;
+      const detail = modelDetail(m) || "\u2014";
+      const isLoaded = loadedNames?.has(m.name);
+      const actions = isLoaded
+        ? ollamaBtn("unload", m.name)
+        : `${ollamaBtn("load", m.name)} ${ollamaBtn("remove", m.name)}`;
+      lines.push(`| \`${m.name}\` | ${formatBytes(m.size)} | ${detail} | ${actions} |`);
+    }
+    lines.push("");
+    lines.push(`**${tags.models.length}** model${tags.models.length === 1 ? "" : "s"} \u00B7 ${formatBytes(totalSize)} total`);
+    return lines.join("\n");
+  } catch {
+    return "## \u{1F534} Ollama Offline\n\nStart it with `ollama serve` or launch the Ollama desktop app.";
+  }
+}
+
+async function handleOllamaPs(): Promise<string> {
+  try {
+    const psRaw = await ollamaGet("/api/ps");
+    const ps = JSON.parse(psRaw) as { models?: OllamaModelInfo[] };
+    if (!ps.models?.length) return "## Loaded Models\n\n*No models currently loaded in memory.*\n\nLoad one with `/ollama pull <model>` then use it in a prompt.";
+
+    const lines = ["## Loaded Models\n", "| Model | Size | VRAM | Expires | |", "|-------|------|------|---------|---|"];
+    for (const m of ps.models) {
+      const vram = m.size_vram != null ? vramBar(m.size, m.size_vram) : "\u2014";
+      const expires = m.expires_at ? new Date(m.expires_at).toLocaleTimeString() : "\u2014";
+      lines.push(`| \`${m.name}\` | ${formatBytes(m.size)} | ${vram} | ${expires} | ${ollamaBtn("unload", m.name)} |`);
+    }
+    return lines.join("\n");
+  } catch {
+    return "## \u{1F534} Ollama Offline\n\nStart it with `ollama serve` or launch the Ollama desktop app.";
+  }
+}
+
+async function handleOllamaPull(model: string): Promise<string> {
+  if (!model) return "## Pull Model\n\n**Usage:** `/ollama pull <model>`\n\n**Popular models:** `llama3.1:8b` \u00B7 `qwen2.5-coder:7b` \u00B7 `deepseek-r1:8b` \u00B7 `codestral:22b`";
+
+  try {
+    const raw = await ollamaPost("/api/pull", { name: model, stream: false });
+    const result = JSON.parse(raw) as { status?: string; error?: string };
+    if (result.error) return `## \u274C Pull Failed\n\n\`${model}\`: ${result.error}`;
+    return `## \u2705 Pulled \`${model}\`\n\nStatus: ${result.status || "complete"}\n\nRun \`/ollama list\` to see all installed models.`;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === "timeout") return `## \u23F3 Pull In Progress\n\n\`${model}\` is still downloading in the background.\n\nCheck progress with \`/ollama list\`.`;
+    return `## \u274C Pull Failed\n\n\`${model}\`: ${msg}\n\nMake sure Ollama is running (\`ollama serve\`).`;
+  }
+}
+
+async function handleOllamaLoad(model: string): Promise<string> {
+  if (!model) return "## Load Model\n\n**Usage:** `/ollama load <model>`\n\nRun `/ollama list` to see installed models.";
+
+  try {
+    const raw = await ollamaPost("/api/generate", { model, keep_alive: "10m" }, 300000);
+    const result = JSON.parse(raw) as { error?: string };
+    if (result.error) return `## \u274C Load Failed\n\n\`${model}\`: ${result.error}`;
+    return `## \u2705 Loaded \`${model}\`\n\nModel is now in VRAM and ready to use.\n\nRun \`/ollama ps\` to see loaded models.`;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === "timeout") return `## \u23F3 Loading \`${model}\`\n\nStill loading into VRAM — large models take a moment.\n\nCheck with \`/ollama ps\`.`;
+    return `## \u274C Load Failed\n\n\`${model}\`: ${msg}`;
+  }
+}
+
+async function handleOllamaUnload(model: string): Promise<string> {
+  if (!model) return "## Unload Model\n\n**Usage:** `/ollama unload <model>`\n\nRun `/ollama ps` to see loaded models.";
+
+  try {
+    const raw = await ollamaPost("/api/generate", { model, keep_alive: 0 });
+    const result = JSON.parse(raw) as { error?: string };
+    if (result.error) return `## \u274C Unload Failed\n\n\`${model}\`: ${result.error}`;
+    return `## \u2705 Unloaded \`${model}\`\n\nModel has been released from VRAM.\n\nRun \`/ollama ps\` to verify.`;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `## \u274C Unload Failed\n\n\`${model}\`: ${msg}`;
+  }
+}
+
+async function handleOllamaRemove(model: string): Promise<string> {
+  if (!model) return "## Remove Model\n\n**Usage:** `/ollama remove <model>`\n\nRun `/ollama list` to see installed models.";
+
+  try {
+    const raw = await ollamaDelete("/api/delete", { name: model });
+    if (!raw || raw.trim() === "") return `## \u2705 Removed \`${model}\`\n\nRun \`/ollama list\` to see remaining models.`;
+    const result = JSON.parse(raw) as { error?: string };
+    if (result.error) return `## \u274C Remove Failed\n\n\`${model}\`: ${result.error}`;
+    return `## \u2705 Removed \`${model}\``;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `## \u274C Remove Failed\n\n\`${model}\`: ${msg}`;
+  }
+}
+
+/**
+ * Handle TUI-only slash commands (e.g. /ollama) that use ctx.ui.custom()
+ * and cannot render through RPC. Calls APIs directly and sends synthetic
+ * assistant responses to the webview.
+ */
+export async function handleTuiOnlyFallback(
+  ctx: CommandFallbackContext,
+  _client: GsdRpcClient,
+  webview: vscode.Webview,
+  sessionId: string,
+  originalCommand: string,
+): Promise<void> {
+  const trimmed = originalCommand.trim();
+  const parts = trimmed.split(/\s+/);
+  const command = parts[0]!.replace(/^\//, "").toLowerCase();
+
+  try {
+    let result: string;
+
+    if (command === "ollama") {
+      const subcommand = parts[1] || "status";
+      const modelArg = parts.slice(2).join(" ");
+
+      switch (subcommand) {
+        case "status":
+          result = await handleOllamaStatus();
+          break;
+        case "list":
+        case "ls":
+          result = await handleOllamaList();
+          break;
+        case "ps":
+          result = await handleOllamaPs();
+          break;
+        case "pull":
+          result = await handleOllamaPull(modelArg);
+          break;
+        case "load":
+          result = await handleOllamaLoad(modelArg);
+          break;
+        case "unload":
+          result = await handleOllamaUnload(modelArg);
+          break;
+        case "remove":
+        case "rm":
+        case "delete":
+          result = await handleOllamaRemove(modelArg);
+          break;
+        default:
+          result = [
+            "## Ollama Commands\n",
+            "| Command | Description |",
+            "|---------|-------------|",
+            "| `/ollama` | Server status, version, loaded & available models |",
+            "| `/ollama list` | All installed models with size and details |",
+            "| `/ollama ps` | Models loaded in VRAM with utilization |",
+            "| `/ollama pull <model>` | Download a model |",
+            "| `/ollama remove <model>` | Delete a model from disk |",
+            "",
+            "**Popular models:** `llama3.1:8b` \u00B7 `qwen2.5-coder:7b` \u00B7 `deepseek-r1:8b` \u00B7 `codestral:22b`",
+          ].join("\n");
+          break;
+      }
+    } else {
+      result = `The \`/${command}\` command is only available in the terminal. Try describing what you want to do in plain text.`;
+    }
+
+    ctx.output.appendLine(`[${sessionId}] TUI-only fallback for "${originalCommand}" — direct API`);
+    sendSyntheticResponse(ctx, webview, result);
+  } catch (err: unknown) {
+    ctx.output.appendLine(`[${sessionId}] TUI-only fallback failed: ${toErrorMessage(err)}`);
+    ctx.postToWebview(webview, {
+      type: "error",
+      message: `The ${command} command couldn't complete. Try describing what you want to do in plain text.`,
+    } as ExtensionToWebviewMessage);
+  }
+}
+
+export async function handleOllamaAction(
+  ctx: CommandFallbackContext,
+  webview: vscode.Webview,
+  sessionId: string,
+  action: "load" | "unload" | "pull" | "remove",
+  model: string,
+): Promise<void> {
+  ctx.output.appendLine(`[${sessionId}] Ollama action: ${action} ${model}`);
+  try {
+    let result: string;
+    switch (action) {
+      case "load":
+        result = await handleOllamaLoad(model);
+        break;
+      case "unload":
+        result = await handleOllamaUnload(model);
+        break;
+      case "pull":
+        result = await handleOllamaPull(model);
+        break;
+      case "remove":
+        result = await handleOllamaRemove(model);
+        break;
+    }
+    sendSyntheticResponse(ctx, webview, result);
+  } catch (err: unknown) {
+    ctx.output.appendLine(`[${sessionId}] Ollama action failed: ${toErrorMessage(err)}`);
+    ctx.postToWebview(webview, {
+      type: "error",
+      message: `Ollama ${action} failed for ${model}. Check the Output panel for details.`,
     } as ExtensionToWebviewMessage);
   }
 }
