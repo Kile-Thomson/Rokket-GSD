@@ -405,6 +405,27 @@ welcomeActions.addEventListener("click", (e: Event) => {
 // File & image handling is in file-handling.ts
 
 // ============================================================
+// Ollama interactive actions (Load / Unload / Remove buttons)
+// ============================================================
+
+messagesContainer.addEventListener("click", (e: Event) => {
+  const btn = (e.target as HTMLElement).closest(".gsd-ollama-btn") as HTMLElement | null;
+  if (!btn) return;
+
+  const rawAction = btn.dataset.action;
+  const model = btn.dataset.model;
+  if (!rawAction?.startsWith("ollama_") || !model) return;
+
+  const action = rawAction.replace("ollama_", "") as "load" | "unload" | "pull" | "remove";
+
+  // Disable button to prevent double-clicks
+  btn.setAttribute("disabled", "true");
+  btn.textContent = action === "remove" ? "Removing\u2026" : action === "unload" ? "Unloading\u2026" : action === "pull" ? "Pulling\u2026" : "Loading\u2026";
+
+  vscode.postMessage({ type: "ollama_action", action, model } as WebviewToExtensionMessage);
+});
+
+// ============================================================
 // Slash command menu — input listener
 // ============================================================
 

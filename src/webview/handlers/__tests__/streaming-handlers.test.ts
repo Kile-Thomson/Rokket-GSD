@@ -23,6 +23,10 @@ vi.mock("../../renderer", () => ({
   finalizeParallelBatch: vi.fn(),
   clearActiveBatch: vi.fn(),
   getActiveBatchElement: vi.fn(() => null),
+  sealActiveBatch: vi.fn(() => null),
+  tickSealedBatches: vi.fn(),
+  isInSealedBatch: vi.fn(() => false),
+  finalizeAllSealedBatches: vi.fn(),
 }));
 
 vi.mock("../../session-history", () => ({
@@ -411,24 +415,48 @@ describe("streaming-handlers", () => {
       expect(state.sessionStats.contextPercent).toBe(50);
     });
 
-    it("does NOT compute contextPercent from message_end when cost_update is active", () => {
+    it("computes contextPercent from per-call message_end.usage (no cumulative deltas)", () => {
       state.sessionStats.contextWindow = 100_000;
       sendMessage({
         type: "cost_update",
         cumulativeCost: 0.01,
         tokens: { input: 5000, output: 500, cacheRead: 2000, cacheWrite: 1000 },
       });
-      expect(state.sessionStats.contextPercent).toBe(8);
 
+      sendMessage({ type: "agent_start" });
+      // First call: 5000 + 40000 + 5000 = 50000 → 50%
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 5000, output: 500, cacheRead: 40000, cacheWrite: 5000 },
+        },
+      });
+      expect(state.sessionStats.contextPercent).toBe(50);
+
+      // Second call is ALSO per-call (not cumulative): 10000 + 55000 + 5000 = 70000 → 70%
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 10000, output: 1000, cacheRead: 55000, cacheWrite: 5000 },
+        },
+      });
+      expect(state.sessionStats.contextPercent).toBe(70);
+    });
+
+    it("prefers usage.totalTokens when present", () => {
+      state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
       sendMessage({
         type: "message_end",
         message: {
           role: "assistant",
-          usage: { input: 500000, output: 50000, cacheRead: 200000, cacheWrite: 100000 },
+          // totalTokens wins over the component sum
+          usage: { input: 1, output: 1, cacheRead: 1, cacheWrite: 1, totalTokens: 42000 },
         },
       });
-      expect(state.sessionStats.contextPercent).toBe(8);
+      expect(state.sessionStats.contextPercent).toBe(42);
     });
 
     it("handles message_end with stopReason:error without crashing", () => {
