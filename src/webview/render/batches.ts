@@ -17,6 +17,7 @@ import {
   getMessagesContainer,
   resetStreamingInternals,
   detectStaleEcho,
+  resolveContainerLevelAnchor,
 } from "./streaming";
 
 let activeBatchElement: HTMLElement | null = null;
@@ -148,7 +149,12 @@ export function createParallelBatch(toolIds: string[]): void {
     }
   }
 
-  if (!firstEl) { cte.appendChild(batch); } else { firstEl.parentNode!.insertBefore(batch, firstEl); }
+  if (!firstEl) {
+    cte.appendChild(batch);
+  } else {
+    const anchor = resolveContainerLevelAnchor(cte, firstEl);
+    anchor.parentNode!.insertBefore(batch, anchor);
+  }
 
   for (const toolId of toolIds) {
     const el = cte.querySelector<HTMLElement>(`.gsd-tool-segment[data-tool-id="${toolId}"]`);
@@ -215,10 +221,41 @@ export function updateParallelBatchStatus(): void {
 
   const total = running + done + errored;
   const label = activeBatchElement.querySelector(".gsd-parallel-batch-label");
-  if (label && running > 0) {
-    label.textContent = `${total} tools — ${done + errored} done, ${running} running`;
+  if (running > 0) {
+    if (label) label.textContent = `${total} tools — ${done + errored} done, ${running} running`;
+  } else if (total > 0) {
+    // Last tool in the batch just finished. Swap the spinner for a check and
+    // restate the label now — waiting for the 800ms finalize timer leaves the
+    // container visually "running" while the model is already emitting more
+    // content. Keep activeBatchElement pointed at this node so the timer can
+    // still append footer pills (and a follow-up wave can reopen it).
+    applyIdleHeader(activeBatchElement, total, errored);
   }
   updateBatchElapsed();
+}
+
+// Visually transition a still-active batch to its "done" header state without
+// detaching it or writing the final duration. finalizeBatchElement will later
+// overwrite the label with the precise duration and add footer pills; this is
+// the intermediate "everything finished, waiting on finalize" state.
+function applyIdleHeader(element: HTMLElement, total: number, errored: number): void {
+  element.classList.remove("running");
+  element.classList.add("done");
+  const spinner = element.querySelector(".gsd-parallel-batch-header .gsd-tool-spinner");
+  if (spinner) {
+    const icon = document.createElement("span");
+    icon.className = errored > 0 ? "gsd-tool-icon error" : "gsd-tool-icon success";
+    icon.textContent = errored > 0 ? "✗" : "✓";
+    spinner.replaceWith(icon);
+  }
+  const label = element.querySelector(".gsd-parallel-batch-label");
+  if (label) {
+    label.textContent = errored > 0
+      ? `${total} tools completed (${errored} failed)`
+      : `${total} tools completed`;
+  }
+  const elapsed = element.querySelector(".gsd-parallel-batch-elapsed");
+  if (elapsed) elapsed.textContent = "";
 }
 
 export function finalizeParallelBatch(turnUsage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } } | null): void {
@@ -450,8 +487,12 @@ export function syncBatchState(trackedIds: Set<string>): void {
           firstEl = el;
         }
       }
-      if (firstEl && firstEl.parentNode) { firstEl.parentNode.insertBefore(batch, firstEl); }
-      else { cte.appendChild(batch); }
+      if (firstEl) {
+        const anchor = resolveContainerLevelAnchor(cte, firstEl);
+        anchor.parentNode!.insertBefore(batch, anchor);
+      } else {
+        cte.appendChild(batch);
+      }
 
       activeBatchElement = batch;
       batch.dataset.startTime = String(Date.now());
