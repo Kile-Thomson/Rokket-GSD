@@ -446,7 +446,7 @@ export function clearFinalizedBatch(): void { finalizedBatchElement = null; }
 export function disbandActiveBatch(): void {
   if (!activeBatchElement) return;
   const parent = activeBatchElement.parentElement;
-  if (!parent) { activeBatchElement = null; return; }
+  if (!parent) { activeBatchElement = null; finalizedBatchElement = null; return; }
   const content = activeBatchElement.querySelector(".gsd-parallel-batch-content");
   if (content) {
     const children = Array.from(content.children);

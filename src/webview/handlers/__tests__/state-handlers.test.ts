@@ -29,6 +29,8 @@ vi.mock("../../renderer", () => ({
   unsealBatchesOverlapping: vi.fn(),
   disbandOrphanedBatches: vi.fn(),
   getSealedBatchCount: vi.fn(() => 0),
+  getSealedBatchWaves: vi.fn(() => []),
+  getCurrentTurnElement: vi.fn(() => null),
   reopenParallelBatch: vi.fn(),
   appendServerToolSegment: vi.fn(),
   completeServerToolSegment: vi.fn(),

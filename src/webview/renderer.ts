@@ -1188,7 +1188,18 @@ export function clearFinalizedBatch(): void {
 export function getSealedBatchCount(): number { return sealedBatches.length; }
 
 export function getSealedBatchWaves(): string[][] {
-  return sealedBatches.map(s => [...s.toolIds]);
+  const waves = sealedBatches.map(s => [...s.toolIds]);
+  const sealedIds = new Set(waves.flat());
+  const cte = getCurrentTurnElement();
+  if (cte) {
+    for (const batch of Array.from(cte.querySelectorAll<HTMLElement>(".gsd-parallel-batch.done"))) {
+      const ids = Array.from(batch.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]"))
+        .map(el => el.dataset.toolId!)
+        .filter(id => id && !sealedIds.has(id));
+      if (ids.length > 0) waves.push(ids);
+    }
+  }
+  return waves;
 }
 
 /** Remove the active batch container and return its children to the turn element.

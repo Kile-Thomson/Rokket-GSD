@@ -487,18 +487,19 @@ function handleMessage(event: MessageEvent): void {
       activeBatchToolIds = null;
       messageParallelToolIds = null;
       renderer.clearActiveBatch();
+      const finishedTurnEl = renderer.getCurrentTurnElement();
       renderer.finalizeCurrentTurn();
       {
-        const batchesAfter = messagesContainer.querySelectorAll(".gsd-parallel-batch").length;
-        const batchAuditAfter = Array.from(messagesContainer.querySelectorAll<HTMLElement>(".gsd-parallel-batch")).map((b, i) => {
+        const scope = finishedTurnEl ?? messagesContainer;
+        const batchesAfter = scope.querySelectorAll(".gsd-parallel-batch").length;
+        const batchAuditAfter = Array.from(scope.querySelectorAll<HTMLElement>(".gsd-parallel-batch")).map((b, i) => {
           const ids = Array.from(b.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]")).map(el => el.dataset.toolId);
           return `batch${i}(${b.classList.contains("done") ? "done" : "other"}): [${ids.join(",")}]`;
         });
         console.warn(`[gsd:parallel] agent_end AFTER: DOM batches=${batchesAfter}\n  ${batchAuditAfter.join("\n  ")}`);
 
-        // Diagnostic: watch for post-agent_end batch mutations
         const batchDiagnostic = () => {
-          const batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+          const batches = scope.querySelectorAll(".gsd-parallel-batch");
           const audit = Array.from(batches).map((b, i) => {
             const el = b as HTMLElement;
             const ids = Array.from(el.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]")).map(e => e.dataset.toolId);
@@ -508,7 +509,7 @@ function handleMessage(event: MessageEvent): void {
           return { count: batches.length, audit };
         };
         const snap0 = batchDiagnostic();
-        setTimeout(() => {
+        const diagTimer1 = setTimeout(() => {
           const snap1 = batchDiagnostic();
           if (snap1.count !== snap0.count) {
             console.error(`[gsd:parallel] BATCH DRIFT +500ms: ${snap0.count} → ${snap1.count}\n  ${snap1.audit.join("\n  ")}`);
@@ -516,7 +517,7 @@ function handleMessage(event: MessageEvent): void {
             console.debug(`[gsd:parallel] +500ms: stable at ${snap1.count} batches`);
           }
         }, 500);
-        setTimeout(() => {
+        const diagTimer2 = setTimeout(() => {
           const snap2 = batchDiagnostic();
           if (snap2.count !== snap0.count) {
             console.error(`[gsd:parallel] BATCH DRIFT +2s: ${snap0.count} → ${snap2.count}\n  ${snap2.audit.join("\n  ")}`);
@@ -525,7 +526,6 @@ function handleMessage(event: MessageEvent): void {
           }
         }, 2000);
 
-        // MutationObserver: catch the exact moment a batch is removed or reparented
         const batchObserver = new MutationObserver((mutations) => {
           for (const m of mutations) {
             for (const removed of Array.from(m.removedNodes)) {
@@ -544,8 +544,8 @@ function handleMessage(event: MessageEvent): void {
             }
           }
         });
-        batchObserver.observe(messagesContainer, { childList: true, subtree: true });
-        setTimeout(() => batchObserver.disconnect(), 5000);
+        batchObserver.observe(scope, { childList: true, subtree: true });
+        setTimeout(() => { batchObserver.disconnect(); clearTimeout(diagTimer1); clearTimeout(diagTimer2); }, 5000);
       }
       updateInputUI();
       updateOverlayIndicators();
@@ -937,6 +937,10 @@ function handleMessage(event: MessageEvent): void {
           if (bType !== "serverToolUse" && bType !== "server_tool_use") continue;
           const bId = (block as any).id as string | undefined;
           if (!bId || state.currentTurn.toolCalls.has(bId)) continue;
+          const alreadyHasSegment = state.currentTurn.segments.some(
+            s => (s.type === "server_tool" && s.serverToolId === bId) || (s.type === "tool" && s.toolCallId === bId)
+          );
+          if (alreadyHasSegment) continue;
           const input = (block as any).input ?? (block as any).arguments ?? {};
           const tc: ToolCallState = {
             id: bId,
