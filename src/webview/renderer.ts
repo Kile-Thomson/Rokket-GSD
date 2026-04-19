@@ -910,13 +910,43 @@ export function updateParallelBatchStatus(): void {
 
   const total = running + done + errored;
   const label = activeBatchElement.querySelector(".gsd-parallel-batch-label");
-  if (label) {
-    if (running > 0) {
-      label.textContent = `${total} tools — ${done + errored} done, ${running} running`;
-    }
+  if (running > 0) {
+    if (label) label.textContent = `${total} tools — ${done + errored} done, ${running} running`;
+  } else if (total > 0) {
+    // Last tool in the batch just finished. Swap the spinner for a check and
+    // restate the label now — waiting for the 800ms finalize timer leaves the
+    // container visually "running" while the model is already emitting more
+    // content. Keep activeBatchElement pointed at this node so the timer can
+    // still append footer pills (and a follow-up wave can reopen it).
+    applyIdleHeader(activeBatchElement, total, errored);
   }
 
   updateBatchElapsed();
+}
+
+// Transition a still-active batch to its "done" header state without detaching
+// it or writing a final duration. finalizeBatchElement will later overwrite
+// the label with the precise duration and add footer pills; this is the
+// intermediate "all finished, waiting on finalize" state so the user doesn't
+// see a spinner for a batch whose tools have already completed.
+function applyIdleHeader(element: HTMLElement, total: number, errored: number): void {
+  element.classList.remove("running");
+  element.classList.add("done");
+  const spinner = element.querySelector(".gsd-parallel-batch-header .gsd-tool-spinner");
+  if (spinner) {
+    const icon = document.createElement("span");
+    icon.className = errored > 0 ? "gsd-tool-icon error" : "gsd-tool-icon success";
+    icon.textContent = errored > 0 ? "✗" : "✓";
+    spinner.replaceWith(icon);
+  }
+  const label = element.querySelector(".gsd-parallel-batch-label");
+  if (label) {
+    label.textContent = errored > 0
+      ? `${total} tools completed (${errored} failed)`
+      : `${total} tools completed`;
+  }
+  const elapsed = element.querySelector(".gsd-parallel-batch-elapsed");
+  if (elapsed) elapsed.textContent = "";
 }
 
 /**

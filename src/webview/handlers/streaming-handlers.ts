@@ -384,8 +384,18 @@ export function handleMessageEnd(msg: Msg<'message_end'>): void {
   if (endMsg?.content && state.currentTurn) {
     const blocks = Array.isArray(endMsg.content) ? endMsg.content as Array<Record<string, unknown>> : [];
     console.debug(`[gsd:parallel] message_end: ${blocks.length} content blocks, types=[${blocks.map(b => b.type).join(",")}]`);
+    // Include server-executed tool blocks — Agent/Task dispatch and web_search
+    // arrive as `serverToolUse` in pi's content stream and must participate in
+    // parallel batches, otherwise the visible tool count undercounts reality.
+    const toolBlockTypes = new Set([
+      "tool_use",
+      "toolCall",
+      "tool-use",
+      "serverToolUse",
+      "server_tool_use",
+    ]);
     const toolIds = blocks
-      .filter(b => b.type === "tool_use" || b.type === "toolCall" || b.type === "tool-use")
+      .filter(b => toolBlockTypes.has(b.type as string))
       .map(b => b.id)
       .filter(Boolean) as string[];
     console.debug(`[gsd:parallel] message_end: ${toolIds.length} tool IDs found`);
@@ -455,34 +465,56 @@ export function handleMessageEnd(msg: Msg<'message_end'>): void {
       const u = endMsg.usage;
       setLastMessageUsage(u);
 
+      // pi's claude-code-cli adapter exposes a `perCallUsage` field on the
+      // assistant message carrying the *last* API call's usage snapshot
+      // (input, output, cacheRead, cacheWrite, totalTokens). That is the
+      // authoritative signal for context window pressure — `usage` is a
+      // session-wide running aggregate, not per-call.
+      const perCall = (endMsg as Record<string, unknown>).perCallUsage as
+        | { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; totalTokens?: number }
+        | undefined;
+
       if (!getHasCostUpdateSource()) {
+        // cost_update is the authoritative session-total source in v2.
+        // When absent (older providers), mirror pi's session-stat behaviour:
+        // `usage` here is already cumulative across the session for
+        // assistant messages, so take monotonic-max rather than accumulate.
+        const curIn = u.input || 0;
+        const curOut = u.output || 0;
+        const curCR = u.cacheRead || 0;
+        const curCW = u.cacheWrite || 0;
         if (!state.sessionStats.tokens) {
           state.sessionStats.tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
         }
         const t = state.sessionStats.tokens;
-        t.input += u.input || 0;
-        t.output += u.output || 0;
-        t.cacheRead += u.cacheRead || 0;
-        t.cacheWrite += u.cacheWrite || 0;
+        t.input = Math.max(t.input, curIn);
+        t.output = Math.max(t.output, curOut);
+        t.cacheRead = Math.max(t.cacheRead, curCR);
+        t.cacheWrite = Math.max(t.cacheWrite, curCW);
         t.total = t.input + t.output + t.cacheRead + t.cacheWrite;
         if (u.cost?.total) {
-          state.sessionStats.cost = (state.sessionStats.cost || 0) + u.cost.total;
+          state.sessionStats.cost = Math.max(state.sessionStats.cost || 0, u.cost.total);
         }
       }
 
       {
-        // message_end.usage is per-call (mirrors pi's AssistantMessage.usage).
-        // Prompt size = input + cacheRead + cacheWrite. Output is the reply.
-        const uTotal = (u as any).totalTokens as number | undefined;
-        const contextTokens = typeof uTotal === "number" && uTotal > 0
-          ? uTotal
-          : (u.input || 0) + (u.cacheRead || 0) + (u.cacheWrite || 0);
+        // Context %: prefer perCallUsage.totalTokens (matches pi's own
+        // calculateContextTokens exactly), fall back to the field sum.
+        // Never delta-compute from `usage` — it's a session aggregate.
         const contextWindow = resolveContextWindow();
+        if (contextWindow > 0) {
+          state.sessionStats.contextWindow = contextWindow;
+        }
+        let contextTokens = 0;
+        if (perCall && typeof perCall.totalTokens === "number" && perCall.totalTokens > 0) {
+          contextTokens = perCall.totalTokens;
+        } else if (perCall) {
+          contextTokens = (perCall.input || 0) + (perCall.output || 0) + (perCall.cacheRead || 0) + (perCall.cacheWrite || 0);
+        }
+        console.debug(`[gsd:context] ctx=${contextTokens}/${contextWindow} perCall=${perCall ? JSON.stringify(perCall) : "n/a"}`);
         if (contextWindow > 0 && contextTokens > 0) {
           state.sessionStats.contextTokens = contextTokens;
-          state.sessionStats.contextWindow = contextWindow;
           state.sessionStats.contextPercent = (contextTokens / contextWindow) * 100;
-          console.debug(`[gsd:context] message_end context%: ${(contextTokens / contextWindow * 100).toFixed(1)}% (tokens=${contextTokens}, window=${contextWindow})`);
         }
       }
       updateHeaderUI();

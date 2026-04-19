@@ -71,7 +71,26 @@
 /* ---- Assistant turn ---- */
 
 .gsd-entry-assistant {
-  /* full width */
+  position: relative;
+  padding-left: 12px;
+}
+
+.gsd-entry-assistant::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: color-mix(in srgb, var(--gsd-color-accent) 35%, transparent);
+  border-radius: 1px;
+  transition: background 0.2s ease;
+  pointer-events: none;
+}
+
+.gsd-entry-assistant:hover::before,
+.gsd-entry-assistant.streaming::before {
+  background: var(--gsd-color-accent);
 }
 
 .gsd-entry-assistant + .gsd-entry-assistant {
