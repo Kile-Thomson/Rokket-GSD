@@ -236,7 +236,17 @@ export function init(deps: MessageHandlerDeps): void {
 
   resetDerivedSessionTracking();
 
+  // Remove any previously-registered listener before adding a fresh one so
+  // that re-initialisation (e.g. in tests) does not accumulate duplicates.
+  window.removeEventListener("message", handleMessage);
   window.addEventListener("message", handleMessage);
+}
+
+/** Remove the window message listener registered by {@link init}. Call this in
+ *  test afterEach hooks (or wherever teardown is needed) to prevent listener
+ *  accumulation across test runs. */
+export function cleanup(): void {
+  window.removeEventListener("message", handleMessage);
 }
 
 // ============================================================

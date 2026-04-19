@@ -51,7 +51,7 @@ vi.mock("../a11y", () => ({
   announceToScreenReader: vi.fn(),
 }));
 
-import { init } from "../message-handler";
+import { init, cleanup } from "../message-handler";
 import * as renderer from "../renderer";
 
 function sendMessage(data: Record<string, unknown>): void {
@@ -128,6 +128,7 @@ describe("parallel batch rendering (E2E, real renderer)", () => {
   });
 
   afterEach(() => {
+    cleanup();
     resetState();
   });
 
@@ -427,7 +428,10 @@ describe("parallel batch rendering (E2E, real renderer)", () => {
     }
   });
 
-  it("mixed Bash + Agent parallel tools (serverToolUse blocks) render in one batch", () => {
+  it.each([
+    ["serverToolUse"],
+    ["server_tool_use"],
+  ])("mixed Bash + Agent parallel tools (%s blocks) render in one batch", (serverToolUseType) => {
     sendMessage({ type: "agent_start" });
     sendMessage({ type: "message_start" });
 
@@ -435,11 +439,11 @@ describe("parallel batch rendering (E2E, real renderer)", () => {
     const tools = [
       { id: "bh-1", name: "Bash", type: "tool_use" as const },
       { id: "bh-2", name: "Bash", type: "tool_use" as const },
-      { id: "ag-1", name: "Agent", type: "serverToolUse" as const },
-      { id: "ag-2", name: "Agent", type: "serverToolUse" as const },
+      { id: "ag-1", name: "Agent", type: serverToolUseType },
+      { id: "ag-2", name: "Agent", type: serverToolUseType },
     ];
 
-    // Only the regular tool_use blocks emit tool_execution_start; serverToolUse
+    // Only the regular tool_use blocks emit tool_execution_start; server tool
     // blocks complete server-side and arrive only in message_end content.
     for (const t of tools) {
       if (t.type === "tool_use") {
