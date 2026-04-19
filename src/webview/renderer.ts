@@ -1187,6 +1187,10 @@ export function clearFinalizedBatch(): void {
 
 export function getSealedBatchCount(): number { return sealedBatches.length; }
 
+export function getSealedBatchWaves(): string[][] {
+  return sealedBatches.map(s => [...s.toolIds]);
+}
+
 /** Remove the active batch container and return its children to the turn element.
  *  Used when message_end reveals multi-wave content that was prematurely merged
  *  during streaming. The children are placed back at the batch's DOM position so

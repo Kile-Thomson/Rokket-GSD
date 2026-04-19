@@ -343,7 +343,7 @@
       "format": "esm"
     },
     "src/webview/renderer.ts": {
-      "bytes": 87290,
+      "bytes": 88016,
       "imports": [
         {
           "path": "src/webview/state.ts",
@@ -514,7 +514,7 @@
       "format": "esm"
     },
     "src/webview/message-handler.ts": {
-      "bytes": 87777,
+      "bytes": 93665,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -812,7 +812,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 943040
+      "bytes": 953553
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -875,10 +875,10 @@
           "bytesInOutput": 1148
         },
         "node_modules/marked/lib/marked.esm.js": {
-          "bytesInOutput": 38670
+          "bytesInOutput": 38668
         },
         "node_modules/dompurify/dist/purify.es.mjs": {
-          "bytesInOutput": 22757
+          "bytesInOutput": 22751
         },
         "src/webview/dispose.ts": {
           "bytesInOutput": 383
@@ -920,10 +920,10 @@
           "bytesInOutput": 232
         },
         "src/webview/renderer.ts": {
-          "bytesInOutput": 32839
+          "bytesInOutput": 33008
         },
         "src/webview/dashboard.ts": {
-          "bytesInOutput": 10406
+          "bytesInOutput": 10399
         },
         "src/webview/auto-progress.ts": {
           "bytesInOutput": 6497
@@ -938,7 +938,7 @@
           "bytesInOutput": 6809
         },
         "src/webview/message-handler.ts": {
-          "bytesInOutput": 28859
+          "bytesInOutput": 31665
         },
         "src/webview/ui-updates.ts": {
           "bytesInOutput": 7858
@@ -947,7 +947,7 @@
           "bytesInOutput": 19106
         }
       },
-      "bytes": 242171
+      "bytes": 245131
     },
     "dist/webview/index.css.map": {
       "imports": [],

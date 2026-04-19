@@ -475,7 +475,11 @@ function handleMessage(event: MessageEvent): void {
       document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
       {
         const batchesBefore = messagesContainer.querySelectorAll(".gsd-parallel-batch").length;
-        console.debug(`[gsd:parallel] agent_end: DOM batches=${batchesBefore}, activeBatch=${!!activeBatchToolIds}, sealed=${renderer.getSealedBatchCount?.() ?? -1}`);
+        const batchAudit = Array.from(messagesContainer.querySelectorAll<HTMLElement>(".gsd-parallel-batch")).map((b, i) => {
+          const ids = Array.from(b.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]")).map(el => el.dataset.toolId);
+          return `batch${i}(${b.classList.contains("done") ? "done" : b.classList.contains("running") ? "running" : "other"}): [${ids.join(",")}]`;
+        });
+        console.warn(`[gsd:parallel] agent_end: DOM batches=${batchesBefore}, activeBatch=${!!activeBatchToolIds}, activeBatchSize=${activeBatchToolIds?.size ?? 0}, sealed=${renderer.getSealedBatchCount?.() ?? -1}\n  ${batchAudit.join("\n  ")}`);
       }
       if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
       if (activeBatchToolIds) { renderer.finalizeParallelBatch(lastMessageUsage); }
@@ -486,7 +490,62 @@ function handleMessage(event: MessageEvent): void {
       renderer.finalizeCurrentTurn();
       {
         const batchesAfter = messagesContainer.querySelectorAll(".gsd-parallel-batch").length;
-        console.debug(`[gsd:parallel] agent_end: DOM batches after finalize=${batchesAfter}`);
+        const batchAuditAfter = Array.from(messagesContainer.querySelectorAll<HTMLElement>(".gsd-parallel-batch")).map((b, i) => {
+          const ids = Array.from(b.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]")).map(el => el.dataset.toolId);
+          return `batch${i}(${b.classList.contains("done") ? "done" : "other"}): [${ids.join(",")}]`;
+        });
+        console.warn(`[gsd:parallel] agent_end AFTER: DOM batches=${batchesAfter}\n  ${batchAuditAfter.join("\n  ")}`);
+
+        // Diagnostic: watch for post-agent_end batch mutations
+        const batchDiagnostic = () => {
+          const batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+          const audit = Array.from(batches).map((b, i) => {
+            const el = b as HTMLElement;
+            const ids = Array.from(el.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]")).map(e => e.dataset.toolId);
+            const parentTag = el.parentElement?.className ?? "??";
+            return `batch${i}(${ids.length} tools, parent=${parentTag})`;
+          });
+          return { count: batches.length, audit };
+        };
+        const snap0 = batchDiagnostic();
+        setTimeout(() => {
+          const snap1 = batchDiagnostic();
+          if (snap1.count !== snap0.count) {
+            console.error(`[gsd:parallel] BATCH DRIFT +500ms: ${snap0.count} → ${snap1.count}\n  ${snap1.audit.join("\n  ")}`);
+          } else {
+            console.debug(`[gsd:parallel] +500ms: stable at ${snap1.count} batches`);
+          }
+        }, 500);
+        setTimeout(() => {
+          const snap2 = batchDiagnostic();
+          if (snap2.count !== snap0.count) {
+            console.error(`[gsd:parallel] BATCH DRIFT +2s: ${snap0.count} → ${snap2.count}\n  ${snap2.audit.join("\n  ")}`);
+          } else {
+            console.debug(`[gsd:parallel] +2s: stable at ${snap2.count} batches`);
+          }
+        }, 2000);
+
+        // MutationObserver: catch the exact moment a batch is removed or reparented
+        const batchObserver = new MutationObserver((mutations) => {
+          for (const m of mutations) {
+            for (const removed of Array.from(m.removedNodes)) {
+              if (removed instanceof HTMLElement && removed.classList?.contains("gsd-parallel-batch")) {
+                const toolCount = removed.querySelectorAll(".gsd-tool-segment[data-tool-id]").length;
+                console.error(`[gsd:parallel] BATCH REMOVED: ${toolCount} tools, parentClass=${(m.target as HTMLElement).className}`);
+                console.trace("[gsd:parallel] removal stack");
+              }
+            }
+            for (const added of Array.from(m.addedNodes)) {
+              if (added instanceof HTMLElement && added.classList?.contains("gsd-parallel-batch")) {
+                const toolCount = added.querySelectorAll(".gsd-tool-segment[data-tool-id]").length;
+                console.error(`[gsd:parallel] BATCH ADDED post-agent_end: ${toolCount} tools`);
+                console.trace("[gsd:parallel] addition stack");
+              }
+            }
+          }
+        });
+        batchObserver.observe(messagesContainer, { childList: true, subtree: true });
+        setTimeout(() => batchObserver.disconnect(), 5000);
       }
       updateInputUI();
       updateOverlayIndicators();
@@ -583,10 +642,10 @@ function handleMessage(event: MessageEvent): void {
             });
             if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
             if (allDone) {
-              console.debug(`[gsd:parallel] text_delta: finalizing batch (${activeBatchToolIds.size} tools) — all done`);
+              console.warn(`[gsd:parallel] text_delta: finalizing batch (${activeBatchToolIds.size} tools, ids=[${[...activeBatchToolIds].join(",")}]) — all done`);
               renderer.finalizeParallelBatch(lastMessageUsage);
             } else {
-              console.debug(`[gsd:parallel] text_delta: sealing batch (${activeBatchToolIds.size} tools) — some still running`);
+              console.warn(`[gsd:parallel] text_delta: sealing batch (${activeBatchToolIds.size} tools, ids=[${[...activeBatchToolIds].join(",")}]) — some still running`);
               renderer.sealActiveBatch();
             }
             activeBatchToolIds = null;
@@ -847,6 +906,12 @@ function handleMessage(event: MessageEvent): void {
       // dispatch or web_search. They co-occur with regular tool_use blocks in
       // the same message and MUST participate in the parallel-batch set,
       // otherwise the visible tool count undercounts reality.
+      if (!endMsg?.content && state.currentTurn) {
+        const turnToolCount = state.currentTurn.toolCalls.size;
+        if (turnToolCount > 0) {
+          console.warn(`[gsd:parallel] message_end: NO content blocks but ${turnToolCount} tools in turn — reconciliation SKIPPED. endMsg keys=${endMsg ? Object.keys(endMsg).join(",") : "null"}`);
+        }
+      }
       if (endMsg?.content && state.currentTurn) {
         const blocks = Array.isArray(endMsg.content) ? endMsg.content : [];
         console.debug(`[gsd:parallel] message_end: ${blocks.length} content blocks, types=[${blocks.map((b: any) => b.type).join(",")}]`);
@@ -909,6 +974,25 @@ function handleMessage(event: MessageEvent): void {
         }
         if (currentWave.length > 0) toolWaves.push(currentWave);
 
+        // The API may flatten multiple tool waves into a single contiguous
+        // block in message_end (no text/thinking separators). When streaming
+        // established more granular sealed batches, prefer that structure —
+        // the sealed batches were split by actual text_delta narration events.
+        const sealedWaves = renderer.getSealedBatchWaves();
+        const activeWave = activeBatchToolIds ? [...activeBatchToolIds] : [];
+        const allStreamingWaves = [...sealedWaves, ...(activeWave.length >= 2 ? [activeWave] : [])];
+        const allMessageToolIds = new Set(toolIds);
+        if (allStreamingWaves.length > toolWaves.length) {
+          const streamingToolIds = new Set(allStreamingWaves.flat());
+          const allStreamingInMessage = [...streamingToolIds].every(id => allMessageToolIds.has(id));
+          const allMessageInStreaming = [...allMessageToolIds].every(id => streamingToolIds.has(id));
+          if (allStreamingInMessage && allMessageInStreaming) {
+            console.debug(`[gsd:parallel] message_end: streaming batches (${allStreamingWaves.length}) more granular than API waves (${toolWaves.length}) — using streaming structure`);
+            toolWaves.length = 0;
+            toolWaves.push(...allStreamingWaves);
+          }
+        }
+
         console.debug(`[gsd:parallel] message_end: ${toolWaves.length} wave(s) from ${toolIds.length} tools, waves=${JSON.stringify(toolWaves)}`);
         const domBatchesBefore = messagesContainer.querySelectorAll(".gsd-parallel-batch").length;
         const sealedCount = renderer.getSealedBatchCount?.() ?? -1;
@@ -918,7 +1002,6 @@ function handleMessage(event: MessageEvent): void {
         // Disband streaming-created batches that overlap with the current
         // message's tools, then rebuild from the authoritative wave structure.
         // Batches from prior messages (disjoint tool IDs) are preserved.
-        const allMessageToolIds = new Set(toolIds);
         if (toolWaves.length > 0 && toolWaves.some(w => w.length >= 2)) {
           if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
           // Disband the active batch ONLY if it overlaps with this message's tools.
