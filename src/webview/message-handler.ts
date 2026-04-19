@@ -883,20 +883,30 @@ function handleMessage(event: MessageEvent): void {
               renderer.updateToolSegmentElement(toolId);
             }
           }
-          // If the existing batch is stale (no running members and disjoint
-          // from the new wave) finalize it before starting the new batch,
-          // so sequential waves don't get merged.
+          // If the existing batch is disjoint from the new wave, split — this
+          // message_end is a definitive wave boundary from the provider side.
+          // A disjoint tool-id set means the model has moved on to a new wave;
+          // merging them would collapse sequential responses into one giant
+          // batch (the "162 tools in one block" production bug). The prior
+          // batch may still have running members (long-running Agent/Task
+          // tools) — seal it so those keep their spinner inside the closed
+          // batch and finalize on their own tool_execution_end.
           if (activeBatchToolIds) {
             const newIdSet = new Set(postSealedToolIds);
             const overlaps = [...activeBatchToolIds].some(id => newIdSet.has(id));
-            const hasRunningMember = [...activeBatchToolIds].some(id => {
-              const t = state.currentTurn!.toolCalls.get(id);
-              return t?.isRunning;
-            });
-            if (!overlaps && !hasRunningMember) {
+            if (!overlaps) {
+              const hasRunningMember = [...activeBatchToolIds].some(id => {
+                const t = state.currentTurn!.toolCalls.get(id);
+                return t?.isRunning;
+              });
               if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
-              console.debug(`[gsd:parallel] message_end: stale batch (${activeBatchToolIds.size} done, disjoint) — finalizing before new wave`);
-              renderer.finalizeParallelBatch(lastMessageUsage);
+              if (hasRunningMember) {
+                console.debug(`[gsd:parallel] message_end: disjoint new wave (${activeBatchToolIds.size} prior, some running) — sealing before new wave`);
+                renderer.sealActiveBatch();
+              } else {
+                console.debug(`[gsd:parallel] message_end: disjoint new wave (${activeBatchToolIds.size} done) — finalizing before new wave`);
+                renderer.finalizeParallelBatch(lastMessageUsage);
+              }
               activeBatchToolIds = null;
             }
           }
