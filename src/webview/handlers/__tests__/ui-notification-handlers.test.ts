@@ -22,6 +22,7 @@ vi.mock("../../renderer", () => ({
   sealActiveBatch: vi.fn(() => null),
   tickSealedBatches: vi.fn(),
   isInSealedBatch: vi.fn(() => false),
+  isInCompletedBatch: vi.fn(() => false),
   finalizeAllSealedBatches: vi.fn(),
 }));
 

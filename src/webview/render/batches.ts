@@ -370,7 +370,18 @@ export function sealActiveBatch(): Set<string> | null {
     if (id) toolIds.add(id);
   }
 
-  if (toolIds.size < 2) { activeBatchElement = null; return null; }
+  if (toolIds.size < 2) {
+    const parent = activeBatchElement.parentElement;
+    if (parent) {
+      const children = Array.from(content.children);
+      for (const child of children) {
+        parent.insertBefore(child, activeBatchElement);
+      }
+      activeBatchElement.remove();
+    }
+    activeBatchElement = null;
+    return null;
+  }
 
   sealedBatches.push({ element: activeBatchElement, toolIds });
   activeBatchElement = null;
@@ -430,6 +441,23 @@ export function updateBatchElapsed(): void {
 export function getActiveBatchElement(): HTMLElement | null { return activeBatchElement; }
 export function getFinalizedBatchElement(): HTMLElement | null { return finalizedBatchElement; }
 export function clearActiveBatch(): void { activeBatchElement = null; finalizedBatchElement = null; sealedBatches.length = 0; }
+export function clearFinalizedBatch(): void { finalizedBatchElement = null; }
+
+export function disbandActiveBatch(): void {
+  if (!activeBatchElement) return;
+  const parent = activeBatchElement.parentElement;
+  if (!parent) { activeBatchElement = null; return; }
+  const content = activeBatchElement.querySelector(".gsd-parallel-batch-content");
+  if (content) {
+    const children = Array.from(content.children);
+    for (const child of children) {
+      parent.insertBefore(child, activeBatchElement);
+    }
+  }
+  activeBatchElement.remove();
+  activeBatchElement = null;
+  finalizedBatchElement = null;
+}
 
 export function syncBatchState(trackedIds: Set<string>): void {
   const cte = getCurrentTurnElement();

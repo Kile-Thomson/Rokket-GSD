@@ -26,7 +26,19 @@ vi.mock("../renderer", () => ({
   sealActiveBatch: vi.fn(() => null),
   tickSealedBatches: vi.fn(),
   isInSealedBatch: vi.fn(() => false),
+  isInCompletedBatch: vi.fn(() => false),
   finalizeAllSealedBatches: vi.fn(),
+  clearFinalizedBatch: vi.fn(),
+  disbandActiveBatch: vi.fn(),
+  unsealBatchesOverlapping: vi.fn(),
+  disbandOrphanedBatches: vi.fn(),
+  getSealedBatchCount: vi.fn(() => 0),
+  reopenParallelBatch: vi.fn(),
+  appendServerToolSegment: vi.fn(),
+  completeServerToolSegment: vi.fn(),
+  reattachTurnElement: vi.fn(),
+  patchToolBlock: vi.fn(),
+  init: vi.fn(),
 }));
 
 vi.mock("../session-history", () => ({
@@ -533,6 +545,53 @@ describe("message-handler", () => {
       expect(state.currentTurn!.toolCalls.get("t2")!.isParallel).toBe(true);
       // First tool should now be marked parallel too
       expect(state.currentTurn!.toolCalls.get("t1")!.isParallel).toBe(true);
+    });
+
+    it("does not re-mark tool as running when toolcall_end already completed it", () => {
+      sendMessage({ type: "agent_start" });
+
+      // Streaming creates the tool via toolcall_start
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          partial: {
+            content: [{ type: "toolCall", id: "tc1", name: "Read" }],
+          },
+          contentIndex: 0,
+        },
+      });
+      const tc = state.currentTurn!.toolCalls.get("tc1")!;
+      expect(tc.isRunning).toBe(true);
+
+      // toolcall_end with externalResult completes the tool
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_end",
+          toolCall: {
+            id: "tc1",
+            name: "Read",
+            arguments: { path: "foo.ts" },
+            externalResult: {
+              content: [{ text: "file contents" }],
+            },
+          },
+        },
+      });
+      expect(tc.isRunning).toBe(false);
+      expect(tc.endTime).toBeDefined();
+      expect(tc.resultText).toBe("file contents");
+
+      // tool_execution_start arrives late — should NOT re-mark as running
+      sendMessage({
+        type: "tool_execution_start",
+        toolCallId: "tc1",
+        toolName: "Read",
+        args: { path: "foo.ts" },
+      });
+      expect(tc.isRunning).toBe(false);
+      expect(tc.endTime).toBeDefined();
     });
   });
 
