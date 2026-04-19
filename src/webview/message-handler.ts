@@ -59,6 +59,8 @@ let autoResize: () => void;
 // Parallel batch tracking — tracks tool IDs in the current active batch
 let activeBatchToolIds: Set<string> | null = null;
 let batchFinalizeTimer: ReturnType<typeof setTimeout> | null = null;
+let batchDiagTimers: ReturnType<typeof setTimeout>[] = [];
+let batchDiagObserver: MutationObserver | null = null;
 // Definitive parallel tool IDs from the most recent message_end content blocks.
 // All tool_use blocks in a single API message are parallel by definition.
 let messageParallelToolIds: Set<string> | null = null;
@@ -430,6 +432,10 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "agent_start": {
+      batchDiagTimers.forEach(clearTimeout);
+      batchDiagTimers = [];
+      batchDiagObserver?.disconnect();
+      batchDiagObserver = null;
       if (uiDialogs.hasPending()) {
         uiDialogs.expireAllPending("New turn started");
       }
@@ -509,24 +515,27 @@ function handleMessage(event: MessageEvent): void {
           return { count: batches.length, audit };
         };
         const snap0 = batchDiagnostic();
-        const diagTimer1 = setTimeout(() => {
+        batchDiagTimers.forEach(clearTimeout);
+        batchDiagTimers = [];
+        batchDiagTimers.push(setTimeout(() => {
           const snap1 = batchDiagnostic();
           if (snap1.count !== snap0.count) {
             console.error(`[gsd:parallel] BATCH DRIFT +500ms: ${snap0.count} → ${snap1.count}\n  ${snap1.audit.join("\n  ")}`);
           } else {
             console.debug(`[gsd:parallel] +500ms: stable at ${snap1.count} batches`);
           }
-        }, 500);
-        const diagTimer2 = setTimeout(() => {
+        }, 500));
+        batchDiagTimers.push(setTimeout(() => {
           const snap2 = batchDiagnostic();
           if (snap2.count !== snap0.count) {
             console.error(`[gsd:parallel] BATCH DRIFT +2s: ${snap0.count} → ${snap2.count}\n  ${snap2.audit.join("\n  ")}`);
           } else {
             console.debug(`[gsd:parallel] +2s: stable at ${snap2.count} batches`);
           }
-        }, 2000);
+        }, 2000));
 
-        const batchObserver = new MutationObserver((mutations) => {
+        batchDiagObserver?.disconnect();
+        batchDiagObserver = new MutationObserver((mutations) => {
           for (const m of mutations) {
             for (const removed of Array.from(m.removedNodes)) {
               if (removed instanceof HTMLElement && removed.classList?.contains("gsd-parallel-batch")) {
@@ -544,8 +553,13 @@ function handleMessage(event: MessageEvent): void {
             }
           }
         });
-        batchObserver.observe(scope, { childList: true, subtree: true });
-        setTimeout(() => { batchObserver.disconnect(); clearTimeout(diagTimer1); clearTimeout(diagTimer2); }, 5000);
+        batchDiagObserver.observe(scope, { childList: true, subtree: true });
+        batchDiagTimers.push(setTimeout(() => {
+          batchDiagObserver?.disconnect();
+          batchDiagObserver = null;
+          batchDiagTimers.forEach(clearTimeout);
+          batchDiagTimers = [];
+        }, 5000));
       }
       updateInputUI();
       updateOverlayIndicators();
