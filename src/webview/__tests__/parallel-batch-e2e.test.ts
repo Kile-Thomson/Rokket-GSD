@@ -330,9 +330,19 @@ describe("parallel batch rendering (E2E, real renderer)", () => {
       sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
     }
 
-    // Single message_end with ALL 5 tools as content blocks — but post-seal
-    // filtering should have already split them into two batches via narration.
-    sendMessage(msgEndWithTools([...wave1, ...wave2]));
+    // message_end with text block separating the two waves — narration is part
+    // of the authoritative content structure, so wave splitting sees 2 waves.
+    sendMessage({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [
+          ...wave1.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: {} })),
+          { type: "text", text: "Now checking the next set." },
+          ...wave2.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: {} })),
+        ],
+      },
+    });
 
     const batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
     expect(batches.length).toBe(2);
@@ -644,5 +654,1002 @@ describe("parallel batch rendering (E2E, real renderer)", () => {
     const r2 = batchIds.find((ids) => ids.some((id) => id.startsWith("r2-")))!;
     expect(r1).toEqual(["r1-t1", "r1-t2"]);
     expect(r2).toEqual(["r2-t1", "r2-t2"]);
+  });
+
+  it("text_delta between toolcall_start events in streaming preserves batch boundaries", () => {
+    // Claude streams toolcall_start events with text_delta narration between
+    // tool groups. The streaming-established batch boundaries (sealed by
+    // text_delta) are preserved over the API's flattened single-wave view,
+    // since the text_delta represents real narration between tool batches.
+    sendMessage({ type: "agent_start" });
+    sendMessage({ type: "message_start" });
+
+    // Streaming: Grep A, Grep B, then text_delta, then Bash C, Bash D
+    const allTools = [
+      { id: "s1", name: "Grep" },
+      { id: "s2", name: "Grep" },
+      { id: "s3", name: "Bash" },
+      { id: "s4", name: "Bash" },
+    ];
+    // Wave 1 pair
+    for (const t of allTools.slice(0, 2)) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+    // Text fragment between tool groups (streaming artifact)
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "Running searches..." },
+    });
+    // Wave 2 pair
+    for (const t of allTools.slice(2)) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+
+    // message_end with all 4 tools — authoritative parallel set
+    sendMessage(msgEndWithTools(allTools));
+
+    // tool_execution_start for all 4
+    for (const t of allTools) {
+      sendMessage({
+        type: "tool_execution_start",
+        toolCallId: t.id,
+        toolName: t.name,
+        args: { command: `test-${t.id}` },
+      });
+    }
+
+    // Streaming text_delta between tool groups creates sealed batches.
+    // The streaming-granular structure is preserved over the API's flattened
+    // single-wave view, since the text_delta narration is a real batch boundary.
+    const batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(2);
+    const batch1Ids = Array.from(batches[0].querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]"))
+      .map(el => el.dataset.toolId!).sort();
+    const batch2Ids = Array.from(batches[1].querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]"))
+      .map(el => el.dataset.toolId!).sort();
+    expect(batch1Ids).toEqual(["s1", "s2"]);
+    expect(batch2Ids).toEqual(["s3", "s4"]);
+
+    // No orphaned tools outside batches
+    const looseSegments = messagesContainer.querySelectorAll(
+      ".gsd-assistant-turn > .gsd-tool-segment",
+    );
+    expect(looseSegments.length).toBe(0);
+  });
+
+  it("PRODUCTION BUG: 3 tool waves with text blocks in single message_end must split into 3 batches", () => {
+    // Claude Code sends all tool waves in one API message when the model emits
+    // text between parallel tool groups within a single response. The message_end
+    // content looks like: [tool×5, text, tool×5, text, tool×4]. Each contiguous
+    // run of tool blocks must be a separate batch; text blocks are wave boundaries.
+    sendMessage({ type: "agent_start" });
+    sendMessage({ type: "message_start" });
+
+    const wave1 = [
+      { id: "m1", name: "Read" },
+      { id: "m2", name: "Read" },
+      { id: "m3", name: "Read" },
+    ];
+    const wave2 = [
+      { id: "m4", name: "Read" },
+      { id: "m5", name: "Read" },
+      { id: "m6", name: "Read" },
+    ];
+    const wave3 = [
+      { id: "m7", name: "Read" },
+      { id: "m8", name: "Read" },
+    ];
+
+    // Streaming: all toolcall_start events arrive first
+    for (const t of [...wave1, ...wave2, ...wave3]) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+
+    // Single message_end with text blocks separating tool waves
+    sendMessage({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "text", text: "Wave 1: 3 parallel reads." },
+          ...wave1.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: {} })),
+          { type: "text", text: "Wave 1 done. Wave 2: 3 more reads." },
+          ...wave2.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: {} })),
+          { type: "text", text: "Wave 2 done. Wave 3: 2 reads." },
+          ...wave3.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: {} })),
+        ],
+      },
+    });
+
+    // tool_execution_start for all
+    for (const t of [...wave1, ...wave2, ...wave3]) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+
+    const batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(3);
+
+    const batchIds = Array.from(batches).map((b) =>
+      Array.from(b.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]"))
+        .map((el) => el.dataset.toolId!)
+        .sort(),
+    );
+    expect(batchIds).toContainEqual(["m1", "m2", "m3"]);
+    expect(batchIds).toContainEqual(["m4", "m5", "m6"]);
+    expect(batchIds).toContainEqual(["m7", "m8"]);
+  });
+
+  it("REGRESSION: 3 waves in single message_end with text separators must survive agent_end", () => {
+    // Same as the "3 tool waves with text blocks in single message_end" test
+    // but extended through agent_end to catch merging during turn finalization.
+    sendMessage({ type: "agent_start" });
+    sendMessage({ type: "message_start" });
+
+    const wave1 = [
+      { id: "x1", name: "Read" },
+      { id: "x2", name: "Glob" },
+    ];
+    const wave2 = [
+      { id: "x3", name: "Bash" },
+      { id: "x4", name: "Bash" },
+    ];
+    const wave3 = [
+      { id: "x5", name: "Grep" },
+      { id: "x6", name: "Glob" },
+    ];
+
+    // Streaming: all toolcall_start events
+    for (const t of [...wave1, ...wave2, ...wave3]) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+
+    // Text deltas between waves (narration)
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "Wave 1 done." },
+    });
+
+    // Single message_end with text blocks separating tool waves
+    sendMessage({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "text", text: "Wave 1: Read + Glob" },
+          ...wave1.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: {} })),
+          { type: "text", text: "Wave 2: Bash + Bash" },
+          ...wave2.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: {} })),
+          { type: "text", text: "Wave 3: Grep + Glob" },
+          ...wave3.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: {} })),
+        ],
+      },
+    });
+
+    // tool_execution_start + end for all
+    for (const t of [...wave1, ...wave2, ...wave3]) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+    for (const t of [...wave1, ...wave2, ...wave3]) {
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: t.id,
+        isError: false,
+        durationMs: 50,
+        result: { content: [{ text: "ok" }] },
+      });
+    }
+
+    // Before agent_end: 3 batches
+    let batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(3);
+
+    // agent_end
+    sendMessage({ type: "agent_end" });
+
+    // After agent_end: still 3 batches
+    batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(3);
+
+    const batchIds = Array.from(batches).map((b) =>
+      Array.from(b.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]"))
+        .map((el) => el.dataset.toolId!)
+        .sort(),
+    );
+    expect(batchIds).toContainEqual(["x1", "x2"]);
+    expect(batchIds).toContainEqual(["x3", "x4"]);
+    expect(batchIds).toContainEqual(["x5", "x6"]);
+  });
+
+  it("REGRESSION: realistic streaming order (text→tools interleaved) must keep 3 batches after agent_end", () => {
+    // Matches real Claude streaming: text_delta before each wave, toolcall_start
+    // events interleaved with text_delta between waves. The text_delta handler
+    // seals the active batch. message_end arrives last with the authoritative
+    // wave structure. agent_end must not merge the batches.
+    sendMessage({ type: "agent_start" });
+    sendMessage({ type: "message_start" });
+
+    const wave1 = [
+      { id: "y1", name: "Read" },
+      { id: "y2", name: "Glob" },
+    ];
+    const wave2 = [
+      { id: "y3", name: "Bash" },
+      { id: "y4", name: "Bash" },
+    ];
+    const wave3 = [
+      { id: "y5", name: "Grep" },
+      { id: "y6", name: "Glob" },
+    ];
+
+    // Realistic streaming order: text → tools → text → tools → text → tools
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "Wave 1: Read + Glob" },
+    });
+    for (const t of wave1) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+    // Text between waves seals wave1 batch
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "Wave 2: Bash + Bash" },
+    });
+    for (const t of wave2) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+    // Text between waves seals wave2 batch
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "Wave 3: Grep + Glob" },
+    });
+    for (const t of wave3) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+
+    // message_end with text blocks separating tool waves
+    sendMessage({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "text", text: "Wave 1: Read + Glob" },
+          ...wave1.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: {} })),
+          { type: "text", text: "Wave 2: Bash + Bash" },
+          ...wave2.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: {} })),
+          { type: "text", text: "Wave 3: Grep + Glob" },
+          ...wave3.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: {} })),
+        ],
+      },
+    });
+
+    // tool_execution_start + end for all
+    for (const t of [...wave1, ...wave2, ...wave3]) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+    for (const t of [...wave1, ...wave2, ...wave3]) {
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: t.id,
+        isError: false,
+        durationMs: 50,
+        result: { content: [{ text: "ok" }] },
+      });
+    }
+
+    // Before agent_end: should have 3 batches
+    let batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(3);
+
+    // agent_end
+    sendMessage({ type: "agent_end" });
+
+    // After: still 3 batches
+    batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(3);
+
+    const batchIds = Array.from(batches).map((b) =>
+      Array.from(b.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]"))
+        .map((el) => el.dataset.toolId!)
+        .sort(),
+    );
+    expect(batchIds).toContainEqual(["y1", "y2"]);
+    expect(batchIds).toContainEqual(["y3", "y4"]);
+    expect(batchIds).toContainEqual(["y5", "y6"]);
+  });
+
+  it("REGRESSION: execution events interleaved during streaming — batches must survive agent_end", () => {
+    // In production, tool_execution_start/end can fire DURING streaming of the
+    // same message (Claude Code dispatches tools as soon as it sees the block).
+    // Wave 1 tools might start executing before wave 2 toolcall_start events arrive.
+    sendMessage({ type: "agent_start" });
+    sendMessage({ type: "message_start" });
+
+    const wave1 = [
+      { id: "z1", name: "Read" },
+      { id: "z2", name: "Glob" },
+    ];
+    const wave2 = [
+      { id: "z3", name: "Bash" },
+      { id: "z4", name: "Bash" },
+    ];
+    const wave3 = [
+      { id: "z5", name: "Grep" },
+      { id: "z6", name: "Glob" },
+    ];
+
+    // Wave 1 toolcall_start
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "Wave 1:" },
+    });
+    for (const t of wave1) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+
+    // Wave 1 tool_execution_start fires during streaming (before text_delta)
+    for (const t of wave1) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+    // Wave 1 tool_execution_end fires during streaming
+    for (const t of wave1) {
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: t.id,
+        isError: false,
+        durationMs: 50,
+        result: { content: [{ text: "ok" }] },
+      });
+    }
+
+    // Text between waves seals wave1 batch
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "Wave 2:" },
+    });
+    for (const t of wave2) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+    for (const t of wave2) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+    for (const t of wave2) {
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: t.id,
+        isError: false,
+        durationMs: 50,
+        result: { content: [{ text: "ok" }] },
+      });
+    }
+
+    // Text between waves
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "Wave 3:" },
+    });
+    for (const t of wave3) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+    for (const t of wave3) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+    for (const t of wave3) {
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: t.id,
+        isError: false,
+        durationMs: 50,
+        result: { content: [{ text: "ok" }] },
+      });
+    }
+
+    // message_end with authoritative wave structure
+    sendMessage({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "text", text: "Wave 1:" },
+          ...wave1.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: {} })),
+          { type: "text", text: "Wave 2:" },
+          ...wave2.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: {} })),
+          { type: "text", text: "Wave 3:" },
+          ...wave3.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: {} })),
+        ],
+      },
+    });
+
+    // Before agent_end: 3 batches
+    let batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(3);
+
+    // agent_end
+    sendMessage({ type: "agent_end" });
+
+    // After: still 3 batches
+    batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(3);
+
+    const batchIds = Array.from(batches).map((b) =>
+      Array.from(b.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]"))
+        .map((el) => el.dataset.toolId!)
+        .sort(),
+    );
+    expect(batchIds).toContainEqual(["z1", "z2"]);
+    expect(batchIds).toContainEqual(["z3", "z4"]);
+    expect(batchIds).toContainEqual(["z5", "z6"]);
+  });
+
+  it("REGRESSION: 3 separate API messages (one per wave) must keep batches after agent_end", () => {
+    // Matches the Claude Code scenario: each wave is a separate API message
+    // with its own message_start/message_end. During streaming, text_delta
+    // and toolcall_start events create proper wave boundaries. On agent_end,
+    // all batches must survive — they must NOT merge into one.
+    sendMessage({ type: "agent_start" });
+
+    // ── Wave 1: 3 tools ──
+    sendMessage({ type: "message_start" });
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "Wave 1: 3 reads." },
+    });
+    const wave1 = [
+      { id: "v1", name: "Read" },
+      { id: "v2", name: "Glob" },
+      { id: "v3", name: "Grep" },
+    ];
+    for (const t of wave1) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+    sendMessage(msgEndWithTools(wave1));
+    for (const t of wave1) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+    for (const t of wave1) {
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: t.id,
+        isError: false,
+        durationMs: 50,
+        result: { content: [{ text: "ok" }] },
+      });
+    }
+
+    // ── Wave 2: 3 tools ──
+    sendMessage({ type: "message_start" });
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "Wave 2: 3 bash." },
+    });
+    const wave2 = [
+      { id: "v4", name: "Bash" },
+      { id: "v5", name: "Bash" },
+      { id: "v6", name: "Bash" },
+    ];
+    for (const t of wave2) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+    sendMessage(msgEndWithTools(wave2));
+    for (const t of wave2) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+    for (const t of wave2) {
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: t.id,
+        isError: false,
+        durationMs: 50,
+        result: { content: [{ text: "ok" }] },
+      });
+    }
+
+    // ── Wave 3: 2 tools ──
+    sendMessage({ type: "message_start" });
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "Wave 3: 2 tools." },
+    });
+    const wave3 = [
+      { id: "v7", name: "Grep" },
+      { id: "v8", name: "Glob" },
+    ];
+    for (const t of wave3) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+    sendMessage(msgEndWithTools(wave3));
+    for (const t of wave3) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+    for (const t of wave3) {
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: t.id,
+        isError: false,
+        durationMs: 50,
+        result: { content: [{ text: "ok" }] },
+      });
+    }
+
+    // Verify: 3 separate batches during streaming
+    let batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(3);
+
+    // ── agent_end: finalize the turn ──
+    sendMessage({ type: "agent_end" });
+
+    // After agent_end, the 3 batches must still be 3 separate batches
+    batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(3);
+
+    const batchIds = Array.from(batches).map((b) =>
+      Array.from(b.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]"))
+        .map((el) => el.dataset.toolId!)
+        .sort(),
+    );
+    expect(batchIds).toContainEqual(["v1", "v2", "v3"]);
+    expect(batchIds).toContainEqual(["v4", "v5", "v6"]);
+    expect(batchIds).toContainEqual(["v7", "v8"]);
+  });
+
+  it("REGRESSION: orphaned batch from mid-stream finalize must not duplicate tools after agent_end", () => {
+    // Scenario: batch finalized by text_delta (ref cleared), then agent_end.
+    // The orphaned batch element must stay intact — no tool duplication.
+    sendMessage({ type: "agent_start" });
+    sendMessage({ type: "message_start" });
+
+    // 3 tools streamed in
+    const tools = [
+      { id: "o1", name: "Bash" },
+      { id: "o2", name: "Bash" },
+      { id: "o3", name: "Read" },
+    ];
+    for (const t of tools) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+
+    // message_end with the 3 tools
+    sendMessage(msgEndWithTools(tools));
+
+    // tool_execution_start + end for all 3
+    for (const t of tools) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+    for (const t of tools) {
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: t.id,
+        isError: false,
+        durationMs: 50,
+        result: { content: [{ text: "ok" }] },
+      });
+    }
+
+    // Text delta after tools complete — this triggers batch finalization + clearFinalizedBatch
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "All done." },
+    });
+
+    // At this point the batch is finalized, its ref is cleared.
+    // Verify there's 1 batch with 3 tools, no orphan duplication.
+    let batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(1);
+    expect(batches[0].querySelectorAll(".gsd-tool-segment[data-tool-id]").length).toBe(3);
+
+    // No tool segments should exist outside the batch
+    const turnEl = messagesContainer.querySelector(".gsd-assistant-turn");
+    if (turnEl) {
+      const directToolSegments = Array.from(turnEl.children).filter(
+        (el) => el.classList.contains("gsd-tool-segment"),
+      );
+      expect(directToolSegments.length).toBe(0);
+    }
+
+    // agent_end: finalize the turn
+    sendMessage({ type: "agent_end" });
+
+    // After agent_end, still 1 batch with 3 tools, no duplication
+    batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(1);
+    expect(batches[0].querySelectorAll(".gsd-tool-segment[data-tool-id]").length).toBe(3);
+
+    // No tool segments outside the batch after finalization
+    const turnElAfter = messagesContainer.querySelector(".gsd-assistant-turn");
+    if (turnElAfter) {
+      const directToolSegments = Array.from(turnElAfter.children).filter(
+        (el) => el.classList.contains("gsd-tool-segment"),
+      );
+      expect(directToolSegments.length).toBe(0);
+    }
+
+    // Each tool segment should appear exactly once in the entire turn
+    for (const t of tools) {
+      const allSegments = messagesContainer.querySelectorAll(`.gsd-tool-segment[data-tool-id="${t.id}"]`);
+      expect(allSegments.length).toBe(1);
+    }
+  });
+
+  it("REGRESSION: multi-message turn with mid-stream finalizations must not create orphaned batches at agent_end", () => {
+    // Scenario: 2 separate API messages, each with 3 tools. Text between them
+    // finalizes the first batch. After all tools complete and agent_end fires,
+    // there should be exactly 2 batches (one per message), no orphans.
+    sendMessage({ type: "agent_start" });
+
+    // ── Message 1: 3 tools ──
+    sendMessage({ type: "message_start" });
+    const wave1 = [
+      { id: "m1", name: "Bash" },
+      { id: "m2", name: "Read" },
+      { id: "m3", name: "Grep" },
+    ];
+    for (const t of wave1) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+    sendMessage(msgEndWithTools(wave1));
+    for (const t of wave1) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+    for (const t of wave1) {
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: t.id,
+        isError: false,
+        durationMs: 50,
+        result: { content: [{ text: "ok" }] },
+      });
+    }
+
+    // ── Message 2: narration then 3 more tools ──
+    sendMessage({ type: "message_start" });
+    // This text_delta should finalize/seal the wave1 batch
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "Now doing wave 2." },
+    });
+    const wave2 = [
+      { id: "m4", name: "Bash" },
+      { id: "m5", name: "Bash" },
+      { id: "m6", name: "Write" },
+    ];
+    for (const t of wave2) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+    sendMessage(msgEndWithTools(wave2));
+    for (const t of wave2) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+    for (const t of wave2) {
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: t.id,
+        isError: false,
+        durationMs: 50,
+        result: { content: [{ text: "ok" }] },
+      });
+    }
+
+    // Text after wave 2 — this finalizes wave 2's batch
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "All done now." },
+    });
+
+    // Before agent_end: should have 2 batches
+    let batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(2);
+
+    // agent_end
+    sendMessage({ type: "agent_end" });
+
+    // After agent_end: still 2 batches, no orphan duplication
+    batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(2);
+
+    // Each tool segment appears exactly once
+    for (const t of [...wave1, ...wave2]) {
+      const segs = messagesContainer.querySelectorAll(`.gsd-tool-segment[data-tool-id="${t.id}"]`);
+      expect(segs.length).toBe(1);
+    }
+
+    // Verify wave1 tools are in first batch, wave2 in second
+    const batch1Ids = Array.from(batches[0].querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]"))
+      .map(el => el.dataset.toolId!).sort();
+    const batch2Ids = Array.from(batches[1].querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]"))
+      .map(el => el.dataset.toolId!).sort();
+    expect(batch1Ids).toEqual(["m1", "m2", "m3"]);
+    expect(batch2Ids).toEqual(["m4", "m5", "m6"]);
+  });
+
+  it("REGRESSION: tool_execution_start must not pull completed-batch tools into a later batch", () => {
+    // Root cause of the "all tools collapse to first container at turn end" bug:
+    // message_end for wave 1 creates batch {A,B,C} and finalizes it. Wave 2
+    // message_end creates batch {D,E}. Then tool_execution_start for A fires —
+    // A.isParallel is true, A is not in a sealed batch, so the handler tries to
+    // add it to the active batch ({D,E}), pulling it out of its completed batch.
+    // Fix: isInCompletedBatch() checks the DOM for .gsd-parallel-batch.done ancestors.
+    sendMessage({ type: "agent_start" });
+
+    // ── Wave 1: 3 tools, fully complete ──
+    sendMessage({ type: "message_start" });
+    const wave1 = [
+      { id: "cb1", name: "Read" },
+      { id: "cb2", name: "Glob" },
+      { id: "cb3", name: "Grep" },
+    ];
+    for (const t of wave1) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+    sendMessage(msgEndWithTools(wave1));
+    for (const t of wave1) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+    for (const t of wave1) {
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: t.id,
+        isError: false,
+        durationMs: 50,
+        result: { content: [{ text: "ok" }] },
+      });
+    }
+
+    // ── Wave 2: 2 tools ──
+    sendMessage({ type: "message_start" });
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "Now wave 2." },
+    });
+    const wave2 = [
+      { id: "cb4", name: "Bash" },
+      { id: "cb5", name: "Bash" },
+    ];
+    for (const t of wave2) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+    sendMessage(msgEndWithTools(wave2));
+
+    // CRITICAL: tool_execution_start for wave 2 fires — this used to trigger
+    // the bug where wave 1 tools got pulled into wave 2's batch.
+    for (const t of wave2) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+
+    // Also simulate late tool_execution_start for wave 1 tools (backend quirk)
+    for (const t of wave1) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+
+    // Must have 2 separate batches
+    let batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(2);
+
+    // Wave 1 tools stay in their batch
+    const batch1Ids = Array.from(batches[0].querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]"))
+      .map(el => el.dataset.toolId!).sort();
+    expect(batch1Ids).toEqual(["cb1", "cb2", "cb3"]);
+
+    // Wave 2 tools stay in their batch
+    const batch2Ids = Array.from(batches[1].querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]"))
+      .map(el => el.dataset.toolId!).sort();
+    expect(batch2Ids).toEqual(["cb4", "cb5"]);
+
+    // agent_end must not merge them
+    sendMessage({ type: "agent_end" });
+    batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(2);
+  });
+
+  it("REGRESSION: tool_execution events arriving AFTER batch finalized by text_delta must not create duplicate batch", () => {
+    // Scenario: streaming creates batch → text_delta finalizes → clearFinalizedBatch
+    // → tool_execution_start arrives late → syncBatchState might create a new batch
+    // while the old one is still in the DOM as an orphan.
+    sendMessage({ type: "agent_start" });
+    sendMessage({ type: "message_start" });
+
+    const tools = [
+      { id: "late1", name: "Bash" },
+      { id: "late2", name: "Bash" },
+      { id: "late3", name: "Read" },
+    ];
+
+    // Streaming creates tool segments
+    for (const t of tools) {
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_start",
+          toolCall: { type: "toolCall", id: t.id, name: t.name },
+          contentIndex: 0,
+          partial: { content: [{ type: "toolCall", id: t.id, name: t.name }] },
+        },
+      });
+    }
+
+    // message_end with the 3 tools
+    sendMessage(msgEndWithTools(tools));
+
+    // Text delta BEFORE execution events — finalizes the batch
+    sendMessage({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "Running tools..." },
+    });
+
+    // Now tool_execution_start events arrive (late, after batch already finalized)
+    for (const t of tools) {
+      sendMessage({ type: "tool_execution_start", toolCallId: t.id, toolName: t.name, args: {} });
+    }
+
+    // Check: should still be 1 batch, not 2
+    let batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(1);
+
+    // Tools complete
+    for (const t of tools) {
+      sendMessage({
+        type: "tool_execution_end",
+        toolCallId: t.id,
+        isError: false,
+        durationMs: 50,
+        result: { content: [{ text: "ok" }] },
+      });
+    }
+
+    // agent_end
+    sendMessage({ type: "agent_end" });
+
+    // After finalization: 1 batch with all 3 tools
+    batches = messagesContainer.querySelectorAll(".gsd-parallel-batch");
+    expect(batches.length).toBe(1);
+    expect(batches[0].querySelectorAll(".gsd-tool-segment[data-tool-id]").length).toBe(3);
+
+    // No duplicate tool segments
+    for (const t of tools) {
+      const segs = messagesContainer.querySelectorAll(`.gsd-tool-segment[data-tool-id="${t.id}"]`);
+      expect(segs.length).toBe(1);
+    }
   });
 });

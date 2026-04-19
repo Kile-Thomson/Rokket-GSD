@@ -38,7 +38,7 @@ import {
   collapseToolIntoGroup,
 } from "./tool-grouping";
 
-import { initStreaming as initStreamingModule } from "./render/streaming";
+import { initStreaming as initStreamingModule, resolveContainerLevelAnchor } from "./render/streaming";
 
 // ============================================================
 // Dependencies injected via init()
@@ -810,7 +810,8 @@ export function createParallelBatch(toolIds: string[]): void {
     // Fallback: append to current turn
     currentTurnElement.appendChild(batch);
   } else {
-    firstEl.parentNode!.insertBefore(batch, firstEl);
+    const anchor = resolveContainerLevelAnchor(currentTurnElement, firstEl);
+    anchor.parentNode!.insertBefore(batch, anchor);
   }
 
   // Reparent all tool segment elements into the batch content
@@ -1127,6 +1128,20 @@ export function isInSealedBatch(toolId: string): boolean {
 }
 
 /**
+ * Does the given tool already live inside a finalized (done) batch in the DOM?
+ * Finalized batches are no longer tracked by module variables — they exist only
+ * as `.gsd-parallel-batch.done` elements. This prevents tool_execution_start
+ * from pulling a tool out of its completed batch into a different active batch.
+ */
+export function isInCompletedBatch(toolId: string): boolean {
+  if (!currentTurnElement) return false;
+  const el = currentTurnElement.querySelector<HTMLElement>(
+    `.gsd-tool-segment[data-tool-id="${toolId}"]`,
+  );
+  return !!el?.closest(".gsd-parallel-batch.done");
+}
+
+/**
  * Finalize every sealed batch immediately (used on turn end / agent end when
  * we want everything resolved regardless of whether tools finished cleanly).
  */
@@ -1162,6 +1177,111 @@ export function clearActiveBatch(): void {
   activeBatchElement = null;
   finalizedBatchElement = null;
   sealedBatches.length = 0;
+}
+
+/** Clear only the finalized batch reference so the next wave cannot reopen it.
+ *  Called at message boundaries to enforce one-batch-per-message. */
+export function clearFinalizedBatch(): void {
+  finalizedBatchElement = null;
+}
+
+export function getSealedBatchCount(): number { return sealedBatches.length; }
+
+export function getSealedBatchWaves(): string[][] {
+  const waves = sealedBatches.map(s => [...s.toolIds]);
+  const sealedIds = new Set(waves.flat());
+  const cte = getCurrentTurnElement();
+  if (cte) {
+    for (const batch of Array.from(cte.querySelectorAll<HTMLElement>(".gsd-parallel-batch.done"))) {
+      const ids = Array.from(batch.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]"))
+        .map(el => el.dataset.toolId!)
+        .filter(id => id && !sealedIds.has(id));
+      if (ids.length > 0) waves.push(ids);
+    }
+  }
+  return waves;
+}
+
+/** Remove the active batch container and return its children to the turn element.
+ *  Used when message_end reveals multi-wave content that was prematurely merged
+ *  during streaming. The children are placed back at the batch's DOM position so
+ *  subsequent per-wave syncBatchState calls can re-group them correctly. */
+export function disbandActiveBatch(): void {
+  if (!activeBatchElement) return;
+  const parent = activeBatchElement.parentElement;
+  if (!parent) { activeBatchElement = null; return; }
+  const content = activeBatchElement.querySelector(".gsd-parallel-batch-content");
+  if (content) {
+    const children = Array.from(content.children);
+    for (const child of children) {
+      parent.insertBefore(child, activeBatchElement);
+    }
+  }
+  activeBatchElement.remove();
+  activeBatchElement = null;
+  finalizedBatchElement = null;
+}
+
+/** Unseal and disband any sealed batches whose tool IDs overlap with the given
+ *  set. Returns the tools to the turn element so they can be re-grouped by the
+ *  authoritative wave structure from message_end. Sealed batches with no
+ *  overlapping tools (from prior messages) are preserved. */
+export function unsealBatchesOverlapping(toolIds: Set<string>): void {
+  for (let i = sealedBatches.length - 1; i >= 0; i--) {
+    const sealed = sealedBatches[i];
+    let overlaps = false;
+    for (const id of sealed.toolIds) {
+      if (toolIds.has(id)) { overlaps = true; break; }
+    }
+    if (!overlaps) continue;
+    const parent = sealed.element.parentElement;
+    if (parent) {
+      const content = sealed.element.querySelector(".gsd-parallel-batch-content");
+      if (content) {
+        const children = Array.from(content.children);
+        for (const child of children) {
+          parent.insertBefore(child, sealed.element);
+        }
+      }
+      sealed.element.remove();
+    }
+    sealedBatches.splice(i, 1);
+  }
+}
+
+/** Disband any DOM batch elements whose tool segments overlap with the given
+ *  set but are NOT tracked by activeBatchElement, finalizedBatchElement, or
+ *  sealedBatches. These "orphaned" batches appear when the text_delta handler
+ *  finalizes a batch mid-stream (finalizeParallelBatch → clearFinalizedBatch),
+ *  leaving the DOM element in place with no module reference. The message_end
+ *  reconciliation must clear them before rebuilding per the authoritative waves. */
+export function disbandOrphanedBatches(toolIds: Set<string>): void {
+  if (!currentTurnElement) return;
+  const allBatches = currentTurnElement.querySelectorAll<HTMLElement>(".gsd-parallel-batch");
+  for (const batch of Array.from(allBatches)) {
+    if (batch === activeBatchElement || batch === finalizedBatchElement) continue;
+    let isSealed = false;
+    for (const s of sealedBatches) { if (s.element === batch) { isSealed = true; break; } }
+    if (isSealed) continue;
+
+    const segments = batch.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]");
+    let overlaps = false;
+    for (const seg of Array.from(segments)) {
+      if (seg.dataset.toolId && toolIds.has(seg.dataset.toolId)) { overlaps = true; break; }
+    }
+    if (!overlaps) continue;
+
+    const parent = batch.parentElement;
+    if (parent) {
+      const content = batch.querySelector(".gsd-parallel-batch-content");
+      if (content) {
+        for (const child of Array.from(content.children)) {
+          parent.insertBefore(child, batch);
+        }
+      }
+      batch.remove();
+    }
+  }
 }
 
 /**
@@ -1249,8 +1369,9 @@ export function syncBatchState(trackedIds: Set<string>): void {
           firstEl = el;
         }
       }
-      if (firstEl && firstEl.parentNode) {
-        firstEl.parentNode.insertBefore(batch, firstEl);
+      if (firstEl) {
+        const anchor = resolveContainerLevelAnchor(currentTurnElement, firstEl);
+        anchor.parentNode!.insertBefore(batch, anchor);
       } else {
         currentTurnElement.appendChild(batch);
       }
