@@ -59,6 +59,8 @@ let autoResize: () => void;
 // Parallel batch tracking — tracks tool IDs in the current active batch
 let activeBatchToolIds: Set<string> | null = null;
 let batchFinalizeTimer: ReturnType<typeof setTimeout> | null = null;
+let batchDiagTimers: ReturnType<typeof setTimeout>[] = [];
+let batchDiagObserver: MutationObserver | null = null;
 // Definitive parallel tool IDs from the most recent message_end content blocks.
 // All tool_use blocks in a single API message are parallel by definition.
 let messageParallelToolIds: Set<string> | null = null;
@@ -430,6 +432,10 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "agent_start": {
+      batchDiagTimers.forEach(clearTimeout);
+      batchDiagTimers = [];
+      batchDiagObserver?.disconnect();
+      batchDiagObserver = null;
       if (uiDialogs.hasPending()) {
         uiDialogs.expireAllPending("New turn started");
       }
@@ -473,13 +479,88 @@ function handleMessage(event: MessageEvent): void {
         uiDialogs.expireAllPending("Agent finished");
       }
       document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
+      {
+        const batchesBefore = messagesContainer.querySelectorAll(".gsd-parallel-batch").length;
+        const batchAudit = Array.from(messagesContainer.querySelectorAll<HTMLElement>(".gsd-parallel-batch")).map((b, i) => {
+          const ids = Array.from(b.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]")).map(el => el.dataset.toolId);
+          return `batch${i}(${b.classList.contains("done") ? "done" : b.classList.contains("running") ? "running" : "other"}): [${ids.join(",")}]`;
+        });
+        console.warn(`[gsd:parallel] agent_end: DOM batches=${batchesBefore}, activeBatch=${!!activeBatchToolIds}, activeBatchSize=${activeBatchToolIds?.size ?? 0}, sealed=${renderer.getSealedBatchCount?.() ?? -1}\n  ${batchAudit.join("\n  ")}`);
+      }
       if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
       if (activeBatchToolIds) { renderer.finalizeParallelBatch(lastMessageUsage); }
       renderer.finalizeAllSealedBatches(lastMessageUsage);
       activeBatchToolIds = null;
       messageParallelToolIds = null;
       renderer.clearActiveBatch();
+      const finishedTurnEl = renderer.getCurrentTurnElement();
       renderer.finalizeCurrentTurn();
+      {
+        const scope = finishedTurnEl ?? messagesContainer;
+        const batchesAfter = scope.querySelectorAll(".gsd-parallel-batch").length;
+        const batchAuditAfter = Array.from(scope.querySelectorAll<HTMLElement>(".gsd-parallel-batch")).map((b, i) => {
+          const ids = Array.from(b.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]")).map(el => el.dataset.toolId);
+          return `batch${i}(${b.classList.contains("done") ? "done" : "other"}): [${ids.join(",")}]`;
+        });
+        console.warn(`[gsd:parallel] agent_end AFTER: DOM batches=${batchesAfter}\n  ${batchAuditAfter.join("\n  ")}`);
+
+        const batchDiagnostic = () => {
+          const batches = scope.querySelectorAll(".gsd-parallel-batch");
+          const audit = Array.from(batches).map((b, i) => {
+            const el = b as HTMLElement;
+            const ids = Array.from(el.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]")).map(e => e.dataset.toolId);
+            const parentTag = el.parentElement?.className ?? "??";
+            return `batch${i}(${ids.length} tools, parent=${parentTag})`;
+          });
+          return { count: batches.length, audit };
+        };
+        const snap0 = batchDiagnostic();
+        batchDiagTimers.forEach(clearTimeout);
+        batchDiagTimers = [];
+        batchDiagTimers.push(setTimeout(() => {
+          const snap1 = batchDiagnostic();
+          if (snap1.count !== snap0.count) {
+            console.error(`[gsd:parallel] BATCH DRIFT +500ms: ${snap0.count} → ${snap1.count}\n  ${snap1.audit.join("\n  ")}`);
+          } else {
+            console.debug(`[gsd:parallel] +500ms: stable at ${snap1.count} batches`);
+          }
+        }, 500));
+        batchDiagTimers.push(setTimeout(() => {
+          const snap2 = batchDiagnostic();
+          if (snap2.count !== snap0.count) {
+            console.error(`[gsd:parallel] BATCH DRIFT +2s: ${snap0.count} → ${snap2.count}\n  ${snap2.audit.join("\n  ")}`);
+          } else {
+            console.debug(`[gsd:parallel] +2s: stable at ${snap2.count} batches`);
+          }
+        }, 2000));
+
+        batchDiagObserver?.disconnect();
+        batchDiagObserver = new MutationObserver((mutations) => {
+          for (const m of mutations) {
+            for (const removed of Array.from(m.removedNodes)) {
+              if (removed instanceof HTMLElement && removed.classList?.contains("gsd-parallel-batch")) {
+                const toolCount = removed.querySelectorAll(".gsd-tool-segment[data-tool-id]").length;
+                console.error(`[gsd:parallel] BATCH REMOVED: ${toolCount} tools, parentClass=${(m.target as HTMLElement).className}`);
+                console.trace("[gsd:parallel] removal stack");
+              }
+            }
+            for (const added of Array.from(m.addedNodes)) {
+              if (added instanceof HTMLElement && added.classList?.contains("gsd-parallel-batch")) {
+                const toolCount = added.querySelectorAll(".gsd-tool-segment[data-tool-id]").length;
+                console.error(`[gsd:parallel] BATCH ADDED post-agent_end: ${toolCount} tools`);
+                console.trace("[gsd:parallel] addition stack");
+              }
+            }
+          }
+        });
+        batchDiagObserver.observe(scope, { childList: true, subtree: true });
+        batchDiagTimers.push(setTimeout(() => {
+          batchDiagObserver?.disconnect();
+          batchDiagObserver = null;
+          batchDiagTimers.forEach(clearTimeout);
+          batchDiagTimers = [];
+        }, 5000));
+      }
       updateInputUI();
       updateOverlayIndicators();
       vscode.postMessage({ type: "get_session_stats" });
@@ -527,6 +608,10 @@ function handleMessage(event: MessageEvent): void {
         }
         activeBatchToolIds = null;
       }
+      // Clear the finalized batch reference so the next wave's syncBatchState
+      // cannot reopen it. Each API message is a distinct thought cycle — its
+      // tools must form a new batch, never extend a prior message's batch.
+      renderer.clearFinalizedBatch();
       // Reset per-message parallel tracking — each message gets its own set
       messageParallelToolIds = null;
       lastMessageUsage = null;
@@ -565,31 +650,31 @@ function handleMessage(event: MessageEvent): void {
           // inside that box and the batch auto-finalizes on its own when they
           // end. Any new tool wave starts a fresh batch below this narration.
           if (activeBatchToolIds) {
-            if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
             const allDone = [...activeBatchToolIds].every(id => {
               const t = state.currentTurn?.toolCalls.get(id);
               return t && !t.isRunning;
             });
+            if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
             if (allDone) {
-              console.debug(`[gsd:parallel] text_delta: finalizing batch (${activeBatchToolIds.size} tools) — all done`);
+              console.warn(`[gsd:parallel] text_delta: finalizing batch (${activeBatchToolIds.size} tools, ids=[${[...activeBatchToolIds].join(",")}]) — all done`);
               renderer.finalizeParallelBatch(lastMessageUsage);
             } else {
-              console.debug(`[gsd:parallel] text_delta: sealing batch (${activeBatchToolIds.size} tools) — some still running`);
+              console.warn(`[gsd:parallel] text_delta: sealing batch (${activeBatchToolIds.size} tools, ids=[${[...activeBatchToolIds].join(",")}]) — some still running`);
               renderer.sealActiveBatch();
             }
             activeBatchToolIds = null;
+            renderer.clearFinalizedBatch();
           }
           renderer.appendToTextSegment("text", text);
         } else if (delta.type === "thinking_delta" && delta.delta) {
           // Thinking is also a thought-cycle boundary — seal/finalize any
-          // active batch so new tools after the thinking block open a fresh
-          // one. Mirrors text_delta seal logic.
+          // active batch so new tools after the thinking block open a fresh one.
           if (activeBatchToolIds) {
-            if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
             const allDone = [...activeBatchToolIds].every(id => {
               const t = state.currentTurn?.toolCalls.get(id);
               return t && !t.isRunning;
             });
+            if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
             if (allDone) {
               console.debug(`[gsd:parallel] thinking_delta: finalizing batch (${activeBatchToolIds.size} tools) — all done`);
               renderer.finalizeParallelBatch(lastMessageUsage);
@@ -598,6 +683,7 @@ function handleMessage(event: MessageEvent): void {
               renderer.sealActiveBatch();
             }
             activeBatchToolIds = null;
+            renderer.clearFinalizedBatch();
           }
           // Detect thinking blocks — if we see one, thinking is active.
           // Only auto-set when we genuinely have no level info (null/undefined).
@@ -670,7 +756,7 @@ function handleMessage(event: MessageEvent): void {
                 // shouldn't be pulled into this wave's batch.
                 const streamingRunning: ToolCallState[] = [];
                 for (const other of turn.toolCalls.values()) {
-                  if (other.isRunning && other.id !== block.id && !renderer.isInSealedBatch(other.id)) {
+                  if (other.isRunning && other.id !== block.id && !renderer.isInSealedBatch(other.id) && !renderer.isInCompletedBatch(other.id)) {
                     streamingRunning.push(other);
                   }
                 }
@@ -707,6 +793,7 @@ function handleMessage(event: MessageEvent): void {
                       if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
                       console.debug(`[gsd:parallel] toolcall_start: stale batch (${activeBatchToolIds.size} done) — finalizing before new wave`);
                       renderer.finalizeParallelBatch(lastMessageUsage);
+                      renderer.clearFinalizedBatch();
                       activeBatchToolIds = null;
                     } else {
                       if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
@@ -824,7 +911,7 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "message_end": {
-      const endData = msg;
+          const endData = msg;
       const endMsg = endData.message;
       // Extract definitive parallel tool IDs from message content blocks.
       // All tool_use blocks in a single API message are parallel by definition.
@@ -833,6 +920,12 @@ function handleMessage(event: MessageEvent): void {
       // dispatch or web_search. They co-occur with regular tool_use blocks in
       // the same message and MUST participate in the parallel-batch set,
       // otherwise the visible tool count undercounts reality.
+      if (!endMsg?.content && state.currentTurn) {
+        const turnToolCount = state.currentTurn.toolCalls.size;
+        if (turnToolCount > 0) {
+          console.warn(`[gsd:parallel] message_end: NO content blocks but ${turnToolCount} tools in turn — reconciliation SKIPPED. endMsg keys=${endMsg ? Object.keys(endMsg).join(",") : "null"}`);
+        }
+      }
       if (endMsg?.content && state.currentTurn) {
         const blocks = Array.isArray(endMsg.content) ? endMsg.content : [];
         console.debug(`[gsd:parallel] message_end: ${blocks.length} content blocks, types=[${blocks.map((b: any) => b.type).join(",")}]`);
@@ -858,6 +951,10 @@ function handleMessage(event: MessageEvent): void {
           if (bType !== "serverToolUse" && bType !== "server_tool_use") continue;
           const bId = (block as any).id as string | undefined;
           if (!bId || state.currentTurn.toolCalls.has(bId)) continue;
+          const alreadyHasSegment = state.currentTurn.segments.some(
+            s => (s.type === "server_tool" && s.serverToolId === bId) || (s.type === "tool" && s.toolCallId === bId)
+          );
+          if (alreadyHasSegment) continue;
           const input = (block as any).input ?? (block as any).arguments ?? {};
           const tc: ToolCallState = {
             id: bId,
@@ -875,61 +972,124 @@ function handleMessage(event: MessageEvent): void {
           state.currentTurn.segments.push({ type: "tool", toolCallId: bId });
           renderer.appendToolSegmentElement(tc, segIdx);
         }
-        // Filter out tools that already belong to a sealed batch (prior wave).
-        // A single API message may contain multiple waves separated by text/thinking
-        // blocks — those thought-cycle boundaries sealed the earlier waves, so we
-        // must not pull their tools back into the current wave's batch.
-        const postSealedToolIds = toolIds.filter(id => !renderer.isInSealedBatch(id));
-        if (postSealedToolIds.length < toolIds.length) {
-          console.debug(`[gsd:parallel] message_end: ${toolIds.length - postSealedToolIds.length} tools already in sealed batches — excluding from current wave`);
-        }
-        if (postSealedToolIds.length >= 2) {
-          messageParallelToolIds = new Set(postSealedToolIds);
-          // Mark tools in the current (post-narration) wave as parallel
-          for (const toolId of postSealedToolIds) {
-            const tc = state.currentTurn.toolCalls.get(toolId);
-            if (tc && !tc.isParallel) {
-              tc.isParallel = true;
-              renderer.updateToolSegmentElement(toolId);
+        // Split tool IDs into waves separated by text/thinking blocks.
+        // A single API message may contain multiple tool waves with narration
+        // between them (e.g. "Wave 1 done. Wave 2:"). Each contiguous run of
+        // tool blocks is a separate parallel batch.
+        const toolWaves: string[][] = [];
+        let currentWave: string[] = [];
+        for (const block of blocks) {
+          const bType = (block as any).type;
+          if (toolBlockTypes.has(bType)) {
+            const bId = (block as any).id;
+            if (bId) currentWave.push(bId);
+          } else if (bType === "text" || bType === "thinking") {
+            if (currentWave.length > 0) {
+              toolWaves.push(currentWave);
+              currentWave = [];
             }
           }
-          // If the existing batch is disjoint from the new wave, split — this
-          // message_end is a definitive wave boundary from the provider side.
-          // A disjoint tool-id set means the model has moved on to a new wave;
-          // merging them would collapse sequential responses into one giant
-          // batch (the "162 tools in one block" production bug). The prior
-          // batch may still have running members (long-running Agent/Task
-          // tools) — seal it so those keep their spinner inside the closed
-          // batch and finalize on their own tool_execution_end.
+        }
+        if (currentWave.length > 0) toolWaves.push(currentWave);
+
+        // The API may flatten multiple tool waves into a single contiguous
+        // block in message_end (no text/thinking separators). When streaming
+        // established more granular sealed batches, prefer that structure —
+        // the sealed batches were split by actual text_delta narration events.
+        const sealedWaves = renderer.getSealedBatchWaves();
+        const activeWave = activeBatchToolIds ? [...activeBatchToolIds] : [];
+        const allStreamingWaves = [...sealedWaves, ...(activeWave.length >= 2 ? [activeWave] : [])];
+        const allMessageToolIds = new Set(toolIds);
+        if (allStreamingWaves.length > toolWaves.length) {
+          const streamingToolIds = new Set(allStreamingWaves.flat());
+          const allStreamingInMessage = [...streamingToolIds].every(id => allMessageToolIds.has(id));
+          const allMessageInStreaming = [...allMessageToolIds].every(id => streamingToolIds.has(id));
+          if (allStreamingInMessage && allMessageInStreaming) {
+            console.debug(`[gsd:parallel] message_end: streaming batches (${allStreamingWaves.length}) more granular than API waves (${toolWaves.length}) — using streaming structure`);
+            toolWaves.length = 0;
+            toolWaves.push(...allStreamingWaves);
+          }
+        }
+
+        console.debug(`[gsd:parallel] message_end: ${toolWaves.length} wave(s) from ${toolIds.length} tools, waves=${JSON.stringify(toolWaves)}`);
+        const domBatchesBefore = messagesContainer.querySelectorAll(".gsd-parallel-batch").length;
+        const sealedCount = renderer.getSealedBatchCount?.() ?? -1;
+        console.debug(`[gsd:parallel] message_end: DOM batches before reconcile: ${domBatchesBefore}, activeBatch=${!!activeBatchToolIds}, activeBatchSize=${activeBatchToolIds?.size ?? 0}, sealedBatches=${sealedCount}`);
+
+        // message_end content blocks are the authoritative wave structure.
+        // Disband streaming-created batches that overlap with the current
+        // message's tools, then rebuild from the authoritative wave structure.
+        // Batches from prior messages (disjoint tool IDs) are preserved.
+        if (toolWaves.length > 0 && toolWaves.some(w => w.length >= 2)) {
+          if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
+          // Disband the active batch ONLY if it overlaps with this message's tools.
+          // If it's from a prior message (disjoint IDs), seal it instead.
           if (activeBatchToolIds) {
-            const newIdSet = new Set(postSealedToolIds);
-            const overlaps = [...activeBatchToolIds].some(id => newIdSet.has(id));
-            if (!overlaps) {
-              const hasRunningMember = [...activeBatchToolIds].some(id => {
+            let activeOverlaps = false;
+            for (const id of activeBatchToolIds) {
+              if (allMessageToolIds.has(id)) { activeOverlaps = true; break; }
+            }
+            if (activeOverlaps) {
+              renderer.disbandActiveBatch();
+            } else {
+              const allDone = [...activeBatchToolIds].every(id => {
                 const t = state.currentTurn!.toolCalls.get(id);
-                return t?.isRunning;
+                return t && !t.isRunning;
               });
-              if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
-              if (hasRunningMember) {
-                console.debug(`[gsd:parallel] message_end: disjoint new wave (${activeBatchToolIds.size} prior, some running) — sealing before new wave`);
-                renderer.sealActiveBatch();
-              } else {
-                console.debug(`[gsd:parallel] message_end: disjoint new wave (${activeBatchToolIds.size} done) — finalizing before new wave`);
+              if (allDone) {
                 renderer.finalizeParallelBatch(lastMessageUsage);
+              } else {
+                renderer.sealActiveBatch();
+              }
+            }
+            activeBatchToolIds = null;
+            renderer.clearFinalizedBatch();
+          }
+          // Unseal any sealed batches whose tools overlap with this message's
+          // tools — those were prematurely sealed by streaming text_delta events
+          // within this message and need to be rebuilt per the authoritative waves.
+          renderer.unsealBatchesOverlapping(allMessageToolIds);
+          renderer.disbandOrphanedBatches(allMessageToolIds);
+
+          for (let wi = 0; wi < toolWaves.length; wi++) {
+            const wave = toolWaves[wi];
+            if (wave.length < 2) continue;
+
+            for (const toolId of wave) {
+              const tc = state.currentTurn.toolCalls.get(toolId);
+              if (tc && !tc.isParallel) {
+                tc.isParallel = true;
+                renderer.updateToolSegmentElement(toolId);
+              }
+            }
+
+            // Close the prior wave's batch before starting this one
+            if (activeBatchToolIds) {
+              const allDone = [...activeBatchToolIds].every(id => {
+                const t = state.currentTurn!.toolCalls.get(id);
+                return t && !t.isRunning;
+              });
+              if (allDone) {
+                renderer.finalizeParallelBatch(lastMessageUsage);
+              } else {
+                renderer.sealActiveBatch();
               }
               activeBatchToolIds = null;
+              renderer.clearFinalizedBatch();
             }
+
+            activeBatchToolIds = new Set(wave);
+            renderer.syncBatchState(activeBatchToolIds);
           }
-          if (!activeBatchToolIds) {
-            activeBatchToolIds = new Set(postSealedToolIds);
-          } else {
-            // Batch exists from streaming — add any missing post-seal tools
-            for (const toolId of postSealedToolIds) {
-              activeBatchToolIds.add(toolId);
-            }
-          }
-          if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
-          renderer.syncBatchState(activeBatchToolIds);
+        }
+
+        const domBatchesAfter = messagesContainer.querySelectorAll(".gsd-parallel-batch").length;
+        console.debug(`[gsd:parallel] message_end: DOM batches after reconcile: ${domBatchesAfter}`);
+
+        // Set messageParallelToolIds to the LAST wave (for tool_execution_start lookups)
+        if (toolWaves.length > 0) {
+          const lastWave = toolWaves[toolWaves.length - 1];
+          messageParallelToolIds = lastWave.length >= 2 ? new Set(lastWave) : null;
         } else {
           messageParallelToolIds = null;
         }
@@ -1055,14 +1215,19 @@ function handleMessage(event: MessageEvent): void {
       const existingTc = state.currentTurn.toolCalls.get(data.toolCallId);
       if (existingTc) {
         existingTc.args = data.args || existingTc.args;
-        existingTc.isRunning = true;
+        // Don't re-mark as running if toolcall_end already completed this tool
+        // with externalResult — that would cause the tool to visually "restart"
+        // (checkmark → spinner → checkmark), looking like a duplicate.
+        if (!existingTc.endTime) {
+          existingTc.isRunning = true;
+        }
         if (isKnownParallel) existingTc.isParallel = true;
         // Parallelism is determined by what's actually running, not by segment
         // adjacency. A tool is parallel only if another tool is currently
         // running right now.
         if (!existingTc.isParallel) {
           for (const [, other] of state.currentTurn.toolCalls) {
-            if (other.isRunning && other.id !== existingTc.id && !renderer.isInSealedBatch(other.id)) {
+            if (other.isRunning && other.id !== existingTc.id && !renderer.isInSealedBatch(other.id) && !renderer.isInCompletedBatch(other.id)) {
               existingTc.isParallel = true;
               break;
             }
@@ -1071,10 +1236,9 @@ function handleMessage(event: MessageEvent): void {
         renderer.updateToolSegmentElement(existingTc.id);
 
         // Ensure tool joins the active batch if genuinely parallel.
-        // If an existing batch has no running members it's stale (only alive
-        // because of the finalize timer) — finalize it before starting a new
-        // wave.
-        if (isKnownParallel || existingTc.isParallel) {
+        // If the tool already belongs to a sealed batch (from multi-wave
+        // splitting in message_end), don't pull it into a different batch.
+        if ((isKnownParallel || existingTc.isParallel) && !renderer.isInSealedBatch(existingTc.id) && !renderer.isInCompletedBatch(existingTc.id)) {
           let batch = activeBatchToolIds;
           if (batch && !batch.has(existingTc.id)) {
             const hasRunningMember = [...batch].some(id => {
@@ -1084,6 +1248,7 @@ function handleMessage(event: MessageEvent): void {
             if (!hasRunningMember) {
               if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
               renderer.finalizeParallelBatch(lastMessageUsage);
+              renderer.clearFinalizedBatch();
               activeBatchToolIds = null;
               batch = null;
             }
@@ -1105,7 +1270,7 @@ function handleMessage(event: MessageEvent): void {
       // Sealed-batch tools are excluded so a new wave after narration doesn't absorb them.
       const runningTools: ToolCallState[] = [];
       for (const [, existing] of state.currentTurn.toolCalls) {
-        if (existing.isRunning && !renderer.isInSealedBatch(existing.id)) runningTools.push(existing);
+        if (existing.isRunning && !renderer.isInSealedBatch(existing.id) && !renderer.isInCompletedBatch(existing.id)) runningTools.push(existing);
       }
 
       const fallbackIsParallel = isKnownParallel || runningTools.length > 0;
@@ -1150,6 +1315,7 @@ function handleMessage(event: MessageEvent): void {
           if (!hasRunningMember) {
             if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
             renderer.finalizeParallelBatch(lastMessageUsage);
+            renderer.clearFinalizedBatch();
             activeBatchToolIds = null;
             batch = null;
           }
@@ -1674,6 +1840,9 @@ function handleMessage(event: MessageEvent): void {
       break;
     // extensions_ready: extension lifecycle — already handled by extension host
     case "extensions_ready":
+      break;
+    // session_state_changed: pi session lifecycle — handled by extension host
+    case "session_state_changed":
       break;
 
     default:

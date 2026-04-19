@@ -22,7 +22,21 @@ vi.mock("../../renderer", () => ({
   sealActiveBatch: vi.fn(() => null),
   tickSealedBatches: vi.fn(),
   isInSealedBatch: vi.fn(() => false),
+  isInCompletedBatch: vi.fn(() => false),
   finalizeAllSealedBatches: vi.fn(),
+  clearFinalizedBatch: vi.fn(),
+  disbandActiveBatch: vi.fn(),
+  unsealBatchesOverlapping: vi.fn(),
+  disbandOrphanedBatches: vi.fn(),
+  getSealedBatchCount: vi.fn(() => 0),
+  getSealedBatchWaves: vi.fn(() => []),
+  getCurrentTurnElement: vi.fn(() => null),
+  reopenParallelBatch: vi.fn(),
+  appendServerToolSegment: vi.fn(),
+  completeServerToolSegment: vi.fn(),
+  reattachTurnElement: vi.fn(),
+  patchToolBlock: vi.fn(),
+  init: vi.fn(),
 }));
 
 vi.mock("../../session-history", () => ({
