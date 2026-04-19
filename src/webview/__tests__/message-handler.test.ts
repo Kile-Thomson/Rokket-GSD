@@ -1182,6 +1182,41 @@ describe("message-handler", () => {
       expect(state.sessionStats.tokens?.total).toBe(850);
     });
 
+    it("tracks session totals as monotonic-max from message_end usage", () => {
+      // pi's `message_end.usage` is session-cumulative (see gsd-pi
+      // agent-session getSessionStats — totalInput sums across assistant
+      // messages). Treat every field as monotonic-max so the header never
+      // visibly dips when pi re-emits an earlier snapshot.
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 17, output: 4464, cacheRead: 881636, cacheWrite: 72261 },
+        },
+      });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 50, output: 9100, cacheRead: 1700000, cacheWrite: 50000 },
+        },
+      });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 50, output: 16000, cacheRead: 2100000, cacheWrite: 40000 },
+        },
+      });
+      const t = state.sessionStats.tokens!;
+      expect(t.input).toBe(50);
+      expect(t.output).toBe(16000);
+      expect(t.cacheRead).toBe(2100000);
+      expect(t.cacheWrite).toBe(72261);
+      expect(t.total).toBe(t.input + t.output + t.cacheRead + t.cacheWrite);
+    });
+
     it("accumulates cost from message_end usage", () => {
       sendMessage({ type: "agent_start" });
       sendMessage({
@@ -1194,7 +1229,71 @@ describe("message-handler", () => {
       expect(state.sessionStats.cost).toBe(0.005);
     });
 
-    it("computes contextPercent from usage tokens when cost_update is absent", () => {
+    it("computes contextPercent from perCallUsage.totalTokens when present", () => {
+      // pi's claude-code-cli adapter attaches `perCallUsage` — the last API
+      // call's snapshot. `totalTokens` matches pi's calculateContextTokens().
+      state.sessionStats.contextWindow = 100_000;
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0 },
+          perCallUsage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0, totalTokens: 55000 },
+        } as any,
+      });
+      expect(state.sessionStats.contextPercent).toBeCloseTo(55, 5);
+      expect(state.sessionStats.contextTokens).toBe(55000);
+    });
+
+    it("falls back to perCallUsage field sum when totalTokens is missing", () => {
+      state.sessionStats.contextWindow = 100_000;
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 50, output: 500, cacheRead: 40000, cacheWrite: 5000 },
+          perCallUsage: { input: 50, output: 500, cacheRead: 40000, cacheWrite: 5000 },
+        } as any,
+      });
+      expect(state.sessionStats.contextTokens).toBe(45550);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(45.55, 5);
+    });
+
+    it("reflects only the LAST call's perCallUsage across multiple message_end events", () => {
+      // Regression guard for the 91.7% bug: we MUST NOT delta-compute
+      // context from session-cumulative `usage`. Each message_end carries
+      // its own API call's snapshot; the latest one wins.
+      state.sessionStats.contextWindow = 100_000;
+      sendMessage({ type: "agent_start" });
+
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 10000, output: 2000, cacheRead: 0, cacheWrite: 0 },
+          perCallUsage: { input: 10000, output: 2000, cacheRead: 0, cacheWrite: 0, totalTokens: 12000 },
+        } as any,
+      });
+      expect(state.sessionStats.contextPercent).toBe(12);
+
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 30000, output: 4000, cacheRead: 0, cacheWrite: 0 },
+          perCallUsage: { input: 20000, output: 2000, cacheRead: 0, cacheWrite: 0, totalTokens: 22000 },
+        } as any,
+      });
+      expect(state.sessionStats.contextPercent).toBe(22);
+      expect(state.sessionStats.contextTokens).toBe(22000);
+    });
+
+    it("does not update contextPercent when perCallUsage is absent", () => {
+      // Without a per-call snapshot, session-cumulative `usage` alone cannot
+      // yield an honest context %. Leave the last known value intact rather
+      // than invent one from session aggregates.
       state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
       sendMessage({
@@ -1204,54 +1303,21 @@ describe("message-handler", () => {
           usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0 },
         },
       });
-      // contextTokens = input + cacheRead + cacheWrite = 50000
-      // contextPercent = 50000 / 100000 * 100 = 50
-      expect(state.sessionStats.contextPercent).toBe(50);
-    });
-
-    it("computes contextPercent from per-call message_end.usage (no cumulative deltas)", () => {
-      state.sessionStats.contextWindow = 100_000;
-      sendMessage({
-        type: "cost_update",
-        cumulativeCost: 0.01,
-        tokens: { input: 5000, output: 500, cacheRead: 2000, cacheWrite: 1000 },
-      });
-      // cost_update no longer computes context%
       expect(state.sessionStats.contextPercent).toBeUndefined();
-
-      sendMessage({ type: "agent_start" });
-      // First call: 5000 + 40000 + 5000 = 50000 → 50%
-      sendMessage({
-        type: "message_end",
-        message: {
-          role: "assistant",
-          usage: { input: 5000, output: 500, cacheRead: 40000, cacheWrite: 5000 },
-        },
-      });
-      expect(state.sessionStats.contextPercent).toBe(50);
-
-      // Second call is also per-call: 10000 + 55000 + 5000 = 70000 → 70%
-      sendMessage({
-        type: "message_end",
-        message: {
-          role: "assistant",
-          usage: { input: 10000, output: 1000, cacheRead: 55000, cacheWrite: 5000 },
-        },
-      });
-      expect(state.sessionStats.contextPercent).toBe(70);
+      expect(state.sessionStats.contextTokens).toBeUndefined();
     });
 
-    it("prefers usage.totalTokens when present", () => {
-      state.sessionStats.contextWindow = 100_000;
+    it("updates contextWindow even when perCallUsage is absent", () => {
+      state.model = { id: "claude-sonnet-4-6", name: "Sonnet", provider: "anthropic", contextWindow: 180_000 };
       sendMessage({ type: "agent_start" });
       sendMessage({
         type: "message_end",
         message: {
           role: "assistant",
-          usage: { input: 1, output: 1, cacheRead: 1, cacheWrite: 1, totalTokens: 42000 } as any,
+          usage: { input: 100, output: 50, cacheRead: 0, cacheWrite: 0 },
         },
       });
-      expect(state.sessionStats.contextPercent).toBe(42);
+      expect(state.sessionStats.contextWindow).toBe(180_000);
     });
 
     it("handles message_end with stopReason:error without crashing", () => {

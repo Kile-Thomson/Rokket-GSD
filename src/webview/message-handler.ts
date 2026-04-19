@@ -236,7 +236,17 @@ export function init(deps: MessageHandlerDeps): void {
 
   resetDerivedSessionTracking();
 
+  // Remove any previously-registered listener before adding a fresh one so
+  // that re-initialisation (e.g. in tests) does not accumulate duplicates.
+  window.removeEventListener("message", handleMessage);
   window.addEventListener("message", handleMessage);
+}
+
+/** Remove the window message listener registered by {@link init}. Call this in
+ *  test afterEach hooks (or wherever teardown is needed) to prevent listener
+ *  accumulation across test runs. */
+export function cleanup(): void {
+  window.removeEventListener("message", handleMessage);
 }
 
 // ============================================================
@@ -818,14 +828,53 @@ function handleMessage(event: MessageEvent): void {
       const endMsg = endData.message;
       // Extract definitive parallel tool IDs from message content blocks.
       // All tool_use blocks in a single API message are parallel by definition.
+      // Include `serverToolUse` (and SDK-native `server_tool_use`) blocks —
+      // these represent server-executed tools such as the Agent/Task subagent
+      // dispatch or web_search. They co-occur with regular tool_use blocks in
+      // the same message and MUST participate in the parallel-batch set,
+      // otherwise the visible tool count undercounts reality.
       if (endMsg?.content && state.currentTurn) {
         const blocks = Array.isArray(endMsg.content) ? endMsg.content : [];
         console.debug(`[gsd:parallel] message_end: ${blocks.length} content blocks, types=[${blocks.map((b: any) => b.type).join(",")}]`);
+        const toolBlockTypes = new Set([
+          "tool_use",
+          "toolCall",
+          "tool-use",
+          "serverToolUse",
+          "server_tool_use",
+        ]);
         const toolIds = blocks
-          .filter((b: any) => b.type === "tool_use" || b.type === "toolCall" || b.type === "tool-use")
+          .filter((b: any) => toolBlockTypes.has(b.type))
           .map((b: any) => b.id)
           .filter(Boolean) as string[];
         console.debug(`[gsd:parallel] message_end: ${toolIds.length} tool IDs found`);
+
+        // Server-side tool blocks (Agent/Task, web_search, etc.) complete on
+        // the provider side and never emit tool_execution_start/end locally.
+        // Synthesize a tool segment here so the UI shows them as part of the
+        // batch, otherwise a 5-Bash + 5-Agent wave renders as "5 tools" not 10.
+        for (const block of blocks) {
+          const bType = (block as any).type;
+          if (bType !== "serverToolUse" && bType !== "server_tool_use") continue;
+          const bId = (block as any).id as string | undefined;
+          if (!bId || state.currentTurn.toolCalls.has(bId)) continue;
+          const input = (block as any).input ?? (block as any).arguments ?? {};
+          const tc: ToolCallState = {
+            id: bId,
+            name: String((block as any).name ?? "server_tool"),
+            args: typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {},
+            resultText: "",
+            isError: false,
+            isRunning: false,
+            startTime: Date.now(),
+            endTime: Date.now(),
+            isParallel: toolIds.length >= 2,
+          };
+          state.currentTurn.toolCalls.set(bId, tc);
+          const segIdx = state.currentTurn.segments.length;
+          state.currentTurn.segments.push({ type: "tool", toolCallId: bId });
+          renderer.appendToolSegmentElement(tc, segIdx);
+        }
         // Filter out tools that already belong to a sealed batch (prior wave).
         // A single API message may contain multiple waves separated by text/thinking
         // blocks — those thought-cycle boundaries sealed the earlier waves, so we
@@ -844,20 +893,30 @@ function handleMessage(event: MessageEvent): void {
               renderer.updateToolSegmentElement(toolId);
             }
           }
-          // If the existing batch is stale (no running members and disjoint
-          // from the new wave) finalize it before starting the new batch,
-          // so sequential waves don't get merged.
+          // If the existing batch is disjoint from the new wave, split — this
+          // message_end is a definitive wave boundary from the provider side.
+          // A disjoint tool-id set means the model has moved on to a new wave;
+          // merging them would collapse sequential responses into one giant
+          // batch (the "162 tools in one block" production bug). The prior
+          // batch may still have running members (long-running Agent/Task
+          // tools) — seal it so those keep their spinner inside the closed
+          // batch and finalize on their own tool_execution_end.
           if (activeBatchToolIds) {
             const newIdSet = new Set(postSealedToolIds);
             const overlaps = [...activeBatchToolIds].some(id => newIdSet.has(id));
-            const hasRunningMember = [...activeBatchToolIds].some(id => {
-              const t = state.currentTurn!.toolCalls.get(id);
-              return t?.isRunning;
-            });
-            if (!overlaps && !hasRunningMember) {
+            if (!overlaps) {
+              const hasRunningMember = [...activeBatchToolIds].some(id => {
+                const t = state.currentTurn!.toolCalls.get(id);
+                return t?.isRunning;
+              });
               if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
-              console.debug(`[gsd:parallel] message_end: stale batch (${activeBatchToolIds.size} done, disjoint) — finalizing before new wave`);
-              renderer.finalizeParallelBatch(lastMessageUsage);
+              if (hasRunningMember) {
+                console.debug(`[gsd:parallel] message_end: disjoint new wave (${activeBatchToolIds.size} prior, some running) — sealing before new wave`);
+                renderer.sealActiveBatch();
+              } else {
+                console.debug(`[gsd:parallel] message_end: disjoint new wave (${activeBatchToolIds.size} done) — finalizing before new wave`);
+                renderer.finalizeParallelBatch(lastMessageUsage);
+              }
               activeBatchToolIds = null;
             }
           }
@@ -890,38 +949,70 @@ function handleMessage(event: MessageEvent): void {
           const u = (endMsg as any).usage as { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } };
           lastMessageUsage = u;
 
+          // pi's claude-code-cli adapter exposes a `perCallUsage` field on the
+          // assistant message carrying the *last* API call's usage snapshot
+          // (input, output, cacheRead, cacheWrite, totalTokens). That is the
+          // authoritative signal for context window pressure — `usage` is a
+          // session-wide running aggregate and is NOT per-call.
+          // See: gsd-pi partial-builder.js ZERO_USAGE + captureMessageStartUsage.
+          const perCall = (endMsg as any).perCallUsage as
+            | { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; totalTokens?: number }
+            | undefined;
+
           if (!hasCostUpdateSource) {
-            // Only accumulate session totals from message_end when cost_update
-            // events are absent. cost_update is the authoritative source in v2
-            // protocol; using both would double-count tokens.
+            // cost_update is the authoritative session-total source in v2.
+            // When absent (older providers), mirror pi's session-stat behaviour:
+            // `usage` here is already cumulative across the session for
+            // assistant messages, so assign directly rather than accumulating.
+            const curIn = u.input || 0;
+            const curOut = u.output || 0;
+            const curCR = u.cacheRead || 0;
+            const curCW = u.cacheWrite || 0;
             if (!state.sessionStats.tokens) {
               state.sessionStats.tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
             }
             const t = state.sessionStats.tokens;
-            t.input += u.input || 0;
-            t.output += u.output || 0;
-            t.cacheRead += u.cacheRead || 0;
-            t.cacheWrite += u.cacheWrite || 0;
+            // Monotonic max guard — pi's session stats are non-decreasing, so
+            // any apparent regression is a provider/stream reset, not a real
+            // drop. Taking max prevents the header from visibly dipping.
+            t.input = Math.max(t.input, curIn);
+            t.output = Math.max(t.output, curOut);
+            t.cacheRead = Math.max(t.cacheRead, curCR);
+            t.cacheWrite = Math.max(t.cacheWrite, curCW);
             t.total = t.input + t.output + t.cacheRead + t.cacheWrite;
             if (u.cost?.total) {
-              state.sessionStats.cost = (state.sessionStats.cost || 0) + u.cost.total;
+              state.sessionStats.cost = Math.max(state.sessionStats.cost || 0, u.cost.total);
             }
           }
 
-          // Context %: message_end.usage is per-call, mirroring pi's AssistantMessage.usage.
-          // Prompt size = input + cacheRead + cacheWrite (output is the reply, not the prompt).
-          // Matches pi's calculateContextTokens() when totalTokens is unset.
+          // Context %: use perCallUsage.totalTokens when provided by pi
+          // (preferred — exact match of pi's own calculateContextTokens()).
+          // Fall back to perCall input+output+cacheRead+cacheWrite. Never
+          // delta-compute from `usage` — it's a session-cumulative aggregate,
+          // not a turn-local snapshot, so deltas across message_end events
+          // yield nonsense context sizes.
           {
-            const uTotal = (u as any).totalTokens as number | undefined;
-            const contextTokens = typeof uTotal === "number" && uTotal > 0
-              ? uTotal
-              : (u.input || 0) + (u.cacheRead || 0) + (u.cacheWrite || 0);
             const contextWindow = resolveContextWindow();
+            if (contextWindow > 0) {
+              state.sessionStats.contextWindow = contextWindow;
+            }
+            let contextTokens = 0;
+            let source = "none";
+            if (perCall && typeof perCall.totalTokens === "number" && perCall.totalTokens > 0) {
+              contextTokens = perCall.totalTokens;
+              source = "perCall.totalTokens";
+            } else if (perCall) {
+              const pIn = perCall.input || 0;
+              const pOut = perCall.output || 0;
+              const pCR = perCall.cacheRead || 0;
+              const pCW = perCall.cacheWrite || 0;
+              contextTokens = pIn + pOut + pCR + pCW;
+              if (contextTokens > 0) source = "perCall.sum";
+            }
+            console.debug(`[gsd:context] ctx=${contextTokens}/${contextWindow} src=${source} perCall=${perCall ? JSON.stringify(perCall) : "n/a"} usage=${JSON.stringify({ input: u.input, output: u.output, cacheRead: u.cacheRead, cacheWrite: u.cacheWrite })}`);
             if (contextWindow > 0 && contextTokens > 0) {
               state.sessionStats.contextTokens = contextTokens;
-              state.sessionStats.contextWindow = contextWindow;
               state.sessionStats.contextPercent = (contextTokens / contextWindow) * 100;
-              console.debug(`[gsd:context] message_end context%: ${(contextTokens / contextWindow * 100).toFixed(1)}% (tokens=${contextTokens}, window=${contextWindow})`);
             }
           }
           updateHeaderUI();
