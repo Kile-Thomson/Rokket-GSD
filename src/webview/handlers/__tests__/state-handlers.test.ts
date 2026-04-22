@@ -19,6 +19,24 @@ vi.mock("../../renderer", () => ({
   finalizeParallelBatch: vi.fn(),
   clearActiveBatch: vi.fn(),
   getActiveBatchElement: vi.fn(() => null),
+  sealActiveBatch: vi.fn(() => null),
+  tickSealedBatches: vi.fn(),
+  isInSealedBatch: vi.fn(() => false),
+  isInCompletedBatch: vi.fn(() => false),
+  finalizeAllSealedBatches: vi.fn(),
+  clearFinalizedBatch: vi.fn(),
+  disbandActiveBatch: vi.fn(),
+  unsealBatchesOverlapping: vi.fn(),
+  disbandOrphanedBatches: vi.fn(),
+  getSealedBatchCount: vi.fn(() => 0),
+  getSealedBatchWaves: vi.fn(() => []),
+  getCurrentTurnElement: vi.fn(() => null),
+  reopenParallelBatch: vi.fn(),
+  appendServerToolSegment: vi.fn(),
+  completeServerToolSegment: vi.fn(),
+  reattachTurnElement: vi.fn(),
+  patchToolBlock: vi.fn(),
+  init: vi.fn(),
 }));
 
 vi.mock("../../session-history", () => ({
@@ -282,23 +300,15 @@ describe("state-handlers", () => {
       expect(state.sessionStats.cost).toBe(0.12);
     });
 
-    it("computes contextPercent from per-turn deltas", () => {
+    it("does NOT compute contextPercent from cost_update (deferred to message_end)", () => {
       state.sessionStats.contextWindow = 200_000;
       sendMessage({
         type: "cost_update",
         cumulativeCost: 0.05,
         tokens: { input: 30000, output: 1000, cacheRead: 10000, cacheWrite: 5000 },
       });
-      expect(state.sessionStats.contextPercent).toBe(22.5);
-      expect(state.sessionStats.contextTokens).toBe(45000);
-
-      sendMessage({
-        type: "cost_update",
-        cumulativeCost: 0.10,
-        tokens: { input: 95000, output: 3000, cacheRead: 50000, cacheWrite: 10000 },
-      });
-      expect(state.sessionStats.contextPercent).toBeCloseTo(55, 5);
-      expect(state.sessionStats.contextTokens).toBe(110000);
+      expect(state.sessionStats.contextPercent).toBeUndefined();
+      expect(state.sessionStats.contextTokens).toBeUndefined();
     });
   });
 

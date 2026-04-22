@@ -71,7 +71,11 @@ function renderToolEnd(data: Msg<'tool_execution_end'>): void {
       }, BATCH_FINALIZE_DELAY_MS));
     }
     renderer.updateParallelBatchStatus();
+  } else if (renderer.isInSealedBatch(data.toolCallId)) {
+    // Tool belongs to a sealed batch (parented elsewhere than the active batch).
+    // tickSealedBatches updates labels and finalizes any sealed batch whose tools have all finished.
   }
+  renderer.tickSealedBatches(getLastMessageUsage());
 
   scrollToBottom(messagesContainer);
 }
@@ -113,22 +117,42 @@ export function handleToolExecutionStart(msg: Msg<'tool_execution_start'>): void
     existingTc.isRunning = true;
     if (isKnownParallel) existingTc.isParallel = true;
     if (!existingTc.isParallel) {
-      const segs = state.currentTurn.segments;
-      const myIdx = segs.findIndex(s => s.type === "tool" && s.toolCallId === existingTc.id);
-      if (myIdx > 0 && segs[myIdx - 1]?.type === "tool") existingTc.isParallel = true;
-      if (myIdx >= 0 && myIdx < segs.length - 1 && segs[myIdx + 1]?.type === "tool") existingTc.isParallel = true;
+      // Only treat as parallel if another tool is actually running right now.
+      // Segment adjacency would mark tools parallel even when their "neighbour"
+      // in the list finished ages ago. Sealed-batch tools are also excluded so
+      // a new wave after narration doesn't claim them.
+      for (const [, other] of state.currentTurn.toolCalls) {
+        if (other.isRunning && other.id !== existingTc.id && !renderer.isInSealedBatch(other.id)) {
+          existingTc.isParallel = true;
+          break;
+        }
+      }
     }
     renderer.updateToolSegmentElement(existingTc.id);
 
-    if (isKnownParallel || existingTc.isParallel || activeBatch) {
-      const timer = getBatchFinalizeTimer();
-      if (timer) {
-        clearTimeout(timer);
-        setBatchFinalizeTimer(null);
-      }
+    if (isKnownParallel || existingTc.isParallel) {
       let batch = activeBatch;
+      // If there's an existing batch but all its tools are already done
+      // (it's only alive because of the finalize timer), flush it now rather
+      // than extending it with a new wave.
+      if (batch && !batch.has(existingTc.id)) {
+        const hasRunningMember = [...batch].some(id => {
+          const t = state.currentTurn!.toolCalls.get(id);
+          return t?.isRunning && id !== existingTc.id;
+        });
+        if (!hasRunningMember) {
+          const staleTimer = getBatchFinalizeTimer();
+          if (staleTimer) { clearTimeout(staleTimer); setBatchFinalizeTimer(null); }
+          console.debug(`[gsd:parallel] tool_exec_start: stale batch (${batch.size} done) — finalizing before new wave`);
+          renderer.finalizeParallelBatch(getLastMessageUsage());
+          setActiveBatchToolIds(null);
+          batch = null;
+        }
+      }
+      const timer = getBatchFinalizeTimer();
+      if (timer) { clearTimeout(timer); setBatchFinalizeTimer(null); }
       if (!batch) {
-        batch = new Set(msgParallel!);
+        batch = msgParallel ? new Set(msgParallel) : new Set<string>();
         setActiveBatchToolIds(batch);
       }
       batch.add(existingTc.id);
@@ -138,17 +162,15 @@ export function handleToolExecutionStart(msg: Msg<'tool_execution_start'>): void
     return;
   }
 
-  // Fallback: tool wasn't seen in streaming — create segment now
+  // Fallback: tool wasn't seen in streaming — create segment now.
+  // Parallelism is determined by what's actually running, not by segment adjacency.
+  // Sealed-batch tools are excluded so a new wave after narration doesn't absorb them.
   const runningTools: ToolCallState[] = [];
   for (const [, existing] of state.currentTurn.toolCalls) {
-    if (existing.isRunning) runningTools.push(existing);
+    if (existing.isRunning && !renderer.isInSealedBatch(existing.id)) runningTools.push(existing);
   }
 
-  const fallbackSegs = state.currentTurn.segments;
-  const fallbackPrevSeg = fallbackSegs.length > 0 ? fallbackSegs[fallbackSegs.length - 1] : null;
-  const fallbackAdjacentTool = fallbackPrevSeg?.type === "tool";
-  const runningToolsAreParallel = !msgParallel && runningTools.length > 0;
-  const fallbackIsParallel = isKnownParallel || runningToolsAreParallel || fallbackAdjacentTool;
+  const fallbackIsParallel = isKnownParallel || runningTools.length > 0;
 
   const tc: ToolCallState = {
     id: data.toolCallId,
@@ -174,41 +196,32 @@ export function handleToolExecutionStart(msg: Msg<'tool_execution_start'>): void
   const segIdx = state.currentTurn.segments.length;
   state.currentTurn.segments.push({ type: "tool", toolCallId: data.toolCallId });
 
-  if (fallbackAdjacentTool) {
-    for (let i = fallbackSegs.length - 2; i >= 0; i--) {
-      const s = fallbackSegs[i];
-      if (s.type === "tool" && s.toolCallId) {
-        const adj = state.currentTurn.toolCalls.get(s.toolCallId);
-        if (adj && !adj.isParallel) {
-          adj.isParallel = true;
-          renderer.updateToolSegmentElement(adj.id);
-        }
-      } else break;
-    }
-  }
-
   renderer.appendToolSegmentElement(tc, segIdx);
 
-  if (fallbackIsParallel || activeBatch) {
-    const timer = getBatchFinalizeTimer();
-    if (timer) {
-      clearTimeout(timer);
-      setBatchFinalizeTimer(null);
-    }
+  if (fallbackIsParallel) {
     let batch = activeBatch;
+    if (batch && !batch.has(tc.id)) {
+      const hasRunningMember = [...batch].some(id => {
+        const t = state.currentTurn!.toolCalls.get(id);
+        return t?.isRunning && id !== tc.id;
+      });
+      if (!hasRunningMember) {
+        const staleTimer = getBatchFinalizeTimer();
+        if (staleTimer) { clearTimeout(staleTimer); setBatchFinalizeTimer(null); }
+        console.debug(`[gsd:parallel] tool_exec_start fallback: stale batch (${batch.size} done) — finalizing before new wave`);
+        renderer.finalizeParallelBatch(getLastMessageUsage());
+        setActiveBatchToolIds(null);
+        batch = null;
+      }
+    }
+    const timer = getBatchFinalizeTimer();
+    if (timer) { clearTimeout(timer); setBatchFinalizeTimer(null); }
     if (!batch) {
       if (msgParallel) {
         batch = new Set(msgParallel);
+        batch.add(tc.id);
       } else {
-        const batchIds = new Set([...runningTools.map(t => t.id), tc.id]);
-        if (fallbackAdjacentTool) {
-          for (let i = fallbackSegs.length - 2; i >= 0; i--) {
-            const s = fallbackSegs[i];
-            if (s.type === "tool" && s.toolCallId) batchIds.add(s.toolCallId);
-            else break;
-          }
-        }
-        batch = batchIds;
+        batch = new Set([...runningTools.map(t => t.id), tc.id]);
       }
       setActiveBatchToolIds(batch);
     } else {

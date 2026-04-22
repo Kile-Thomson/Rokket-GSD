@@ -135,11 +135,11 @@ describe("model-picker", () => {
     expect(isVisible()).toBe(false);
   });
 
-  it("show() does not request models when already loaded", () => {
+  it("show() always requests fresh models even when already loaded", () => {
     (state as any).modelsLoaded = true;
     (state as any).availableModels = [];
     show();
-    expect(deps.vscode.postMessage).not.toHaveBeenCalledWith({ type: "get_available_models" });
+    expect(deps.vscode.postMessage).toHaveBeenCalledWith({ type: "get_available_models" });
   });
 
   it("model picker button triggers toggle", () => {

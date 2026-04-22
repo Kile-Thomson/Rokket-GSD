@@ -19,6 +19,11 @@ vi.mock("../../renderer", () => ({
   finalizeParallelBatch: vi.fn(),
   clearActiveBatch: vi.fn(),
   getActiveBatchElement: vi.fn(() => null),
+  sealActiveBatch: vi.fn(() => null),
+  tickSealedBatches: vi.fn(),
+  isInSealedBatch: vi.fn(() => false),
+  isInCompletedBatch: vi.fn(() => false),
+  finalizeAllSealedBatches: vi.fn(),
 }));
 
 vi.mock("../../session-history", () => ({

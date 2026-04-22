@@ -42,6 +42,8 @@ vi.mock("../../watchdogs", () => ({
 vi.mock("../../command-fallback", () => ({
   armGsdFallbackProbe: vi.fn(),
   startGsdFallbackTimer: vi.fn(),
+  TUI_ONLY_COMMAND_RE: /^\/ollama(?:\s|$)/i,
+  handleTuiOnlyFallback: vi.fn(),
 }));
 
 const mockReadFile = vi.fn();

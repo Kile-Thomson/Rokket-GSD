@@ -12,7 +12,6 @@ import {
   setActiveBatchToolIds,
   getBatchFinalizeTimer,
   setBatchFinalizeTimer,
-  getMessageParallelToolIds,
   setMessageParallelToolIds,
   getLastMessageUsage,
   setLastMessageUsage,
@@ -70,6 +69,7 @@ export function handleAgentEnd(_msg: Msg<'agent_end'>): void {
   if (timer) { clearTimeout(timer); setBatchFinalizeTimer(null); }
   const batchIds = getActiveBatchToolIds();
   if (batchIds) { renderer.finalizeParallelBatch(getLastMessageUsage()); }
+  renderer.finalizeAllSealedBatches(getLastMessageUsage());
   setActiveBatchToolIds(null);
   setMessageParallelToolIds(null);
   renderer.clearActiveBatch();
@@ -99,6 +99,23 @@ export function handleTurnEnd(_msg: Msg<'turn_end'>): void {
 
 export function handleMessageStart(_msg: Msg<'message_start'>): void {
   removeSteerNotes();
+  // A new message means the prior thought cycle is over. Seal the active batch
+  // so a new wave of tools opens a fresh batch instead of being absorbed.
+  const activeBatch = getActiveBatchToolIds();
+  if (activeBatch) {
+    const timer = getBatchFinalizeTimer();
+    if (timer) { clearTimeout(timer); setBatchFinalizeTimer(null); }
+    const allDone = [...activeBatch].every(id => {
+      const t = state.currentTurn?.toolCalls.get(id);
+      return t && !t.isRunning;
+    });
+    if (allDone) {
+      renderer.finalizeParallelBatch(getLastMessageUsage());
+    } else {
+      renderer.sealActiveBatch();
+    }
+    setActiveBatchToolIds(null);
+  }
   setMessageParallelToolIds(null);
   setLastMessageUsage(null);
 }
@@ -123,26 +140,48 @@ export function handleMessageUpdate(msg: Msg<'message_update'>): void {
     }
 
     removeSteerNotes();
+    // Narration is a thought-cycle boundary: seal the active batch so any
+    // follow-up tools open a fresh batch. If all tools are already done,
+    // finalize immediately; otherwise seal so the batch keeps its running
+    // members on screen until they finish.
     const activeBatch = getActiveBatchToolIds();
-    const msgParallel = getMessageParallelToolIds();
-    const timer = getBatchFinalizeTimer();
-    if (activeBatch && msgParallel && !timer) {
-      const fullSet = new Set([...activeBatch, ...msgParallel]);
-      const allDone = [...fullSet].every(id => {
+    if (activeBatch) {
+      const timer = getBatchFinalizeTimer();
+      if (timer) { clearTimeout(timer); setBatchFinalizeTimer(null); }
+      const allDone = [...activeBatch].every(id => {
         const t = state.currentTurn?.toolCalls.get(id);
         return t && !t.isRunning;
       });
       if (allDone) {
-        console.debug(`[gsd:parallel] text_delta: finalizing batch (${fullSet.size} tools) — text arrived`);
+        console.debug(`[gsd:parallel] text_delta: finalizing batch (${activeBatch.size} tools) — all done`);
         renderer.finalizeParallelBatch(getLastMessageUsage());
-        setActiveBatchToolIds(null);
+      } else {
+        console.debug(`[gsd:parallel] text_delta: sealing batch (${activeBatch.size} tools) — narration boundary`);
+        renderer.sealActiveBatch();
       }
+      setActiveBatchToolIds(null);
     }
     renderer.appendToTextSegment("text", text);
   } else if (delta.type === "thinking_delta" && delta.delta) {
     if (!state.thinkingLevel) {
       state.thinkingLevel = "medium";
       updateHeaderUI();
+    }
+    // Thinking is also a thought-cycle boundary.
+    const activeBatch = getActiveBatchToolIds();
+    if (activeBatch) {
+      const timer = getBatchFinalizeTimer();
+      if (timer) { clearTimeout(timer); setBatchFinalizeTimer(null); }
+      const allDone = [...activeBatch].every(id => {
+        const t = state.currentTurn?.toolCalls.get(id);
+        return t && !t.isRunning;
+      });
+      if (allDone) {
+        renderer.finalizeParallelBatch(getLastMessageUsage());
+      } else {
+        renderer.sealActiveBatch();
+      }
+      setActiveBatchToolIds(null);
     }
     renderer.appendToTextSegment("thinking", delta.delta);
   } else if (delta.type === "server_tool_use") {
@@ -193,19 +232,19 @@ export function handleMessageUpdate(msg: Msg<'message_update'>): void {
             startTime: Date.now(),
             isParallel: false,
           };
-          const prevSeg = turn.segments.length > 0 ? turn.segments[turn.segments.length - 1] : null;
-          const adjacentToTool = prevSeg?.type === "tool";
+
+          // Parallelism is determined by actual runtime overlap — which other tools
+          // are still running right now? Adjacency of segments is not enough, since
+          // a completed tool may still sit next to us in the segment list.
+          // Tools in sealed batches are excluded so a new wave after narration
+          // doesn't re-absorb the prior wave's still-running members.
           const streamingRunning: ToolCallState[] = [];
-          if (adjacentToTool) {
-            for (let i = turn.segments.length - 1; i >= 0; i--) {
-              const s = turn.segments[i];
-              if (s.type === "tool" && s.toolCallId) {
-                const adj = turn.toolCalls.get(s.toolCallId);
-                if (adj?.isRunning) streamingRunning.push(adj);
-              } else break;
+          for (const other of turn.toolCalls.values()) {
+            if (other.isRunning && other.id !== block.id && !renderer.isInSealedBatch(other.id)) {
+              streamingRunning.push(other);
             }
           }
-          const isStreamParallel = streamingRunning.length > 0 || adjacentToTool;
+          const isStreamParallel = streamingRunning.length > 0;
 
           if (isStreamParallel) {
             tc.isParallel = true;
@@ -221,40 +260,32 @@ export function handleMessageUpdate(msg: Msg<'message_update'>): void {
           const segIdx = turn.segments.length;
           turn.segments.push({ type: "tool", toolCallId: block.id });
 
-          if (adjacentToTool) {
-            for (let i = turn.segments.length - 2; i >= 0; i--) {
-              const s = turn.segments[i];
-              if (s.type === "tool" && s.toolCallId) {
-                const adj = turn.toolCalls.get(s.toolCallId);
-                if (adj && !adj.isParallel) {
-                  adj.isParallel = true;
-                  renderer.updateToolSegmentElement(adj.id);
-                }
-              } else break;
-            }
-          }
-
           renderer.appendToolSegmentElement(tc, segIdx);
 
-          let activeBatch = getActiveBatchToolIds();
-          if (isStreamParallel || activeBatch) {
-            const batchTimer = getBatchFinalizeTimer();
-            if (batchTimer) {
-              clearTimeout(batchTimer);
-              setBatchFinalizeTimer(null);
+          if (isStreamParallel) {
+            let activeBatch = getActiveBatchToolIds();
+            // If a prior batch is still held open only by the finalize timer
+            // (all its members done), close it out before opening a fresh one.
+            if (activeBatch) {
+              const hasRunningMember = [...activeBatch].some(id => {
+                const t = turn.toolCalls.get(id);
+                return t?.isRunning;
+              });
+              if (!hasRunningMember) {
+                const staleTimer = getBatchFinalizeTimer();
+                if (staleTimer) { clearTimeout(staleTimer); setBatchFinalizeTimer(null); }
+                console.debug(`[gsd:parallel] toolcall_start: stale batch (${activeBatch.size} done) — finalizing before new wave`);
+                renderer.finalizeParallelBatch(getLastMessageUsage());
+                setActiveBatchToolIds(null);
+                activeBatch = null;
+              } else {
+                const batchTimer = getBatchFinalizeTimer();
+                if (batchTimer) { clearTimeout(batchTimer); setBatchFinalizeTimer(null); }
+              }
             }
             if (!activeBatch) {
-              const batchIdList: string[] = [tc.id];
-              for (const rt of streamingRunning) batchIdList.push(rt.id);
-              if (adjacentToTool) {
-                for (let i = turn.segments.length - 2; i >= 0; i--) {
-                  const s = turn.segments[i];
-                  if (s.type === "tool" && s.toolCallId && !batchIdList.includes(s.toolCallId)) {
-                    batchIdList.push(s.toolCallId);
-                  } else if (s.type !== "tool") break;
-                }
-              }
-              activeBatch = new Set(batchIdList);
+              activeBatch = new Set<string>([tc.id]);
+              for (const rt of streamingRunning) activeBatch.add(rt.id);
               setActiveBatchToolIds(activeBatch);
             } else {
               activeBatch.add(tc.id);
@@ -353,8 +384,18 @@ export function handleMessageEnd(msg: Msg<'message_end'>): void {
   if (endMsg?.content && state.currentTurn) {
     const blocks = Array.isArray(endMsg.content) ? endMsg.content as Array<Record<string, unknown>> : [];
     console.debug(`[gsd:parallel] message_end: ${blocks.length} content blocks, types=[${blocks.map(b => b.type).join(",")}]`);
+    // Include server-executed tool blocks — Agent/Task dispatch and web_search
+    // arrive as `serverToolUse` in pi's content stream and must participate in
+    // parallel batches, otherwise the visible tool count undercounts reality.
+    const toolBlockTypes = new Set([
+      "tool_use",
+      "toolCall",
+      "tool-use",
+      "serverToolUse",
+      "server_tool_use",
+    ]);
     const toolIds = blocks
-      .filter(b => b.type === "tool_use" || b.type === "toolCall" || b.type === "tool-use")
+      .filter(b => toolBlockTypes.has(b.type as string))
       .map(b => b.id)
       .filter(Boolean) as string[];
     console.debug(`[gsd:parallel] message_end: ${toolIds.length} tool IDs found`);
@@ -368,6 +409,24 @@ export function handleMessageEnd(msg: Msg<'message_end'>): void {
         }
       }
       let activeBatch = getActiveBatchToolIds();
+      // Don't merge this message's tools into a stale batch from a prior wave.
+      // If the existing batch has no running members and none of this message's
+      // tools are already part of it, finalize the old batch and start fresh.
+      if (activeBatch) {
+        const hasRunningMember = [...activeBatch].some(id => {
+          const t = state.currentTurn!.toolCalls.get(id);
+          return t?.isRunning;
+        });
+        const overlaps = toolIds.some(id => activeBatch!.has(id));
+        if (!hasRunningMember && !overlaps) {
+          const staleTimer = getBatchFinalizeTimer();
+          if (staleTimer) { clearTimeout(staleTimer); setBatchFinalizeTimer(null); }
+          console.debug(`[gsd:parallel] message_end: stale batch (${activeBatch.size} done) — finalizing before new wave`);
+          renderer.finalizeParallelBatch(getLastMessageUsage());
+          setActiveBatchToolIds(null);
+          activeBatch = null;
+        }
+      }
       if (!activeBatch) {
         activeBatch = new Set(toolIds);
         setActiveBatchToolIds(activeBatch);
@@ -406,29 +465,56 @@ export function handleMessageEnd(msg: Msg<'message_end'>): void {
       const u = endMsg.usage;
       setLastMessageUsage(u);
 
+      // pi's claude-code-cli adapter exposes a `perCallUsage` field on the
+      // assistant message carrying the *last* API call's usage snapshot
+      // (input, output, cacheRead, cacheWrite, totalTokens). That is the
+      // authoritative signal for context window pressure — `usage` is a
+      // session-wide running aggregate, not per-call.
+      const perCall = (endMsg as Record<string, unknown>).perCallUsage as
+        | { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; totalTokens?: number }
+        | undefined;
+
       if (!getHasCostUpdateSource()) {
+        // cost_update is the authoritative session-total source in v2.
+        // When absent (older providers), mirror pi's session-stat behaviour:
+        // `usage` here is already cumulative across the session for
+        // assistant messages, so take monotonic-max rather than accumulate.
+        const curIn = u.input || 0;
+        const curOut = u.output || 0;
+        const curCR = u.cacheRead || 0;
+        const curCW = u.cacheWrite || 0;
         if (!state.sessionStats.tokens) {
           state.sessionStats.tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
         }
         const t = state.sessionStats.tokens;
-        t.input += u.input || 0;
-        t.output += u.output || 0;
-        t.cacheRead += u.cacheRead || 0;
-        t.cacheWrite += u.cacheWrite || 0;
+        t.input = Math.max(t.input, curIn);
+        t.output = Math.max(t.output, curOut);
+        t.cacheRead = Math.max(t.cacheRead, curCR);
+        t.cacheWrite = Math.max(t.cacheWrite, curCW);
         t.total = t.input + t.output + t.cacheRead + t.cacheWrite;
         if (u.cost?.total) {
-          state.sessionStats.cost = (state.sessionStats.cost || 0) + u.cost.total;
+          state.sessionStats.cost = Math.max(state.sessionStats.cost || 0, u.cost.total);
         }
       }
 
-      if (!getHasCostUpdateSource()) {
-        const contextTokens = (u.input || 0) + (u.cacheRead || 0) + (u.cacheWrite || 0);
+      {
+        // Context %: prefer perCallUsage.totalTokens (matches pi's own
+        // calculateContextTokens exactly), fall back to the field sum.
+        // Never delta-compute from `usage` — it's a session aggregate.
         const contextWindow = resolveContextWindow();
+        if (contextWindow > 0) {
+          state.sessionStats.contextWindow = contextWindow;
+        }
+        let contextTokens = 0;
+        if (perCall && typeof perCall.totalTokens === "number" && perCall.totalTokens > 0) {
+          contextTokens = perCall.totalTokens;
+        } else if (perCall) {
+          contextTokens = (perCall.input || 0) + (perCall.output || 0) + (perCall.cacheRead || 0) + (perCall.cacheWrite || 0);
+        }
+        console.debug(`[gsd:context] ctx=${contextTokens}/${contextWindow} perCall=${perCall ? JSON.stringify(perCall) : "n/a"}`);
         if (contextWindow > 0 && contextTokens > 0) {
           state.sessionStats.contextTokens = contextTokens;
-          state.sessionStats.contextWindow = contextWindow;
           state.sessionStats.contextPercent = (contextTokens / contextWindow) * 100;
-          console.debug(`[gsd:context] message_end context%: ${(contextTokens / contextWindow * 100).toFixed(1)}% (tokens=${contextTokens}, window=${contextWindow})`);
         }
       }
       updateHeaderUI();

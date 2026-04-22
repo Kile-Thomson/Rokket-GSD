@@ -155,15 +155,27 @@ export function handleRpcEvent(
     // v2 protocol: execution run completed — refresh workflow state
     ctx.refreshWorkflowState(webview, sessionId);
   } else if (eventType === "extensions_ready") {
-    // gsd-pi 2.44+: extensions finished loading — fetch definitive command list
-    ctx.output.appendLine(`[${sessionId}] extensions_ready — refreshing commands`);
+    // gsd-pi 2.44+: extensions finished loading — fetch definitive command and model lists.
+    // Extensions like Ollama register providers asynchronously after session_start,
+    // so the initial get_available_models response may be incomplete.
+    ctx.output.appendLine(`[${sessionId}] extensions_ready — refreshing commands and models`);
     client.getCommands()
-      .then((result: Record<string, unknown> | null) => {
-        const commands = Array.isArray(result?.commands) ? result.commands : [];
-        ctx.postToWebview(webview, { type: "commands", commands });
+      .then((result) => {
+        const r = result as Record<string, unknown> | null;
+        const commands = Array.isArray(r?.commands) ? r.commands : [];
+        ctx.postToWebview(webview, { type: "commands", commands } as ExtensionToWebviewMessage);
       })
       .catch((err: unknown) => {
         ctx.output.appendLine(`[${sessionId}] extensions_ready get_commands failed: ${err instanceof Error ? err.message : String(err)}`);
+      });
+    client.getAvailableModels()
+      .then((result) => {
+        ctx.output.appendLine(`[${sessionId}] extensions_ready get_available_models raw: ${JSON.stringify(result)}`);
+        const models = (result as Record<string, unknown> | null)?.models;
+        ctx.postToWebview(webview, { type: "available_models", models: Array.isArray(models) ? models : [] } as ExtensionToWebviewMessage);
+      })
+      .catch((err: unknown) => {
+        ctx.output.appendLine(`[${sessionId}] extensions_ready get_available_models failed: ${err instanceof Error ? err.message : String(err)}`);
       });
   }
 
