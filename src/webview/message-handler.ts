@@ -996,6 +996,9 @@ function handleMessage(event: MessageEvent): void {
         // block in message_end (no text/thinking separators). When streaming
         // established more granular sealed batches, prefer that structure —
         // the sealed batches were split by actual text_delta narration events.
+        // Streaming batches may only cover a subset of the message's tools
+        // (tools arriving individually between narration aren't batched), so
+        // we only require that streaming IDs are a subset of message IDs.
         const sealedWaves = renderer.getSealedBatchWaves();
         const activeWave = activeBatchToolIds ? [...activeBatchToolIds] : [];
         const allStreamingWaves = [...sealedWaves, ...(activeWave.length >= 2 ? [activeWave] : [])];
@@ -1003,8 +1006,7 @@ function handleMessage(event: MessageEvent): void {
         if (allStreamingWaves.length > toolWaves.length) {
           const streamingToolIds = new Set(allStreamingWaves.flat());
           const allStreamingInMessage = [...streamingToolIds].every(id => allMessageToolIds.has(id));
-          const allMessageInStreaming = [...allMessageToolIds].every(id => streamingToolIds.has(id));
-          if (allStreamingInMessage && allMessageInStreaming) {
+          if (allStreamingInMessage) {
             console.debug(`[gsd:parallel] message_end: streaming batches (${allStreamingWaves.length}) more granular than API waves (${toolWaves.length}) — using streaming structure`);
             toolWaves.length = 0;
             toolWaves.push(...allStreamingWaves);
