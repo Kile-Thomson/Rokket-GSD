@@ -238,8 +238,8 @@ describe("ui-dialogs", () => {
   // ============================================================
 
   describe("dedup", () => {
-    it("links duplicate requests to the original dialog", () => {
-      const base = { method: "confirm", title: "Same", message: "msg" };
+    it("links duplicate select requests to the original dialog", () => {
+      const base = { method: "select", title: "Same", message: "msg", options: ["A", "B"] };
       handleRequest({ ...base, id: "d1" });
       handleRequest({ ...base, id: "d2" }); // duplicate fingerprint
 
@@ -248,17 +248,27 @@ describe("ui-dialogs", () => {
       expect(wrappers.length).toBe(1);
     });
 
-    it("resolves linked duplicates when original is answered", () => {
-      const base = { method: "confirm", title: "Dup", message: "" };
+    it("resolves linked select duplicates when original is answered", () => {
+      const base = { method: "select", title: "Dup", message: "", options: ["Yes", "No"] };
       handleRequest({ ...base, id: "dup1" });
       handleRequest({ ...base, id: "dup2" });
 
-      (messagesContainer.querySelector('[data-action="yes"]') as HTMLElement).click();
+      (messagesContainer.querySelector('.gsd-ui-option-btn') as HTMLElement).click();
 
       // Both primary and linked should have been sent
       const calls = mockVscode.postMessage.mock.calls.map((c: any[]) => c[0]);
-      expect(calls.some((c: any) => c.id === "dup1" && c.confirmed === true)).toBe(true);
-      expect(calls.some((c: any) => c.id === "dup2" && c.confirmed === true)).toBe(true);
+      expect(calls.some((c: any) => c.id === "dup1")).toBe(true);
+      expect(calls.some((c: any) => c.id === "dup2")).toBe(true);
+    });
+
+    it("does not dedup confirm dialogs — each permission prompt renders independently", () => {
+      const base = { method: "confirm", title: "Same", message: "msg" };
+      handleRequest({ ...base, id: "cd1" });
+      handleRequest({ ...base, id: "cd2" });
+
+      // Both permission prompts render as independent dialogs
+      const wrappers = messagesContainer.querySelectorAll(".gsd-entry-ui-request");
+      expect(wrappers.length).toBe(2);
     });
   });
 
@@ -299,10 +309,10 @@ describe("ui-dialogs", () => {
       expect(wrapper.classList.contains("resolved")).toBe(true);
     });
 
-    it("sends cancelled response for linked duplicates", () => {
-      const base = { method: "confirm", title: "Exp", message: "" };
+    it("sends cancelled response for linked select duplicates", () => {
+      const base = { method: "select", title: "Exp", message: "", options: ["A", "B"] };
       handleRequest({ ...base, id: "exp1" });
-      handleRequest({ ...base, id: "exp2" });
+      handleRequest({ ...base, id: "exp2" }); // linked to exp1 via dedup
       expireAllPending("test");
       const calls = mockVscode.postMessage.mock.calls.map((c: any[]) => c[0]);
       expect(calls.some((c: any) => c.id === "exp2" && c.cancelled === true)).toBe(true);
@@ -369,16 +379,16 @@ describe("ui-dialogs", () => {
       expect(wrappers.length).toBe(1); // only the original
     });
 
-    it("auto-responds to repeated identical confirm dialogs", () => {
+    it("does not auto-respond to repeated identical confirm dialogs — each must be approved", () => {
       handleRequest({ id: "cloop1", method: "confirm", title: "Continue?", message: "Proceed?" });
       (messagesContainer.querySelector('[data-action="yes"]') as HTMLElement).click();
       mockVscode.postMessage.mockClear();
 
-      // Re-ask same question
+      // Re-ask same question — must render a new dialog, never auto-reply
       handleRequest({ id: "cloop2", method: "confirm", title: "Continue?", message: "Proceed?" });
-      expect(mockVscode.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "cloop2", confirmed: true }),
-      );
+      expect(mockVscode.postMessage).not.toHaveBeenCalled();
+      const wrappers = messagesContainer.querySelectorAll(".gsd-entry-ui-request:not(.resolved)");
+      expect(wrappers.length).toBe(1); // new dialog rendered and pending
     });
 
     it("stops auto-replaying after TTL expires", () => {
