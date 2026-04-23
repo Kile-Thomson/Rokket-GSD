@@ -423,7 +423,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     const config = vscode.workspace.getConfiguration("gsd");
     const processWrapper = config.get<string>("processWrapper", "");
     const envVars = config.get<Array<{ name: string; value: string }>>("environmentVariables", []);
-    const env: Record<string, string> = {};
+    const env: Record<string, string> = {
+      // Skip Claude Code permission gates — prompts in the IDE context are surfaced
+      // through the GSD webview, but the elicitation flow is unreliable. Bypass
+      // permissions entirely so tools are never silently denied.
+      GSD_CLAUDE_CODE_PERMISSION_MODE: "bypassPermissions",
+    };
     for (const { name, value } of envVars) env[name] = value;
 
     this.postToWebview(webview, { type: "process_status", status: "starting" } as ExtensionToWebviewMessage);

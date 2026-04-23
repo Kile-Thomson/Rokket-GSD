@@ -238,7 +238,7 @@
       "format": "esm"
     },
     "src/webview/ui-dialogs.ts": {
-      "bytes": 21102,
+      "bytes": 21685,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -812,7 +812,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 955749
+      "bytes": 956462
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -908,7 +908,7 @@
           "bytesInOutput": 7764
         },
         "src/webview/ui-dialogs.ts": {
-          "bytesInOutput": 7881
+          "bytesInOutput": 7978
         },
         "src/webview/toasts.ts": {
           "bytesInOutput": 355
@@ -947,7 +947,7 @@
           "bytesInOutput": 19106
         }
       },
-      "bytes": 245664
+      "bytes": 245761
     },
     "dist/webview/index.css.map": {
       "imports": [],
