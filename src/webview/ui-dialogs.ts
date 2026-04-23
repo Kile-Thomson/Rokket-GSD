@@ -128,19 +128,23 @@ export function handleRequest(data: DialogRequestData): void {
   // Dedup phase 1: if the same dialog was resolved recently, auto-replay
   // the user's previous answer. This breaks the loop where gsd-pi keeps
   // re-asking the same question after receiving a valid response.
+  // Excluded: "confirm" dialogs (permission prompts from Claude Code) — each
+  // one is a distinct approval decision and must never be auto-answered.
   const fp = dialogFingerprint(data);
 
-  const cached = resolvedResponses.get(fp);
-  if (cached && Date.now() < cached.expiresAt) {
-    // Replay with this request's ID
-    vscode.postMessage({ ...cached.response, id });
-    return;
-  }
-  // Sweep all expired entries to prevent unbounded growth
-  if (cached || resolvedResponses.size > 50) {
-    const now = Date.now();
-    for (const [key, val] of resolvedResponses) {
-      if (now >= val.expiresAt) resolvedResponses.delete(key);
+  if (method !== "confirm") {
+    const cached = resolvedResponses.get(fp);
+    if (cached && Date.now() < cached.expiresAt) {
+      // Replay with this request's ID
+      vscode.postMessage({ ...cached.response, id });
+      return;
+    }
+    // Sweep all expired entries to prevent unbounded growth
+    if (cached || resolvedResponses.size > 50) {
+      const now = Date.now();
+      for (const [key, val] of resolvedResponses) {
+        if (now >= val.expiresAt) resolvedResponses.delete(key);
+      }
     }
   }
 
@@ -149,7 +153,9 @@ export function handleRequest(data: DialogRequestData): void {
   // response for this one too. This prevents the "triple confirmation"
   // problem where the agent calls ask_user_questions multiple times for
   // the same question.
-  const existingId = pendingFingerprints.get(fp);
+  // Excluded: "confirm" dialogs — each permission prompt is a distinct decision,
+  // even if the fingerprint matches (e.g. repeated bash approval requests).
+  const existingId = method !== "confirm" ? pendingFingerprints.get(fp) : undefined;
   if (existingId && pendingDialogs.has(existingId)) {
     // Link this request to the existing dialog — when the original is resolved,
     // we'll send the same response for this one too.
@@ -167,6 +173,7 @@ export function handleRequest(data: DialogRequestData): void {
   const wrapper = document.createElement("div");
   wrapper.className = "gsd-entry gsd-entry-ui-request";
   wrapper.dataset.uiId = id;
+  wrapper.dataset.uiMethod = method;
 
   if (method === "select") {
     const options: string[] = data.options || [];
@@ -409,9 +416,10 @@ function sendResponseWithLinked(wrapper: HTMLElement, primaryId: string, respons
   vscode.postMessage(response);
 
   // Cache this response by fingerprint so re-asks within RESOLVED_TTL_MS
-  // are auto-answered (breaks the gsd-pi "ask same question in a loop" bug)
+  // are auto-answered (breaks the gsd-pi "ask same question in a loop" bug).
+  // Excluded: "confirm" dialogs — permission prompts must never be auto-answered.
   const uiId = wrapper.dataset.uiId;
-  if (uiId) {
+  if (uiId && wrapper.dataset.uiMethod !== "confirm") {
     for (const [fp, fId] of pendingFingerprints) {
       if (fId === uiId) {
         resolvedResponses.set(fp, { response, expiresAt: Date.now() + RESOLVED_TTL_MS });
