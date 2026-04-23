@@ -458,7 +458,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 22788,
+      "bytes": 23092,
       "imports": [
         {
           "path": "vscode",
@@ -636,7 +636,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 439955
+      "bytes": 440288
     },
     "dist/extension.js": {
       "imports": [
@@ -911,7 +911,7 @@
           "bytesInOutput": 60
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 10490
+          "bytesInOutput": 10541
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 10280
@@ -971,7 +971,7 @@
           "bytesInOutput": 4419
         }
       },
-      "bytes": 112500
+      "bytes": 112551
     }
   }
 }
