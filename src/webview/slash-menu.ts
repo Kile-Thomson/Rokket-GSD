@@ -258,6 +258,12 @@ function render(): void {
   if (activeEl) activeEl.scrollIntoView({ block: "nearest" });
 }
 
+function sendSlashCommand(payload: object): void {
+  promptInput.value = "";
+  onAutoResize();
+  vscode.postMessage(payload);
+}
+
 function selectCommand(idx: number): void {
   const item = filteredItems[idx];
   if (!item) { hide(); return; }
@@ -328,19 +334,13 @@ function selectCommand(idx: number): void {
         onToggleAutoRetry?.();
         break;
       case "telegram":
-        promptInput.value = "";
-        onAutoResize();
-        vscode.postMessage({ type: "telegram_setup" });
+        sendSlashCommand({ type: "telegram_setup" });
         break;
       case "telegram-stop":
-        promptInput.value = "";
-        onAutoResize();
-        vscode.postMessage({ type: "telegram_sync_toggle", forceOff: true });
+        sendSlashCommand({ type: "telegram_sync_toggle", forceOff: true });
         break;
       case "telegram voice":
-        promptInput.value = "";
-        onAutoResize();
-        vscode.postMessage({ type: "set_openai_api_key" });
+        sendSlashCommand({ type: "set_openai_api_key" });
         break;
     }
     promptInput.focus();

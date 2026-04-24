@@ -234,6 +234,7 @@ export function resetState(): void {
   state.isPending = false;
   state.isCompacting = false;
   state.isRetrying = false;
+  state.telegramSyncActive = false;
   state.retryInfo = undefined;
   state.model = null;
   state.thinkingLevel = null;

@@ -60,6 +60,12 @@ export class TopicManager {
     return this.topicToSession.get(threadId);
   }
 
+  /**
+   * Ensures a Telegram forum topic exists for the given session.
+   * Returns the topic's thread ID, or `-1` if a sync is already in progress
+   * for this session (race condition guard). Callers should ignore the `-1`
+   * sentinel — the in-flight sync will complete and register the topic.
+   */
   async syncOn(sessionId: string, label: string): Promise<number> {
     const existing = this.sessionToTopic.get(sessionId);
     if (existing !== undefined) {

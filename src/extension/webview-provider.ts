@@ -367,9 +367,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   }
 
   dispose(): void {
-    this.disposeAsync().catch((err) => {
-      this.output.appendLine(`[telegram-sync] dispose error: ${err instanceof Error ? err.message : String(err)}`);
-    });
+    // Capture the log message before disposeAsync() disposes this.output
+    const logErr = (err: unknown) =>
+      console.error(`[gsd] dispose error: ${err instanceof Error ? err.message : String(err)}`);
+    this.disposeAsync().catch(logErr);
   }
 
   private cleanupSession(sessionId: string): void {

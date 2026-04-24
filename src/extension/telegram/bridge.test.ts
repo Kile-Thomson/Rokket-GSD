@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TelegramBridge } from "./bridge";
 import type { TelegramApi, TelegramUpdate } from "./api";
 import type { TopicManager, TopicManagerLogger } from "./topicManager";
-import type { BridgeClient, BridgeSessionState, BridgeImage } from "./bridge";
+import type { BridgeClient, BridgeSessionState } from "./bridge";
 
 function createMockApi(updates: TelegramUpdate[] = []): TelegramApi {
   let callCount = 0;

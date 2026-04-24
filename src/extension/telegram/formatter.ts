@@ -15,6 +15,7 @@ const TRUNCATION_SUFFIX = "…(truncated)";
 
 export function truncateMessage(text: string, maxLen = 4096): string {
   if (text.length <= maxLen) return text;
+  if (maxLen <= TRUNCATION_SUFFIX.length) return TRUNCATION_SUFFIX.slice(0, maxLen);
   return text.slice(0, maxLen - TRUNCATION_SUFFIX.length) + TRUNCATION_SUFFIX;
 }
 

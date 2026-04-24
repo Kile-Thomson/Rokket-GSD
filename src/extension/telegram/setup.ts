@@ -165,6 +165,6 @@ export async function updateTelegramStatusBar(
   const config = vscode.workspace.getConfiguration("gsd");
   const telegramConfig = await loadTelegramConfig(context.secrets, config);
   if (telegramConfig) {
-    statusBarItem.tooltip = `${statusBarItem.tooltip ?? "Rokket GSD"}\n$(telegram) Telegram: Connected`;
+    statusBarItem.tooltip = `${statusBarItem.tooltip ?? "Rokket GSD"}\n$(comment-discussion) Telegram: Connected`;
   }
 }

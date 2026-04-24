@@ -110,6 +110,7 @@ export class TelegramApi {
         err instanceof Error ? err.message : String(err);
       throw new Error(
         redactToken(`Telegram API request failed: ${message}`, this.botToken),
+        { cause: err },
       );
     } finally {
       clearTimeout(timeout);
@@ -254,7 +255,13 @@ export class TelegramApi {
     timeoutMs = 10_000,
   ): Promise<{ base64: string; mimeType: string }> {
     const buf = await this.downloadFileBuffer(filePath, timeoutMs);
-    return { base64: buf.toString("base64"), mimeType: "image/jpeg" };
+    const lower = filePath.toLowerCase();
+    const mimeType =
+      lower.endsWith(".png") ? "image/png" :
+      lower.endsWith(".gif") ? "image/gif" :
+      lower.endsWith(".webp") ? "image/webp" :
+      "image/jpeg";
+    return { base64: buf.toString("base64"), mimeType };
   }
 
   async downloadFileBuffer(
@@ -273,6 +280,7 @@ export class TelegramApi {
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(
         redactToken(`Telegram file download failed: ${message}`, this.botToken),
+        { cause: err },
       );
     } finally {
       clearTimeout(timeout);

@@ -4,7 +4,7 @@ import type { TelegramUpdate, TelegramMessage, ForumTopic, TelegramFile } from "
 import { TopicManager } from "./topicManager";
 import type { GlobalStateStore, TopicRegistryEntry } from "./topicManager";
 import { TelegramBridge } from "./bridge";
-import type { BridgeClient, BridgeSessionState, BridgeImage } from "./bridge";
+import type { BridgeClient, BridgeSessionState } from "./bridge";
 import * as fs from "fs";
 import * as path from "path";
 

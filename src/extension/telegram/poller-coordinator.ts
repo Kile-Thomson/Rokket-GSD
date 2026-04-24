@@ -88,24 +88,28 @@ export class PollerCoordinator {
     if (this.stopped) return;
     if (this.promotionTimer) return;
 
-    this.promotionTimer = setTimeout(async () => {
-      this.promotionTimer = null;
-      if (this.stopped) return;
+    this.promotionTimer = setTimeout(() => {
+      (async () => {
+        this.promotionTimer = null;
+        if (this.stopped) return;
 
-      this.logger.info(`[poller-coord] Attempting promotion to server`);
-      const server = new PollerServer(this.api, this.botToken, this.logger);
-      const bound = await server.tryStart();
+        this.logger.info(`[poller-coord] Attempting promotion to server`);
+        const server = new PollerServer(this.api, this.botToken, this.logger);
+        const bound = await server.tryStart();
 
-      if (bound) {
-        this.server = server;
-        this.role = "server";
-        this.logger.info(`[poller-coord] Promoted to server`);
-        await this.connectAsClient();
-      } else {
-        // Another instance beat us — connect as client
-        this.logger.info(`[poller-coord] Promotion failed, connecting as client`);
-        await this.connectAsClient();
-      }
+        if (bound) {
+          this.server = server;
+          this.role = "server";
+          this.logger.info(`[poller-coord] Promoted to server`);
+          await this.connectAsClient();
+        } else {
+          // Another instance beat us — connect as client
+          this.logger.info(`[poller-coord] Promotion failed, connecting as client`);
+          await this.connectAsClient();
+        }
+      })().catch((err: unknown) => {
+        this.logger.warn(`[poller-coord] Promotion error: ${err instanceof Error ? err.message : String(err)}`);
+      });
     }, this.PROMOTION_DELAY_MS);
   }
 

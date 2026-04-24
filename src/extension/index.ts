@@ -173,6 +173,9 @@ export function activate(context: vscode.ExtensionContext): void {
       if (e.affectsConfiguration("gsd")) {
         output.appendLine("GSD configuration changed");
         provider.onConfigChanged();
+        if (e.affectsConfiguration("gsd.telegram")) {
+          updateTelegramStatusBar(statusBarItem, context);
+        }
       }
     })
   );

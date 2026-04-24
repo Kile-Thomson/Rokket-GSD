@@ -264,7 +264,7 @@ describe("runTelegramSetup", () => {
 
 describe("updateTelegramStatusBar", () => {
   it("appends Telegram status to tooltip when config exists", async () => {
-    savedConfig = { botToken: TOKEN, botUsername: "testbot", chatId: CHAT.id, chatTitle: CHAT.title };
+    savedConfig = { botToken: TOKEN, botUsername: "testbot", chatId: CHAT.id, chatTitle: CHAT.title, streamingGranularity: "throttled" };
     const statusBar = { tooltip: "Rokket GSD" } as vscode.StatusBarItem;
 
     await updateTelegramStatusBar(statusBar, mockContext());

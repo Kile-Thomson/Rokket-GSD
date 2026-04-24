@@ -1,6 +1,6 @@
 import * as net from "net";
 import type { TelegramUpdate } from "./api";
-import { pollerPipeName, encodeMessage, parseLines, type PollerServerMessage } from "./poller-ipc";
+import { pollerPipeName, parseLines, type PollerServerMessage } from "./poller-ipc";
 import type { TopicManagerLogger } from "./topicManager";
 
 /**
