@@ -60,6 +60,8 @@ export type WebviewToExtensionMessage =
   | { type: "get_changelog" }
   | { type: "set_theme"; theme: string }
   | { type: "ollama_action"; action: "load" | "unload" | "pull" | "remove"; model: string }
+  | { type: "telegram_sync_toggle"; forceOff?: boolean }
+  | { type: "telegram_setup" }
   | { type: "shutdown" };
 
 // --- Messages FROM extension TO webview ---
@@ -124,7 +126,8 @@ export type ExtensionToWebviewMessage =
   | { type: "async_subagent_progress"; toolCallId: string; mode: string; results: Array<{ agent: string; agentSource?: string; task: string; step?: number; exitCode: number; status: string; stopReason?: string; errorMessage?: string; usage?: Record<string, number>; model?: string }> }
   | { type: "cost_update"; runId: string; turnCost: number; cumulativeCost: number; tokens: { input: number; output: number; cacheRead: number; cacheWrite: number } }
   | { type: "execution_complete"; runId: string; status: string; stats?: unknown }
-  | { type: "terminal_output"; data: string };
+  | { type: "terminal_output"; data: string }
+  | { type: "telegram_user_message"; text: string; images?: ImageAttachment[] };
 
 // --- Session List Types ---
 
@@ -200,6 +203,7 @@ export interface GsdState {
   retryAttempt?: number;
   /** Whether auto-retry is enabled (gsd-pi 2.44+). */
   autoRetryEnabled?: boolean;
+  telegramSyncActive?: boolean;
 }
 
 /**

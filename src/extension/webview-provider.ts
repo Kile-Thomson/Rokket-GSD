@@ -14,6 +14,11 @@ import type { CommandFallbackContext } from "./command-fallback";
 import { handleRpcEvent, type RpcEventContext } from "./rpc-events";
 import type { FileOpsContext } from "./file-ops";
 import { handleWebviewMessage, type MessageDispatchContext } from "./message-dispatch";
+import { TopicManager, type TopicManagerLogger } from "./telegram/topicManager";
+import { TelegramApi, redactToken } from "./telegram/api";
+import { loadTelegramConfig } from "./telegram/config";
+import { TelegramBridge } from "./telegram/bridge";
+import { getOpenAiApiKey } from "./openai/config";
 import { startStatsPolling, startHealthMonitoring, refreshWorkflowState, startWorkflowPolling, stopAllPolling, type PollingContext } from "./polling";
 import { getWebviewHtml } from "./html-generator";
 
@@ -39,6 +44,95 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private statusCallback?: (status: StatusBarUpdate) => void;
   private lastStatus: StatusBarUpdate = { isStreaming: false };
   private tempDir: string | null = null;
+  private topicManager: TopicManager | null = null;
+  private bridge: TelegramBridge | null = null;
+
+  private async getOrCreateTopicManager(): Promise<TopicManager> {
+    if (this.topicManager) return this.topicManager;
+
+    const config = vscode.workspace.getConfiguration("gsd");
+    const telegramConfig = await loadTelegramConfig(this.context.secrets, config);
+    if (!telegramConfig) {
+      throw new Error("Telegram not configured. Run /telegram setup first.");
+    }
+
+    const api = new TelegramApi(telegramConfig.botToken);
+    const logger: TopicManagerLogger = {
+      info: (msg: string) => this.output.appendLine(`[telegram-topic] ${msg}`),
+      warn: (msg: string) => this.output.appendLine(`[telegram-topic] WARN: ${msg}`),
+    };
+    this.topicManager = new TopicManager(api, telegramConfig.chatId, vscode.env.machineId, logger, this.context.globalState);
+
+    const bridgeLogger: TopicManagerLogger = {
+      info: (msg: string) => this.output.appendLine(`[telegram-bridge] ${msg}`),
+      warn: (msg: string) => this.output.appendLine(`[telegram-bridge] WARN: ${msg}`),
+    };
+    this.bridge = new TelegramBridge(
+      api,
+      this.topicManager,
+      (sessionId: string) => {
+        const s = this.sessions.get(sessionId);
+        if (!s) return undefined;
+        return { client: s.client, isStreaming: s.isStreaming };
+      },
+      bridgeLogger,
+      telegramConfig.botToken,
+      telegramConfig.chatId,
+      () => getOpenAiApiKey(this.context.secrets),
+    );
+    this.bridge.setStreamingGranularity(telegramConfig.streamingGranularity);
+    this.bridge.setOnInboundMessage((sessionId, text, images) => {
+      const session = this.sessions.get(sessionId);
+      const webview = session?.webview;
+      if (webview) {
+        this.postToWebview(webview, {
+          type: "telegram_user_message",
+          text,
+          images: images?.map(img => ({ type: "image" as const, data: img.data, mimeType: img.mimeType })),
+        });
+      }
+    });
+
+    return this.topicManager;
+  }
+
+  async handleTelegramSyncToggle(sessionId: string, webview: vscode.Webview): Promise<void> {
+    let tm: TopicManager;
+    try {
+      tm = await this.getOrCreateTopicManager();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.output.appendLine(`[telegram-sync] Config error: ${msg}`);
+      vscode.window.showInformationMessage(msg);
+      return;
+    }
+
+    const existing = tm.getTopicForSession(sessionId);
+    try {
+      if (existing !== undefined) {
+        await tm.syncOff(sessionId);
+        this.postToWebview(webview, { type: "state", data: { telegramSyncActive: false } } as any);
+        this.output.appendLine(`[telegram-sync] Sync off for session ${sessionId}`);
+        if (this.bridge && tm.activeSessions.length === 0) {
+          this.bridge.stopPolling();
+        }
+      } else {
+        const folderName = vscode.workspace.workspaceFolders?.[0]?.name ?? "Untitled";
+        await tm.syncOn(sessionId, folderName);
+        this.postToWebview(webview, { type: "state", data: { telegramSyncActive: true } } as any);
+        this.output.appendLine(`[telegram-sync] Sync on for session ${sessionId}`);
+        if (this.bridge) {
+          this.bridge.startPolling();
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const config = vscode.workspace.getConfiguration("gsd");
+      const telegramConfig = await loadTelegramConfig(this.context.secrets, config);
+      const redacted = telegramConfig ? redactToken(msg, telegramConfig.botToken) : msg;
+      this.output.appendLine(`[telegram-sync] Error: ${redacted}`);
+    }
+  }
 
   private getSession(sessionId: string): SessionState {
     let session = this.sessions.get(sessionId);
@@ -80,6 +174,16 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       refreshWorkflowState: (wv, sid) => refreshWorkflowState(this.pollingCtx, wv, sid),
       isWebviewVisible: (sid) => this.isWebviewVisible(sid),
       webviewView: this.webviewView,
+      onAssistantMessage: (sessionId, text) => this.bridge?.handleAssistantMessage(sessionId, text),
+      onStreamingChunk: (sessionId, delta) => this.bridge?.handleStreamingChunk(sessionId, delta),
+      onStreamEnd: (sessionId, text) => this.bridge?.handleStreamEnd(sessionId, text),
+      forwardQuestionToTelegram: (sessionId, requestId, title, options) =>
+        this.bridge?.sendQuestion(sessionId, requestId, title, options) ?? Promise.resolve(null),
+      cancelTelegramQuestion: (requestId) => this.bridge?.cancelQuestion(requestId),
+      onToolStart: (sessionId, toolCallId, toolName, args) =>
+        this.bridge?.handleToolStart(sessionId, toolCallId, toolName, args),
+      onToolEnd: (_sessionId, toolCallId, isError, durationMs) =>
+        this.bridge?.handleToolEnd(toolCallId, isError, durationMs),
     };
   }
 
@@ -238,7 +342,21 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     if (sessionCost > (stats.cost || 0)) stats.cost = sessionCost;
   }
 
-  dispose(): void {
+  async disposeAsync(): Promise<void> {
+    this.bridge?.stopPolling();
+    if (this.topicManager) {
+      const DISPOSE_TIMEOUT_MS = 4000;
+      try {
+        await Promise.race([
+          this.topicManager.disposeAll(),
+          new Promise<void>((_, reject) =>
+            setTimeout(() => reject(new Error("disposeAll timed out")), DISPOSE_TIMEOUT_MS),
+          ),
+        ]);
+      } catch (err) {
+        this.output.appendLine(`[telegram-sync] dispose error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
     for (const [, session] of this.sessions) {
       cleanupSessionState(session);
       if (session.panel) session.panel.dispose();
@@ -248,9 +366,16 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     this.cleanupTempFiles();
   }
 
+  dispose(): void {
+    this.disposeAsync().catch((err) => {
+      this.output.appendLine(`[telegram-sync] dispose error: ${err instanceof Error ? err.message : String(err)}`);
+    });
+  }
+
   private cleanupSession(sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (session) {
+      this.bridge?.clearStreamingState(sessionId);
       cleanupSessionState(session);
       this.sessions.delete(sessionId);
     }
@@ -311,6 +436,8 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       watchdogCtx: this.watchdogCtx,
       commandFallbackCtx: this.commandFallbackCtx,
       fileOpsCtx: this.fileOpsCtx,
+      telegramSyncToggle: (sid, wv) => this.handleTelegramSyncToggle(sid, wv),
+      cancelTelegramQuestion: (requestId) => this.bridge?.cancelQuestion(requestId),
     };
 
     const disposable = webview.onDidReceiveMessage(async (msg) => {
@@ -404,6 +531,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   /** Stop all monitoring timers, watchdogs, and reset streaming state for a session. */
   private _cleanupTimersAndWatchdogs(sessionId: string): void {
     stopAllPolling(this.pollingCtx, sessionId);
+    this.bridge?.clearStreamingState(sessionId);
     this.getSession(sessionId).autoProgressPoller?.onProcessExit();
     this.getSession(sessionId).autoModeState = null;
     stopActivityMonitor(this.watchdogCtx, sessionId);

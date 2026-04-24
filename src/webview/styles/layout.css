@@ -259,6 +259,13 @@
   transform: scale(0.96);
 }
 
+.gsd-action-btn--active {
+  background: var(--vscode-button-background, var(--gsd-color-accent));
+  color: var(--vscode-button-foreground, var(--gsd-color-accent-fg));
+  border-color: var(--vscode-button-background, var(--gsd-color-accent));
+  opacity: 1;
+}
+
 .gsd-action-btn.primary {
   background: var(--gsd-color-accent);
   color: var(--gsd-color-accent-fg);

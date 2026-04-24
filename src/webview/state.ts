@@ -86,6 +86,7 @@ export interface AppState {
   isPending: boolean;
   isCompacting: boolean;
   isRetrying: boolean;
+  telegramSyncActive: boolean;
   retryInfo?: { attempt: number; maxAttempts: number; errorMessage: string };
   model: { id: string; name: string; provider: string; contextWindow?: number } | null;
   thinkingLevel: ThinkingLevel | null;
@@ -185,6 +186,7 @@ export const state: AppState = {
   isPending: false,
   isCompacting: false,
   isRetrying: false,
+  telegramSyncActive: false,
   model: null,
   thinkingLevel: null,
   processStatus: "stopped",
