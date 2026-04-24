@@ -19,6 +19,13 @@ export function truncateMessage(text: string, maxLen = 4096): string {
   return text.slice(0, maxLen - TRUNCATION_SUFFIX.length) + TRUNCATION_SUFFIX;
 }
 
+// Private-use sentinels — safe delimiters that won't appear in user content
+// and don't trigger ESLint's no-control-regex rule.
+const PH_START = "";
+const PH_END = "";
+const PH_INLINE_RE = new RegExp(`${PH_START}I(\\d+)${PH_END}`, "g");
+const PH_BLOCK_RE = new RegExp(`${PH_START}C(\\d+)${PH_END}`, "g");
+
 /**
  * Convert markdown text to Telegram HTML (for use with parse_mode: "HTML").
  *
@@ -40,16 +47,16 @@ export function markdownToTelegramHtml(text: string): string {
   let result = text.replace(/```(?:\w*)\n?([\s\S]*?)```/g, (_match, code: string) => {
     const escaped = escapeHtml(code.replace(/\n$/, ""));
     codeBlocks.push(`<pre><code>${escaped}</code></pre>`);
-    return `\x00C${codeBlocks.length - 1}\x00`;
+    return `${PH_START}C${codeBlocks.length - 1}${PH_END}`;
   });
 
   // Step 2: Inline code (`...`)
   result = result.replace(/`([^`\n]+)`/g, (_match, code: string) => {
     inlineCodes.push(`<code>${escapeHtml(code)}</code>`);
-    return `\x00I${inlineCodes.length - 1}\x00`;
+    return `${PH_START}I${inlineCodes.length - 1}${PH_END}`;
   });
 
-  // Step 3: Escape HTML in non-code text (\x00 chars survive — none are &<>")
+  // Step 3: Escape HTML in non-code text (sentinels are outside [&<>"] so they survive)
   result = escapeHtml(result);
 
   // Step 4: Markdown formatting (applied after HTML-escaping so tags are safe)
@@ -63,8 +70,8 @@ export function markdownToTelegramHtml(text: string): string {
   result = result.replace(/^#{1,3} (.+)$/gm, "<b>$1</b>");
 
   // Step 5: Restore placeholders
-  result = result.replace(/\x00I(\d+)\x00/g, (_m, i) => inlineCodes[parseInt(i, 10)]);
-  result = result.replace(/\x00C(\d+)\x00/g, (_m, i) => codeBlocks[parseInt(i, 10)]);
+  result = result.replace(PH_INLINE_RE, (_m, i) => inlineCodes[parseInt(i, 10)]);
+  result = result.replace(PH_BLOCK_RE, (_m, i) => codeBlocks[parseInt(i, 10)]);
 
   return result;
 }
