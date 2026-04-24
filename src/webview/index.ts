@@ -98,6 +98,10 @@ root.innerHTML = `
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13 1H5L4 2v3h1V2h8v12H5v-3H4v3l1 1h8l1-1V2l-1-1zM1 8l3-3v2h5v2H4v2L1 8z"/></svg>
           <span>Export</span>
         </button>
+        <button class="gsd-action-btn" id="telegramSyncBtn" title="Toggle Telegram sync for this conversation" aria-label="Toggle Telegram sync">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M14.3 1.3L1.5 6.8c-.9.3-.9.9-.1 1.1l3.3 1 1.2 3.9c.2.4.3.5.6.5.3 0 .5-.1.6-.3l1.5-1.5 3.1 2.3c.6.3 1 .2 1.1-.5L14.9 2c.2-.8-.3-1.2-1-.7zM6.3 9.6l-.7 2.1-.8-2.7 7.4-4.6L6.3 9.6z"/></svg>
+          <span>Sync</span>
+        </button>
         <button class="gsd-action-btn" id="historyBtn" title="Browse previous sessions" aria-label="Session history">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13.507 12.324a7 7 0 0 0 .065-8.56A7 7 0 0 0 2 4.393V2H1v3.5l.5.5H5V5H2.811a6.008 6.008 0 1 1-.135 5.77l-.887.462a7 7 0 0 0 11.718 1.092zM8 4h1v4.495L11.255 10l-.51.858L7.5 9.166V4H8z"/></svg>
           <span>History</span>
@@ -234,6 +238,7 @@ const historyBtn = document.getElementById("historyBtn")!;
 const modelPickerBtn = document.getElementById("modelPickerBtn")!;
 const compactBtn = document.getElementById("compactBtn")!;
 const exportBtn = document.getElementById("exportBtn")!;
+const telegramSyncBtn = document.getElementById("telegramSyncBtn")!;
 const imagePreview = document.getElementById("imagePreview")!;
 const inputHint = document.getElementById("inputHint")!;
 const slashMenuEl = document.getElementById("slashMenu")!;
@@ -423,6 +428,14 @@ messagesContainer.addEventListener("click", (e: Event) => {
   btn.textContent = action === "remove" ? "Removing\u2026" : action === "unload" ? "Unloading\u2026" : action === "pull" ? "Pulling\u2026" : "Loading\u2026";
 
   vscode.postMessage({ type: "ollama_action", action, model } as WebviewToExtensionMessage);
+});
+
+// ============================================================
+// Telegram sync toggle
+// ============================================================
+
+telegramSyncBtn.addEventListener("click", () => {
+  vscode.postMessage({ type: "telegram_sync_toggle" } as WebviewToExtensionMessage);
 });
 
 // ============================================================
