@@ -2,7 +2,7 @@
 	"name": "rokket-gsd",
 	"displayName": "Rokket GSD",
 	"description": "AI coding agent by Rokketek — full chat UI, tool execution, model picker, and GSD workflow automation in VS Code",
-	"version": "0.3.42",
+	"version": "0.3.44",
 	"publisher": "rokketek",
 	"license": "MIT",
 	"repository": {
@@ -104,6 +104,27 @@
 					],
 					"default": "forge",
 					"description": "UI theme for the GSD panel."
+				},
+				"gsd.telegramGroupId": {
+					"type": "number",
+					"default": 0,
+					"description": "Telegram group chat ID (set automatically by /telegram setup)."
+				},
+				"gsd.telegramChatTitle": {
+					"type": "string",
+					"default": "",
+					"description": "Telegram group chat title (set automatically by /telegram setup)."
+				},
+				"gsd.telegramBotUsername": {
+					"type": "string",
+					"default": "",
+					"description": "Telegram bot username (set automatically by /telegram setup)."
+				},
+				"gsd.telegramStreamingGranularity": {
+					"type": "string",
+					"default": "throttled",
+					"enum": ["off", "throttled", "final-only"],
+					"description": "Controls how GSD streams messages to Telegram (set automatically by /telegram setup)."
 				}
 			}
 		},
@@ -135,6 +156,14 @@
 			{
 				"command": "gsd.focus",
 				"title": "Rokket GSD: Focus Input"
+			},
+			{
+				"command": "gsd.telegramSetup",
+				"title": "Rokket GSD: Telegram Setup"
+			},
+			{
+				"command": "gsd.setOpenAiApiKey",
+				"title": "Rokket GSD: Set OpenAI API Key"
 			}
 		],
 		"viewsContainers": {
