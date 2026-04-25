@@ -2,7 +2,7 @@
 	"name": "rokket-gsd",
 	"displayName": "Rokket GSD",
 	"description": "AI coding agent by Rokketek — full chat UI, tool execution, model picker, and GSD workflow automation in VS Code",
-	"version": "0.3.44",
+	"version": "0.3.45",
 	"publisher": "rokketek",
 	"license": "MIT",
 	"repository": {
@@ -123,7 +123,11 @@
 				"gsd.telegramStreamingGranularity": {
 					"type": "string",
 					"default": "throttled",
-					"enum": ["off", "throttled", "final-only"],
+					"enum": [
+						"off",
+						"throttled",
+						"final-only"
+					],
 					"description": "Controls how GSD streams messages to Telegram (set automatically by /telegram setup)."
 				}
 			}
