@@ -78,7 +78,6 @@ describe("isGroupableTool", () => {
     expect(isGroupableTool("browser_click")).toBe(false);
     expect(isGroupableTool("browser_type")).toBe(false);
     expect(isGroupableTool("mac_click")).toBe(false);
-    expect(isGroupableTool("subagent")).toBe(false);
     expect(isGroupableTool("bg_shell")).toBe(false);
   });
 

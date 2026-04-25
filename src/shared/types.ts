@@ -123,7 +123,7 @@ export type ExtensionToWebviewMessage =
   | { type: "session_shutdown" }
   | { type: "extension_error"; extensionPath: string; event: string; error: string }
   | { type: "steer_persisted" }
-  | { type: "async_subagent_progress"; toolCallId: string; mode: string; results: Array<{ agent: string; agentSource?: string; task: string; step?: number; exitCode: number; status: string; stopReason?: string; errorMessage?: string; usage?: Record<string, number>; model?: string }> }
+
   | { type: "cost_update"; runId: string; turnCost: number; cumulativeCost: number; tokens: { input: number; output: number; cacheRead: number; cacheWrite: number } }
   | { type: "execution_complete"; runId: string; status: string; stats?: unknown }
   | { type: "terminal_output"; data: string }

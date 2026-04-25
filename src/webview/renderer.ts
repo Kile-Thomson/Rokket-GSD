@@ -21,8 +21,10 @@ import {
   getToolIcon,
   getToolKeyArg,
   formatToolResult,
-  buildSubagentOutputHtml,
+
+  truncateArg,
   buildUsagePills,
+  parseAgentUsage,
   renderMarkdown,
   sanitizeAndPostProcess,
   lexMarkdown,
@@ -38,7 +40,7 @@ import {
   collapseToolIntoGroup,
 } from "./tool-grouping";
 
-import { initStreaming as initStreamingModule, resolveContainerLevelAnchor } from "./render/streaming";
+import { initStreaming as initStreamingModule } from "./render/streaming";
 
 // ============================================================
 // Dependencies injected via init()
@@ -103,7 +105,6 @@ function startElapsedTimer(): void {
         updateToolSegmentElement(tc.id);
       }
     }
-    if (activeBatchElement) updateBatchElapsed();
     if (!anyRunning) stopElapsedTimer();
   }, 1000);
 }
@@ -490,11 +491,7 @@ export function updateToolSegmentElement(toolCallId: string, searchAllEntries: b
   patchToolBlockElement(targetEl, tc);
 
   // Attempt streaming collapse if tool just completed.
-  // Skip collapse when the tool is inside a parallel batch — the batch container
-  // handles visual grouping already. Collapsing inside a batch reparents elements
-  // into a .gsd-tool-group, reducing batch content children to 1 and breaking the
-  // batch header count (shows "1 tool" instead of e.g. "5 tools").
-  if (!tc.isRunning && targetSegIdx !== null && !targetEl.closest(".gsd-parallel-batch-content")) {
+  if (!tc.isRunning && targetSegIdx !== null) {
     if (tc.isSkipped) {
       tryStreamingSkippedCollapse(targetEl, targetSegIdx);
     } else {
@@ -755,647 +752,6 @@ export function resetStreamingState(): void {
   liveTextNodes.clear();
   _activeSegmentIndex = -1;
   stopElapsedTimer();
-  activeBatchElement = null;
-  finalizedBatchElement = null;
-  sealedBatches.length = 0;
-}
-
-// ============================================================
-// Parallel Batch Tracker
-// ============================================================
-
-let activeBatchElement: HTMLElement | null = null;
-let finalizedBatchElement: HTMLElement | null = null;
-// Batches that were closed to new additions (by narration between tool waves)
-// but still have running tools. They finalize on their own once all their
-// tools end, independent of any newer active batch.
-const sealedBatches: Array<{ element: HTMLElement; toolIds: Set<string> }> = [];
-
-/**
- * Create a parallel batch container and reparent the given tool elements into it.
- * Called when 2+ tools are detected running concurrently.
- */
-export function createParallelBatch(toolIds: string[]): void {
-  if (!currentTurnElement) return;
-
-  const batch = document.createElement("div");
-  batch.className = "gsd-parallel-batch running";
-  batch.dataset.batchSize = String(toolIds.length);
-
-  const header = document.createElement("div");
-  header.className = "gsd-parallel-batch-header";
-  header.innerHTML =
-    `<span class="gsd-tool-spinner"></span>` +
-    `<span class="gsd-parallel-batch-label">${toolIds.length} tools running in parallel</span>` +
-    `<span class="gsd-parallel-batch-elapsed elapsed-live"></span>`;
-
-  const content = document.createElement("div");
-  content.className = "gsd-parallel-batch-content";
-
-  batch.appendChild(header);
-  batch.appendChild(content);
-
-  // Find the first tool's segment element and insert batch before it
-  let firstEl: HTMLElement | null = null;
-  for (const toolId of toolIds) {
-    const el = currentTurnElement.querySelector<HTMLElement>(
-      `.gsd-tool-segment[data-tool-id="${toolId}"]`,
-    );
-    if (el && (!firstEl || el.compareDocumentPosition(firstEl) & Node.DOCUMENT_POSITION_FOLLOWING)) {
-      firstEl = el;
-    }
-  }
-
-  if (!firstEl) {
-    // Fallback: append to current turn
-    currentTurnElement.appendChild(batch);
-  } else {
-    const anchor = resolveContainerLevelAnchor(currentTurnElement, firstEl);
-    anchor.parentNode!.insertBefore(batch, anchor);
-  }
-
-  // Reparent all tool segment elements into the batch content
-  for (const toolId of toolIds) {
-    const el = currentTurnElement.querySelector<HTMLElement>(
-      `.gsd-tool-segment[data-tool-id="${toolId}"]`,
-    );
-    if (el) content.appendChild(el);
-  }
-
-  activeBatchElement = batch;
-  batch.dataset.startTime = String(Date.now());
-}
-
-/**
- * Add a newly-started tool to the active batch container.
- */
-export function expandParallelBatch(toolId: string): void {
-  if (!activeBatchElement || !currentTurnElement) return;
-
-  const content = activeBatchElement.querySelector(".gsd-parallel-batch-content");
-  if (!content) return;
-
-  const el = currentTurnElement.querySelector<HTMLElement>(
-    `.gsd-tool-segment[data-tool-id="${toolId}"]`,
-  );
-  if (el) content.appendChild(el);
-
-  const count = content.children.length;
-  activeBatchElement.dataset.batchSize = String(count);
-
-  const label = activeBatchElement.querySelector(".gsd-parallel-batch-label");
-  if (label) label.textContent = `${count} tools running in parallel`;
-}
-
-/**
- * Reopen a finalized batch to accept more tools that arrived late in the same turn.
- */
-export function reopenParallelBatch(toolId: string): void {
-  if (!finalizedBatchElement || !currentTurnElement) return;
-
-  // Restore as active
-  activeBatchElement = finalizedBatchElement;
-  finalizedBatchElement = null;
-
-  activeBatchElement.classList.remove("done");
-  activeBatchElement.classList.add("running");
-
-  // Replace status icon back to spinner
-  const icon = activeBatchElement.querySelector(".gsd-parallel-batch-header .gsd-tool-icon");
-  if (icon) {
-    const spinner = document.createElement("span");
-    spinner.className = "gsd-tool-spinner";
-    icon.replaceWith(spinner);
-  }
-
-  // Reset start time for elapsed tracking
-  activeBatchElement.dataset.startTime = String(Date.now());
-
-  // Add the new tool
-  const content = activeBatchElement.querySelector(".gsd-parallel-batch-content");
-  if (!content) return;
-
-  const el = currentTurnElement.querySelector<HTMLElement>(
-    `.gsd-tool-segment[data-tool-id="${toolId}"]`,
-  );
-  if (el) content.appendChild(el);
-
-  const count = content.children.length;
-  activeBatchElement.dataset.batchSize = String(count);
-
-  const label = activeBatchElement.querySelector(".gsd-parallel-batch-label");
-  if (label) label.textContent = `${count} tools running in parallel`;
-}
-
-/**
- * Update the batch header to reflect current running/done counts.
- */
-export function updateParallelBatchStatus(): void {
-  if (!activeBatchElement || !state.currentTurn) return;
-
-  const content = activeBatchElement.querySelector(".gsd-parallel-batch-content");
-  if (!content) return;
-
-  let running = 0;
-  let done = 0;
-  let errored = 0;
-  for (const el of Array.from(content.children) as HTMLElement[]) {
-    const toolId = el.dataset.toolId;
-    if (!toolId) continue;
-    const tc = state.currentTurn.toolCalls.get(toolId);
-    if (!tc) continue;
-    if (tc.isRunning) running++;
-    else if (tc.isError) errored++;
-    else done++;
-  }
-
-  const total = running + done + errored;
-  const label = activeBatchElement.querySelector(".gsd-parallel-batch-label");
-  if (running > 0) {
-    if (label) label.textContent = `${total} tools — ${done + errored} done, ${running} running`;
-  } else if (total > 0) {
-    // Last tool in the batch just finished. Swap the spinner for a check and
-    // restate the label now — waiting for the 800ms finalize timer leaves the
-    // container visually "running" while the model is already emitting more
-    // content. Keep activeBatchElement pointed at this node so the timer can
-    // still append footer pills (and a follow-up wave can reopen it).
-    applyIdleHeader(activeBatchElement, total, errored);
-  }
-
-  updateBatchElapsed();
-}
-
-// Transition a still-active batch to its "done" header state without detaching
-// it or writing a final duration. finalizeBatchElement will later overwrite
-// the label with the precise duration and add footer pills; this is the
-// intermediate "all finished, waiting on finalize" state so the user doesn't
-// see a spinner for a batch whose tools have already completed.
-function applyIdleHeader(element: HTMLElement, total: number, errored: number): void {
-  element.classList.remove("running");
-  element.classList.add("done");
-  const spinner = element.querySelector(".gsd-parallel-batch-header .gsd-tool-spinner");
-  if (spinner) {
-    const icon = document.createElement("span");
-    icon.className = errored > 0 ? "gsd-tool-icon error" : "gsd-tool-icon success";
-    icon.textContent = errored > 0 ? "✗" : "✓";
-    spinner.replaceWith(icon);
-  }
-  const label = element.querySelector(".gsd-parallel-batch-label");
-  if (label) {
-    label.textContent = errored > 0
-      ? `${total} tools completed (${errored} failed)`
-      : `${total} tools completed`;
-  }
-  const elapsed = element.querySelector(".gsd-parallel-batch-elapsed");
-  if (elapsed) elapsed.textContent = "";
-}
-
-/**
- * Finalize the batch — all tools are done. Keep expanded with per-tool status visible.
- */
-export function finalizeParallelBatch(turnUsage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } } | null): void {
-  if (!activeBatchElement || !state.currentTurn) return;
-  finalizeBatchElement(activeBatchElement, turnUsage);
-  // Keep reference so the batch can be reopened if more tools arrive in this turn
-  finalizedBatchElement = activeBatchElement;
-  activeBatchElement = null;
-}
-
-/** Internal: finalize an arbitrary batch element (active or sealed). */
-function finalizeBatchElement(
-  element: HTMLElement,
-  turnUsage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } } | null,
-): void {
-  if (!state.currentTurn) return;
-
-  const startTime = parseInt(element.dataset.startTime || "0", 10);
-  const totalDuration = startTime ? Date.now() - startTime : 0;
-
-  const content = element.querySelector(".gsd-parallel-batch-content");
-  const total = content ? content.children.length : 0;
-
-  let errored = 0;
-  if (content) {
-    for (const el of Array.from(content.children) as HTMLElement[]) {
-      const toolId = el.dataset.toolId;
-      if (!toolId) continue;
-      const tc = state.currentTurn.toolCalls.get(toolId);
-      if (tc?.isError) errored++;
-    }
-  }
-
-  element.classList.remove("running");
-  element.classList.add("done");
-
-  const spinner = element.querySelector(".gsd-parallel-batch-header .gsd-tool-spinner");
-  if (spinner) {
-    const icon = document.createElement("span");
-    icon.className = errored > 0 ? "gsd-tool-icon error" : "gsd-tool-icon success";
-    icon.textContent = errored > 0 ? "✗" : "✓";
-    spinner.replaceWith(icon);
-  }
-
-  let sequentialTotal = 0;
-  let earliestStart = Infinity;
-  let latestEnd = 0;
-  if (content) {
-    for (const el of Array.from(content.children) as HTMLElement[]) {
-      const toolId = el.dataset.toolId;
-      if (!toolId) continue;
-      const tc = state.currentTurn.toolCalls.get(toolId);
-      if (tc?.startTime && tc.endTime) {
-        sequentialTotal += tc.endTime - tc.startTime;
-        if (tc.startTime < earliestStart) earliestStart = tc.startTime;
-        if (tc.endTime > latestEnd) latestEnd = tc.endTime;
-      }
-    }
-  }
-  const actualParallelDuration = latestEnd > earliestStart ? latestEnd - earliestStart : 0;
-
-  const label = element.querySelector(".gsd-parallel-batch-label");
-  if (label) {
-    const durationStr = formatDuration(actualParallelDuration || totalDuration);
-    const statusText = errored > 0
-      ? `${total} tools completed (${errored} failed) in ${durationStr}`
-      : `${total} tools completed in ${durationStr}`;
-    label.textContent = statusText;
-  }
-
-  const existingFooter = element.querySelector(".gsd-parallel-batch-footer");
-  if (!existingFooter) {
-    const pills: string[] = [];
-
-    if (sequentialTotal > 0 && actualParallelDuration > 0) {
-      pills.push(`${total} tools`);
-      pills.push(`sequential: ${formatDuration(sequentialTotal)}`);
-      pills.push(`parallel: ${formatDuration(actualParallelDuration)}`);
-      const saved = sequentialTotal - actualParallelDuration;
-      if (saved > 500) {
-        const pct = Math.round((saved / sequentialTotal) * 100);
-        pills.push(`saved ${formatDuration(saved)} (${pct}%)`);
-      }
-    }
-
-    if (turnUsage) {
-      if (turnUsage.input) pills.push(`↑${formatTokens(turnUsage.input)}`);
-      if (turnUsage.output) pills.push(`↓${formatTokens(turnUsage.output)}`);
-      if (turnUsage.cacheRead) pills.push(`R${formatTokens(turnUsage.cacheRead)}`);
-      if (turnUsage.cacheWrite) pills.push(`W${formatTokens(turnUsage.cacheWrite)}`);
-      if (turnUsage.cost?.total) pills.push(`$${turnUsage.cost.total.toFixed(4)}`);
-    }
-
-    if (pills.length > 0) {
-      const footer = document.createElement("div");
-      footer.className = "gsd-parallel-batch-footer";
-      footer.innerHTML = pills.map(p => `<span class="gsd-batch-pill">${escapeHtml(p)}</span>`).join("");
-      element.appendChild(footer);
-    }
-  }
-
-  const elapsed = element.querySelector(".gsd-parallel-batch-elapsed");
-  if (elapsed) elapsed.textContent = "";
-}
-
-/**
- * Seal the active batch: close it to new additions but leave it in the DOM so
- * running members can finish their lifecycle. Called when narration between
- * tool waves indicates the agent's "thought cycle" for this wave is over.
- *
- * Returns the sealed batch's tool IDs, or null if nothing was sealed (no
- * active batch or batch had fewer than 2 tools).
- */
-export function sealActiveBatch(): Set<string> | null {
-  if (!activeBatchElement) return null;
-  const content = activeBatchElement.querySelector(".gsd-parallel-batch-content");
-  if (!content) { activeBatchElement = null; return null; }
-
-  const toolIds = new Set<string>();
-  for (const el of Array.from(content.children) as HTMLElement[]) {
-    const id = el.dataset.toolId;
-    if (id) toolIds.add(id);
-  }
-
-  // Batches only exist with 2+ tools, but guard anyway: a single-tool container
-  // isn't a batch worth preserving — just drop the reference and let callers
-  // rebuild if needed.
-  if (toolIds.size < 2) { activeBatchElement = null; return null; }
-
-  sealedBatches.push({ element: activeBatchElement, toolIds });
-  activeBatchElement = null;
-  return toolIds;
-}
-
-/**
- * Update running/done labels on sealed batches, and finalize any whose tools
- * have all finished. Call from tool_execution_end handlers after updating the
- * tool's state.
- */
-export function tickSealedBatches(
-  turnUsage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } } | null,
-): void {
-  if (!state.currentTurn) return;
-  for (let i = sealedBatches.length - 1; i >= 0; i--) {
-    const sealed = sealedBatches[i];
-    let running = 0, done = 0, errored = 0;
-    for (const id of sealed.toolIds) {
-      const tc = state.currentTurn.toolCalls.get(id);
-      if (!tc) continue;
-      if (tc.isRunning) running++;
-      else if (tc.isError) errored++;
-      else done++;
-    }
-    const total = running + done + errored;
-    const label = sealed.element.querySelector(".gsd-parallel-batch-label");
-    if (label && running > 0) {
-      label.textContent = `${total} tools — ${done + errored} done, ${running} running`;
-    }
-    if (running === 0 && total > 0) {
-      finalizeBatchElement(sealed.element, turnUsage);
-      sealedBatches.splice(i, 1);
-    }
-  }
-}
-
-/**
- * Does the given tool belong to any sealed batch?
- * Used by tool-end handlers to decide whether to tick sealed-batch status.
- */
-export function isInSealedBatch(toolId: string): boolean {
-  for (const sealed of sealedBatches) {
-    if (sealed.toolIds.has(toolId)) return true;
-  }
-  return false;
-}
-
-/**
- * Does the given tool already live inside a finalized (done) batch in the DOM?
- * Finalized batches are no longer tracked by module variables — they exist only
- * as `.gsd-parallel-batch.done` elements. This prevents tool_execution_start
- * from pulling a tool out of its completed batch into a different active batch.
- */
-export function isInCompletedBatch(toolId: string): boolean {
-  if (!currentTurnElement) return false;
-  const el = currentTurnElement.querySelector<HTMLElement>(
-    `.gsd-tool-segment[data-tool-id="${toolId}"]`,
-  );
-  return !!el?.closest(".gsd-parallel-batch.done");
-}
-
-/**
- * Finalize every sealed batch immediately (used on turn end / agent end when
- * we want everything resolved regardless of whether tools finished cleanly).
- */
-export function finalizeAllSealedBatches(
-  turnUsage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } } | null,
-): void {
-  while (sealedBatches.length > 0) {
-    const sealed = sealedBatches.shift()!;
-    finalizeBatchElement(sealed.element, turnUsage);
-  }
-}
-
-/** Tick the elapsed timer on the batch header */
-function updateBatchElapsed(): void {
-  if (!activeBatchElement) return;
-  const startTime = parseInt(activeBatchElement.dataset.startTime || "0", 10);
-  if (!startTime) return;
-  const elapsed = activeBatchElement.querySelector(".gsd-parallel-batch-elapsed");
-  if (elapsed) elapsed.textContent = formatDuration(Date.now() - startTime);
-}
-
-/** Get the active batch element (for external checks) */
-export function getActiveBatchElement(): HTMLElement | null {
-  return activeBatchElement;
-}
-
-export function getFinalizedBatchElement(): HTMLElement | null {
-  return finalizedBatchElement;
-}
-
-/** Clear active batch reference (e.g. on turn finalize) */
-export function clearActiveBatch(): void {
-  activeBatchElement = null;
-  finalizedBatchElement = null;
-  sealedBatches.length = 0;
-}
-
-/** Clear only the finalized batch reference so the next wave cannot reopen it.
- *  Called at message boundaries to enforce one-batch-per-message. */
-export function clearFinalizedBatch(): void {
-  finalizedBatchElement = null;
-}
-
-export function getSealedBatchCount(): number { return sealedBatches.length; }
-
-export function getSealedBatchWaves(): string[][] {
-  const waves = sealedBatches.map(s => [...s.toolIds]);
-  const sealedIds = new Set(waves.flat());
-  const cte = getCurrentTurnElement();
-  if (cte) {
-    for (const batch of Array.from(cte.querySelectorAll<HTMLElement>(".gsd-parallel-batch.done"))) {
-      const ids = Array.from(batch.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]"))
-        .map(el => el.dataset.toolId!)
-        .filter(id => id && !sealedIds.has(id));
-      if (ids.length > 0) waves.push(ids);
-    }
-  }
-  return waves;
-}
-
-/** Remove the active batch container and return its children to the turn element.
- *  Used when message_end reveals multi-wave content that was prematurely merged
- *  during streaming. The children are placed back at the batch's DOM position so
- *  subsequent per-wave syncBatchState calls can re-group them correctly. */
-export function disbandActiveBatch(): void {
-  if (!activeBatchElement) return;
-  const parent = activeBatchElement.parentElement;
-  if (!parent) { activeBatchElement = null; return; }
-  const content = activeBatchElement.querySelector(".gsd-parallel-batch-content");
-  if (content) {
-    const children = Array.from(content.children);
-    for (const child of children) {
-      parent.insertBefore(child, activeBatchElement);
-    }
-  }
-  activeBatchElement.remove();
-  activeBatchElement = null;
-  finalizedBatchElement = null;
-}
-
-/** Unseal and disband any sealed batches whose tool IDs overlap with the given
- *  set. Returns the tools to the turn element so they can be re-grouped by the
- *  authoritative wave structure from message_end. Sealed batches with no
- *  overlapping tools (from prior messages) are preserved. */
-export function unsealBatchesOverlapping(toolIds: Set<string>): void {
-  for (let i = sealedBatches.length - 1; i >= 0; i--) {
-    const sealed = sealedBatches[i];
-    let overlaps = false;
-    for (const id of sealed.toolIds) {
-      if (toolIds.has(id)) { overlaps = true; break; }
-    }
-    if (!overlaps) continue;
-    const parent = sealed.element.parentElement;
-    if (parent) {
-      const content = sealed.element.querySelector(".gsd-parallel-batch-content");
-      if (content) {
-        const children = Array.from(content.children);
-        for (const child of children) {
-          parent.insertBefore(child, sealed.element);
-        }
-      }
-      sealed.element.remove();
-    }
-    sealedBatches.splice(i, 1);
-  }
-}
-
-/** Disband any DOM batch elements whose tool segments overlap with the given
- *  set but are NOT tracked by activeBatchElement, finalizedBatchElement, or
- *  sealedBatches. These "orphaned" batches appear when the text_delta handler
- *  finalizes a batch mid-stream (finalizeParallelBatch → clearFinalizedBatch),
- *  leaving the DOM element in place with no module reference. The message_end
- *  reconciliation must clear them before rebuilding per the authoritative waves. */
-export function disbandOrphanedBatches(toolIds: Set<string>): void {
-  if (!currentTurnElement) return;
-  const allBatches = currentTurnElement.querySelectorAll<HTMLElement>(".gsd-parallel-batch");
-  for (const batch of Array.from(allBatches)) {
-    if (batch === activeBatchElement || batch === finalizedBatchElement) continue;
-    let isSealed = false;
-    for (const s of sealedBatches) { if (s.element === batch) { isSealed = true; break; } }
-    if (isSealed) continue;
-
-    const segments = batch.querySelectorAll<HTMLElement>(".gsd-tool-segment[data-tool-id]");
-    let overlaps = false;
-    for (const seg of Array.from(segments)) {
-      if (seg.dataset.toolId && toolIds.has(seg.dataset.toolId)) { overlaps = true; break; }
-    }
-    if (!overlaps) continue;
-
-    const parent = batch.parentElement;
-    if (parent) {
-      const content = batch.querySelector(".gsd-parallel-batch-content");
-      if (content) {
-        for (const child of Array.from(content.children)) {
-          parent.insertBefore(child, batch);
-        }
-      }
-      batch.remove();
-    }
-  }
-}
-
-/**
- * Idempotent reconciliation: ensure all tracked parallel tool segments are
- * inside a single batch container. Creates the batch if needed, reparents
- * stray segments that arrived after the initial batch creation.
- *
- * Safe to call from any event handler regardless of event ordering.
- * This replaces the scattered create/expand/verify logic that was fragile
- * to race conditions between streaming, message_end, and tool_execution_start.
- */
-export function syncBatchState(trackedIds: Set<string>): void {
-  if (!currentTurnElement || trackedIds.size < 2) return;
-
-  // Collect all segment elements that exist in the DOM for tracked IDs
-  const readySegments: { id: string; el: HTMLElement }[] = [];
-  for (const toolId of trackedIds) {
-    const el = currentTurnElement.querySelector<HTMLElement>(
-      `.gsd-tool-segment[data-tool-id="${toolId}"]`,
-    );
-    if (el) readySegments.push({ id: toolId, el });
-  }
-
-  if (readySegments.length < 2) return; // Not enough segments yet
-
-  if (!activeBatchElement) {
-    // Reopen finalized batch ONLY if trackedIds is fully contained in it.
-    // If the incoming set contains any tool not already in the finalized batch,
-    // that's a new wave after narration — never pull new tools into the prior
-    // batch, and never reopen when there's no overlap at all.
-    let canReopen = false;
-    if (finalizedBatchElement) {
-      const finalizedIds = new Set(
-        Array.from(
-          finalizedBatchElement.querySelectorAll<HTMLElement>(
-            ".gsd-tool-segment[data-tool-id]",
-          ),
-        ).map((el) => el.dataset.toolId!).filter(Boolean),
-      );
-      let allContained = finalizedIds.size > 0;
-      for (const id of trackedIds) {
-        if (!finalizedIds.has(id)) { allContained = false; break; }
-      }
-      canReopen = allContained;
-    }
-
-    if (canReopen && finalizedBatchElement) {
-      activeBatchElement = finalizedBatchElement;
-      finalizedBatchElement = null;
-      activeBatchElement.classList.remove("done");
-      activeBatchElement.classList.add("running");
-      activeBatchElement.querySelector(".gsd-parallel-batch-footer")?.remove();
-      const elapsed = activeBatchElement.querySelector(".gsd-parallel-batch-elapsed");
-      if (elapsed) elapsed.textContent = "";
-      const icon = activeBatchElement.querySelector(".gsd-parallel-batch-header .gsd-tool-icon");
-      if (icon) {
-        const spinner = document.createElement("span");
-        spinner.className = "gsd-tool-spinner";
-        icon.replaceWith(spinner);
-      }
-      activeBatchElement.dataset.startTime = String(Date.now());
-    } else {
-      // Create new batch container
-      const batch = document.createElement("div");
-      batch.className = "gsd-parallel-batch running";
-      batch.dataset.batchSize = String(readySegments.length);
-
-      const header = document.createElement("div");
-      header.className = "gsd-parallel-batch-header";
-      header.innerHTML =
-        `<span class="gsd-tool-spinner"></span>` +
-        `<span class="gsd-parallel-batch-label">${readySegments.length} tools running in parallel</span>` +
-        `<span class="gsd-parallel-batch-elapsed elapsed-live"></span>`;
-
-      const content = document.createElement("div");
-      content.className = "gsd-parallel-batch-content";
-
-      batch.appendChild(header);
-      batch.appendChild(content);
-
-      // Insert batch before the first segment (in document order)
-      let firstEl: HTMLElement | null = null;
-      for (const { el } of readySegments) {
-        if (!firstEl || el.compareDocumentPosition(firstEl) & Node.DOCUMENT_POSITION_FOLLOWING) {
-          firstEl = el;
-        }
-      }
-      if (firstEl) {
-        const anchor = resolveContainerLevelAnchor(currentTurnElement, firstEl);
-        anchor.parentNode!.insertBefore(batch, anchor);
-      } else {
-        currentTurnElement.appendChild(batch);
-      }
-
-      activeBatchElement = batch;
-      batch.dataset.startTime = String(Date.now());
-    }
-  }
-
-  // Reparent any tracked segments not yet inside the batch content
-  const content = activeBatchElement.querySelector(".gsd-parallel-batch-content");
-  if (!content) return;
-
-  for (const { el } of readySegments) {
-    if (!content.contains(el)) {
-      content.appendChild(el);
-    }
-  }
-
-  // Update header label with actual count
-  const count = content.children.length;
-  activeBatchElement.dataset.batchSize = String(count);
-  const label = activeBatchElement.querySelector(".gsd-parallel-batch-label");
-  if (label) label.textContent = `${count} tools running in parallel`;
 }
 
 // ============================================================
@@ -1490,7 +846,7 @@ function buildStaleEchoHtml(turn: AssistantTurn): string {
 }
 
 function buildTurnHtml(turn: AssistantTurn): string {
-  let html = "";
+  const parts: string[] = [];
 
   const grouped = groupConsecutiveTools(turn.segments, turn.toolCalls);
 
@@ -1506,10 +862,10 @@ function buildTurnHtml(turn: AssistantTurn): string {
   for (const item of grouped) {
     if (item.type === "group") {
       if (skippedCount > 0) {
-        html += buildSkippedGroupHtml(skippedCount);
+        parts.push(buildSkippedGroupHtml(skippedCount));
         skippedCount = 0;
       }
-      html += buildToolGroupHtml(item.segments, item.toolNames, turn.toolCalls);
+      parts.push(buildToolGroupHtml(item.segments, item.toolNames, turn.toolCalls));
     } else {
       // Check if this is a skipped tool — collapse consecutive skipped tools
       const seg = item.segment;
@@ -1521,21 +877,21 @@ function buildTurnHtml(turn: AssistantTurn): string {
         }
       }
       if (skippedCount > 0) {
-        html += buildSkippedGroupHtml(skippedCount);
+        parts.push(buildSkippedGroupHtml(skippedCount));
         skippedCount = 0;
       }
-      html += buildSegmentHtml(item.segment, turn.toolCalls);
+      parts.push(buildSegmentHtml(item.segment, turn.toolCalls));
     }
   }
   if (skippedCount > 0) {
-    html += buildSkippedGroupHtml(skippedCount);
+    parts.push(buildSkippedGroupHtml(skippedCount));
   }
 
   if (!turn.isComplete) {
     const hasAnyContent = turn.segments.length > 0;
     const hasRunningTool = Array.from(turn.toolCalls.values()).some((t) => t.isRunning);
     if (!hasRunningTool && !hasAnyContent) {
-      html += `<div class="gsd-thinking-dots"><span></span><span></span><span></span></div>`;
+      parts.push(`<div class="gsd-thinking-dots"><span></span><span></span><span></span></div>`);
     }
   }
 
@@ -1546,21 +902,24 @@ function buildTurnHtml(turn: AssistantTurn): string {
       .map(s => s.chunks.join(""))
       .join("\n\n");
     if (textContent) {
-      html += `<div class="gsd-turn-actions">`;
-      html += `<button class="gsd-copy-response-btn" data-copy-text="${escapeAttr(textContent)}" title="Copy response" aria-label="Copy response">
+      const actionParts: string[] = [
+        `<div class="gsd-turn-actions">`,
+        `<button class="gsd-copy-response-btn" data-copy-text="${escapeAttr(textContent)}" title="Copy response" aria-label="Copy response">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 4h8v8H4V4zm1 1v6h6V5H5zm-3-3h8v1H3v7H2V2h8z"/></svg>
         Copy
-      </button>`;
+      </button>`,
+      ];
       if (turn.timestamp) {
-        html += buildTimestampHtml(turn.timestamp);
+        actionParts.push(buildTimestampHtml(turn.timestamp));
       }
-      html += `</div>`;
+      actionParts.push(`</div>`);
+      parts.push(actionParts.join(""));
     } else if (turn.timestamp) {
-      html += buildTimestampHtml(turn.timestamp);
+      parts.push(buildTimestampHtml(turn.timestamp));
     }
   }
 
-  return html;
+  return parts.join("");
 }
 
 function buildSkippedGroupHtml(count: number): string {
@@ -1688,10 +1047,8 @@ function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void {
   }
 
   const stateClass = tc.isRunning ? "running" : tc.isSkipped ? "skipped" : tc.isError ? "error" : "done";
-  const n = tc.name.toLowerCase();
-  const isSubagent = n === "subagent" || n === "async_subagent" || n === "await_subagent";
   const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
-  const shouldCollapse = !tc.isRunning && !isSubagent && (lines > 5 || tc.isSkipped);
+  const shouldCollapse = !tc.isRunning && (lines > 5 || tc.isSkipped);
 
   // Update block-level classes
   block.classList.remove("running", "skipped", "error", "done", "collapsed");
@@ -1777,25 +1134,7 @@ function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void {
 
   // Update output
   const outputEl = block.querySelector<HTMLElement>(".gsd-tool-output");
-  if (isSubagent) {
-    const newOutputHtml = buildSubagentOutputHtml(tc);
-    if (outputEl) {
-      // Patch subagent panel in place to preserve spinner animation state.
-      // If the panel structure already exists, update only what changed.
-      const existingPanel = outputEl.querySelector<HTMLElement>(".gsd-subagent-panel");
-      if (existingPanel) {
-        patchSubagentPanel(existingPanel, tc);
-      } else {
-        outputEl.className = "gsd-tool-output gsd-tool-output-rich";
-        outputEl.innerHTML = newOutputHtml;
-      }
-    } else {
-      const div = document.createElement("div");
-      div.className = "gsd-tool-output gsd-tool-output-rich";
-      div.innerHTML = newOutputHtml;
-      block.appendChild(div);
-    }
-  } else if (tc.resultText) {
+  if (tc.resultText) {
     const formattedResult = formatToolResult(tc.name, tc.resultText, tc.args);
     const maxOutputLen = 8000;
     let displayText = formattedResult;
@@ -1840,133 +1179,11 @@ export function patchToolBlock(el: HTMLElement, tc: ToolCallState): void {
   patchToolBlockElement(el, tc);
 }
 
-/**
- * Patch a .gsd-subagent-panel in place — update summary counts and each
- * agent card's state without rebuilding the DOM, so spinner animations
- * on running agents survive progress updates.
- */
-function patchSubagentPanel(panel: HTMLElement, tc: ToolCallState): void {
-  const details = tc.details as { mode?: string; results?: any[] } | undefined;
-  const results = details?.results;
-  if (!results) return;
-
-  const running = results.filter((r: any) => r.exitCode === -1).length;
-  const done = results.filter((r: any) => r.exitCode !== -1 && r.exitCode === 0).length;
-  const failed = results.filter((r: any) => r.exitCode > 0 || r.stopReason === "error").length;
-  const total = results.length;
-
-  // Update summary counts
-  const countsEl = panel.querySelector<HTMLElement>(".gsd-subagent-counts");
-  if (countsEl) {
-    const parts: string[] = [];
-    if (done > 0) parts.push(`<span class="gsd-agent-stat done">${done} done</span>`);
-    if (running > 0) parts.push(`<span class="gsd-agent-stat running">${running} running</span>`);
-    if (failed > 0) parts.push(`<span class="gsd-agent-stat error">${failed} failed</span>`);
-    countsEl.innerHTML = parts.join(`<span class="gsd-agent-sep">·</span>`);
-  }
-  const totalEl = panel.querySelector<HTMLElement>(".gsd-subagent-total");
-  if (totalEl) totalEl.textContent = `${done + failed}/${total}`;
-
-  // Patch each agent card — match by index
-  const cardEls = panel.querySelectorAll<HTMLElement>(".gsd-agent-card");
-  results.forEach((r: any, i: number) => {
-    const card = cardEls[i];
-    if (!card) return;
-
-    const isRunning = r.exitCode === -1;
-    const isFailed = !isRunning && (r.exitCode !== 0 || r.stopReason === "error");
-    const newState = isRunning ? "running" : isFailed ? "error" : "done";
-
-    // Update card state class
-    card.classList.remove("running", "error", "done");
-    card.classList.add(newState);
-
-    // Update status icon — only swap when state transitions to avoid reset
-    const iconEl = card.querySelector<HTMLElement>(".gsd-tool-spinner, .gsd-agent-icon");
-    if (iconEl) {
-      const currentlySpinner = iconEl.classList.contains("gsd-tool-spinner");
-      if (isRunning && !currentlySpinner) {
-        const spinner = document.createElement("span");
-        spinner.className = "gsd-tool-spinner";
-        iconEl.replaceWith(spinner);
-      } else if (!isRunning && currentlySpinner) {
-        const icon = document.createElement("span");
-        icon.className = `gsd-agent-icon ${isFailed ? "error" : "done"}`;
-        icon.textContent = isFailed ? "✗" : "✓";
-        iconEl.replaceWith(icon);
-      } else if (!isRunning) {
-        iconEl.className = `gsd-agent-icon ${isFailed ? "error" : "done"}`;
-        iconEl.textContent = isFailed ? "✗" : "✓";
-      }
-      // Still running — leave spinner alone
-    }
-
-    // Update usage pills (token counts, cost) — these change on progress
-    const headerEl = card.querySelector<HTMLElement>(".gsd-agent-header");
-    if (headerEl && r.usage) {
-      const existingPills = headerEl.querySelector<HTMLElement>(".gsd-agent-usage");
-      const newPillsHtml = buildUsagePills(r.usage, r.model);
-      if (existingPills) {
-        existingPills.outerHTML = newPillsHtml || "<div class=\"gsd-agent-usage\"></div>";
-      } else if (newPillsHtml) {
-        headerEl.insertAdjacentHTML("beforeend", newPillsHtml);
-      }
-    }
-
-    // Update error message if failed
-    if (isFailed && r.errorMessage) {
-      let errEl = card.querySelector<HTMLElement>(".gsd-agent-error");
-      if (!errEl) {
-        errEl = document.createElement("div");
-        errEl.className = "gsd-agent-error";
-        card.appendChild(errEl);
-      }
-      errEl.textContent = r.errorMessage;
-    }
-  });
-
-  // Update footer usage pills if completed
-  if (!tc.isRunning) {
-    const totalUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
-    for (const r of results) {
-      if (r.usage) {
-        totalUsage.input += r.usage.input || 0;
-        totalUsage.output += r.usage.output || 0;
-        totalUsage.cacheRead += r.usage.cacheRead || 0;
-        totalUsage.cacheWrite += r.usage.cacheWrite || 0;
-        totalUsage.cost += r.usage.cost || 0;
-        totalUsage.turns += r.usage.turns || 0;
-      }
-    }
-    if (totalUsage.turns > 0) {
-      let footerEl = panel.querySelector<HTMLElement>(".gsd-subagent-footer");
-      if (!footerEl) {
-        footerEl = document.createElement("div");
-        footerEl.className = "gsd-subagent-footer";
-        panel.appendChild(footerEl);
-      }
-      footerEl.innerHTML = buildUsagePills(totalUsage, undefined);
-    }
-  }
-
-  // Upsert the final result block — buildSubagentOutputHtml adds
-  // .gsd-subagent-result when the tool is complete, so we must mirror that
-  // here to avoid dropping the completed subagent's markdown output.
-  if (!tc.isRunning && tc.resultText) {
-    let resultEl = panel.parentElement?.querySelector<HTMLElement>(".gsd-subagent-result");
-    if (!resultEl) {
-      resultEl = document.createElement("div");
-      resultEl.className = "gsd-subagent-result";
-      panel.parentElement?.appendChild(resultEl);
-    }
-    resultEl.innerHTML = renderMarkdown(tc.resultText);
-  }
-}
-
 export function buildToolCallHtml(tc: ToolCallState): string {
   const keyArg = getToolKeyArg(tc.name, tc.args);
   const category = getToolCategory(tc.name);
   const toolIcon = getToolIcon(tc.name, category);
+  const isAgent = category === "agent";
 
   const statusIcon = tc.isRunning ? `<span class="gsd-tool-spinner"></span>` :
     tc.isSkipped ? `<span class="gsd-tool-icon skipped">⏭</span>` :
@@ -1984,19 +1201,17 @@ export function buildToolCallHtml(tc: ToolCallState): string {
 
   const stateClass = tc.isRunning ? "running" : tc.isSkipped ? "skipped" : tc.isError ? "error" : "done";
   const parallelClass = tc.isParallel ? " parallel" : "";
-  const n = tc.name.toLowerCase();
-  const isSubagent = n === "subagent" || n === "async_subagent" || n === "await_subagent";
-
   const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
-  const shouldCollapse = !tc.isRunning && !isSubagent && (lines > 5 || tc.isSkipped);
+  const shouldCollapse = !tc.isRunning && (lines > 5 || tc.isSkipped);
   const collapsedClass = shouldCollapse ? "collapsed" : "";
+
+  const agentUsageParsed = isAgent && tc.resultText ? parseAgentUsage(tc.resultText) : null;
 
   let outputHtml = "";
 
-  if (isSubagent) {
-    outputHtml = `<div class="gsd-tool-output gsd-tool-output-rich">${buildSubagentOutputHtml(tc)}</div>`;
-  } else if (tc.resultText) {
-    const formattedResult = formatToolResult(tc.name, tc.resultText, tc.args);
+  if (tc.resultText) {
+    const resultForDisplay = agentUsageParsed ? agentUsageParsed.cleanText : tc.resultText;
+    const formattedResult = formatToolResult(tc.name, resultForDisplay, tc.args);
     const maxOutputLen = 8000;
     let displayText = formattedResult;
     let truncated = false;
@@ -2015,15 +1230,40 @@ export function buildToolCallHtml(tc: ToolCallState): string {
 
   const parallelBadge = tc.isParallel ? `<span class="gsd-tool-parallel-badge" title="Running in parallel">⚡</span>` : "";
 
+  // Agent-specific: inline pills in header, description below
+  let agentMetaHtml = "";
+  let agentUsageHtml = "";
+  let agentPillsHtml = "";
+  if (isAgent) {
+    const model = tc.args.model ? String(tc.args.model)
+      : tc.args.subagent_type ? String(tc.args.subagent_type)
+      : "inherited";
+    const agentDesc = tc.args.description ? String(tc.args.description)
+      : tc.args.prompt ? truncateArg(String(tc.args.prompt), 100)
+      : "";
+    const pills: string[] = [model];
+    if (tc.args.run_in_background) pills.push("bg");
+    agentPillsHtml = `<span class="gsd-agent-meta-pills">${pills.map(p => `<span class="gsd-agent-pill">${escapeHtml(p)}</span>`).join("")}</span>`;
+    agentMetaHtml = agentDesc ? `<span class="gsd-agent-desc">${escapeHtml(agentDesc)}</span>` : "";
+
+    if (agentUsageParsed) {
+      agentUsageHtml = buildUsagePills(agentUsageParsed.usage);
+    }
+  }
+
   const isCollapsed = collapsedClass === "collapsed";
+  const displayName = isAgent ? "Agent" : tc.name;
   return `<div class="gsd-tool-block ${stateClass}${parallelClass} ${collapsedClass} cat-${category}" data-tool-id="${escapeAttr(tc.id)}">
     <div class="gsd-tool-header" role="button" tabindex="0" aria-label="Toggle ${escapeAttr(tc.name)} details" aria-expanded="${isCollapsed ? "false" : "true"}">
       ${statusIcon}
       <span class="gsd-tool-cat-icon">${toolIcon}</span>
-      <span class="gsd-tool-name">${escapeHtml(tc.name)}</span>
+      <span class="gsd-tool-name">${escapeHtml(displayName)}</span>
       ${keyArg ? `<span class="gsd-tool-arg">${escapeHtml(keyArg)}</span>` : ""}
+      ${agentMetaHtml}
+      ${agentPillsHtml}
       <span class="gsd-tool-header-right">${parallelBadge}${durationHtml}<span class="gsd-tool-chevron">▸</span></span>
     </div>
+    ${agentUsageHtml}
     ${outputHtml}
   </div>`;
 }

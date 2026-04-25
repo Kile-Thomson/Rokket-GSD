@@ -166,7 +166,7 @@ function updateContextBar(): void {
   }
 
   contextBarContainer.classList.remove('gsd-hidden');
-  contextBar.style.width = `${Math.min(pct, 100)}%`;
+  contextBar.style.setProperty('--progress', `${Math.min(pct, 100) / 100}`);
 
   contextBar.classList.remove("ok", "warn", "crit");
   if (pct > 90) {

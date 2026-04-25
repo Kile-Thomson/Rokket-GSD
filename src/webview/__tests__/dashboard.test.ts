@@ -4,10 +4,14 @@ import type { DashboardData, DashboardSlice } from "../../shared/types";
 
 // ── Mock dependencies ──────────────────────────────────────────────────
 
-vi.mock("../helpers", () => ({
-  escapeHtml: (s: string) => String(s ?? ""),
-  scrollToBottom: vi.fn(),
-}));
+vi.mock("../helpers", async (importOriginal) => {
+  const actual = await importOriginal() as Record<string, unknown>;
+  return {
+    ...actual,
+    escapeHtml: (s: string) => String(s ?? ""),
+    scrollToBottom: vi.fn(),
+  };
+});
 
 vi.mock("../state", () => ({
   state: {

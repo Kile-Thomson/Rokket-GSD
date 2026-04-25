@@ -211,9 +211,6 @@ describe("getToolCategory", () => {
     expect(getToolCategory("get_library_docs")).toBe("search");
     expect(getToolCategory("search_and_read")).toBe("search");
   });
-  it("classifies subagent", () => {
-    expect(getToolCategory("subagent")).toBe("agent");
-  });
   it("classifies lsp as generic", () => {
     expect(getToolCategory("lsp")).toBe("generic");
   });
@@ -235,7 +232,6 @@ describe("getToolIcon", () => {
   it("returns correct icons", () => {
     expect(getToolIcon("read", "file")).toBe("📄");
     expect(getToolIcon("bash", "shell")).toBe("⌨");
-    expect(getToolIcon("subagent", "agent")).toBe("🤖");
     expect(getToolIcon("browser_navigate", "browser")).toBe("🌐");
     expect(getToolIcon("google_search", "search")).toBe("🔍");
     expect(getToolIcon("unknown", "generic")).toBe("⚡");
@@ -274,9 +270,6 @@ describe("getToolKeyArg", () => {
   });
   it("extracts Agent description", () => {
     expect(getToolKeyArg("Agent", { description: "Search for config files", prompt: "..." })).toBe("Search for config files");
-  });
-  it("extracts subagent info", () => {
-    expect(getToolKeyArg("subagent", { agent: "scout", task: "find stuff" })).toBe("scout: find stuff");
   });
   it("extracts bg_shell start", () => {
     expect(getToolKeyArg("bg_shell", { action: "start", command: "npm run dev", label: "dev server" })).toBe("start: dev server");

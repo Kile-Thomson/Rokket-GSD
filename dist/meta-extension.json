@@ -6,12 +6,12 @@
       "format": "esm"
     },
     "src/shared/constants.ts": {
-      "bytes": 2829,
+      "bytes": 2730,
       "imports": [],
       "format": "esm"
     },
     "src/extension/rpc-client.ts": {
-      "bytes": 31142,
+      "bytes": 30578,
       "imports": [
         {
           "path": "child_process",
@@ -214,12 +214,12 @@
       "format": "esm"
     },
     "src/shared/types.ts": {
-      "bytes": 23580,
+      "bytes": 23499,
       "imports": [],
       "format": "esm"
     },
     "src/extension/watchdogs.ts": {
-      "bytes": 12842,
+      "bytes": 12832,
       "imports": [
         {
           "path": "vscode",
@@ -240,7 +240,7 @@
       "format": "esm"
     },
     "src/extension/rpc-events.ts": {
-      "bytes": 14134,
+      "bytes": 18324,
       "imports": [
         {
           "path": "vscode",
@@ -334,7 +334,7 @@
       "format": "esm"
     },
     "src/extension/file-ops.ts": {
-      "bytes": 13704,
+      "bytes": 14070,
       "imports": [
         {
           "path": "vscode",
@@ -360,7 +360,7 @@
       "format": "esm"
     },
     "src/extension/message-dispatch.ts": {
-      "bytes": 45697,
+      "bytes": 46494,
       "imports": [
         {
           "path": "vscode",
@@ -420,6 +420,131 @@
       ],
       "format": "esm"
     },
+    "src/extension/telegram/topicManager.ts": {
+      "bytes": 7536,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/extension/telegram/api.ts": {
+      "bytes": 7416,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/extension/telegram/config.ts": {
+      "bytes": 2092,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/extension/openai/transcribe.ts": {
+      "bytes": 1464,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/extension/telegram/formatter.ts": {
+      "bytes": 3032,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/extension/telegram/poller-ipc.ts": {
+      "bytes": 1490,
+      "imports": [
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/telegram/poller-server.ts": {
+      "bytes": 6032,
+      "imports": [
+        {
+          "path": "net",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/extension/telegram/api.ts",
+          "kind": "import-statement",
+          "original": "./api"
+        },
+        {
+          "path": "src/extension/telegram/poller-ipc.ts",
+          "kind": "import-statement",
+          "original": "./poller-ipc"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/telegram/poller-client.ts": {
+      "bytes": 3205,
+      "imports": [
+        {
+          "path": "net",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/extension/telegram/poller-ipc.ts",
+          "kind": "import-statement",
+          "original": "./poller-ipc"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/telegram/poller-coordinator.ts": {
+      "bytes": 4465,
+      "imports": [
+        {
+          "path": "src/extension/telegram/poller-server.ts",
+          "kind": "import-statement",
+          "original": "./poller-server"
+        },
+        {
+          "path": "src/extension/telegram/poller-client.ts",
+          "kind": "import-statement",
+          "original": "./poller-client"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/telegram/bridge.ts": {
+      "bytes": 31489,
+      "imports": [
+        {
+          "path": "src/extension/telegram/api.ts",
+          "kind": "import-statement",
+          "original": "./api"
+        },
+        {
+          "path": "src/extension/openai/transcribe.ts",
+          "kind": "import-statement",
+          "original": "../openai/transcribe"
+        },
+        {
+          "path": "src/extension/telegram/formatter.ts",
+          "kind": "import-statement",
+          "original": "./formatter"
+        },
+        {
+          "path": "src/extension/telegram/poller-coordinator.ts",
+          "kind": "import-statement",
+          "original": "./poller-coordinator"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/openai/config.ts": {
+      "bytes": 501,
+      "imports": [],
+      "format": "esm"
+    },
     "src/extension/polling.ts": {
       "bytes": 5633,
       "imports": [
@@ -458,7 +583,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 23092,
+      "bytes": 28244,
       "imports": [
         {
           "path": "vscode",
@@ -526,6 +651,31 @@
           "original": "./message-dispatch"
         },
         {
+          "path": "src/extension/telegram/topicManager.ts",
+          "kind": "import-statement",
+          "original": "./telegram/topicManager"
+        },
+        {
+          "path": "src/extension/telegram/api.ts",
+          "kind": "import-statement",
+          "original": "./telegram/api"
+        },
+        {
+          "path": "src/extension/telegram/config.ts",
+          "kind": "import-statement",
+          "original": "./telegram/config"
+        },
+        {
+          "path": "src/extension/telegram/bridge.ts",
+          "kind": "import-statement",
+          "original": "./telegram/bridge"
+        },
+        {
+          "path": "src/extension/openai/config.ts",
+          "kind": "import-statement",
+          "original": "./openai/config"
+        },
+        {
           "path": "src/extension/polling.ts",
           "kind": "import-statement",
           "original": "./polling"
@@ -544,7 +694,7 @@
       "format": "esm"
     },
     "src/extension/health-check.ts": {
-      "bytes": 9635,
+      "bytes": 9891,
       "imports": [
         {
           "path": "vscode",
@@ -584,8 +734,29 @@
       ],
       "format": "esm"
     },
+    "src/extension/telegram/setup.ts": {
+      "bytes": 6070,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/extension/telegram/api.ts",
+          "kind": "import-statement",
+          "original": "./api"
+        },
+        {
+          "path": "src/extension/telegram/config.ts",
+          "kind": "import-statement",
+          "original": "./config"
+        }
+      ],
+      "format": "esm"
+    },
     "src/extension/index.ts": {
-      "bytes": 6399,
+      "bytes": 7499,
       "imports": [
         {
           "path": "vscode",
@@ -626,6 +797,16 @@
           "path": "src/extension/health-check.ts",
           "kind": "import-statement",
           "original": "./health-check"
+        },
+        {
+          "path": "src/extension/telegram/setup.ts",
+          "kind": "import-statement",
+          "original": "./telegram/setup"
+        },
+        {
+          "path": "src/extension/openai/config.ts",
+          "kind": "import-statement",
+          "original": "./openai/config"
         }
       ],
       "format": "esm"
@@ -636,7 +817,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 440288
+      "bytes": 575222
     },
     "dist/extension.js": {
       "imports": [
@@ -856,6 +1037,26 @@
           "external": true
         },
         {
+          "path": "net",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "net",
+          "kind": "require-call",
+          "external": true
+        },
+        {
           "path": "vscode",
           "kind": "require-call",
           "external": true
@@ -899,31 +1100,36 @@
           "path": "os",
           "kind": "require-call",
           "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
         }
       ],
       "exports": [],
       "entryPoint": "src/extension/index.ts",
       "inputs": {
         "src/extension/index.ts": {
-          "bytesInOutput": 2893
+          "bytesInOutput": 3372
         },
         "src/shared/errors.ts": {
           "bytesInOutput": 60
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 10541
+          "bytesInOutput": 13295
         },
         "src/extension/rpc-client.ts": {
-          "bytesInOutput": 10280
+          "bytesInOutput": 9909
         },
         "src/extension/update-checker.ts": {
           "bytesInOutput": 6206
         },
         "src/extension/auto-progress-poller.ts": {
-          "bytesInOutput": 4215
+          "bytesInOutput": 4217
         },
         "src/extension/dashboard-parser.ts": {
-          "bytesInOutput": 2979
+          "bytesInOutput": 2980
         },
         "src/extension/state-parser.ts": {
           "bytesInOutput": 805
@@ -944,10 +1150,10 @@
           "bytesInOutput": 3655
         },
         "src/extension/rpc-events.ts": {
-          "bytesInOutput": 5162
+          "bytesInOutput": 6535
         },
         "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 18627
+          "bytesInOutput": 18990
         },
         "src/extension/session-list-service.ts": {
           "bytesInOutput": 2191
@@ -956,10 +1162,43 @@
           "bytesInOutput": 2502
         },
         "src/extension/command-fallback.ts": {
-          "bytesInOutput": 25232
+          "bytesInOutput": 25238
         },
         "src/extension/file-ops.ts": {
-          "bytesInOutput": 5975
+          "bytesInOutput": 6104
+        },
+        "src/extension/telegram/topicManager.ts": {
+          "bytesInOutput": 3580
+        },
+        "src/extension/telegram/api.ts": {
+          "bytesInOutput": 2627
+        },
+        "src/extension/telegram/config.ts": {
+          "bytesInOutput": 608
+        },
+        "src/extension/openai/transcribe.ts": {
+          "bytesInOutput": 634
+        },
+        "src/extension/telegram/formatter.ts": {
+          "bytesInOutput": 896
+        },
+        "src/extension/telegram/poller-server.ts": {
+          "bytesInOutput": 2791
+        },
+        "src/extension/telegram/poller-ipc.ts": {
+          "bytesInOutput": 361
+        },
+        "src/extension/telegram/poller-client.ts": {
+          "bytesInOutput": 1323
+        },
+        "src/extension/telegram/poller-coordinator.ts": {
+          "bytesInOutput": 2005
+        },
+        "src/extension/telegram/bridge.ts": {
+          "bytesInOutput": 15938
+        },
+        "src/extension/openai/config.ts": {
+          "bytesInOutput": 107
         },
         "src/extension/polling.ts": {
           "bytesInOutput": 1769
@@ -968,10 +1207,13 @@
           "bytesInOutput": 860
         },
         "src/extension/health-check.ts": {
-          "bytesInOutput": 4419
+          "bytesInOutput": 4473
+        },
+        "src/extension/telegram/setup.ts": {
+          "bytesInOutput": 3483
         }
       },
-      "bytes": 112551
+      "bytes": 151694
     }
   }
 }
