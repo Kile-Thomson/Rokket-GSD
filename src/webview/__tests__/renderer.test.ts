@@ -42,7 +42,6 @@ vi.mock("../helpers", () => ({
   getToolIcon: () => "🔧",
   getToolKeyArg: () => "",
   formatToolResult: (_n: string, t: string) => t,
-  buildSubagentOutputHtml: () => "<div class=\"gsd-subagent-panel\"><div class=\"gsd-subagent-summary\"><span class=\"gsd-subagent-mode\">Parallel</span><span class=\"gsd-subagent-counts\"></span><span class=\"gsd-subagent-total\">0/0</span></div><div class=\"gsd-agent-cards\"></div></div>",
   buildUsagePills: () => "",
   renderMarkdown: (t: string) => `<p>${t}</p>`,
   sanitizeAndPostProcess: (html: string) => html,
@@ -913,98 +912,6 @@ describe("patchToolBlock", () => {
 
     // Should not throw
     expect(() => patchToolBlock(el, tc)).not.toThrow();
-  });
-
-  it("handles async_subagent tool with subagent panel", () => {
-    const tc = makeTc({ name: "async_subagent", isRunning: true });
-    const el = document.createElement("div");
-    el.className = "gsd-tool-segment";
-    el.innerHTML = `<div class="gsd-tool-block running cat-agent" data-tool-id="${tc.id}">
-      <div class="gsd-tool-header">
-        <span class="gsd-tool-spinner"></span>
-        <span class="gsd-tool-name">async_subagent</span>
-        <span class="gsd-tool-header-right"><span class="gsd-tool-chevron">▸</span></span>
-      </div>
-      <div class="gsd-tool-output gsd-tool-output-rich">
-        <div class="gsd-subagent-panel">
-          <div class="gsd-subagent-summary">
-            <span class="gsd-subagent-mode">Parallel</span>
-            <span class="gsd-subagent-counts"></span>
-            <span class="gsd-subagent-total">0/1</span>
-          </div>
-          <div class="gsd-agent-cards">
-            <div class="gsd-agent-card running">
-              <div class="gsd-agent-header">
-                <div class="gsd-agent-header-left"><span class="gsd-tool-spinner"></span><span class="gsd-agent-name">worker</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>`;
-
-    tc.details = {
-      mode: "parallel",
-      results: [{ agent: "worker", task: "do stuff", exitCode: -1, status: "running" }],
-    };
-    tc.resultText = "0/1 done, 1 running";
-
-    // Should not throw and should preserve existing spinner
-    const spinnerBefore = el.querySelector(".gsd-agent-card .gsd-tool-spinner");
-    expect(() => patchToolBlock(el, tc)).not.toThrow();
-    const spinnerAfter = el.querySelector(".gsd-agent-card .gsd-tool-spinner");
-    expect(spinnerAfter).toBe(spinnerBefore);
-  });
-
-  it("transitions agent card from running to done when exitCode changes", () => {
-    const tc = makeTc({ name: "async_subagent", isRunning: false });
-    tc.endTime = Date.now();
-    const el = document.createElement("div");
-    el.className = "gsd-tool-segment";
-    el.innerHTML = `<div class="gsd-tool-block done cat-agent" data-tool-id="${tc.id}">
-      <div class="gsd-tool-header">
-        <span class="gsd-tool-icon success">✓</span>
-        <span class="gsd-tool-name">async_subagent</span>
-        <span class="gsd-tool-header-right"><span class="gsd-tool-chevron">▸</span></span>
-      </div>
-      <div class="gsd-tool-output gsd-tool-output-rich">
-        <div class="gsd-subagent-panel">
-          <div class="gsd-subagent-summary">
-            <span class="gsd-subagent-mode">Parallel</span>
-            <span class="gsd-subagent-counts"></span>
-            <span class="gsd-subagent-total">0/1</span>
-          </div>
-          <div class="gsd-agent-cards">
-            <div class="gsd-agent-card running">
-              <div class="gsd-agent-header">
-                <div class="gsd-agent-header-left"><span class="gsd-tool-spinner"></span><span class="gsd-agent-name">worker</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>`;
-
-    tc.details = {
-      mode: "parallel",
-      results: [{ agent: "worker", task: "do stuff", exitCode: 0, status: "done", usage: { turns: 1, input: 100, output: 50, cost: 0.001 } }],
-    };
-    tc.resultText = "1/1 done, 0 running";
-
-    patchToolBlock(el, tc);
-
-    // Spinner should be replaced with done icon
-    expect(el.querySelector(".gsd-agent-card .gsd-tool-spinner")).toBeNull();
-    const agentIcon = el.querySelector(".gsd-agent-card .gsd-agent-icon");
-    expect(agentIcon?.classList.contains("done")).toBe(true);
-
-    // Card state class updated
-    const card = el.querySelector(".gsd-agent-card");
-    expect(card?.classList.contains("done")).toBe(true);
-    expect(card?.classList.contains("running")).toBe(false);
-
-    // Total updated
-    expect(el.querySelector(".gsd-subagent-total")?.textContent).toBe("1/1");
   });
 
   it("parallel badge added when tool becomes parallel", () => {

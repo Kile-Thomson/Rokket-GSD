@@ -3,7 +3,8 @@
 // ============================================================
 
 import type { DashboardData, DashboardSlice, DashboardMetrics } from "../shared/types";
-import { escapeHtml, scrollToBottom } from "./helpers";
+import { escapeHtml, scrollToBottom, formatTokenCount } from "./helpers";
+export { formatTokenCount };
 import { state } from "./state";
 
 // ============================================================
@@ -424,12 +425,6 @@ function fmtDuration(ms: number): string {
   const h = Math.floor(m / 60);
   const rm = m % 60;
   return `${h}h ${rm}m`;
-}
-
-export function formatTokenCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return String(n);
 }
 
 export function updateWelcomeScreen(): void {

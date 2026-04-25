@@ -273,37 +273,25 @@ function renderProgressTab(data: DashboardData): string {
 
   // Slice breakdown
   if (data.slices.length > 0) {
-    html += `<div class="gsd-viz-slices-section">`;
-    html += `<div class="gsd-viz-section-title">Slices</div>`;
-    for (const slice of data.slices) {
-      html += renderSliceRow(slice);
-    }
-    html += `</div>`;
+    html += `<div class="gsd-viz-slices-section"><div class="gsd-viz-section-title">Slices</div>${data.slices.map(renderSliceRow).join("")}</div>`;
   }
 
   // Milestone registry
   if (data.milestoneRegistry.length > 0) {
-    html += `<div class="gsd-viz-registry-section">`;
-    html += `<div class="gsd-viz-section-title">Milestone Registry</div>`;
-    for (const m of data.milestoneRegistry) {
-      const icon = m.done ? "✓" : m.active ? "▸" : "○";
-      const cls = m.done ? "done" : m.active ? "active" : "pending";
-      html += `<div class="gsd-viz-registry-item ${cls}">
-        <span class="gsd-viz-icon">${icon}</span>
-        <span>${escapeHtml(m.id)}: ${escapeHtml(m.title)}</span>
-      </div>`;
-    }
-    html += `</div>`;
+    html += `<div class="gsd-viz-registry-section"><div class="gsd-viz-section-title">Milestone Registry</div>${
+      data.milestoneRegistry.map(m => {
+        const icon = m.done ? "✓" : m.active ? "▸" : "○";
+        const cls = m.done ? "done" : m.active ? "active" : "pending";
+        return `<div class="gsd-viz-registry-item ${cls}"><span class="gsd-viz-icon">${icon}</span><span>${escapeHtml(m.id)}: ${escapeHtml(m.title)}</span></div>`;
+      }).join("")
+    }</div>`;
   }
 
   // Blockers
   if (data.blockers.length > 0) {
-    html += `<div class="gsd-viz-blockers-section">`;
-    html += `<div class="gsd-viz-section-title gsd-viz-blockers-title">⚠ Blockers</div>`;
-    for (const b of data.blockers) {
-      html += `<div class="gsd-viz-blocker">${escapeHtml(b)}</div>`;
-    }
-    html += `</div>`;
+    html += `<div class="gsd-viz-blockers-section"><div class="gsd-viz-section-title gsd-viz-blockers-title">⚠ Blockers</div>${
+      data.blockers.map(b => `<div class="gsd-viz-blocker">${escapeHtml(b)}</div>`).join("")
+    }</div>`;
   }
 
   // Next action
@@ -505,21 +493,17 @@ function renderHealthTab(): string {
   const text = healthLines.join("\n").trim();
   const parts = text.includes("│") ? text.split("│").map(p => p.trim()).filter(Boolean) : [text];
 
-  html += '<div class="gsd-visualizer-health-grid">';
-  for (const part of parts) {
-    let icon = "ℹ️";
-    let cls = "info";
-    if (/^[✗✘]/.test(part) || /error/i.test(part)) { icon = "🔴"; cls = "error"; }
-    else if (/^⚠/.test(part) || /warning/i.test(part)) { icon = "🟡"; cls = "warning"; }
-    else if (/^●/.test(part) && /OK/i.test(part)) { icon = "🟢"; cls = "ok"; }
-    else if (/Budget/i.test(part) || /Spent/i.test(part)) { icon = "💰"; cls = "info"; }
-
-    html += `<div class="gsd-visualizer-health-item ${cls}">`;
-    html += `<span class="gsd-visualizer-health-icon">${icon}</span>`;
-    html += `<span class="gsd-visualizer-health-text">${escapeHtml(part)}</span>`;
-    html += '</div>';
-  }
-  html += '</div>';
+  html += `<div class="gsd-visualizer-health-grid">${
+    parts.map(part => {
+      let icon = "ℹ️";
+      let cls = "info";
+      if (/^[✗✘]/.test(part) || /error/i.test(part)) { icon = "🔴"; cls = "error"; }
+      else if (/^⚠/.test(part) || /warning/i.test(part)) { icon = "🟡"; cls = "warning"; }
+      else if (/^●/.test(part) && /OK/i.test(part)) { icon = "🟢"; cls = "ok"; }
+      else if (/Budget/i.test(part) || /Spent/i.test(part)) { icon = "💰"; cls = "info"; }
+      return `<div class="gsd-visualizer-health-item ${cls}"><span class="gsd-visualizer-health-icon">${icon}</span><span class="gsd-visualizer-health-text">${escapeHtml(part)}</span></div>`;
+    }).join("")
+  }</div>`;
 
   // Model info from auto-progress
   const autoData = state.autoProgress;

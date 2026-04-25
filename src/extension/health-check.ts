@@ -131,8 +131,24 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
 
   const authPath = path.join(gsdAgentDir(), "auth.json");
   try {
-    if (fs.existsSync(authPath)) {
-      const authData = JSON.parse(await fs.promises.readFile(authPath, "utf8"));
+    let authRaw: string;
+    try {
+      authRaw = await fs.promises.readFile(authPath, "utf8");
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        result.issues.push({
+          severity: "warning",
+          message: "No auth configuration found (~/.gsd/agent/auth.json).",
+          fix: "Run 'gsd' in a terminal once to set up authentication.",
+        });
+      } else {
+        throw err;
+      }
+      authRaw = "";
+    }
+
+    if (authRaw) {
+      const authData = JSON.parse(authRaw);
 
       for (const [providerName, entry] of Object.entries(authData)) {
         const e = entry as Record<string, unknown>;
@@ -159,12 +175,6 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
           fix: "Run 'gsd' in a terminal and follow the authentication prompts, or set an API key (e.g. ANTHROPIC_API_KEY) in your environment.",
         });
       }
-    } else {
-      result.issues.push({
-        severity: "warning",
-        message: "No auth configuration found (~/.gsd/agent/auth.json).",
-        fix: "Run 'gsd' in a terminal once to set up authentication.",
-      });
     }
   } catch (err: unknown) {
     result.issues.push({
@@ -176,21 +186,20 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
   // ---- Check settings.json for default provider/model ----
   const settingsPath = path.join(gsdAgentDir(), "settings.json");
   try {
-    if (fs.existsSync(settingsPath)) {
-      const settings = JSON.parse(await fs.promises.readFile(settingsPath, "utf8"));
-      result.defaultProvider = settings.defaultProvider || null;
-      result.defaultModel = settings.defaultModel || null;
+    const settingsRaw = await fs.promises.readFile(settingsPath, "utf8");
+    const settings = JSON.parse(settingsRaw);
+    result.defaultProvider = settings.defaultProvider || null;
+    result.defaultModel = settings.defaultModel || null;
 
-      // Warn if the default provider isn't authorized
-      if (result.defaultProvider) {
-        const providerAuth = result.authProviders.find((p) => p.name === result.defaultProvider);
-        if (providerAuth && !providerAuth.authorized) {
-          result.issues.push({
-            severity: "warning",
-            message: `Default provider "${result.defaultProvider}" is configured but not authorized.`,
-            fix: `Run 'gsd' in a terminal to authenticate with ${result.defaultProvider}, or change the default in ~/.gsd/agent/settings.json.`,
-          });
-        }
+    // Warn if the default provider isn't authorized
+    if (result.defaultProvider) {
+      const providerAuth = result.authProviders.find((p) => p.name === result.defaultProvider);
+      if (providerAuth && !providerAuth.authorized) {
+        result.issues.push({
+          severity: "warning",
+          message: `Default provider "${result.defaultProvider}" is configured but not authorized.`,
+          fix: `Run 'gsd' in a terminal to authenticate with ${result.defaultProvider}, or change the default in ~/.gsd/agent/settings.json.`,
+        });
       }
     }
   } catch {
@@ -262,9 +271,11 @@ async function resolveGsdVersion(gsdPath: string): Promise<string | null> {
     let dir = path.dirname(gsdPath);
     for (let i = 0; i < 4; i++) {
       const pkgPath = path.join(dir, "node_modules", "gsd-pi", "package.json");
-      if (fs.existsSync(pkgPath)) {
+      try {
         const pkg = JSON.parse(await fs.promises.readFile(pkgPath, "utf8"));
         return pkg.version || null;
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
       }
       dir = path.dirname(dir);
     }

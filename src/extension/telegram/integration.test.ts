@@ -193,22 +193,16 @@ describe("Telegram Integration (composed system)", () => {
   it("inbound text message routes to BridgeClient.prompt", async () => {
     await topicManager.syncOn(SESSION_ID, "GSD Session");
 
-    mockFetchState.updateQueue.push([
-      {
-        update_id: 1,
-        message: {
-          message_id: 100,
-          from: { id: 555, is_bot: false, first_name: "User" },
-          chat: { id: CHAT_ID, type: "supergroup" },
-          text: "hello from telegram",
-          message_thread_id: THREAD_ID,
-        },
+    await bridge._testInjectUpdates([{
+      update_id: 1,
+      message: {
+        message_id: 100,
+        from: { id: 555, is_bot: false, first_name: "User" },
+        chat: { id: CHAT_ID, type: "supergroup" },
+        text: "hello from telegram",
+        message_thread_id: THREAD_ID,
       },
-    ]);
-
-    bridge.startPolling();
-    // Let poll execute
-    await vi.advanceTimersByTimeAsync(100);
+    }]);
 
     expect(client.prompt).toHaveBeenCalledWith("hello from telegram", undefined);
   });
@@ -219,21 +213,16 @@ describe("Telegram Integration (composed system)", () => {
   it("inbound /gsd command routes to BridgeClient.prompt", async () => {
     await topicManager.syncOn(SESSION_ID, "GSD Session");
 
-    mockFetchState.updateQueue.push([
-      {
-        update_id: 2,
-        message: {
-          message_id: 101,
-          from: { id: 555, is_bot: false, first_name: "User" },
-          chat: { id: CHAT_ID, type: "supergroup" },
-          text: "/gsd status",
-          message_thread_id: THREAD_ID,
-        },
+    await bridge._testInjectUpdates([{
+      update_id: 2,
+      message: {
+        message_id: 101,
+        from: { id: 555, is_bot: false, first_name: "User" },
+        chat: { id: CHAT_ID, type: "supergroup" },
+        text: "/gsd status",
+        message_thread_id: THREAD_ID,
       },
-    ]);
-
-    bridge.startPolling();
-    await vi.advanceTimersByTimeAsync(100);
+    }]);
 
     expect(client.prompt).toHaveBeenCalledWith("/gsd status", undefined);
   });
@@ -243,6 +232,7 @@ describe("Telegram Integration (composed system)", () => {
   // -----------------------------------------------------------------------
   it("handleAssistantMessage sends to correct thread", async () => {
     await topicManager.syncOn(SESSION_ID, "GSD Session");
+    bridge.setStreamingGranularity("off");
     await bridge.handleAssistantMessage(SESSION_ID, "Here is my response.");
 
     const sendCalls = mockFetchState.apiCalls.filter((c) => c.method === "sendMessage");
@@ -291,25 +281,20 @@ describe("Telegram Integration (composed system)", () => {
   it("inbound photo downloads and injects as image", async () => {
     await topicManager.syncOn(SESSION_ID, "GSD Session");
 
-    mockFetchState.updateQueue.push([
-      {
-        update_id: 3,
-        message: {
-          message_id: 102,
-          from: { id: 555, is_bot: false, first_name: "User" },
-          chat: { id: CHAT_ID, type: "supergroup" },
-          message_thread_id: THREAD_ID,
-          photo: [
-            { file_id: "small", file_unique_id: "us", width: 100, height: 100 },
-            { file_id: "large", file_unique_id: "ul", width: 800, height: 600 },
-          ],
-          caption: "check this image",
-        },
+    await bridge._testInjectUpdates([{
+      update_id: 3,
+      message: {
+        message_id: 102,
+        from: { id: 555, is_bot: false, first_name: "User" },
+        chat: { id: CHAT_ID, type: "supergroup" },
+        message_thread_id: THREAD_ID,
+        photo: [
+          { file_id: "small", file_unique_id: "us", width: 100, height: 100 },
+          { file_id: "large", file_unique_id: "ul", width: 800, height: 600 },
+        ],
+        caption: "check this image",
       },
-    ]);
-
-    bridge.startPolling();
-    await vi.advanceTimersByTimeAsync(100);
+    }]);
 
     expect(mockFetchState.apiCalls.some((c) => c.method === "getFile")).toBe(true);
     // The largest photo should be used
@@ -379,13 +364,15 @@ describe("Telegram Integration (composed system)", () => {
     const files = fs.readdirSync(telegramDir).filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"));
     const piPatterns = /\b(relay|pipe|PI|IPC)\b/i;
     const importPattern = /^import\s/m;
+    // Exclude imports from within the telegram directory itself (e.g. poller-ipc.ts is internal, not a PI dependency)
+    const internalImportPattern = /from\s+["']\.\/[^"']+["']/;
 
     const violations: string[] = [];
     for (const file of files) {
       const content = fs.readFileSync(path.join(telegramDir, file), "utf-8");
       const lines = content.split("\n");
       for (const line of lines) {
-        if (importPattern.test(line) && piPatterns.test(line)) {
+        if (importPattern.test(line) && piPatterns.test(line) && !internalImportPattern.test(line)) {
           violations.push(`${file}: ${line.trim()}`);
         }
       }

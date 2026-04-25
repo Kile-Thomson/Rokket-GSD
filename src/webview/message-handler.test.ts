@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Mock all heavy webview modules ──────────────────────────────────────
 vi.mock("./renderer", () => ({
-  finalizeParallelBatch: vi.fn(),
   renderAssistantText: vi.fn(),
   default: {},
 }));

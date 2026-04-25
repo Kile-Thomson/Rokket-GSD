@@ -74,6 +74,13 @@ export class TelegramBridge {
   private readonly typingLoops = new Map<string, ReturnType<typeof setInterval>>();
   private readonly turnStartMs = new Map<string, number>();
   private readonly TYPING_INTERVAL_MS = 4500;
+  private readonly _activeDeliveries = new Set<Promise<void>>();
+
+  async waitForAllDeliveries(): Promise<void> {
+    while (this._activeDeliveries.size > 0) {
+      await Promise.allSettled(Array.from(this._activeDeliveries));
+    }
+  }
 
   constructor(
     private readonly api: TelegramApi,
@@ -118,6 +125,12 @@ export class TelegramBridge {
     this.polling = false;
     this.coordinator?.stop();
     this.coordinator = null;
+  }
+
+  /** For testing only — directly process updates without going through the IPC poller. */
+  async _testInjectUpdates(updates: TelegramUpdate[]): Promise<void> {
+    await this.handleUpdates(updates);
+    await this.waitForAllDeliveries();
   }
 
   private async handleUpdates(updates: TelegramUpdate[]): Promise<void> {
@@ -227,7 +240,7 @@ export class TelegramBridge {
       await this.api.sendMessage(this.chatId, "⚠️ Voice transcription is not configured. Run <b>Rokket GSD: Set OpenAI API Key</b> from the Command Palette.", {
         message_thread_id: threadId,
         parse_mode: "HTML",
-      }).catch(() => {});
+      }).catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
       return;
     }
 
@@ -237,7 +250,7 @@ export class TelegramBridge {
       await this.api.sendMessage(this.chatId, "⚠️ No OpenAI API key set. Run <b>Rokket GSD: Set OpenAI API Key</b> from the Command Palette.", {
         message_thread_id: threadId,
         parse_mode: "HTML",
-      }).catch(() => {});
+      }).catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
       return;
     }
 
@@ -263,7 +276,7 @@ export class TelegramBridge {
       if (statusMsgId !== null) {
         await this.api.editMessageText(this.chatId, statusMsgId, `🎙️ ${transcript}`, {
           message_thread_id: threadId,
-        }).catch(() => {});
+        }).catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
       }
 
       this.enqueueMessage(sessionId, { text: transcript, routeLabel: "voice" });
@@ -274,9 +287,9 @@ export class TelegramBridge {
         ? `❌ Transcription failed: ${errMsg}`
         : "❌ Voice transcription failed — check the output channel for details.";
       if (statusMsgId !== null) {
-        await this.api.editMessageText(this.chatId, statusMsgId, userMsg, { message_thread_id: threadId }).catch(() => {});
+        await this.api.editMessageText(this.chatId, statusMsgId, userMsg, { message_thread_id: threadId }).catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
       } else {
-        await this.api.sendMessage(this.chatId, userMsg, { message_thread_id: threadId }).catch(() => {});
+        await this.api.sendMessage(this.chatId, userMsg, { message_thread_id: threadId }).catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
       }
     }
   }
@@ -360,15 +373,17 @@ export class TelegramBridge {
       }
     };
 
-    deliver()
+    const deliveryPromise = deliver()
       .catch((err: unknown) => {
         this.stopTypingLoop(sessionId);
         const errMsg = err instanceof Error ? err.message : String(err);
         this.logger.info(`[telegram-bridge] prompt error for ${sessionId}: ${redactToken(errMsg, this.botToken)}`);
       })
       .finally(() => {
+        this._activeDeliveries.delete(deliveryPromise);
         this.drainQueue(sessionId);
       });
+    this._activeDeliveries.add(deliveryPromise);
   }
 
   async sendQuestion(
@@ -421,7 +436,7 @@ export class TelegramBridge {
       this.api.editMessageText(this.chatId, pending.messageId, "⏭ Answered locally", {
         message_thread_id: pending.threadId,
         reply_markup: { inline_keyboard: [] },
-      }).catch(() => {});
+      }).catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
     }
   }
 
@@ -436,22 +451,22 @@ export class TelegramBridge {
     const pending = this.pendingQuestions.get(requestId);
     if (!pending) {
       this.logger.info(`[telegram-bridge] callback_query for unknown request ${requestId}`);
-      await this.api.answerCallbackQuery(query.id, "Already answered").catch(() => {});
+      await this.api.answerCallbackQuery(query.id, "Already answered").catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
       return;
     }
 
     const selectedOption = pending.optionMap.get(data);
     if (!selectedOption) {
-      await this.api.answerCallbackQuery(query.id, "Invalid option").catch(() => {});
+      await this.api.answerCallbackQuery(query.id, "Invalid option").catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
       return;
     }
 
     this.pendingQuestions.delete(requestId);
-    await this.api.answerCallbackQuery(query.id, `✓ ${selectedOption}`).catch(() => {});
+    await this.api.answerCallbackQuery(query.id, `✓ ${selectedOption}`).catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
     this.api.editMessageText(this.chatId, pending.messageId, `❓ Answered: ${selectedOption}`, {
       message_thread_id: pending.threadId,
       reply_markup: { inline_keyboard: [] },
-    }).catch(() => {});
+    }).catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
 
     this.logger.info(`[telegram-bridge] Question ${requestId} answered via Telegram: ${selectedOption}`);
     pending.resolve(selectedOption);
@@ -461,7 +476,7 @@ export class TelegramBridge {
     if (this.typingLoops.has(sessionId)) return;
     this.turnStartMs.set(sessionId, Date.now());
     const sendAction = () => {
-      this.api.sendChatAction(this.chatId, "typing", { message_thread_id: threadId }).catch(() => {});
+      this.api.sendChatAction(this.chatId, "typing", { message_thread_id: threadId }).catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
     };
     sendAction();
     const handle = setInterval(sendAction, this.TYPING_INTERVAL_MS);
@@ -539,6 +554,9 @@ export class TelegramBridge {
 
   handleStreamEnd(sessionId: string, finalText: string): void {
     const state = this.streamingState.get(sessionId);
+    if (!state && this.streamingGranularity !== "final-only") {
+      return;
+    }
     const threadId = this.topicManager.getTopicForSession(sessionId);
     if (threadId == null) {
       this.logger.info(`[telegram-bridge] handleStreamEnd: no topic for session ${sessionId} (known sessions: ${this.topicManager.activeSessions.join(",")})`);
@@ -568,7 +586,7 @@ export class TelegramBridge {
             });
         }
         await this.api.sendMessage(this.chatId, `✅ Done${elapsedStr}`, { message_thread_id: threadId, parse_mode: "HTML" })
-          .catch(() => {});
+          .catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
         return;
       }
 
@@ -581,7 +599,7 @@ export class TelegramBridge {
         .finally(() => this.streamingState.delete(sessionId));
 
       await this.api.sendMessage(this.chatId, `✅ Done${elapsedStr}`, { message_thread_id: threadId, parse_mode: "HTML" })
-        .catch(() => {});
+        .catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
     };
 
     if (state?.placeholderPromise) {

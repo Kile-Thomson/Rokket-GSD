@@ -29,7 +29,7 @@ export interface ToolCallState {
   isSkipped?: boolean;
   startTime: number;
   endTime?: number;
-  /** Structured details from tool (e.g. subagent per-agent results) */
+  /** Structured details from tool */
   details?: Record<string, unknown>;
   /** True when this tool executed concurrently with other tools */
   isParallel?: boolean;
@@ -144,13 +144,18 @@ export function pruneOldEntries(container: HTMLElement): number {
   const excess = state.entries.length - MAX_ENTRIES;
   const removed = state.entries.splice(0, excess);
 
+  // Two-pass approach: read all heights first, then remove — avoids layout thrash
+  const els: HTMLElement[] = [];
   let totalPrunedHeight = 0;
   for (const entry of removed) {
     const el = container.querySelector(`[data-entry-id="${entry.id}"]`) as HTMLElement | null;
     if (el) {
       totalPrunedHeight += el.offsetHeight;
-      el.remove();
+      els.push(el);
     }
+  }
+  for (const el of els) {
+    el.remove();
   }
 
   // Adjust scroll position to prevent visual jump

@@ -267,7 +267,8 @@
 }
 
 .gsd-action-btn--active:hover,
-.gsd-action-btn--active:focus {
+.gsd-action-btn--active:focus,
+.gsd-action-btn--active:focus-visible {
   background: var(--vscode-button-background, var(--gsd-color-accent));
   color: var(--vscode-button-foreground, var(--gsd-color-accent-fg));
   border-color: var(--vscode-button-background, var(--gsd-color-accent));
@@ -313,8 +314,10 @@
 
 .gsd-context-bar {
   height: 100%;
-  width: 0%;
-  transition: width 0.6s ease-out, background 0.4s ease;
+  width: 100%;
+  transform: scaleX(var(--progress, 0));
+  transform-origin: left;
+  transition: transform 0.6s ease-out, background 0.4s ease;
   border-radius: 0 2px 2px 0;
 }
 
