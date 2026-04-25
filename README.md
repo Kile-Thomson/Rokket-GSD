@@ -162,10 +162,10 @@ Then reload VS Code (`Ctrl+Shift+P` > "Developer: Reload Window").
 
 ### ⌨️ Slash Commands
 
-Type `/` to open the command palette with 63 commands:
+Type `/` to open the command palette with 59+ commands:
 
 <details>
-<summary><strong>GSD Workflow</strong> (50 commands)</summary>
+<summary><strong>GSD Workflow</strong> (46 commands)</summary>
 
 | Command | What it does |
 |---------|-------------|
@@ -443,7 +443,7 @@ npm run watch    # Rebuilds on file changes
 |--------|-------------|
 | `npm run build` | Production build (extension + webview) |
 | `npm run watch` | Watch mode with auto-rebuild |
-| `npm test` | Run unit tests (Vitest, 1370+ tests across 66 files) |
+| `npm test` | Run unit tests (Vitest) |
 | `npm run lint` | Run ESLint |
 | `npm run package` | Package as `.vsix` |
 

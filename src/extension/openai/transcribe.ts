@@ -27,6 +27,12 @@ export async function transcribeAudio(apiKey: string, audioBuffer: Buffer, filen
       body: form,
       signal: controller.signal,
     });
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new TranscriptionError("Whisper API request timed out after 60s");
+    }
+    throw new TranscriptionError(`Whisper API network error: ${(err as Error).message}`);
   } finally {
     clearTimeout(timeout);
   }

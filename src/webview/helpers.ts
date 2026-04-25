@@ -395,7 +395,7 @@ export function parseAgentUsage(resultText: string): AgentUsageParsed | null {
     toolUses: num(USAGE_TOOL_USES_RE),
     durationMs: num(USAGE_DURATION_MS_RE),
   };
-  if (!usage.totalTokens && !usage.toolUses && !usage.durationMs) return null;
+  if (usage.totalTokens === undefined && usage.toolUses === undefined && usage.durationMs === undefined) return null;
   const cleanText = resultText.replace(USAGE_TAG_RE, "").trim();
   return { usage, cleanText };
 }

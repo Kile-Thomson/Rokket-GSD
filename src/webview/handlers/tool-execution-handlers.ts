@@ -79,7 +79,7 @@ export function handleToolExecutionStart(msg: Msg<'tool_execution_start'>): void
   const existingTc = state.currentTurn.toolCalls.get(data.toolCallId);
   if (existingTc) {
     existingTc.args = data.args || existingTc.args;
-    existingTc.isRunning = true;
+    if (!existingTc.resultText) existingTc.isRunning = true;
     if (!existingTc.isParallel) {
       for (const [, other] of state.currentTurn.toolCalls) {
         if (other.isRunning && other.id !== existingTc.id) {
