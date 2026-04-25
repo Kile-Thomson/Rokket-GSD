@@ -1341,10 +1341,8 @@ describe("message-handler", () => {
           usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0 },
         },
       });
-      // Delta from prevMessageEndUsage (shared module state from prior test):
-      // (40000-30000)+(5000-4000)+(10000-0)+(0-0) = 21000
-      expect(state.sessionStats.contextTokens).toBe(21000);
-      expect(state.sessionStats.contextPercent).toBe(21);
+      expect(state.sessionStats.contextTokens).toBe(55000);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(55, 5);
     });
 
     it("updates contextWindow even when perCallUsage is absent", () => {

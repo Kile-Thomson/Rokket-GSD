@@ -173,6 +173,7 @@ export interface MessageHandlerDeps {
 function resetDerivedSessionTracking(): void {
   hasCostUpdateSource = false;
   prevCostTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
+  prevMessageEndUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   _lastMessageUsage = null;
 }
 

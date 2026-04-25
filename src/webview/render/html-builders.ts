@@ -304,7 +304,11 @@ export function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void 
   }
 
   const stateClass = tc.isRunning ? "running" : tc.isSkipped ? "skipped" : tc.isError ? "error" : "done";
-  const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
+  const category = getToolCategory(tc.name);
+  const isAgentPatch = category === "agent";
+  const agentUsageParsedEarly = isAgentPatch && tc.resultText ? parseAgentUsage(tc.resultText) : null;
+  const resultForCollapse = agentUsageParsedEarly ? agentUsageParsedEarly.cleanText : tc.resultText;
+  const lines = resultForCollapse ? resultForCollapse.split("\n").length : 0;
   const shouldCollapse = !tc.isRunning && (lines > 5 || tc.isSkipped);
 
   block.classList.remove("running", "skipped", "error", "done", "collapsed");
@@ -379,9 +383,8 @@ export function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void 
   }
 
   // Agent meta — update model pill + description when args arrive, usage pills when result arrives
-  const category = getToolCategory(tc.name);
-  const isAgentUpdate = category === "agent";
-  const agentUsageParsed = isAgentUpdate && tc.resultText ? parseAgentUsage(tc.resultText) : null;
+  const isAgentUpdate = isAgentPatch;
+  const agentUsageParsed = agentUsageParsedEarly;
   if (isAgentUpdate) {
     const headerEl = block.querySelector<HTMLElement>(".gsd-tool-header");
     if (headerEl && Object.keys(tc.args).length > 0) {
@@ -431,9 +434,9 @@ export function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void 
         if (existingUsage) {
           existingUsage.outerHTML = usageHtml;
         } else {
-          const updatedMeta = block.querySelector<HTMLElement>(".gsd-agent-meta");
-          if (updatedMeta) {
-            updatedMeta.insertAdjacentHTML("afterend", usageHtml);
+          const headerEl = block.querySelector<HTMLElement>(".gsd-tool-header");
+          if (headerEl) {
+            headerEl.insertAdjacentHTML("afterend", usageHtml);
           }
         }
       }
@@ -506,11 +509,11 @@ export function buildToolCallHtml(tc: ToolCallState): string {
   const stateClass = tc.isRunning ? "running" : tc.isSkipped ? "skipped" : tc.isError ? "error" : "done";
   const parallelClass = tc.isParallel ? " parallel" : "";
 
-  const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
+  const agentUsageParsed = isAgent && tc.resultText ? parseAgentUsage(tc.resultText) : null;
+  const resultForCollapse = agentUsageParsed ? agentUsageParsed.cleanText : tc.resultText;
+  const lines = resultForCollapse ? resultForCollapse.split("\n").length : 0;
   const shouldCollapse = !tc.isRunning && (lines > 5 || tc.isSkipped);
   const collapsedClass = shouldCollapse ? "collapsed" : "";
-
-  const agentUsageParsed = isAgent && tc.resultText ? parseAgentUsage(tc.resultText) : null;
 
   let outputHtml = "";
 
