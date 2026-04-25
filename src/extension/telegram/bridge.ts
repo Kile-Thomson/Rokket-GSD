@@ -74,6 +74,11 @@ export class TelegramBridge {
   private readonly typingLoops = new Map<string, ReturnType<typeof setInterval>>();
   private readonly turnStartMs = new Map<string, number>();
   private readonly TYPING_INTERVAL_MS = 4500;
+  private readonly _activeDeliveries = new Set<Promise<void>>();
+
+  waitForAllDeliveries(): Promise<void> {
+    return Promise.all(Array.from(this._activeDeliveries)).then(() => undefined);
+  }
 
   constructor(
     private readonly api: TelegramApi,
@@ -118,6 +123,12 @@ export class TelegramBridge {
     this.polling = false;
     this.coordinator?.stop();
     this.coordinator = null;
+  }
+
+  /** For testing only — directly process updates without going through the IPC poller. */
+  async _testInjectUpdates(updates: TelegramUpdate[]): Promise<void> {
+    await this.handleUpdates(updates);
+    await this.waitForAllDeliveries();
   }
 
   private async handleUpdates(updates: TelegramUpdate[]): Promise<void> {
@@ -360,15 +371,17 @@ export class TelegramBridge {
       }
     };
 
-    deliver()
+    const deliveryPromise = deliver()
       .catch((err: unknown) => {
         this.stopTypingLoop(sessionId);
         const errMsg = err instanceof Error ? err.message : String(err);
         this.logger.info(`[telegram-bridge] prompt error for ${sessionId}: ${redactToken(errMsg, this.botToken)}`);
       })
       .finally(() => {
+        this._activeDeliveries.delete(deliveryPromise);
         this.drainQueue(sessionId);
       });
+    this._activeDeliveries.add(deliveryPromise);
   }
 
   async sendQuestion(
@@ -539,6 +552,10 @@ export class TelegramBridge {
 
   handleStreamEnd(sessionId: string, finalText: string): void {
     const state = this.streamingState.get(sessionId);
+    if (!state) {
+      // No streaming state means no placeholder was sent — nothing to finalize
+      return;
+    }
     const threadId = this.topicManager.getTopicForSession(sessionId);
     if (threadId == null) {
       this.logger.info(`[telegram-bridge] handleStreamEnd: no topic for session ${sessionId} (known sessions: ${this.topicManager.activeSessions.join(",")})`);

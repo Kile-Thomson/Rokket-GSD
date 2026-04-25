@@ -267,7 +267,8 @@
 }
 
 .gsd-action-btn--active:hover,
-.gsd-action-btn--active:focus {
+.gsd-action-btn--active:focus,
+.gsd-action-btn--active:focus-visible {
   background: var(--vscode-button-background, var(--gsd-color-accent));
   color: var(--vscode-button-foreground, var(--gsd-color-accent-fg));
   border-color: var(--vscode-button-background, var(--gsd-color-accent));

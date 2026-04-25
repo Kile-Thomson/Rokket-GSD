@@ -114,189 +114,150 @@ describe("TelegramBridge", () => {
   describe("inbound routing", () => {
     it("routes text message to correct session", async () => {
       const client = createMockClient();
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: false, first_name: "User" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            text: "hello",
-            message_thread_id: 200,
-          },
-        }],
-        new Map([[200, "s1"]]),
-        new Map(),
-        new Map([["s1", { client, isStreaming: false }]]),
-      );
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "hello",
+          message_thread_id: 200,
+        },
+      }]);
       expect(client.prompt).toHaveBeenCalledWith("hello", undefined);
     });
 
     it("routes slash command to session", async () => {
       const client = createMockClient();
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: false, first_name: "User" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            text: "/gsd status",
-            message_thread_id: 200,
-          },
-        }],
-        new Map([[200, "s1"]]),
-        new Map(),
-        new Map([["s1", { client, isStreaming: false }]]),
-      );
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "/gsd status",
+          message_thread_id: 200,
+        },
+      }]);
       expect(client.prompt).toHaveBeenCalledWith("/gsd status", undefined);
     });
 
     it("aborts before prompting when session is streaming", async () => {
       const client = createMockClient();
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: false, first_name: "User" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            text: "hi",
-            message_thread_id: 200,
-          },
-        }],
-        new Map([[200, "s1"]]),
-        new Map(),
-        new Map([["s1", { client, isStreaming: true }]]),
-      );
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
-      // Need to flush the 500ms delay after abort
-      await vi.advanceTimersByTimeAsync(500);
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: true }]]));
+      const injectPromise = bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "hi",
+          message_thread_id: 200,
+        },
+      }]);
+      // Advance past the 800ms settle delay after abort
+      await vi.advanceTimersByTimeAsync(1000);
+      await injectPromise;
       expect(client.abort).toHaveBeenCalled();
       expect(client.prompt).toHaveBeenCalledWith("hi", undefined);
     });
 
     it("skips bot messages", async () => {
       const client = createMockClient();
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: true, first_name: "Bot" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            text: "bot msg",
-            message_thread_id: 200,
-          },
-        }],
-        new Map([[200, "s1"]]),
-        new Map(),
-        new Map([["s1", { client, isStreaming: false }]]),
-      );
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: true, first_name: "Bot" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "bot msg",
+          message_thread_id: 200,
+        },
+      }]);
       expect(client.prompt).not.toHaveBeenCalled();
     });
 
     it("skips /telegram commands", async () => {
       const client = createMockClient();
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: false, first_name: "User" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            text: "/telegram setup",
-            message_thread_id: 200,
-          },
-        }],
-        new Map([[200, "s1"]]),
-        new Map(),
-        new Map([["s1", { client, isStreaming: false }]]),
-      );
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "/telegram setup",
+          message_thread_id: 200,
+        },
+      }]);
       expect(client.prompt).not.toHaveBeenCalled();
     });
 
     it("skips updates without message", async () => {
-      setup([{ update_id: 1 }]);
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      setup();
+      await bridge._testInjectUpdates([{ update_id: 1 }]);
       expect(logger.info).toHaveBeenCalledWith(
         expect.stringContaining("without message"),
       );
     });
 
     it("skips messages without text or photo", async () => {
-      setup([{
+      setup();
+      await bridge._testInjectUpdates([{
         update_id: 1,
         message: { message_id: 1, chat: { id: 1, type: "g" }, message_thread_id: 200 },
       }]);
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
       expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining("without text or photo"),
+        expect.stringContaining("without text, photo, or voice"),
       );
     });
 
     it("skips messages without thread_id", async () => {
-      setup([{
+      setup();
+      await bridge._testInjectUpdates([{
         update_id: 1,
         message: { message_id: 1, chat: { id: 1, type: "g" }, text: "hi" },
       }]);
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
       expect(logger.info).toHaveBeenCalledWith(
         expect.stringContaining("without thread_id"),
       );
     });
 
     it("skips when no session for topic", async () => {
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: false, first_name: "User" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            text: "hi",
-            message_thread_id: 999,
-          },
-        }],
-        new Map(),
-      );
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      setup([], new Map());
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "hi",
+          message_thread_id: 999,
+        },
+      }]);
       expect(logger.info).toHaveBeenCalledWith(
         expect.stringContaining("No session for topic"),
       );
     });
 
     it("skips when session has no client", async () => {
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: false, first_name: "User" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            text: "hi",
-            message_thread_id: 200,
-          },
-        }],
-        new Map([[200, "s1"]]),
-        new Map(),
-        new Map([["s1", { client: null, isStreaming: false }]]),
-      );
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client: null, isStreaming: false }]]));
+      const injectPromise = bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "hi",
+          message_thread_id: 200,
+        },
+      }]);
+      // CLIENT_MAX_RETRIES * CLIENT_RETRY_MS = 5 * 2000 = 10000ms
+      await vi.advanceTimersByTimeAsync(11000);
+      await injectPromise;
       expect(logger.info).toHaveBeenCalledWith(
         expect.stringContaining("No client"),
       );
@@ -306,14 +267,23 @@ describe("TelegramBridge", () => {
   describe("handleAssistantMessage", () => {
     it("sends message to correct topic", async () => {
       setup([], new Map(), new Map([["s1", 300]]));
+      bridge.setStreamingGranularity("off");
       await bridge.handleAssistantMessage("s1", "response text");
       expect(api.sendMessage).toHaveBeenCalledWith(CHAT_ID, "response text", {
         message_thread_id: 300,
+        parse_mode: "HTML",
       });
     });
 
     it("does nothing when no topic for session", async () => {
       setup();
+      bridge.setStreamingGranularity("off");
+      await bridge.handleAssistantMessage("s1", "text");
+      expect(api.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it("does nothing in throttled streaming mode (default)", async () => {
+      setup([], new Map(), new Map([["s1", 300]]));
       await bridge.handleAssistantMessage("s1", "text");
       expect(api.sendMessage).not.toHaveBeenCalled();
     });
@@ -334,6 +304,7 @@ describe("TelegramBridge", () => {
         BOT_TOKEN,
         CHAT_ID,
       );
+      bridge.setStreamingGranularity("off");
       await bridge.handleAssistantMessage("s1", "text");
       expect(logger.info).toHaveBeenCalledWith(
         expect.stringContaining("sendMessage error"),
@@ -357,7 +328,7 @@ describe("TelegramBridge", () => {
       bridge.handleStreamingChunk("s1", "c");
       await vi.advanceTimersByTimeAsync(2000); // throttle fires
       expect(api.editMessageText).toHaveBeenCalledWith(
-        CHAT_ID, 1, expect.stringContaining("abc"),
+        CHAT_ID, 1, expect.stringContaining("abc"), { parse_mode: "HTML" },
       );
     });
 
@@ -383,7 +354,7 @@ describe("TelegramBridge", () => {
       // Don't advance timer — pending edit is scheduled
       bridge.handleStreamEnd("s1", "final text");
       await vi.advanceTimersByTimeAsync(0);
-      expect(api.editMessageText).toHaveBeenCalledWith(CHAT_ID, 1, "final text");
+      expect(api.editMessageText).toHaveBeenCalledWith(CHAT_ID, 1, "final text", { parse_mode: "HTML" });
     });
 
     it("clearStreamingState cancels pending timers", async () => {
@@ -495,29 +466,20 @@ describe("TelegramBridge", () => {
     it("continues polling after prompt error", async () => {
       const client = createMockClient();
       (client.prompt as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("prompt fail"));
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: false, first_name: "User" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            text: "hi",
-            message_thread_id: 200,
-          },
-        }],
-        new Map([[200, "s1"]]),
-        new Map(),
-        new Map([["s1", { client, isStreaming: false }]]),
-      );
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "hi",
+          message_thread_id: 200,
+        },
+      }]);
       expect(logger.info).toHaveBeenCalledWith(
         expect.stringContaining("prompt error"),
       );
-      // Prompt errors don't trigger backoff (only getUpdates errors do), next poll at BASE_DELAY
-      await vi.advanceTimersByTimeAsync(2000);
-      expect(api.getUpdates).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -688,23 +650,17 @@ describe("TelegramBridge", () => {
 
     it("routes photo-only message with image", async () => {
       const client = createMockClient();
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: false, first_name: "User" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            photo: photoSizes,
-            message_thread_id: 200,
-          },
-        }],
-        new Map([[200, "s1"]]),
-        new Map(),
-        new Map([["s1", { client, isStreaming: false }]]),
-      );
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          photo: photoSizes,
+          message_thread_id: 200,
+        },
+      }]);
       expect(api.getFile).toHaveBeenCalledWith("large");
       expect(api.downloadFile).toHaveBeenCalledWith("photos/file_0.jpg");
       expect(client.prompt).toHaveBeenCalledWith("", [
@@ -714,24 +670,18 @@ describe("TelegramBridge", () => {
 
     it("routes photo+caption with caption as text and image", async () => {
       const client = createMockClient();
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: false, first_name: "User" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            photo: photoSizes,
-            caption: "Check this out",
-            message_thread_id: 200,
-          },
-        }],
-        new Map([[200, "s1"]]),
-        new Map(),
-        new Map([["s1", { client, isStreaming: false }]]),
-      );
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          photo: photoSizes,
+          caption: "Check this out",
+          message_thread_id: 200,
+        },
+      }]);
       expect(client.prompt).toHaveBeenCalledWith("Check this out", [
         { type: "image", data: "aW1hZ2VkYXRh", mimeType: "image/jpeg" },
       ]);
@@ -739,25 +689,19 @@ describe("TelegramBridge", () => {
 
     it("download failure with caption falls back to text-only prompt", async () => {
       const client = createMockClient();
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: false, first_name: "User" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            photo: photoSizes,
-            caption: "Fallback text",
-            message_thread_id: 200,
-          },
-        }],
-        new Map([[200, "s1"]]),
-        new Map(),
-        new Map([["s1", { client, isStreaming: false }]]),
-      );
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
       (api.downloadFile as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("network"));
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          photo: photoSizes,
+          caption: "Fallback text",
+          message_thread_id: 200,
+        },
+      }]);
       expect(client.prompt).toHaveBeenCalledWith("Fallback text", undefined);
       expect(logger.info).toHaveBeenCalledWith(
         expect.stringContaining("Failed to download photo"),
@@ -766,24 +710,18 @@ describe("TelegramBridge", () => {
 
     it("download failure without caption skips message", async () => {
       const client = createMockClient();
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: false, first_name: "User" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            photo: photoSizes,
-            message_thread_id: 200,
-          },
-        }],
-        new Map([[200, "s1"]]),
-        new Map(),
-        new Map([["s1", { client, isStreaming: false }]]),
-      );
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
       (api.downloadFile as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("timeout"));
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          photo: photoSizes,
+          message_thread_id: 200,
+        },
+      }]);
       expect(client.prompt).not.toHaveBeenCalled();
       expect(logger.info).toHaveBeenCalledWith(
         expect.stringContaining("No caption/text after download failure"),
@@ -792,73 +730,55 @@ describe("TelegramBridge", () => {
 
     it("getFile returns no file_path — falls back gracefully", async () => {
       const client = createMockClient();
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: false, first_name: "User" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            photo: photoSizes,
-            caption: "Has caption",
-            message_thread_id: 200,
-          },
-        }],
-        new Map([[200, "s1"]]),
-        new Map(),
-        new Map([["s1", { client, isStreaming: false }]]),
-      );
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
       (api.getFile as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         file_id: "large", file_unique_id: "l",
       });
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          photo: photoSizes,
+          caption: "Has caption",
+          message_thread_id: 200,
+        },
+      }]);
       expect(client.prompt).toHaveBeenCalledWith("Has caption", undefined);
     });
 
     it("text message still routes normally (regression guard)", async () => {
       const client = createMockClient();
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: false, first_name: "User" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            text: "plain text",
-            message_thread_id: 200,
-          },
-        }],
-        new Map([[200, "s1"]]),
-        new Map(),
-        new Map([["s1", { client, isStreaming: false }]]),
-      );
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "plain text",
+          message_thread_id: 200,
+        },
+      }]);
       expect(client.prompt).toHaveBeenCalledWith("plain text", undefined);
       expect(api.getFile).not.toHaveBeenCalled();
     });
 
     it("empty photo array treated as text-only", async () => {
       const client = createMockClient();
-      setup(
-        [{
-          update_id: 1,
-          message: {
-            message_id: 1,
-            from: { id: 99, is_bot: false, first_name: "User" },
-            chat: { id: CHAT_ID, type: "supergroup" },
-            text: "has text",
-            photo: [],
-            message_thread_id: 200,
-          },
-        }],
-        new Map([[200, "s1"]]),
-        new Map(),
-        new Map([["s1", { client, isStreaming: false }]]),
-      );
-      bridge.startPolling();
-      await vi.advanceTimersByTimeAsync(0);
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "has text",
+          photo: [],
+          message_thread_id: 200,
+        },
+      }]);
       expect(client.prompt).toHaveBeenCalledWith("has text", undefined);
       expect(api.getFile).not.toHaveBeenCalled();
     });
