@@ -6,8 +6,6 @@ import { toErrorMessage } from "../shared/errors";
 import { GsdWebviewProvider } from "./webview-provider";
 import { startUpdateChecker } from "./update-checker";
 import { runHealthCheck } from "./health-check";
-import { runTelegramSetup, updateTelegramStatusBar } from "./telegram/setup";
-import { getOpenAiApiKey, setOpenAiApiKey } from "./openai/config";
 
 /** Bundled pi extensions to auto-install to ~/.gsd/agent/extensions/ */
 const BUNDLED_PI_EXTENSIONS = ["async-subagent"];
@@ -147,23 +145,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand("gsd.exportReport", () => {
       provider.exportReport();
-    }),
-
-    vscode.commands.registerCommand("gsd.telegramSetup", () => runTelegramSetup(context)),
-
-    vscode.commands.registerCommand("gsd.setOpenAiApiKey", async () => {
-      const existing = await getOpenAiApiKey(context.secrets);
-      const key = await vscode.window.showInputBox({
-        prompt: existing
-          ? "Replace your stored OpenAI API key"
-          : "Enter your OpenAI API key (stored securely in OS keychain)",
-        placeHolder: "sk-...",
-        password: true,
-        ignoreFocusOut: true,
-      });
-      if (!key) return;
-      await setOpenAiApiKey(context.secrets, key);
-      vscode.window.showInformationMessage("OpenAI API key saved.");
     })
   );
 
@@ -173,15 +154,9 @@ export function activate(context: vscode.ExtensionContext): void {
       if (e.affectsConfiguration("gsd")) {
         output.appendLine("GSD configuration changed");
         provider.onConfigChanged();
-        if (e.affectsConfiguration("gsd.telegram")) {
-          updateTelegramStatusBar(statusBarItem, context);
-        }
       }
     })
   );
-
-  // Check Telegram config and update status bar
-  updateTelegramStatusBar(statusBarItem, context);
 
   // Run startup health check (non-blocking)
   runHealthCheck(output);
@@ -195,10 +170,8 @@ export function activate(context: vscode.ExtensionContext): void {
   output.appendLine("GSD extension activated");
 }
 
-export async function deactivate(): Promise<void> {
-  if (provider) {
-    await provider.disposeAsync();
-  }
+export function deactivate(): void {
+  provider?.dispose();
   statusBarItem?.dispose();
   outputChannel?.dispose();
 }

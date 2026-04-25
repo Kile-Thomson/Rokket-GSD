@@ -216,9 +216,6 @@ export function buildItems(): SlashMenuItem[] {
     { name: "resume", description: "Resume last session", insertText: "", source: "webview" },
     { name: "auto-compact", description: "Toggle auto-compaction on/off", insertText: "", source: "webview" },
     { name: "auto-retry", description: "Toggle auto-retry on transient errors", insertText: "", source: "webview" },
-    { name: "telegram", description: "Start Telegram streaming — opens setup and connects", insertText: "", source: "webview" },
-    { name: "telegram-stop", description: "Stop Telegram streaming — kills relay and disconnects", insertText: "", source: "webview" },
-    { name: "telegram voice", description: "Set OpenAI API key for voice transcription", insertText: "", source: "webview" },
   );
 
   return items;
@@ -256,12 +253,6 @@ function render(): void {
 
   const activeEl = slashMenuEl.querySelector(".gsd-slash-item.active");
   if (activeEl) activeEl.scrollIntoView({ block: "nearest" });
-}
-
-function sendSlashCommand(payload: object): void {
-  promptInput.value = "";
-  onAutoResize();
-  vscode.postMessage(payload);
 }
 
 function selectCommand(idx: number): void {
@@ -332,15 +323,6 @@ function selectCommand(idx: number): void {
         promptInput.value = "";
         onAutoResize();
         onToggleAutoRetry?.();
-        break;
-      case "telegram":
-        sendSlashCommand({ type: "telegram_setup" });
-        break;
-      case "telegram-stop":
-        sendSlashCommand({ type: "telegram_sync_toggle", forceOff: true });
-        break;
-      case "telegram voice":
-        sendSlashCommand({ type: "set_openai_api_key" });
         break;
     }
     promptInput.focus();

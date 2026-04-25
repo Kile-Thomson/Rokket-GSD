@@ -333,11 +333,6 @@ function handleMessage(event: MessageEvent): void {
         if (data.sessionId) {
           sessionHistory.setCurrentSessionId(data.sessionId);
         }
-        if (data.telegramSyncActive != null) {
-          state.telegramSyncActive = data.telegramSyncActive;
-          const syncBtn = document.getElementById("telegramSyncBtn");
-          if (syncBtn) syncBtn.classList.toggle("gsd-action-btn--active", data.telegramSyncActive);
-        }
         if (state.processStatus !== "crashed") state.processStatus = "running";
         // Eagerly fetch available models if not loaded yet (debounce)
         if (!state.modelsLoaded && !state.modelsRequested) {
@@ -1780,23 +1775,6 @@ function handleMessage(event: MessageEvent): void {
     // terminal_output: silently ignored — embedded terminal not used in this extension
     case "terminal_output":
       break;
-
-    case "telegram_user_message": {
-      const tmMsg = msg as any;
-      const entry: ChatEntry = {
-        id: nextId(),
-        type: "user",
-        text: `📱 ${tmMsg.text}`,
-        timestamp: Date.now(),
-        images: tmMsg.images,
-      };
-      state.entries.push(entry);
-      pruneOldEntries(messagesContainer);
-      welcomeScreen.classList.add("gsd-hidden");
-      renderer.renderNewEntry(entry);
-      scrollToBottom(messagesContainer, true);
-      break;
-    }
 
     case "cost_update": {
       // v2 protocol: cumulative cost/token update from GSD PI.

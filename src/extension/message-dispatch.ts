@@ -71,10 +71,6 @@ export interface MessageDispatchContext {
   watchdogCtx: WatchdogContext;
   commandFallbackCtx: CommandFallbackContext;
   fileOpsCtx: FileOpsContext;
-
-  // Telegram sync
-  telegramSyncToggle?: (sessionId: string, webview: vscode.Webview) => Promise<void>;
-  cancelTelegramQuestion?: (requestId: string) => void;
 }
 
 // ============================================================
@@ -957,7 +953,6 @@ export async function handleWebviewMessage(
               cancelled: msg.cancelled,
             });
           }
-          ctx.cancelTelegramQuestion?.(msg.id);
           break;
         }
 
@@ -1004,25 +999,6 @@ export async function handleWebviewMessage(
         case "ollama_action": {
           ctx.getSession(sessionId).lastUserActionTime = Date.now();
           await handleOllamaAction(ctx.commandFallbackCtx, webview, sessionId, msg.action, msg.model);
-          break;
-        }
-
-        case "telegram_sync_toggle": {
-          if (ctx.telegramSyncToggle) {
-            await ctx.telegramSyncToggle(sessionId, webview);
-          } else {
-            ctx.output.appendLine(`[${sessionId}] telegram_sync_toggle: no handler registered`);
-          }
-          break;
-        }
-
-        case "telegram_setup": {
-          await vscode.commands.executeCommand("gsd.telegramSetup");
-          break;
-        }
-
-        case "set_openai_api_key": {
-          await vscode.commands.executeCommand("gsd.setOpenAiApiKey");
           break;
         }
 

@@ -25,13 +25,6 @@ export interface RpcEventContext {
   refreshWorkflowState(webview: vscode.Webview, sessionId: string): Promise<void>;
   isWebviewVisible(sessionId: string): boolean;
   readonly webviewView?: vscode.WebviewView;
-  onAssistantMessage?: ((sessionId: string, text: string) => void) | undefined;
-  onStreamingChunk?: (sessionId: string, delta: string) => void;
-  onStreamEnd?: (sessionId: string, finalText: string) => void;
-  forwardQuestionToTelegram?: (sessionId: string, requestId: string, title: string, options: string[]) => Promise<string | null>;
-  cancelTelegramQuestion?: (requestId: string) => void;
-  onToolStart?: (sessionId: string, toolCallId: string, toolName: string, args: Record<string, unknown>) => void;
-  onToolEnd?: (sessionId: string, toolCallId: string, isError: boolean, durationMs?: number) => void;
 }
 
 // ============================================================
@@ -111,14 +104,6 @@ export function handleRpcEvent(
     }
     // Refresh workflow state after each agent turn
     ctx.refreshWorkflowState(webview, sessionId);
-  } else if (eventType === "message_update") {
-    const evt = event.assistantMessageEvent as Record<string, unknown> | undefined;
-    if (evt && (evt.type === "text" || evt.type === "text_delta")) {
-      const delta = evt.delta as string | undefined;
-      if (delta) {
-        ctx.onStreamingChunk?.(sessionId, delta);
-      }
-    }
   } else if (eventType === "message_end") {
     const msg = event.message as Record<string, unknown> | undefined;
     const usage = (msg?.usage as { cost?: { total?: number } }) ?? undefined;
@@ -126,29 +111,6 @@ export function handleRpcEvent(
       const session = ctx.getSession(sessionId);
       session.accumulatedCost += usage.cost.total;
       ctx.emitStatus({ cost: session.accumulatedCost });
-    }
-    // Notify bridge of assistant messages
-    if (msg?.role === "assistant" && msg.content != null) {
-      const content = msg.content;
-      let text: string;
-      if (typeof content === "string") {
-        text = content;
-      } else if (Array.isArray(content)) {
-        text = (content as Array<Record<string, unknown>>)
-          .filter((b) => b.type === "text" && typeof b.text === "string")
-          .map((b) => b.text as string)
-          .join("");
-      } else {
-        text = "";
-      }
-      if (text) {
-        ctx.onAssistantMessage?.(sessionId, text);
-        ctx.onStreamEnd?.(sessionId, text);
-      } else {
-        ctx.output.appendLine(`[${sessionId}] message_end: no text extracted (content type=${typeof content}, isArray=${Array.isArray(content)}, blockTypes=${Array.isArray(content) ? (content as Array<Record<string, unknown>>).map(b => b.type).join(",") : "n/a"})`);
-      }
-    } else if (msg?.role === "assistant") {
-      ctx.output.appendLine(`[${sessionId}] message_end: assistant message with null content`);
     }
     // Check for error stopReason — clear streaming state even if agent_end never arrives
     const stopReason = (msg as Record<string, unknown> | undefined)?.stopReason as string | undefined;
@@ -192,24 +154,6 @@ export function handleRpcEvent(
   } else if (eventType === 'execution_complete') {
     // v2 protocol: execution run completed — refresh workflow state
     ctx.refreshWorkflowState(webview, sessionId);
-  } else if (eventType === "tool_execution_start") {
-    if (ctx.onToolStart) {
-      const toolCallId = event.toolCallId as string | undefined;
-      const toolName = event.toolName as string | undefined;
-      const args = (event.args as Record<string, unknown> | undefined) ?? {};
-      if (toolCallId && toolName) {
-        ctx.onToolStart(sessionId, toolCallId, toolName, args);
-      }
-    }
-  } else if (eventType === "tool_execution_end") {
-    if (ctx.onToolEnd) {
-      const toolCallId = event.toolCallId as string | undefined;
-      const isError = (event.isError as boolean | undefined) ?? false;
-      const durationMs = event.durationMs as number | undefined;
-      if (toolCallId) {
-        ctx.onToolEnd(sessionId, toolCallId, isError, durationMs);
-      }
-    }
   } else if (eventType === "extensions_ready") {
     // gsd-pi 2.44+: extensions finished loading — fetch definitive command and model lists.
     // Extensions like Ollama register providers asynchronously after session_start,
@@ -283,35 +227,6 @@ export async function handleExtensionUiRequest(
             }
           }
         });
-      }
-
-      // Forward select questions to Telegram as inline keyboard buttons.
-      // The webview and Telegram race — whichever answers first wins.
-      // The webview response path (message-dispatch) cancels the Telegram question.
-      if (method === "select" && ctx.forwardQuestionToTelegram) {
-        const options = event.options as string[] | undefined;
-        const questionTitle = event.title as string || event.message as string || "Question";
-        if (options?.length) {
-          ctx.forwardQuestionToTelegram(sessionId, id, questionTitle, options)
-            .then((answer) => {
-              if (answer != null) {
-                client.sendExtensionUiResponse({
-                  type: "extension_ui_response",
-                  id,
-                  value: answer,
-                });
-                // Notify webview to dismiss the dialog
-                ctx.postToWebview(webview, {
-                  type: "extension_ui_response_external",
-                  id,
-                  value: answer,
-                } as unknown as ExtensionToWebviewMessage);
-              }
-            })
-            .catch((err: unknown) => {
-              ctx.output.appendLine(`[rpc-events] Telegram question forward error: ${err instanceof Error ? err.message : String(err)}`);
-            });
-        }
       }
       break;
     }
