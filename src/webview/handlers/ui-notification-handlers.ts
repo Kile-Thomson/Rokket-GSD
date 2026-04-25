@@ -28,12 +28,6 @@ import {
   addSystemEntry,
   removeSteerNotes,
   resetDerivedSessionTracking,
-  getActiveBatchToolIds,
-  setActiveBatchToolIds,
-  getBatchFinalizeTimer,
-  setBatchFinalizeTimer,
-  setMessageParallelToolIds,
-  getLastMessageUsage,
   getGsdApp,
   getSettingsDropdown,
   getWidgetContainer,
@@ -130,13 +124,6 @@ export function handleSessionShutdown(): void {
   state.retryInfo = undefined;
   state.processStatus = "stopped";
   flushToolEndQueue();
-  const timer = getBatchFinalizeTimer();
-  if (timer) { clearTimeout(timer); setBatchFinalizeTimer(null); }
-  const batchIds = getActiveBatchToolIds();
-  if (batchIds) { renderer.finalizeParallelBatch(getLastMessageUsage()); }
-  setActiveBatchToolIds(null);
-  setMessageParallelToolIds(null);
-  renderer.clearActiveBatch();
   if (state.currentTurn) {
     renderer.finalizeCurrentTurn();
   }

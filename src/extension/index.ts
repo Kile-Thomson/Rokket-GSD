@@ -10,7 +10,7 @@ import { runTelegramSetup, updateTelegramStatusBar } from "./telegram/setup";
 import { getOpenAiApiKey, setOpenAiApiKey } from "./openai/config";
 
 /** Bundled pi extensions to auto-install to ~/.gsd/agent/extensions/ */
-const BUNDLED_PI_EXTENSIONS = ["async-subagent"];
+const BUNDLED_PI_EXTENSIONS: string[] = [];
 
 /** Compare two semver strings. Returns >0 if a > b, <0 if a < b, 0 if equal. */
 function compareSemver(a: string, b: string): number {
@@ -186,7 +186,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Run startup health check (non-blocking)
   runHealthCheck(output);
 
-  // Auto-install bundled pi extensions (async-subagent)
+  // Auto-install bundled pi extensions
   installBundledExtensions(context, output);
 
   // Check for updates from GitHub Releases

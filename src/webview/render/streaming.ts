@@ -315,7 +315,7 @@ export function updateToolSegmentElement(toolCallId: string, searchAllEntries: b
   }
   if (!targetEl) return;
   patchToolBlockElement(targetEl, tc);
-  if (!tc.isRunning && targetSegIdx !== null && !targetEl.closest(".gsd-parallel-batch-content")) {
+  if (!tc.isRunning && targetSegIdx !== null) {
     if (tc.isSkipped) {
       tryStreamingSkippedCollapse(targetEl, targetSegIdx);
     } else {

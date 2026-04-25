@@ -38,12 +38,13 @@ vi.mock("fs", async () => {
   const actual = await vi.importActual<typeof import("fs")>("fs");
   return {
     ...actual,
-    realpathSync: vi.fn((p: string) => p), // identity — no real FS resolution
-    writeFileSync: vi.fn(),
     promises: {
       ...actual.promises,
       access: vi.fn().mockResolvedValue(undefined),
       readFile: vi.fn(),
+      realpath: vi.fn((p: string) => Promise.resolve(p)), // identity — no real FS resolution
+      writeFile: vi.fn().mockResolvedValue(undefined),
+      unlink: vi.fn().mockResolvedValue(undefined),
     },
   };
 });
@@ -91,15 +92,17 @@ describe("file-ops", () => {
     vsc.workspace.workspaceFolders = [
       { uri: { fsPath: "/mock/workspace" }, name: "ws", index: 0 },
     ];
-    // Restore realpathSync identity mock (clearAllMocks resets implementations)
-    (fs.realpathSync as any).mockImplementation((p: string) => p);
+    // Restore realpath identity mock (clearAllMocks resets implementations)
+    (fs.promises.realpath as any).mockImplementation((p: string) => Promise.resolve(p));
+    (fs.promises.writeFile as any).mockResolvedValue(undefined);
+    (fs.promises.unlink as any).mockResolvedValue(undefined);
   });
 
   // ─── handleOpenFile ────────────────────────────────────────────────
 
   describe("handleOpenFile", () => {
-    it("opens a file within the workspace", () => {
-      (fs.realpathSync as any).mockImplementation((p: string) => p);
+    it("opens a file within the workspace", async () => {
+      (fs.promises.realpath as any).mockImplementation((p: string) => Promise.resolve(p));
       const ctx = createCtx();
       // Use path.resolve to produce a platform-native absolute path so the
       // workspace boundary check works on both Unix and Windows.
@@ -107,42 +110,49 @@ describe("file-ops", () => {
       vsc.workspace.workspaceFolders = [
         { uri: { fsPath: path.resolve("/mock/workspace") }, name: "ws", index: 0 },
       ] as any;
-      handleOpenFile(ctx, webview, sid, { path: filePath });
+      await handleOpenFile(ctx, webview, sid, { path: filePath });
       expect(vsc.workspace.openTextDocument).toHaveBeenCalledWith(
         expect.stringContaining("mock" + path.sep + "workspace" + path.sep + "src" + path.sep + "index.ts"),
       );
     });
 
-    it("blocks open outside workspace", () => {
-      (fs.realpathSync as any).mockImplementation((p: string) => p);
+    it("blocks open outside workspace", async () => {
+      (fs.promises.realpath as any).mockImplementation((p: string) => Promise.resolve(p));
       const ctx = createCtx();
-      handleOpenFile(ctx, webview, sid, { path: "/other/evil.ts" });
+      await handleOpenFile(ctx, webview, sid, { path: "/other/evil.ts" });
       expect(vsc.workspace.openTextDocument).not.toHaveBeenCalled();
       expect(ctx.output.appendLine).toHaveBeenCalledWith(expect.stringContaining("Blocked open_file outside workspace"));
     });
 
-    it("logs when no workspace is open", () => {
+    it("logs when no workspace is open", async () => {
       vsc.workspace.workspaceFolders = null as any;
       const ctx = createCtx();
-      handleOpenFile(ctx, webview, sid, { path: "/any/file.ts" });
+      await handleOpenFile(ctx, webview, sid, { path: "/any/file.ts" });
       expect(ctx.output.appendLine).toHaveBeenCalledWith(expect.stringContaining("no workspace open"));
     });
 
-    it("shows error message when realpathSync throws", () => {
-      (fs.realpathSync as any).mockImplementation(() => { throw new Error("ENOENT"); });
+    it("falls back to resolvedPath when realpath rejects for the target file", async () => {
+      // First call (for the target file) rejects; second call (workspace root) resolves.
+      (fs.promises.realpath as any)
+        .mockRejectedValueOnce(Object.assign(new Error("ENOENT"), { code: "ENOENT" }))
+        .mockImplementation((p: string) => Promise.resolve(p));
       const ctx = createCtx();
-      handleOpenFile(ctx, webview, sid, { path: "/mock/workspace/missing.ts" });
-      expect(vsc.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining("ENOENT"));
+      // Use path.resolve so paths are platform-native (avoids Windows mixed-sep mismatch)
+      const wsRoot = path.resolve("/mock/workspace");
+      vsc.workspace.workspaceFolders = [{ uri: { fsPath: wsRoot }, name: "ws", index: 0 }] as any;
+      await handleOpenFile(ctx, webview, sid, { path: path.join(wsRoot, "missing.ts") });
+      // Falls back to resolvedPath — still within workspace — openTextDocument is called
+      expect(vsc.workspace.openTextDocument).toHaveBeenCalled();
     });
   });
 
   // ─── handleOpenDiff ────────────────────────────────────────────────
 
   describe("handleOpenDiff", () => {
-    it("executes vscode.diff with both URIs inside workspace", () => {
-      (fs.realpathSync as any).mockImplementation((p: string) => p);
+    it("executes vscode.diff with both URIs inside workspace", async () => {
+      (fs.promises.realpath as any).mockImplementation((p: string) => Promise.resolve(p));
       const ctx = createCtx();
-      handleOpenDiff(ctx, webview, sid, {
+      await handleOpenDiff(ctx, webview, sid, {
         leftPath: "/mock/workspace/a.ts",
         rightPath: "/mock/workspace/b.ts",
       });
@@ -153,10 +163,10 @@ describe("file-ops", () => {
       );
     });
 
-    it("blocks diff when a path is outside workspace", () => {
-      (fs.realpathSync as any).mockImplementation((p: string) => p);
+    it("blocks diff when a path is outside workspace", async () => {
+      (fs.promises.realpath as any).mockImplementation((p: string) => Promise.resolve(p));
       const ctx = createCtx();
-      handleOpenDiff(ctx, webview, sid, {
+      await handleOpenDiff(ctx, webview, sid, {
         leftPath: "/mock/workspace/a.ts",
         rightPath: "/evil/b.ts",
       });
@@ -168,30 +178,30 @@ describe("file-ops", () => {
   // ─── handleOpenUrl ─────────────────────────────────────────────────
 
   describe("handleOpenUrl", () => {
-    it("opens an https URL externally", () => {
+    it("opens an https URL externally", async () => {
       const ctx = createCtx();
-      handleOpenUrl(ctx, webview, sid, { url: "https://example.com" });
+      await handleOpenUrl(ctx, webview, sid, { url: "https://example.com" });
       expect(vsc.env.openExternal).toHaveBeenCalled();
     });
 
-    it("blocks non-http URLs", () => {
+    it("blocks non-http URLs", async () => {
       const ctx = createCtx();
-      handleOpenUrl(ctx, webview, sid, { url: "file:///etc/passwd" });
+      await handleOpenUrl(ctx, webview, sid, { url: "file:///etc/passwd" });
       expect(vsc.env.openExternal).not.toHaveBeenCalled();
       // file:// paths are routed to handleOpenFile which blocks paths outside workspace
       expect(ctx.output.appendLine).toHaveBeenCalledWith(expect.stringContaining("Blocked"));
     });
 
-    it("routes relative file paths to handleOpenFile", () => {
+    it("routes relative file paths to handleOpenFile", async () => {
       const ctx = createCtx();
       // Relative paths that look like file paths should not be opened externally
-      handleOpenUrl(ctx, webview, sid, { url: "readme.md" });
+      await handleOpenUrl(ctx, webview, sid, { url: "readme.md" });
       expect(vsc.env.openExternal).not.toHaveBeenCalled();
     });
 
-    it("blocks anchor-only URLs", () => {
+    it("blocks anchor-only URLs", async () => {
       const ctx = createCtx();
-      handleOpenUrl(ctx, webview, sid, { url: "#section" });
+      await handleOpenUrl(ctx, webview, sid, { url: "#section" });
       expect(vsc.env.openExternal).not.toHaveBeenCalled();
       expect(ctx.output.appendLine).toHaveBeenCalledWith(expect.stringContaining("Blocked"));
     });
@@ -204,7 +214,7 @@ describe("file-ops", () => {
       vsc.window.showSaveDialog.mockResolvedValue({ fsPath: "/tmp/export.html" });
       const ctx = createCtx();
       await handleExportHtml(ctx, webview, sid, { html: "<p>Hello</p>", css: "body{}" });
-      expect(fs.writeFileSync).toHaveBeenCalledWith("/tmp/export.html", expect.stringContaining("<p>Hello</p>"), "utf-8");
+      expect(fs.promises.writeFile).toHaveBeenCalledWith("/tmp/export.html", expect.stringContaining("<p>Hello</p>"), "utf-8");
       expect(vsc.env.openExternal).toHaveBeenCalled();
       expect(vsc.window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining("Exported"));
     });
@@ -213,12 +223,12 @@ describe("file-ops", () => {
       vsc.window.showSaveDialog.mockResolvedValue(undefined);
       const ctx = createCtx();
       await handleExportHtml(ctx, webview, sid, { html: "<p>X</p>" });
-      expect(fs.writeFileSync).not.toHaveBeenCalled();
+      expect(fs.promises.writeFile).not.toHaveBeenCalled();
     });
 
     it("posts error to webview on write failure", async () => {
       vsc.window.showSaveDialog.mockResolvedValue({ fsPath: "/tmp/export.html" });
-      (fs.writeFileSync as any).mockImplementation(() => { throw new Error("disk full"); });
+      (fs.promises.writeFile as any).mockRejectedValue(new Error("disk full"));
       const ctx = createCtx();
       await handleExportHtml(ctx, webview, sid, { html: "<p>X</p>" });
       expect(ctx.postToWebview).toHaveBeenCalledWith(webview, expect.objectContaining({ type: "error" }));
@@ -228,40 +238,38 @@ describe("file-ops", () => {
   // ─── handleSaveTempFile ────────────────────────────────────────────
 
   describe("handleSaveTempFile", () => {
-    it("writes a base64 file and posts success", () => {
-      (fs.writeFileSync as any).mockImplementation(() => {});
+    it("writes a base64 file and posts success", async () => {
       const ctx = createCtx();
-      handleSaveTempFile(ctx, webview, sid, { name: "test.png", data: "aGVsbG8=" });
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
+      await handleSaveTempFile(ctx, webview, sid, { name: "test.png", data: "aGVsbG8=" });
+      expect(fs.promises.writeFile).toHaveBeenCalledWith(
         path.join("/tmp/gsd-test", "test.png"),
         expect.any(Buffer),
       );
       expect(ctx.postToWebview).toHaveBeenCalledWith(webview, expect.objectContaining({ type: "temp_file_saved" }));
     });
 
-    it("sanitizes path separators in filename", () => {
-      (fs.writeFileSync as any).mockImplementation(() => {});
+    it("sanitizes path separators in filename", async () => {
       const ctx = createCtx();
-      handleSaveTempFile(ctx, webview, sid, { name: "../evil/file.txt", data: "YQ==" });
+      await handleSaveTempFile(ctx, webview, sid, { name: "../evil/file.txt", data: "YQ==" });
       // Forward slashes replaced with _ ; backslashes also replaced
-      const call = (fs.writeFileSync as any).mock.calls[0][0] as string;
+      const call = (fs.promises.writeFile as any).mock.calls[0][0] as string;
       expect(call).not.toContain("/evil");
       expect(path.basename(call)).toBe(".._evil_file.txt");
     });
 
-    it("posts error to webview on write failure", () => {
-      (fs.writeFileSync as any).mockImplementation(() => { throw new Error("nope"); });
+    it("posts error to webview on write failure", async () => {
+      (fs.promises.writeFile as any).mockRejectedValue(new Error("nope"));
       const ctx = createCtx();
-      handleSaveTempFile(ctx, webview, sid, { name: "x.bin", data: "AA==" });
+      await handleSaveTempFile(ctx, webview, sid, { name: "x.bin", data: "AA==" });
       expect(ctx.postToWebview).toHaveBeenCalledWith(webview, expect.objectContaining({ type: "error" }));
     });
 
-    it("rejects payloads exceeding 50MB limit", () => {
+    it("rejects payloads exceeding 50MB limit", async () => {
       const ctx = createCtx();
       // Create a string slightly over the 66_666_667 base64 threshold
       const oversizedData = "A".repeat(66_666_668);
-      handleSaveTempFile(ctx, webview, sid, { name: "huge.bin", data: oversizedData });
-      expect(fs.writeFileSync).not.toHaveBeenCalled();
+      await handleSaveTempFile(ctx, webview, sid, { name: "huge.bin", data: oversizedData });
+      expect(fs.promises.writeFile).not.toHaveBeenCalled();
       expect(ctx.postToWebview).toHaveBeenCalledWith(webview, {
         type: "error",
         message: "File exceeds 50MB limit",
@@ -271,12 +279,11 @@ describe("file-ops", () => {
       );
     });
 
-    it("allows payloads under 50MB limit", () => {
-      (fs.writeFileSync as any).mockImplementation(() => {});
+    it("allows payloads under 50MB limit", async () => {
       const ctx = createCtx();
       const normalData = "A".repeat(1000);
-      handleSaveTempFile(ctx, webview, sid, { name: "small.bin", data: normalData });
-      expect(fs.writeFileSync).toHaveBeenCalled();
+      await handleSaveTempFile(ctx, webview, sid, { name: "small.bin", data: normalData });
+      expect(fs.promises.writeFile).toHaveBeenCalled();
       expect(ctx.postToWebview).toHaveBeenCalledWith(webview, expect.objectContaining({ type: "temp_file_saved" }));
     });
   });
@@ -285,7 +292,7 @@ describe("file-ops", () => {
 
   describe("handleCheckFileAccess", () => {
     it("checks readability and posts results for workspace-internal paths", async () => {
-      (fs.realpathSync as any).mockImplementation((p: string) => p);
+      (fs.promises.realpath as any).mockImplementation((p: string) => Promise.resolve(p));
       (fs.promises.access as any)
         .mockResolvedValueOnce(undefined)
         .mockRejectedValueOnce(new Error("ENOENT"));
@@ -303,7 +310,7 @@ describe("file-ops", () => {
     });
 
     it("blocks paths outside the workspace boundary", async () => {
-      (fs.realpathSync as any).mockImplementation((p: string) => p);
+      (fs.promises.realpath as any).mockImplementation((p: string) => Promise.resolve(p));
       const ctx = createCtx();
       await handleCheckFileAccess(ctx, webview, sid, {
         paths: ["/etc/passwd", "/mock/workspace/ok.txt"],
@@ -387,20 +394,16 @@ describe("file-ops", () => {
 
   describe("cleanStaleCrashLock", () => {
     it("removes lock when STATE.md says idle", async () => {
-      (fs.existsSync as any) = vi.fn((p: string) => {
-        if (p.includes("auto.lock")) return true;
-        if (p.includes("STATE.md")) return true;
-        return false;
-      });
-      (fs.promises.readFile as any) = vi.fn().mockResolvedValue(
+      // access resolves (lock exists), readFile returns idle state
+      (fs.promises.access as any).mockResolvedValue(undefined);
+      (fs.promises.readFile as any).mockResolvedValue(
         "**Active Milestone:** none\n**Phase:** idle\n"
       );
-      (fs.unlinkSync as any) = vi.fn();
 
       const output = { appendLine: vi.fn() } as any;
       await cleanStaleCrashLock("/project", output);
 
-      expect(fs.unlinkSync).toHaveBeenCalledWith(
+      expect(fs.promises.unlink).toHaveBeenCalledWith(
         expect.stringContaining("auto.lock"),
       );
       expect(output.appendLine).toHaveBeenCalledWith(
@@ -409,45 +412,46 @@ describe("file-ops", () => {
     });
 
     it("removes lock when no STATE.md exists", async () => {
-      (fs.existsSync as any) = vi.fn((p: string) => {
-        if (p.includes("auto.lock")) return true;
-        return false; // no STATE.md
-      });
-      (fs.unlinkSync as any) = vi.fn();
+      // access resolves (lock exists), readFile rejects with ENOENT (no STATE.md)
+      (fs.promises.access as any).mockResolvedValue(undefined);
+      (fs.promises.readFile as any).mockRejectedValue(
+        Object.assign(new Error("ENOENT"), { code: "ENOENT" })
+      );
 
       const output = { appendLine: vi.fn() } as any;
       await cleanStaleCrashLock("/project", output);
 
-      expect(fs.unlinkSync).toHaveBeenCalledWith(
+      expect(fs.promises.unlink).toHaveBeenCalledWith(
         expect.stringContaining("auto.lock"),
       );
     });
 
     it("does not remove lock when milestone is active", async () => {
-      (fs.existsSync as any) = vi.fn(() => true);
-      (fs.promises.readFile as any) = vi.fn().mockResolvedValue(
+      (fs.promises.access as any).mockResolvedValue(undefined);
+      (fs.promises.readFile as any).mockResolvedValue(
         "**Active Milestone:** M015\n**Phase:** building\n"
       );
-      (fs.unlinkSync as any) = vi.fn();
 
       const output = { appendLine: vi.fn() } as any;
       await cleanStaleCrashLock("/project", output);
 
-      expect(fs.unlinkSync).not.toHaveBeenCalled();
+      expect(fs.promises.unlink).not.toHaveBeenCalled();
     });
 
     it("does nothing when no lock file exists", async () => {
-      (fs.existsSync as any) = vi.fn(() => false);
-      (fs.unlinkSync as any) = vi.fn();
+      // access rejects (lock doesn't exist)
+      (fs.promises.access as any).mockRejectedValue(
+        Object.assign(new Error("ENOENT"), { code: "ENOENT" })
+      );
 
       const output = { appendLine: vi.fn() } as any;
       await cleanStaleCrashLock("/project", output);
 
-      expect(fs.unlinkSync).not.toHaveBeenCalled();
+      expect(fs.promises.unlink).not.toHaveBeenCalled();
     });
 
     it("does not throw on errors", async () => {
-      (fs.existsSync as any) = vi.fn(() => { throw new Error("boom"); });
+      (fs.promises.access as any).mockRejectedValue(new Error("boom"));
 
       const output = { appendLine: vi.fn() } as any;
       await expect(cleanStaleCrashLock("/project", output)).resolves.not.toThrow();

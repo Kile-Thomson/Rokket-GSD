@@ -29,17 +29,25 @@ export interface FileOpsContext {
 export async function cleanStaleCrashLock(cwd: string, output: vscode.OutputChannel): Promise<void> {
   try {
     const lockPath = path.join(cwd, ".gsd", "auto.lock");
-    if (!fs.existsSync(lockPath)) return;
+    try {
+      await fs.promises.access(lockPath);
+    } catch {
+      return; // lock file doesn't exist
+    }
 
     const statePath = path.join(cwd, ".gsd", "STATE.md");
-    if (!fs.existsSync(statePath)) {
-      // No STATE.md — lock is definitely stale
-      fs.unlinkSync(lockPath);
-      output.appendLine(`[pre-launch] Removed stale .gsd/auto.lock (no STATE.md)`);
+    let stateContent: string;
+    try {
+      stateContent = await fs.promises.readFile(statePath, "utf-8");
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        // No STATE.md — lock is definitely stale
+        await fs.promises.unlink(lockPath);
+        output.appendLine(`[pre-launch] Removed stale .gsd/auto.lock (no STATE.md)`);
+      }
       return;
     }
 
-    const stateContent = await fs.promises.readFile(statePath, "utf-8");
     const phaseMatch = stateContent.match(/\*\*Phase:\*\*\s*(\S+)/);
     const activeMatch = stateContent.match(/\*\*Active Milestone:\*\*\s*(\S+)/);
     const phase = phaseMatch?.[1] || "unknown";
@@ -48,7 +56,7 @@ export async function cleanStaleCrashLock(cwd: string, output: vscode.OutputChan
     // If state is idle/complete with no active milestone, lock is stale
     // Note: gsd-pi 2.44+ writes "None" (capitalised) when no milestone is active
     if (activeMilestone.toLowerCase() === "none" || phase === "idle" || phase === "complete") {
-      fs.unlinkSync(lockPath);
+      await fs.promises.unlink(lockPath);
       output.appendLine(`[pre-launch] Removed stale .gsd/auto.lock (state: ${phase}, milestone: ${activeMilestone})`);
     }
   } catch {
@@ -56,12 +64,12 @@ export async function cleanStaleCrashLock(cwd: string, output: vscode.OutputChan
   }
 }
 
-export function handleOpenFile(
+export async function handleOpenFile(
   ctx: FileOpsContext,
   webview: vscode.Webview,
   sessionId: string,
   msg: { path: string },
-): void {
+): Promise<void> {
   try {
     // Security: only open files within the workspace (resolves symlinks)
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -77,16 +85,16 @@ export function handleOpenFile(
       ? msg.path
       : path.join(workspaceRoot, msg.path);
 
-    // Use realpathSync to canonicalise symlinks, but fall back gracefully if
+    // Use realpath to canonicalise symlinks, but fall back gracefully if
     // the file doesn't exist yet — let VS Code surface its own error.
     let realFile: string;
     try {
-      realFile = fs.realpathSync(resolvedPath);
+      realFile = await fs.promises.realpath(resolvedPath);
     } catch {
       realFile = resolvedPath;
     }
 
-    const realRoot = fs.realpathSync(path.resolve(workspaceRoot));
+    const realRoot = await fs.promises.realpath(path.resolve(workspaceRoot));
     if (!realFile.startsWith(realRoot + path.sep) && realFile !== realRoot) {
       ctx.output.appendLine(`[${sessionId}] Blocked open_file outside workspace: ${realFile}`);
       return;
@@ -100,12 +108,12 @@ export function handleOpenFile(
   }
 }
 
-export function handleOpenDiff(
+export async function handleOpenDiff(
   ctx: FileOpsContext,
   _webview: vscode.Webview,
   sessionId: string,
   msg: { leftPath: string; rightPath: string },
-): void {
+): Promise<void> {
   try {
     // Security: only open files within the workspace (resolves symlinks)
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -113,9 +121,9 @@ export function handleOpenDiff(
       ctx.output.appendLine(`[${sessionId}] Blocked open_diff: no workspace open`);
       return;
     }
-    const realRoot = fs.realpathSync(path.resolve(workspaceRoot));
-    const realLeft = fs.realpathSync(path.resolve(msg.leftPath));
-    const realRight = fs.realpathSync(path.resolve(msg.rightPath));
+    const realRoot = await fs.promises.realpath(path.resolve(workspaceRoot));
+    const realLeft = await fs.promises.realpath(path.resolve(msg.leftPath));
+    const realRight = await fs.promises.realpath(path.resolve(msg.rightPath));
     const rootPrefix = realRoot + path.sep;
     if (!realLeft.startsWith(rootPrefix) || !realRight.startsWith(rootPrefix)) {
       ctx.output.appendLine(`[${sessionId}] Blocked open_diff outside workspace`);
@@ -129,12 +137,12 @@ export function handleOpenDiff(
   }
 }
 
-export function handleOpenUrl(
+export async function handleOpenUrl(
   ctx: FileOpsContext,
   _webview: vscode.Webview,
   sessionId: string,
   msg: { url: string },
-): void {
+): Promise<void> {
   const url = String(msg.url || "");
 
   // External web URLs — open in system browser
@@ -160,7 +168,7 @@ export function handleOpenUrl(
     } else {
       filePath = url;
     }
-    handleOpenFile(ctx, _webview, sessionId, { path: filePath });
+    await handleOpenFile(ctx, _webview, sessionId, { path: filePath });
     return;
   }
 
@@ -238,7 +246,7 @@ ${exportOverrides}
     });
     if (!uri) return; // user cancelled
     const exportPath = uri.fsPath;
-    fs.writeFileSync(exportPath, fullHtml, "utf-8");
+    await fs.promises.writeFile(exportPath, fullHtml, "utf-8");
     // Open in default browser (cross-platform)
     vscode.env.openExternal(vscode.Uri.file(exportPath));
     vscode.window.showInformationMessage(`Exported to ${exportPath}`);
@@ -247,12 +255,12 @@ ${exportOverrides}
   }
 }
 
-export function handleSaveTempFile(
+export async function handleSaveTempFile(
   ctx: FileOpsContext,
   webview: vscode.Webview,
   _sessionId: string,
   msg: { name: string; data: string },
-): void {
+): Promise<void> {
   try {
     // Security: reject payloads exceeding 50MB (base64 is ~33% larger than raw)
     if (msg.data.length > 66_666_667) {
@@ -264,7 +272,7 @@ export function handleSaveTempFile(
     // Sanitize filename — strip path separators
     const safeName = msg.name.replace(/[/\\]/g, "_");
     const filePath = path.join(dir, safeName);
-    fs.writeFileSync(filePath, Buffer.from(msg.data, "base64"));
+    await fs.promises.writeFile(filePath, Buffer.from(msg.data, "base64"));
     ctx.postToWebview(webview, { type: "temp_file_saved", path: filePath, name: safeName });
   } catch (err: unknown) {
     ctx.postToWebview(webview, { type: "error", message: `Failed to save file: ${toErrorMessage(err)}` });
@@ -282,7 +290,7 @@ export async function handleCheckFileAccess(
   let realRoot: string | null = null;
   if (workspaceRoot) {
     try {
-      realRoot = fs.realpathSync(path.resolve(workspaceRoot));
+      realRoot = await fs.promises.realpath(path.resolve(workspaceRoot));
     } catch {
       realRoot = null;
     }
@@ -296,7 +304,7 @@ export async function handleCheckFileAccess(
           ctx.output.appendLine(`[check_file_access] Blocked: no workspace open`);
           return { path: p, readable: false };
         }
-        const realFile = fs.realpathSync(path.resolve(p));
+        const realFile = await fs.promises.realpath(path.resolve(p));
         if (!realFile.startsWith(realRoot + path.sep) && realFile !== realRoot) {
           ctx.output.appendLine(`[${_sessionId}] Blocked check_file_access outside workspace: ${realFile}`);
           return { path: p, readable: false };
