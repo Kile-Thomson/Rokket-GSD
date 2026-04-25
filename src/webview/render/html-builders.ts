@@ -15,10 +15,10 @@ import {
   getToolIcon,
   getToolKeyArg,
   formatToolResult,
-  buildSubagentOutputHtml,
+  truncateArg,
   buildUsagePills,
+  parseAgentUsage,
   renderMarkdown,
-  type SubagentResult,
 } from "../helpers";
 
 import {
@@ -304,10 +304,8 @@ export function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void 
   }
 
   const stateClass = tc.isRunning ? "running" : tc.isSkipped ? "skipped" : tc.isError ? "error" : "done";
-  const n = tc.name.toLowerCase();
-  const isSubagent = n === "subagent" || n === "async_subagent" || n === "await_subagent";
   const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
-  const shouldCollapse = !tc.isRunning && !isSubagent && (lines > 5 || tc.isSkipped);
+  const shouldCollapse = !tc.isRunning && (lines > 5 || tc.isSkipped);
 
   block.classList.remove("running", "skipped", "error", "done", "collapsed");
   block.classList.add(stateClass);
@@ -380,25 +378,72 @@ export function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void 
     durationEl.remove();
   }
 
-  const outputEl = block.querySelector<HTMLElement>(".gsd-tool-output");
-  if (isSubagent) {
-    const newOutputHtml = buildSubagentOutputHtml(tc);
-    if (outputEl) {
-      const existingPanel = outputEl.querySelector<HTMLElement>(".gsd-subagent-panel");
-      if (existingPanel) {
-        patchSubagentPanel(existingPanel, tc);
+  // Agent meta — update model pill + description when args arrive, usage pills when result arrives
+  const category = getToolCategory(tc.name);
+  const isAgentUpdate = category === "agent";
+  const agentUsageParsed = isAgentUpdate && tc.resultText ? parseAgentUsage(tc.resultText) : null;
+  if (isAgentUpdate) {
+    const headerEl = block.querySelector<HTMLElement>(".gsd-tool-header");
+    if (headerEl && Object.keys(tc.args).length > 0) {
+      const model = tc.args.model ? String(tc.args.model)
+        : tc.args.subagent_type ? String(tc.args.subagent_type)
+        : "inherited";
+      const agentDesc = tc.args.description ? String(tc.args.description)
+        : tc.args.prompt ? truncateArg(String(tc.args.prompt), 100)
+        : "";
+      const pills: string[] = [model];
+      if (tc.args.run_in_background) pills.push("bg");
+
+      // Update or insert pills inline in header
+      let pillsEl = headerEl.querySelector<HTMLElement>(".gsd-agent-meta-pills");
+      if (pillsEl) {
+        pillsEl.innerHTML = pills.map(p => `<span class="gsd-agent-pill">${escapeHtml(p)}</span>`).join("");
       } else {
-        outputEl.className = "gsd-tool-output gsd-tool-output-rich";
-        outputEl.innerHTML = newOutputHtml;
+        const rightEl = headerEl.querySelector<HTMLElement>(".gsd-tool-header-right");
+        if (rightEl) {
+          rightEl.insertAdjacentHTML("beforebegin", `<span class="gsd-agent-meta-pills">${pills.map(p => `<span class="gsd-agent-pill">${escapeHtml(p)}</span>`).join("")}</span>`);
+        }
       }
-    } else {
-      const div = document.createElement("div");
-      div.className = "gsd-tool-output gsd-tool-output-rich";
-      div.innerHTML = newOutputHtml;
-      block.appendChild(div);
+
+      // Update or insert description inline in header
+      if (agentDesc) {
+        let descEl = headerEl.querySelector<HTMLElement>(".gsd-agent-desc");
+        if (descEl) {
+          descEl.textContent = agentDesc;
+        } else {
+          const pillsEl2 = headerEl.querySelector<HTMLElement>(".gsd-agent-meta-pills");
+          if (pillsEl2) {
+            pillsEl2.insertAdjacentHTML("beforebegin", `<span class="gsd-agent-desc">${escapeHtml(agentDesc)}</span>`);
+          } else {
+            const rightEl2 = headerEl.querySelector<HTMLElement>(".gsd-tool-header-right");
+            if (rightEl2) {
+              rightEl2.insertAdjacentHTML("beforebegin", `<span class="gsd-agent-desc">${escapeHtml(agentDesc)}</span>`);
+            }
+          }
+        }
+      }
     }
-  } else if (tc.resultText) {
-    const formattedResult = formatToolResult(tc.name, tc.resultText, tc.args);
+
+    if (tc.resultText) {
+      const existingUsage = block.querySelector<HTMLElement>(".gsd-agent-usage");
+      if (agentUsageParsed) {
+        const usageHtml = buildUsagePills(agentUsageParsed.usage);
+        if (existingUsage) {
+          existingUsage.outerHTML = usageHtml;
+        } else {
+          const updatedMeta = block.querySelector<HTMLElement>(".gsd-agent-meta");
+          if (updatedMeta) {
+            updatedMeta.insertAdjacentHTML("afterend", usageHtml);
+          }
+        }
+      }
+    }
+  }
+
+  const outputEl = block.querySelector<HTMLElement>(".gsd-tool-output");
+  if (tc.resultText) {
+    const resultForDisplay = agentUsageParsed ? agentUsageParsed.cleanText : tc.resultText;
+    const formattedResult = formatToolResult(tc.name, resultForDisplay, tc.args);
     const maxOutputLen = MAX_OUTPUT_LEN;
     let displayText = formattedResult;
     let truncated = false;
@@ -438,117 +483,11 @@ export function patchToolBlock(el: HTMLElement, tc: ToolCallState): void {
   patchToolBlockElement(el, tc);
 }
 
-function patchSubagentPanel(panel: HTMLElement, tc: ToolCallState): void {
-  const details = tc.details as { mode?: string; results?: SubagentResult[] } | undefined;
-  const results = details?.results;
-  if (!results) return;
-
-  const running = results.filter((r) => r.exitCode === -1).length;
-  const done = results.filter((r) => r.exitCode !== -1 && r.exitCode === 0).length;
-  const failed = results.filter((r) => r.exitCode > 0 || r.stopReason === "error").length;
-  const total = results.length;
-
-  const countsEl = panel.querySelector<HTMLElement>(".gsd-subagent-counts");
-  if (countsEl) {
-    const parts: string[] = [];
-    if (done > 0) parts.push(`<span class="gsd-agent-stat done">${done} done</span>`);
-    if (running > 0) parts.push(`<span class="gsd-agent-stat running">${running} running</span>`);
-    if (failed > 0) parts.push(`<span class="gsd-agent-stat error">${failed} failed</span>`);
-    countsEl.innerHTML = parts.join(`<span class="gsd-agent-sep">·</span>`);
-  }
-  const totalEl = panel.querySelector<HTMLElement>(".gsd-subagent-total");
-  if (totalEl) totalEl.textContent = `${done + failed}/${total}`;
-
-  const cardEls = panel.querySelectorAll<HTMLElement>(".gsd-agent-card");
-  results.forEach((r, i) => {
-    const card = cardEls[i];
-    if (!card) return;
-
-    const isRunning = r.exitCode === -1;
-    const isFailed = !isRunning && (r.exitCode !== 0 || r.stopReason === "error");
-    const newState = isRunning ? "running" : isFailed ? "error" : "done";
-
-    card.classList.remove("running", "error", "done");
-    card.classList.add(newState);
-
-    const iconEl = card.querySelector<HTMLElement>(".gsd-tool-spinner, .gsd-agent-icon");
-    if (iconEl) {
-      const currentlySpinner = iconEl.classList.contains("gsd-tool-spinner");
-      if (isRunning && !currentlySpinner) {
-        const spinner = document.createElement("span");
-        spinner.className = "gsd-tool-spinner";
-        iconEl.replaceWith(spinner);
-      } else if (!isRunning && currentlySpinner) {
-        const icon = document.createElement("span");
-        icon.className = `gsd-agent-icon ${isFailed ? "error" : "done"}`;
-        icon.textContent = isFailed ? "✗" : "✓";
-        iconEl.replaceWith(icon);
-      } else if (!isRunning) {
-        iconEl.className = `gsd-agent-icon ${isFailed ? "error" : "done"}`;
-        iconEl.textContent = isFailed ? "✗" : "✓";
-      }
-    }
-
-    const headerEl = card.querySelector<HTMLElement>(".gsd-agent-header");
-    if (headerEl && r.usage) {
-      const existingPills = headerEl.querySelector<HTMLElement>(".gsd-agent-usage");
-      const newPillsHtml = buildUsagePills(r.usage, r.model);
-      if (existingPills) {
-        existingPills.outerHTML = newPillsHtml || "<div class=\"gsd-agent-usage\"></div>";
-      } else if (newPillsHtml) {
-        headerEl.insertAdjacentHTML("beforeend", newPillsHtml);
-      }
-    }
-
-    if (isFailed && r.errorMessage) {
-      let errEl = card.querySelector<HTMLElement>(".gsd-agent-error");
-      if (!errEl) {
-        errEl = document.createElement("div");
-        errEl.className = "gsd-agent-error";
-        card.appendChild(errEl);
-      }
-      errEl.textContent = r.errorMessage;
-    }
-  });
-
-  if (!tc.isRunning) {
-    const totalUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
-    for (const r of results) {
-      if (r.usage) {
-        totalUsage.input += r.usage.input || 0;
-        totalUsage.output += r.usage.output || 0;
-        totalUsage.cacheRead += r.usage.cacheRead || 0;
-        totalUsage.cacheWrite += r.usage.cacheWrite || 0;
-        totalUsage.cost += r.usage.cost || 0;
-        totalUsage.turns += r.usage.turns || 0;
-      }
-    }
-    if (totalUsage.turns > 0) {
-      let footerEl = panel.querySelector<HTMLElement>(".gsd-subagent-footer");
-      if (!footerEl) {
-        footerEl = document.createElement("div");
-        footerEl.className = "gsd-subagent-footer";
-        panel.appendChild(footerEl);
-      }
-      footerEl.innerHTML = buildUsagePills(totalUsage, undefined);
-    }
-  }
-
-  if (!tc.isRunning && tc.resultText) {
-    let resultEl = panel.parentElement?.querySelector<HTMLElement>(".gsd-subagent-result");
-    if (!resultEl) {
-      resultEl = document.createElement("div");
-      resultEl.className = "gsd-subagent-result";
-      panel.parentElement?.appendChild(resultEl);
-    }
-    resultEl.innerHTML = renderMarkdown(tc.resultText);
-  }
-}
-
 export function buildToolCallHtml(tc: ToolCallState): string {
   const keyArg = getToolKeyArg(tc.name, tc.args);
   const category = getToolCategory(tc.name);
   const toolIcon = getToolIcon(tc.name, category);
+  const isAgent = category === "agent";
 
   const statusIcon = tc.isRunning ? `<span class="gsd-tool-spinner"></span>` :
     tc.isSkipped ? `<span class="gsd-tool-icon skipped">⏭</span>` :
@@ -566,19 +505,18 @@ export function buildToolCallHtml(tc: ToolCallState): string {
 
   const stateClass = tc.isRunning ? "running" : tc.isSkipped ? "skipped" : tc.isError ? "error" : "done";
   const parallelClass = tc.isParallel ? " parallel" : "";
-  const n = tc.name.toLowerCase();
-  const isSubagent = n === "subagent" || n === "async_subagent" || n === "await_subagent";
 
   const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
-  const shouldCollapse = !tc.isRunning && !isSubagent && (lines > 5 || tc.isSkipped);
+  const shouldCollapse = !tc.isRunning && (lines > 5 || tc.isSkipped);
   const collapsedClass = shouldCollapse ? "collapsed" : "";
+
+  const agentUsageParsed = isAgent && tc.resultText ? parseAgentUsage(tc.resultText) : null;
 
   let outputHtml = "";
 
-  if (isSubagent) {
-    outputHtml = `<div class="gsd-tool-output gsd-tool-output-rich">${buildSubagentOutputHtml(tc)}</div>`;
-  } else if (tc.resultText) {
-    const formattedResult = formatToolResult(tc.name, tc.resultText, tc.args);
+  if (tc.resultText) {
+    const resultForDisplay = agentUsageParsed ? agentUsageParsed.cleanText : tc.resultText;
+    const formattedResult = formatToolResult(tc.name, resultForDisplay, tc.args);
     const maxOutputLen = MAX_OUTPUT_LEN;
     let displayText = formattedResult;
     let truncated = false;
@@ -597,15 +535,40 @@ export function buildToolCallHtml(tc: ToolCallState): string {
 
   const parallelBadge = tc.isParallel ? `<span class="gsd-tool-parallel-badge" title="Running in parallel">⚡</span>` : "";
 
+  // Agent-specific: inline pills in header, description below
+  let agentMetaHtml = "";
+  let agentUsageHtml = "";
+  let agentPillsHtml = "";
+  if (isAgent) {
+    const model = tc.args.model ? String(tc.args.model)
+      : tc.args.subagent_type ? String(tc.args.subagent_type)
+      : "inherited";
+    const agentDesc = tc.args.description ? String(tc.args.description)
+      : tc.args.prompt ? truncateArg(String(tc.args.prompt), 100)
+      : "";
+    const pills: string[] = [model];
+    if (tc.args.run_in_background) pills.push("bg");
+    agentPillsHtml = `<span class="gsd-agent-meta-pills">${pills.map(p => `<span class="gsd-agent-pill">${escapeHtml(p)}</span>`).join("")}</span>`;
+    agentMetaHtml = agentDesc ? `<span class="gsd-agent-desc">${escapeHtml(agentDesc)}</span>` : "";
+
+    if (agentUsageParsed) {
+      agentUsageHtml = buildUsagePills(agentUsageParsed.usage);
+    }
+  }
+
   const isCollapsed = collapsedClass === "collapsed";
+  const displayName = isAgent ? "Agent" : tc.name;
   return `<div class="gsd-tool-block ${stateClass}${parallelClass} ${collapsedClass} cat-${category}" data-tool-id="${escapeAttr(tc.id)}">
     <div class="gsd-tool-header" role="button" tabindex="0" aria-label="Toggle ${escapeAttr(tc.name)} details" aria-expanded="${isCollapsed ? "false" : "true"}">
       ${statusIcon}
       <span class="gsd-tool-cat-icon">${toolIcon}</span>
-      <span class="gsd-tool-name">${escapeHtml(tc.name)}</span>
+      <span class="gsd-tool-name">${escapeHtml(displayName)}</span>
       ${keyArg ? `<span class="gsd-tool-arg">${escapeHtml(keyArg)}</span>` : ""}
+      ${agentMetaHtml}
+      ${agentPillsHtml}
       <span class="gsd-tool-header-right">${parallelBadge}${durationHtml}<span class="gsd-tool-chevron">▸</span></span>
     </div>
+    ${agentUsageHtml}
     ${outputHtml}
   </div>`;
 }

@@ -93,7 +93,7 @@ describe("buildUsagePills", () => {
 
   it("renders cacheRead pill", () => {
     const html = buildUsagePills({ cacheRead: 25000 });
-    expect(html).toContain("R25k");
+    expect(html).toContain("R25.0k");
   });
 
   it("renders cacheWrite pill", () => {

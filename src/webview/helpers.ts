@@ -8,7 +8,6 @@ import type { SessionStats } from "../shared/types";
 import type { AppState, ToolCategory, ToolCallState } from "./state";
 import { registerCleanup } from "./dispose";
 import {
-  TASK_PREVIEW_MAX_CHARS,
   TOKEN_THRESHOLD_K,
   TOKEN_THRESHOLD_10K,
   TOKEN_THRESHOLD_M,
@@ -145,6 +144,18 @@ export function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+/** Format an elapsed time in milliseconds as a compact human-readable string (e.g. `"42s"`, `"3m 5s"`, `"1h 2m"`). */
+export function formatElapsed(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rs = s % 60;
+  if (m < 60) return `${m}m ${rs}s`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return `${h}h ${rm}m`;
+}
+
 /** Truncate a string to `max` characters, taking only the first line and appending "…" if truncated. */
 export function truncateArg(s: string, max: number): string {
   const line = s.split("\n")[0];
@@ -165,7 +176,9 @@ export function getToolCategory(name: string): ToolCategory {
   if (n.startsWith("browser_") || n.startsWith("mac_")) return "browser";
   if (["search-the-web", "search_and_read", "fetch_page", "google_search",
        "resolve_library", "get_library_docs", "web_search"].includes(n)) return "search";
-  if (n === "subagent" || n === "async_subagent" || n === "await_subagent") return "agent";
+
+  if (n === "agent" || n === "subagent") return "agent";
+
   if (n === "lsp") return "generic";
   if (n.startsWith("github_") || n === "mcp_call" || n === "mcp_discover" || n === "mcp_servers") return "generic";
   if (n.startsWith("gsd_")) return "generic";
@@ -181,7 +194,8 @@ export function getToolIcon(name: string, category: ToolCategory): string {
   if (n === "bash" || n === "async_bash") return "⌨";
   if (n === "await_job" || n === "cancel_job") return "⏳";
   if (n === "bg_shell") return "⚙";
-  if (n === "subagent" || n === "async_subagent" || n === "await_subagent") return "🤖";
+
+  if (n === "agent" || n === "subagent") return "🤖";
   if (n === "lsp") return "🧠";
   if (n.startsWith("browser_")) return "🌐";
   if (n.startsWith("mac_")) return "🖥";
@@ -207,7 +221,7 @@ export function getToolKeyArg(name: string, args: Record<string, unknown>): stri
   const filePath = args.file_path || args.path;
   if ((n === "read" || n === "write" || n === "edit") && filePath) return shortenPath(String(filePath));
   if ((n === "grep" || n === "glob") && args.pattern) return truncateArg(String(args.pattern), 80);
-  if (n === "agent" && args.description) return truncateArg(String(args.description), 80);
+  if ((n === "agent" || n === "subagent") && args.description) return truncateArg(String(args.description), 80);
   if (n === "browser_navigate" && args.url) return truncateArg(String(args.url), 60);
   if (n === "browser_click" && args.selector) return truncateArg(String(args.selector), 60);
   if (n === "browser_type" && args.selector) return truncateArg(String(args.selector), 60);
@@ -234,18 +248,7 @@ export function getToolKeyArg(name: string, args: Record<string, unknown>): stri
   if (n === "browser_emulate_device" && args.device) return truncateArg(String(args.device), 40);
   if (n === "browser_mock_route" && args.url) return truncateArg(String(args.url), 60);
   if (n === "browser_extract" && args.selector) return truncateArg(String(args.selector), 60);
-  if (n === "subagent" || n === "async_subagent") {
-    const agent = args.agent || (args.chain as Record<string, unknown>[] | undefined)?.[0]?.agent || (args.tasks as Record<string, unknown>[] | undefined)?.[0]?.agent || "";
-    const task = args.task || "";
-    if (agent) return truncateArg(`${agent}: ${task}`, 80);
-    if (task) return truncateArg(String(task), 80);
-    return "";
-  }
-  if (n === "await_subagent") {
-    const jobs = args.jobs as string[] | undefined;
-    if (jobs && jobs.length > 0) return jobs.length === 1 ? jobs[0] : `${jobs.length} jobs`;
-    return "(all running)";
-  }
+
   if (n === "bg_shell") {
     const action = args.action ? String(args.action) : "";
     const cmd = args.command ? truncateArg(String(args.command), 60) : "";
@@ -334,11 +337,10 @@ export function formatToolResult(toolName: string, resultText: string, args: Rec
 // Subagent formatting helpers
 // ============================================================
 
-function formatTokenCount(count: number): string {
-  if (count < TOKEN_THRESHOLD_K) return count.toString();
-  if (count < TOKEN_THRESHOLD_10K) return `${(count / TOKEN_THRESHOLD_K).toFixed(1)}k`;
-  if (count < TOKEN_THRESHOLD_M) return `${Math.round(count / TOKEN_THRESHOLD_K)}k`;
-  return `${(count / TOKEN_THRESHOLD_M).toFixed(1)}M`;
+export function formatTokenCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
 }
 
 export interface UsageInfo {
@@ -348,161 +350,54 @@ export interface UsageInfo {
   cacheRead?: number;
   cacheWrite?: number;
   cost?: number;
+  totalTokens?: number;
+  toolUses?: number;
+  durationMs?: number;
 }
 
 export function buildUsagePills(usage: UsageInfo | null | undefined, model?: string): string {
   if (!usage) return "";
   const pills: string[] = [];
   if (usage.turns) pills.push(`${usage.turns} turn${usage.turns > 1 ? "s" : ""}`);
+  if (usage.totalTokens) pills.push(`${formatTokenCount(usage.totalTokens)} tok`);
   if (usage.input) pills.push(`↑${formatTokenCount(usage.input)}`);
   if (usage.output) pills.push(`↓${formatTokenCount(usage.output)}`);
   if (usage.cacheRead) pills.push(`R${formatTokenCount(usage.cacheRead)}`);
   if (usage.cacheWrite) pills.push(`W${formatTokenCount(usage.cacheWrite)}`);
+  if (usage.toolUses != null) pills.push(`${usage.toolUses} tool${usage.toolUses !== 1 ? "s" : ""}`);
+  if (usage.durationMs) pills.push(formatDuration(usage.durationMs));
   if (usage.cost) pills.push(`$${(Number(usage.cost) || 0).toFixed(4)}`);
   if (model) pills.push(model);
   if (pills.length === 0) return "";
   return `<div class="gsd-agent-usage">${pills.map(p => `<span class="gsd-agent-pill">${escapeHtml(p)}</span>`).join("")}</div>`;
 }
 
-export interface SubagentResult {
-  agent: string;
-  task?: string;
-  exitCode: number;
-  stopReason?: string;
-  errorMessage?: string;
-  usage?: UsageInfo;
-  model?: string;
+const USAGE_TAG_RE = /<usage>([\s\S]*?)<\/usage>/;
+const USAGE_TOTAL_TOKENS_RE = /total_tokens:\s*(\d+)/;
+const USAGE_TOOL_USES_RE = /tool_uses:\s*(\d+)/;
+const USAGE_DURATION_MS_RE = /duration_ms:\s*(\d+)/;
+
+export interface AgentUsageParsed {
+  usage: UsageInfo;
+  cleanText: string;
 }
 
-function buildAgentCard(r: SubagentResult, _isRunning: boolean): string {
-  const running = r.exitCode === -1;
-  const failed = !running && (r.exitCode !== 0 || r.stopReason === "error" || r.stopReason === "aborted");
-  const _done = !running && !failed;
-
-  const stateClass = running ? "running" : failed ? "error" : "done";
-  const icon = running
-    ? `<span class="gsd-tool-spinner"></span>`
-    : failed
-      ? `<span class="gsd-agent-icon error">✗</span>`
-      : `<span class="gsd-agent-icon done">✓</span>`;
-
-  const taskPreview = r.task
-    ? (r.task.length > TASK_PREVIEW_MAX_CHARS ? r.task.slice(0, TASK_PREVIEW_MAX_CHARS) + "…" : r.task)
-    : "";
-
-  const parts: string[] = [];
-  parts.push(`<div class="gsd-agent-card ${stateClass}">`);
-  parts.push(`<div class="gsd-agent-header">`);
-  parts.push(`<div class="gsd-agent-header-left">${icon}<span class="gsd-agent-name">${escapeHtml(r.agent)}</span></div>`);
-  parts.push(buildUsagePills(r.usage, r.model));
-  parts.push(`</div>`);
-
-  if (taskPreview) {
-    parts.push(`<div class="gsd-agent-task">${escapeHtml(taskPreview)}</div>`);
-  }
-
-  if (failed && r.errorMessage) {
-    parts.push(`<div class="gsd-agent-error">${escapeHtml(r.errorMessage)}</div>`);
-  }
-
-  parts.push(`</div>`);
-  return parts.join("");
-}
-
-/** Build rich HTML for subagent results instead of plain text */
-export function buildSubagentOutputHtml(tc: ToolCallState): string {
-  const text = tc.resultText;
-  const args = tc.args;
-  const details = tc.details as { mode?: string; results?: SubagentResult[] } | undefined;
-  const mode = details?.mode || (args.chain ? "chain" : args.tasks ? "parallel" : "single");
-  const results = details?.results;
-
-  // If we have structured details with per-agent results, render cards
-  if (results && results.length > 0) {
-    const running = results.filter((r) => r.exitCode === -1).length;
-    const done = results.filter((r) => r.exitCode !== -1 && r.exitCode === 0).length;
-    const failed = results.filter((r) => r.exitCode > 0 || r.stopReason === "error").length;
-    const total = results.length;
-
-    const parts: string[] = [];
-    parts.push(`<div class="gsd-subagent-panel">`);
-
-    // Summary bar
-    const modeLabel = mode === "chain" ? "Chain" : mode === "parallel" ? "Parallel" : "Agent";
-    const statusParts: string[] = [];
-    if (done > 0) statusParts.push(`<span class="gsd-agent-stat done">${done} done</span>`);
-    if (running > 0) statusParts.push(`<span class="gsd-agent-stat running">${running} running</span>`);
-    if (failed > 0) statusParts.push(`<span class="gsd-agent-stat error">${failed} failed</span>`);
-    parts.push(`<div class="gsd-subagent-summary">`);
-    parts.push(`<span class="gsd-subagent-mode">${escapeHtml(modeLabel)}</span>`);
-    parts.push(`<span class="gsd-subagent-counts">${statusParts.join(`<span class="gsd-agent-sep">·</span>`)}</span>`);
-    parts.push(`<span class="gsd-subagent-total">${done + failed}/${total}</span>`);
-    parts.push(`</div>`);
-
-    // Agent cards
-    parts.push(`<div class="gsd-agent-cards">`);
-    for (const r of results) {
-      parts.push(buildAgentCard(r, tc.isRunning));
-    }
-    parts.push(`</div>`);
-
-    // Aggregate usage for completed runs
-    if (!tc.isRunning) {
-      const totalUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
-      for (const r of results) {
-        if (r.usage) {
-          totalUsage.input += r.usage.input || 0;
-          totalUsage.output += r.usage.output || 0;
-          totalUsage.cost += r.usage.cost || 0;
-          totalUsage.turns += r.usage.turns || 0;
-        }
-      }
-      if (totalUsage.turns > 0) {
-        parts.push(`<div class="gsd-subagent-footer">${buildUsagePills(totalUsage)}</div>`);
-      }
-    }
-
-    parts.push(`</div>`);
-
-    // If completed, also render the final output as markdown below
-    if (!tc.isRunning && text) {
-      parts.push(`<div class="gsd-subagent-result">${renderMarkdown(text)}</div>`);
-    }
-
-    return parts.join("");
-  }
-
-  // Fallback: no structured details, use legacy rendering
-  if (tc.isRunning) {
-    const agentName = (args.agent as string) ||
-                      (args.chain as Record<string, unknown>[] | undefined)?.[0]?.agent ||
-                      (args.tasks as Record<string, unknown>[] | undefined)?.[0]?.agent || "agent";
-    const taskCount = (args.chain as unknown[] | undefined)?.length || (args.tasks as unknown[] | undefined)?.length || 1;
-
-    const parts: string[] = [];
-    parts.push(`<div class="gsd-subagent-live">`);
-    parts.push(`<div class="gsd-subagent-status">`);
-    parts.push(`<span class="gsd-tool-spinner"></span>`);
-
-    if (mode === "chain") {
-      parts.push(` Chain: ${taskCount} steps`);
-    } else if (mode === "parallel") {
-      parts.push(` Parallel: ${taskCount} tasks`);
-    } else {
-      parts.push(` ${escapeHtml(agentName)}`);
-    }
-    parts.push(`</div>`);
-
-    if (text) {
-      parts.push(`<div class="gsd-subagent-progress">${escapeHtml(text)}</div>`);
-    }
-    parts.push(`</div>`);
-    return parts.join("");
-  }
-
-  if (!text) return `<span class="gsd-tool-output-pending">(no output)</span>`;
-
-  return `<div class="gsd-subagent-result">${renderMarkdown(text)}</div>`;
+export function parseAgentUsage(resultText: string): AgentUsageParsed | null {
+  const m = USAGE_TAG_RE.exec(resultText);
+  if (!m) return null;
+  const block = m[1];
+  const num = (re: RegExp): number | undefined => {
+    const km = re.exec(block);
+    return km ? parseInt(km[1], 10) : undefined;
+  };
+  const usage: UsageInfo = {
+    totalTokens: num(USAGE_TOTAL_TOKENS_RE),
+    toolUses: num(USAGE_TOOL_USES_RE),
+    durationMs: num(USAGE_DURATION_MS_RE),
+  };
+  if (!usage.totalTokens && !usage.toolUses && !usage.durationMs) return null;
+  const cleanText = resultText.replace(USAGE_TAG_RE, "").trim();
+  return { usage, cleanText };
 }
 
 // ============================================================

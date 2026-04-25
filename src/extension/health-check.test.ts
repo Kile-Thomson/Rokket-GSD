@@ -66,8 +66,7 @@ function setupDefaultMocks() {
       return defaultValue;
     }),
   });
-  // Default: auth.json exists with an authorized model provider
-  mockExistsSync.mockReturnValue(true);
+  // Default: auth.json exists with an authorized model provider (existsSync no longer used)
   mockReadFileSync.mockImplementation((filePath: string) => {
     if (filePath.includes("auth.json")) {
       return JSON.stringify({
@@ -201,9 +200,12 @@ describe("health-check", () => {
     });
 
     it("reports warning when auth.json does not exist", async () => {
-      mockExistsSync.mockImplementation((filePath: string) => {
-        if (filePath.includes("auth.json")) return false;
-        return true;
+      mockReadFileAsync.mockImplementation((filePath: string) => {
+        if (filePath.includes("auth.json")) {
+          return Promise.reject(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+        }
+        if (filePath.includes("settings.json")) return Promise.resolve("{}");
+        return Promise.resolve("{}");
       });
 
       const result = await runHealthCheck(output);
