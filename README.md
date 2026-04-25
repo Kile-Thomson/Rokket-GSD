@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.3.18-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-0.3.44-blue" alt="Version" />
   <img src="https://img.shields.io/badge/gsd--pi-v2.12--v2.71-blue" alt="gsd-pi compatibility" />
   <img src="https://img.shields.io/badge/VS%20Code-1.94%2B-blue" alt="VS Code" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
@@ -30,7 +30,7 @@
 
 <img width="1670" height="1005" alt="RokketGSD" src="https://github.com/user-attachments/assets/e68aea08-cb2c-415f-ad2e-dbad08d39dbc"/>
 
-Rokket GSD turns the `gsd-pi` CLI into a native VS Code experience. Streaming responses, 40+ tool visualizations, async subagent monitoring, parallel worker dashboards, model controls, four built-in themes, and deep workflow integration. Everything runs inside your editor.
+Rokket GSD turns the `gsd-pi` CLI into a native VS Code experience. Streaming responses, 40+ tool visualizations, Telegram relay with voice transcription, parallel worker dashboards, model controls, four built-in themes, and deep workflow integration. Everything runs inside your editor.
 
 The extension spawns GSD as a child process over JSON-RPC (`gsd --mode rpc`), giving the agent full access to your workspace, tools, and configured providers while you get a proper UI on top.
 
@@ -81,10 +81,10 @@ Warning toast when workers cross 80% of ceiling
 🛡️ **Process Resilience**<br>
 Built for multi-hour sessions with crash recovery
 
-⚡ **Async Subagent Parallelism**<br>
-Spawn multiple agents in one call, monitor live progress
+📡 **Telegram Relay**<br>
+Stream conversations to Telegram with voice transcription
 
-🧪 **935 Tests, 60%+ Coverage**<br>
+🧪 **1370+ Tests, 60%+ Coverage**<br>
 CI coverage gate enforced on every push
 
 </td>
@@ -162,10 +162,10 @@ Then reload VS Code (`Ctrl+Shift+P` > "Developer: Reload Window").
 
 ### ⌨️ Slash Commands
 
-Type `/` to open the command palette with 56 commands:
+Type `/` to open the command palette with 59+ commands:
 
 <details>
-<summary><strong>GSD Workflow</strong> (45+ commands)</summary>
+<summary><strong>GSD Workflow</strong> (46 commands)</summary>
 
 | Command | What it does |
 |---------|-------------|
@@ -219,7 +219,7 @@ Type `/` to open the command palette with 56 commands:
 </details>
 
 <details>
-<summary><strong>Built-in Actions</strong> (10 commands)</summary>
+<summary><strong>Built-in Actions</strong> (13 commands)</summary>
 
 | Command | What it does |
 |---------|-------------|
@@ -233,6 +233,9 @@ Type `/` to open the command palette with 56 commands:
 | `/resume` | Resume last session |
 | `/auto-compact` | Toggle auto-compaction on/off |
 | `/auto-retry` | Toggle auto-retry on transient errors |
+| `/telegram` | Start Telegram streaming — opens setup and connects |
+| `/telegram-stop` | Stop Telegram streaming — kills relay and disconnects |
+| `/telegram voice` | Set OpenAI API key for voice transcription |
 
 </details>
 
@@ -268,7 +271,6 @@ Type `/` to open the command palette with 56 commands:
 - **Parallel tool indicator** with ⚡ badge and pulse animation when tools run concurrently
 - **Tool call grouping** collapses consecutive read-only tools (file reads, searches, browser reads) into expandable summary rows
 - **Subagent results** rendered as full markdown with usage pills showing token and cost breakdowns
-- **Async subagent cards** — live-updating cards for background agents showing turns, usage, cost, and model. Cards transition from running (spinner) to done (green ✓) or error (red) as agents complete.
 - **Clickable file paths** that open directly in VS Code
 - **Shimmer animation** on running tools so you always know what's active
 - **Duration tracking** on every completed tool call
@@ -311,6 +313,16 @@ Type `/` to open the command palette with 56 commands:
 - **Auto-retry indicator** with countdown timer and abort button when the provider rate-limits
 - **Provider fallback alerts** via toast when GSD auto-switches models due to rate limits, and again when the original provider recovers
 - **Crash recovery** with restart button, exit code diagnostics, and full state cleanup
+
+### 📡 Telegram Relay
+
+- **Stream conversations to Telegram** — relay assistant messages to a Telegram group in real time
+- **Setup wizard** via `/telegram` or the command palette with guided Bot Token → Group ID → Chat Title flow
+- **Voice message transcription** — Telegram voice messages are transcribed via OpenAI Whisper and injected as user prompts
+- **Photo support** — images sent in Telegram are forwarded to the agent as attachments
+- **Topic-based threading** — each session creates a Telegram topic for organized conversations
+- **Streaming granularity control** — configure as `off`, `throttled`, or `final-only` in settings
+- **Secure credential storage** — Bot Token and OpenAI API key stored in VS Code's `SecretStorage`, never in source files
 
 ### 🎨 VS Code Integration
 
@@ -365,6 +377,10 @@ Type `/` to open the command palette with 56 commands:
 | `gsd.preferredLocation` | `"panel"` | Default open location: `"sidebar"` or `"panel"` |
 | `gsd.autoUpdate` | `true` | Check for new versions on GitHub Releases |
 | `gsd.githubToken` | `""` | GitHub token for update checks (also reads `GH_TOKEN` / `GITHUB_TOKEN` env vars) |
+| `gsd.telegramGroupId` | `""` | Telegram group ID for the relay |
+| `gsd.telegramChatTitle` | `""` | Telegram group chat title |
+| `gsd.telegramBotUsername` | `""` | Telegram bot username |
+| `gsd.telegramStreamingGranularity` | `"throttled"` | Streaming mode: `off`, `throttled`, or `final-only` |
 
 ---
 
@@ -377,7 +393,6 @@ Built to handle real-world agent sessions that run for hours:
 - **Graceful shutdown** handling `session_shutdown` events cleanly
 - **Force-kill and restart** via UI button for stuck processes
 - **Duplicate spawn prevention** via mutex per session
-- **Dialog deduplication** fingerprinting identical confirmation requests
 - **Buffer overflow protection** with full reset (not truncation) to preserve JSON-RPC protocol integrity
 
 ---
@@ -428,7 +443,7 @@ npm run watch    # Rebuilds on file changes
 |--------|-------------|
 | `npm run build` | Production build (extension + webview) |
 | `npm run watch` | Watch mode with auto-rebuild |
-| `npm test` | Run unit tests (Vitest, 935 tests across 44 files) |
+| `npm test` | Run unit tests (Vitest) |
 | `npm run lint` | Run ESLint |
 | `npm run package` | Package as `.vsix` |
 
@@ -456,6 +471,8 @@ src/
     html-generator.ts       # Webview HTML + CSP generation
     watchdogs.ts            # Streaming/tool timeout watchdogs
     command-fallback.ts     # Slash command fallback handling
+    telegram/               # Telegram relay (setup, polling, formatting, IPC)
+    openai/                 # OpenAI Whisper voice transcription
   shared/
     types.ts                # Message protocol types (extension <> webview)
   webview/

@@ -43,3 +43,4 @@ scripts/*-results.json
 .gsd
 .gsd-id
 dist/
+*.tsbuildinfo

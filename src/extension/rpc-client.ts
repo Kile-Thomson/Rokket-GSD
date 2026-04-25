@@ -787,19 +787,6 @@ export class GsdRpcClient extends EventEmitter {
     await this.request({ type: "subscribe", events });
   }
 
-  /** Fork the conversation from a specific user message entry.
-   * NOTE: Not used by Rokket GSD — GSD PI's fork feature is not supported.
-   * Kept as dead code reference only. Do not wire to UI. */
-  // async fork(entryId: string): Promise<unknown> {
-  //   return await this.request({ type: "fork", entryId });
-  // }
-
-  /** Get the list of user messages available for forking.
-   * NOTE: Not used — see fork() above. */
-  // async getForkMessages(): Promise<unknown> {
-  //   return await this.request({ type: "get_fork_messages" });
-  // }
-
   /** Get the text content of the last assistant message. */
   async getLastAssistantText(): Promise<unknown> {
     return await this.request({ type: "get_last_assistant_text" });

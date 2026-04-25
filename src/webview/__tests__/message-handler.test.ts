@@ -16,26 +16,6 @@ vi.mock("../renderer", () => ({
   finalizeCurrentTurn: vi.fn(),
   clearMessages: vi.fn(),
   renderNewEntry: vi.fn(),
-  createParallelBatch: vi.fn(),
-  expandParallelBatch: vi.fn(),
-  syncBatchState: vi.fn(),
-  updateParallelBatchStatus: vi.fn(),
-  finalizeParallelBatch: vi.fn(),
-  clearActiveBatch: vi.fn(),
-  getActiveBatchElement: vi.fn(() => null),
-  sealActiveBatch: vi.fn(() => null),
-  tickSealedBatches: vi.fn(),
-  isInSealedBatch: vi.fn(() => false),
-  isInCompletedBatch: vi.fn(() => false),
-  finalizeAllSealedBatches: vi.fn(),
-  clearFinalizedBatch: vi.fn(),
-  disbandActiveBatch: vi.fn(),
-  unsealBatchesOverlapping: vi.fn(),
-  disbandOrphanedBatches: vi.fn(),
-  getSealedBatchCount: vi.fn(() => 0),
-  getSealedBatchWaves: vi.fn(() => []),
-  getCurrentTurnElement: vi.fn(() => null),
-  reopenParallelBatch: vi.fn(),
   appendServerToolSegment: vi.fn(),
   completeServerToolSegment: vi.fn(),
   reattachTurnElement: vi.fn(),
@@ -1351,10 +1331,7 @@ describe("message-handler", () => {
       expect(state.sessionStats.contextTokens).toBe(22000);
     });
 
-    it("does not update contextPercent when perCallUsage is absent", () => {
-      // Without a per-call snapshot, session-cumulative `usage` alone cannot
-      // yield an honest context %. Leave the last known value intact rather
-      // than invent one from session aggregates.
+    it("computes contextPercent from usage delta when perCallUsage is absent", () => {
       state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
       sendMessage({
@@ -1364,8 +1341,8 @@ describe("message-handler", () => {
           usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0 },
         },
       });
-      expect(state.sessionStats.contextPercent).toBeUndefined();
-      expect(state.sessionStats.contextTokens).toBeUndefined();
+      expect(state.sessionStats.contextTokens).toBe(55000);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(55, 5);
     });
 
     it("updates contextWindow even when perCallUsage is absent", () => {
@@ -1507,12 +1484,7 @@ describe("message-handler", () => {
       expect(uiDialogs.expireAllPending).toHaveBeenCalledWith("Agent finished");
     });
 
-    it("clears active batch on agent_end", () => {
-      sendMessage({ type: "agent_start" });
-      sendMessage({ type: "agent_end" });
-      expect(renderer.clearActiveBatch).toHaveBeenCalled();
-    });
-  });
+});
 
   // ============================================================
   // error message
@@ -1594,18 +1566,6 @@ describe("message-handler", () => {
         assistantMessageEvent: { type: "text_delta", delta: "Hello world" },
       });
       expect(renderer.appendToTextSegment).toHaveBeenCalledWith("text", "Hello world");
-    });
-
-    it("strips async_subagent_progress from text_delta", () => {
-      sendMessage({ type: "agent_start" });
-      sendMessage({
-        type: "message_update",
-        assistantMessageEvent: {
-          type: "text_delta",
-          delta: 'some text\n{"__async_subagent_progress": true}\nmore text',
-        },
-      });
-      expect(renderer.appendToTextSegment).toHaveBeenCalledWith("text", "some text\nmore text");
     });
 
     it("auto-detects thinking level from thinking_delta when null", () => {

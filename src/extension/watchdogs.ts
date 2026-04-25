@@ -189,7 +189,7 @@ export function startSlashCommandWatchdog(
  * Streaming activity monitor — uses health pings to detect truly stuck
  * processes during an active agent turn.
  *
- * Why ping-based, not event-based: Long-running tools (subagent, bg_shell)
+ * Why ping-based, not event-based: Long-running tools (bg_shell)
  * may not emit ANY intermediate events through RPC for 5+ minutes while
  * doing real work. Event-based monitoring would abort healthy work.
  * Ping-based monitoring only fires when the GSD process itself is

@@ -17,11 +17,25 @@ export async function transcribeAudio(apiKey: string, audioBuffer: Buffer, filen
   form.append("model", "whisper-1");
   form.append("file", new Blob([new Uint8Array(audioBuffer)]), filename);
 
-  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: form,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60_000);
+  let response: Response;
+  try {
+    response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new TranscriptionError("Whisper API request timed out after 60s");
+    }
+    throw new TranscriptionError(`Whisper API network error: ${(err as Error).message}`);
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const body = await response.text();
 

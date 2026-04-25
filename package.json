@@ -201,8 +201,8 @@
 	"scripts": {
 		"vscode:prepublish": "npm run build",
 		"build": "npm run build:extension && npm run build:webview",
-		"build:extension": "esbuild src/extension/index.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --minify --tree-shaking=true --metafile=dist/meta-extension.json",
-		"build:webview": "esbuild src/webview/index.ts --bundle --outfile=dist/webview/index.js --format=iife --platform=browser --sourcemap --loader:.css=css --define:process.env.NODE_ENV=\\\"production\\\" --minify --tree-shaking=true --metafile=dist/meta-webview.json",
+		"build:extension": "esbuild src/extension/index.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --minify --tree-shaking=true --drop:console --metafile=dist/meta-extension.json",
+		"build:webview": "esbuild src/webview/index.ts --bundle --outfile=dist/webview/index.js --format=iife --platform=browser --sourcemap --loader:.css=css --define:process.env.NODE_ENV=\\\"production\\\" --minify --tree-shaking=true --drop:console --metafile=dist/meta-webview.json",
 		"watch": "concurrently \"npm run watch:extension\" \"npm run watch:webview\"",
 		"watch:extension": "esbuild src/extension/index.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
 		"watch:webview": "esbuild src/webview/index.ts --bundle --outfile=dist/webview/index.js --format=iife --platform=browser --sourcemap --loader:.css=css --define:process.env.NODE_ENV=\\\"production\\\" --watch",

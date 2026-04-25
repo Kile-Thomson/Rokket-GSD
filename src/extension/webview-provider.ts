@@ -475,29 +475,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       const parts = stderrLineBuffer.split("\n");
       stderrLineBuffer = parts.pop() || ""; // keep incomplete trailing line
 
-      // Intercept async_subagent progress events from stderr
-      const nonProgressLines: string[] = [];
-      for (const line of parts) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith("{\"__async_subagent_progress\":")) {
-          try {
-            const progress = JSON.parse(trimmed);
-            if (progress.__async_subagent_progress && progress.toolCallId) {
-              const currentWebview = this.getSession(sessionId).webview ?? webview;
-              this.postToWebview(currentWebview, {
-                type: "async_subagent_progress",
-                toolCallId: progress.toolCallId,
-                mode: progress.mode,
-                results: progress.results,
-              });
-              continue;
-            }
-          } catch { /* not valid JSON, fall through */ }
-        }
-        if (trimmed) nonProgressLines.push(line);
-      }
-      if (nonProgressLines.length > 0) {
-        this.output.appendLine(`[${sessionId}] stderr: ${nonProgressLines.join("\n")}`);
+      const nonEmptyLines = parts.filter(line => line.trim());
+      if (nonEmptyLines.length > 0) {
+        this.output.appendLine(`[${sessionId}] stderr: ${nonEmptyLines.join("\n")}`);
       }
     });
 
