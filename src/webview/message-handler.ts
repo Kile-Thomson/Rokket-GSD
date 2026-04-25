@@ -57,7 +57,7 @@ let handleModelRouted: (oldModel: any, newModel: any) => void;
 let autoResize: () => void;
 
 // Per-turn usage from the most recent message_end or cost_update.
-let lastMessageUsage: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } } | null = null;
+let _lastMessageUsage: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } } | null = null;
 // Whether we've received cost_update events this session. When true, message_end
 // token accumulation is skipped to avoid double-counting (cost_update is authoritative).
 let hasCostUpdateSource = false;
@@ -173,7 +173,7 @@ export interface MessageHandlerDeps {
 function resetDerivedSessionTracking(): void {
   hasCostUpdateSource = false;
   prevCostTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
-  lastMessageUsage = null;
+  _lastMessageUsage = null;
 }
 
 export function init(deps: MessageHandlerDeps): void {
@@ -463,7 +463,7 @@ function handleMessage(event: MessageEvent): void {
       // or is queued for the next tool boundary. Either way, "Redirecting
       // agent..." is no longer accurate once new content is flowing.
       document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
-      lastMessageUsage = null;
+      _lastMessageUsage = null;
       break;
     }
 
@@ -688,7 +688,7 @@ function handleMessage(event: MessageEvent): void {
 
         if ((endMsg as any).usage) {
           const u = (endMsg as any).usage as { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } };
-          lastMessageUsage = u;
+          _lastMessageUsage = u;
 
           // pi's claude-code-cli adapter exposes a `perCallUsage` field on the
           // assistant message carrying the *last* API call's usage snapshot
@@ -1337,7 +1337,7 @@ function handleMessage(event: MessageEvent): void {
       };
 
       // Per-turn usage snapshot
-      lastMessageUsage = {
+      _lastMessageUsage = {
         input: turnInput,
         output: turnOutput,
         cacheRead: turnCacheRead,

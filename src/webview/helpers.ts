@@ -5,7 +5,7 @@
 import { marked, type Token, type TokensList } from "marked";
 import DOMPurify from "dompurify";
 import type { SessionStats } from "../shared/types";
-import type { AppState, ToolCategory, ToolCallState } from "./state";
+import type { AppState, ToolCategory } from "./state";
 import { registerCleanup } from "./dispose";
 import {
   TOKEN_THRESHOLD_K,

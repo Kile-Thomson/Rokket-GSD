@@ -395,7 +395,7 @@ export function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void 
       if (tc.args.run_in_background) pills.push("bg");
 
       // Update or insert pills inline in header
-      let pillsEl = headerEl.querySelector<HTMLElement>(".gsd-agent-meta-pills");
+      const pillsEl = headerEl.querySelector<HTMLElement>(".gsd-agent-meta-pills");
       if (pillsEl) {
         pillsEl.innerHTML = pills.map(p => `<span class="gsd-agent-pill">${escapeHtml(p)}</span>`).join("");
       } else {
@@ -407,7 +407,7 @@ export function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void 
 
       // Update or insert description inline in header
       if (agentDesc) {
-        let descEl = headerEl.querySelector<HTMLElement>(".gsd-agent-desc");
+        const descEl = headerEl.querySelector<HTMLElement>(".gsd-agent-desc");
         if (descEl) {
           descEl.textContent = agentDesc;
         } else {

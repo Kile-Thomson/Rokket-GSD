@@ -1331,10 +1331,7 @@ describe("message-handler", () => {
       expect(state.sessionStats.contextTokens).toBe(22000);
     });
 
-    it("does not update contextPercent when perCallUsage is absent", () => {
-      // Without a per-call snapshot, session-cumulative `usage` alone cannot
-      // yield an honest context %. Leave the last known value intact rather
-      // than invent one from session aggregates.
+    it("computes contextPercent from usage delta when perCallUsage is absent", () => {
       state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
       sendMessage({
@@ -1344,8 +1341,10 @@ describe("message-handler", () => {
           usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0 },
         },
       });
-      expect(state.sessionStats.contextPercent).toBeUndefined();
-      expect(state.sessionStats.contextTokens).toBeUndefined();
+      // Delta from prevMessageEndUsage (shared module state from prior test):
+      // (40000-30000)+(5000-4000)+(10000-0)+(0-0) = 21000
+      expect(state.sessionStats.contextTokens).toBe(21000);
+      expect(state.sessionStats.contextPercent).toBe(21);
     });
 
     it("updates contextWindow even when perCallUsage is absent", () => {
