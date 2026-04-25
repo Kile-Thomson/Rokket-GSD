@@ -76,8 +76,10 @@ export class TelegramBridge {
   private readonly TYPING_INTERVAL_MS = 4500;
   private readonly _activeDeliveries = new Set<Promise<void>>();
 
-  waitForAllDeliveries(): Promise<void> {
-    return Promise.all(Array.from(this._activeDeliveries)).then(() => undefined);
+  async waitForAllDeliveries(): Promise<void> {
+    while (this._activeDeliveries.size > 0) {
+      await Promise.allSettled(Array.from(this._activeDeliveries));
+    }
   }
 
   constructor(
@@ -552,8 +554,7 @@ export class TelegramBridge {
 
   handleStreamEnd(sessionId: string, finalText: string): void {
     const state = this.streamingState.get(sessionId);
-    if (!state) {
-      // No streaming state means no placeholder was sent — nothing to finalize
+    if (!state && this.streamingGranularity !== "final-only") {
       return;
     }
     const threadId = this.topicManager.getTopicForSession(sessionId);
