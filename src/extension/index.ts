@@ -153,17 +153,37 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand("gsd.setOpenAiApiKey", async () => {
       const existing = await getOpenAiApiKey(context.secrets);
+      const proceed = await vscode.window.showInformationMessage(
+        existing ? "Replace OpenAI API Key" : "Set Up Voice Transcription",
+        {
+          modal: true,
+          detail: existing
+            ? "You already have an OpenAI API key stored. Enter a new key to replace it."
+            : "Voice transcription lets you send voice messages from Telegram " +
+              "and have them automatically transcribed using OpenAI Whisper.\n\n" +
+              "You need an OpenAI API key with some credit on it:\n" +
+              "1. Go to platform.openai.com and sign up (or log in)\n" +
+              "2. Go to API keys and create a new key\n" +
+              "3. Add credit to your account (even $5 will last a very long time)\n" +
+              "4. Copy the key — you'll paste it in the next step\n\n" +
+              "Cost: Whisper transcription costs approximately $0.006 per minute " +
+              "of audio — a 1-minute voice message costs less than a cent.\n\n" +
+              "The key is stored securely in your OS keychain and never leaves your machine.",
+        },
+        "Continue",
+      );
+      if (proceed !== "Continue") return;
+
       const key = await vscode.window.showInputBox({
-        prompt: existing
-          ? "Replace your stored OpenAI API key"
-          : "Enter your OpenAI API key (stored securely in OS keychain)",
+        title: "Paste your OpenAI API key",
+        prompt: "This key is stored securely in your OS keychain and never leaves your machine",
         placeHolder: "sk-...",
         password: true,
         ignoreFocusOut: true,
       });
       if (!key) return;
       await setOpenAiApiKey(context.secrets, key);
-      vscode.window.showInformationMessage("OpenAI API key saved.");
+      vscode.window.showInformationMessage("OpenAI API key saved — voice transcription is ready!");
     })
   );
 

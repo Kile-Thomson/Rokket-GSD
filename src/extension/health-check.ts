@@ -5,6 +5,7 @@ import * as fs from "fs";
 import * as os from "os";
 import { toErrorMessage } from "../shared/errors";
 import { EXEC_TIMEOUT_MS, MIN_NODE_MAJOR_VERSION } from "../shared/constants";
+import { resolveShellEnv, mergeShellEnv } from "./shell-env";
 
 // ============================================================
 // Startup Health Check — validates the full environment
@@ -58,6 +59,13 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
     issues: [],
   };
 
+  // Resolve login shell env so health checks find binaries on Linux desktop launches
+  const shellEnv = await resolveShellEnv();
+  const healthEnv = mergeShellEnv(
+    Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined)),
+    shellEnv,
+  );
+
   // ---- Check Node.js ----
   try {
     result.nodeVersion = execSync("node --version", {
@@ -65,6 +73,7 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
       timeout: EXEC_TIMEOUT_MS,
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
+      env: healthEnv,
     }).trim();
     result.nodeFound = true;
 
@@ -78,11 +87,12 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
       });
     }
   } catch {
-    // Node.js binary not found or not executable
     result.issues.push({
       severity: "error",
       message: "Node.js not found in PATH.",
-      fix: "Install Node.js 18+ from https://nodejs.org",
+      fix: process.platform === "linux"
+        ? "Install Node.js 18+ from https://nodejs.org. If using nvm, try launching VS Code from a terminal ('code .') so it inherits your shell PATH."
+        : "Install Node.js 18+ from https://nodejs.org",
     });
   }
 
@@ -98,6 +108,7 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
       timeout: EXEC_TIMEOUT_MS,
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
+      env: healthEnv,
     }).trim().split(/\r?\n/)[0];
 
     result.gsdFound = true;
@@ -117,7 +128,9 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
       result.issues.push({
         severity: "error",
         message: "GSD CLI (gsd-pi) not found in PATH.",
-        fix: "Install it with: npm install -g gsd-pi",
+        fix: process.platform === "linux"
+          ? "Install it with: npm install -g gsd-pi. If already installed, try launching VS Code from a terminal ('code .') or add npm's global bin to ~/.profile."
+          : "Install it with: npm install -g gsd-pi",
       });
     }
   }

@@ -2,6 +2,7 @@ import { ChildProcess, spawn, spawnSync } from "child_process";
 import { EventEmitter } from "events";
 import * as path from "path";
 import * as fs from "fs";
+import { resolveShellEnv, mergeShellEnv } from "./shell-env";
 import {
   MAX_STDOUT_BUFFER_BYTES,
   MAX_STDERR_BUFFER_BYTES,
@@ -241,6 +242,7 @@ function resolveGsdUnix(): { command: string; args: string[]; useShell: boolean 
     const result = spawnSync("which", ["gsd"], {
       encoding: "utf-8",
       timeout: EXEC_TIMEOUT_MS,
+      env: process.env,
     });
     if (result.status === 0 && result.stdout) {
       const firstMatch = result.stdout.trim().split(/\r?\n/)[0];
@@ -332,6 +334,11 @@ export class GsdRpcClient extends EventEmitter {
     this._lastStartOptions = { ...options };
     this._stderrBuffer = "";
 
+    // On Linux/macOS, resolve the user's login shell env so we pick up
+    // PATH (for node/gsd), API keys, and other vars that VS Code misses
+    // when launched from the desktop rather than a terminal.
+    const shellEnv = await resolveShellEnv();
+
     const resolved = await resolveGsdPath(options.gsdPath);
     // Log the resolved spawn command for diagnostics
     this.emit("log", `[rpc-client] Spawn: ${resolved.command} ${resolved.args.join(" ")} --mode rpc (shell: ${resolved.useShell})\n`);
@@ -341,15 +348,16 @@ export class GsdRpcClient extends EventEmitter {
       args.push("--session-dir", options.sessionDir);
     }
 
-    const env = {
-      ...sanitizeEnvForChildProcess(process.env),
-      ...(options.env || {}),
-      // Force color output off for RPC
-      NO_COLOR: "1",
-      FORCE_COLOR: "0",
-      // Signal to extensions that we're running inside the IDE (not CLI TUI)
-      GSD_IDE: "1",
-    };
+    const env = mergeShellEnv(
+      {
+        ...sanitizeEnvForChildProcess(process.env),
+        ...(options.env || {}),
+        NO_COLOR: "1",
+        FORCE_COLOR: "0",
+        GSD_IDE: "1",
+      },
+      shellEnv,
+    );
 
     this.process = spawn(resolved.command, args, {
       cwd: options.cwd,

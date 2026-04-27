@@ -10,8 +10,29 @@
       "imports": [],
       "format": "esm"
     },
+    "src/extension/shell-env.ts": {
+      "bytes": 4300,
+      "imports": [
+        {
+          "path": "child_process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "os",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
+        }
+      ],
+      "format": "esm"
+    },
     "src/extension/rpc-client.ts": {
-      "bytes": 30578,
+      "bytes": 30864,
       "imports": [
         {
           "path": "child_process",
@@ -32,6 +53,11 @@
           "path": "fs",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/extension/shell-env.ts",
+          "kind": "import-statement",
+          "original": "./shell-env"
         },
         {
           "path": "src/shared/constants.ts",
@@ -436,7 +462,7 @@
       "format": "esm"
     },
     "src/extension/openai/transcribe.ts": {
-      "bytes": 1464,
+      "bytes": 1758,
       "imports": [],
       "format": "esm"
     },
@@ -515,7 +541,7 @@
       "format": "esm"
     },
     "src/extension/telegram/bridge.ts": {
-      "bytes": 31489,
+      "bytes": 31498,
       "imports": [
         {
           "path": "src/extension/telegram/api.ts",
@@ -694,7 +720,7 @@
       "format": "esm"
     },
     "src/extension/health-check.ts": {
-      "bytes": 9891,
+      "bytes": 10651,
       "imports": [
         {
           "path": "vscode",
@@ -730,12 +756,17 @@
           "path": "src/shared/constants.ts",
           "kind": "import-statement",
           "original": "../shared/constants"
+        },
+        {
+          "path": "src/extension/shell-env.ts",
+          "kind": "import-statement",
+          "original": "./shell-env"
         }
       ],
       "format": "esm"
     },
     "src/extension/telegram/setup.ts": {
-      "bytes": 6070,
+      "bytes": 8483,
       "imports": [
         {
           "path": "vscode",
@@ -756,7 +787,7 @@
       "format": "esm"
     },
     "src/extension/index.ts": {
-      "bytes": 7499,
+      "bytes": 8368,
       "imports": [
         {
           "path": "vscode",
@@ -817,7 +848,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 575222
+      "bytes": 588514
     },
     "dist/extension.js": {
       "imports": [
@@ -878,6 +909,11 @@
         },
         {
           "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "child_process",
           "kind": "require-call",
           "external": true
         },
@@ -1111,7 +1147,7 @@
       "entryPoint": "src/extension/index.ts",
       "inputs": {
         "src/extension/index.ts": {
-          "bytesInOutput": 3372
+          "bytesInOutput": 3972
         },
         "src/shared/errors.ts": {
           "bytesInOutput": 60
@@ -1120,16 +1156,19 @@
           "bytesInOutput": 13295
         },
         "src/extension/rpc-client.ts": {
-          "bytesInOutput": 9909
+          "bytesInOutput": 9944
+        },
+        "src/extension/shell-env.ts": {
+          "bytesInOutput": 1385
         },
         "src/extension/update-checker.ts": {
-          "bytesInOutput": 6206
+          "bytesInOutput": 6217
         },
         "src/extension/auto-progress-poller.ts": {
           "bytesInOutput": 4217
         },
         "src/extension/dashboard-parser.ts": {
-          "bytesInOutput": 2980
+          "bytesInOutput": 2988
         },
         "src/extension/state-parser.ts": {
           "bytesInOutput": 805
@@ -1177,7 +1216,7 @@
           "bytesInOutput": 608
         },
         "src/extension/openai/transcribe.ts": {
-          "bytesInOutput": 634
+          "bytesInOutput": 810
         },
         "src/extension/telegram/formatter.ts": {
           "bytesInOutput": 896
@@ -1195,7 +1234,7 @@
           "bytesInOutput": 2005
         },
         "src/extension/telegram/bridge.ts": {
-          "bytesInOutput": 15938
+          "bytesInOutput": 16014
         },
         "src/extension/openai/config.ts": {
           "bytesInOutput": 107
@@ -1207,13 +1246,13 @@
           "bytesInOutput": 860
         },
         "src/extension/health-check.ts": {
-          "bytesInOutput": 4473
+          "bytesInOutput": 4927
         },
         "src/extension/telegram/setup.ts": {
-          "bytesInOutput": 3483
+          "bytesInOutput": 5117
         }
       },
-      "bytes": 151694
+      "bytes": 156073
     }
   }
 }
