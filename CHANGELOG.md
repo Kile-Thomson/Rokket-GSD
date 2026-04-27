@@ -12,6 +12,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Changed
 - **Updated README and branding** — marketplace listing now reflects new Rokketek logo and updated documentation
 
+## [0.3.46] — 2026-04-27
+
+### Fixed
+- **Parallel agent detection & card display** — fixed parallel batch detection and agent card rendering in sidebar
+
 ## [0.3.45] — 2026-04-27
 
 ### Added
