@@ -46,13 +46,14 @@ const mockOutputChannel = {
 };
 
 const mockShowInputBox = vi.fn(async (..._args: unknown[]) => inputBoxQueue.shift());
-const mockShowInfoMessage = vi.fn(async (..._args: unknown[]) => undefined);
+const mockShowInfoMessage = vi.fn(async (..._args: unknown[]) => "Continue" as string | undefined);
 const mockShowErrorMessage = vi.fn(async (..._args: unknown[]) => undefined);
 const mockShowWarningMessage = vi.fn(async (..._args: unknown[]) => undefined);
 const mockWithProgress = vi.fn(async (_opts: unknown, task: (progress: unknown, cancel: vscode.CancellationToken) => Promise<unknown>) => {
   const cancelToken = { isCancellationRequested: false, onCancellationRequested: vi.fn() } as unknown as vscode.CancellationToken;
   return task({}, cancelToken);
 });
+const mockExecuteCommand = vi.fn(async () => undefined);
 
 const mockSecrets = createMockSecretStorage();
 const mockConfig = createMockWorkspaceConfig();
@@ -68,6 +69,9 @@ vi.mock("vscode", () => ({
   },
   workspace: {
     getConfiguration: () => mockConfig,
+  },
+  commands: {
+    executeCommand: (...args: unknown[]) => mockExecuteCommand(...(args as [unknown])),
   },
   ProgressLocation: { Notification: 15 },
   ConfigurationTarget: { Global: 1 },
@@ -116,16 +120,24 @@ beforeEach(() => {
   mockShowErrorMessage.mockReset();
   mockShowWarningMessage.mockReset();
   mockWithProgress.mockReset();
+  mockExecuteCommand.mockReset();
   mockOutputChannel.appendLine.mockReset();
   inputBoxQueue = [];
   savedConfig = null;
   secretStore = new Map();
   configStore = new Map();
 
+  // Default: modal step dialogs return "Continue", completion dialog returns "Skip for Now"
+  mockShowInfoMessage.mockImplementation(async (...args: unknown[]) => {
+    const msg = args[0] as string;
+    if (typeof msg === "string" && msg.startsWith("[Step")) return "Continue";
+    return "Skip for Now";
+  });
+
   // Re-set withProgress default
   mockWithProgress.mockImplementation(async (_opts: unknown, task: (progress: unknown, cancel: vscode.CancellationToken) => Promise<unknown>) => {
     const cancelToken = { isCancellationRequested: false, onCancellationRequested: vi.fn() } as unknown as vscode.CancellationToken;
-    return task({}, cancelToken);
+    return task({ report: vi.fn() }, cancelToken);
   });
 
   // Re-set showInputBox default
@@ -157,6 +169,15 @@ describe("runTelegramSetup", () => {
     });
   });
 
+  it("aborts when user cancels step 1 modal", async () => {
+    mockShowInfoMessage.mockResolvedValueOnce(undefined);
+
+    await runTelegramSetup(mockContext());
+
+    expect(mockGetMe).not.toHaveBeenCalled();
+    expect(mockShowInputBox).not.toHaveBeenCalled();
+  });
+
   it("aborts when user cancels token input", async () => {
     inputBoxQueue = [undefined];
 
@@ -175,6 +196,18 @@ describe("runTelegramSetup", () => {
     const errorMsg = (mockShowErrorMessage.mock.calls[0] as unknown[])[0] as string;
     expect(errorMsg).not.toContain(TOKEN);
     expect(errorMsg).toContain("bot***");
+  });
+
+  it("aborts when user cancels step 2 modal", async () => {
+    inputBoxQueue = [TOKEN];
+    mockGetMe.mockResolvedValue(BOT_USER);
+    mockShowInfoMessage
+      .mockResolvedValueOnce("Continue")   // step 1
+      .mockResolvedValueOnce(undefined);    // step 2 cancelled
+
+    await runTelegramSetup(mockContext());
+
+    expect(mockGetUpdates).not.toHaveBeenCalled();
   });
 
   it("warns when bot is not admin", async () => {
@@ -212,7 +245,7 @@ describe("runTelegramSetup", () => {
         return null; // simulate group detection timeout
       }
       const cancelToken = { isCancellationRequested: false, onCancellationRequested: vi.fn() } as unknown as vscode.CancellationToken;
-      return task({}, cancelToken);
+      return task({ report: vi.fn() }, cancelToken);
     });
 
     await runTelegramSetup(mockContext());
@@ -220,6 +253,27 @@ describe("runTelegramSetup", () => {
     expect(mockShowInputBox).toHaveBeenCalledTimes(2);
     expect(savedConfig).not.toBeNull();
     expect(savedConfig?.chatId).toBe(CHAT.id);
+  });
+
+  it("offers voice setup after completion", async () => {
+    inputBoxQueue = [TOKEN];
+    mockGetMe.mockResolvedValue(BOT_USER);
+    mockGetUpdates.mockResolvedValue([
+      { update_id: 1, message: { message_id: 1, chat: { id: CHAT.id, title: CHAT.title, type: "supergroup" } } },
+    ]);
+    mockGetChatMember.mockResolvedValue({ status: "administrator", user: BOT_USER });
+    mockSendMessage.mockResolvedValue({ message_id: 2, chat: CHAT });
+
+    // Step modals return Continue, completion dialog returns "Set Up Voice Now"
+    mockShowInfoMessage.mockImplementation(async (...args: unknown[]) => {
+      const msg = args[0] as string;
+      if (typeof msg === "string" && msg.startsWith("[Step")) return "Continue";
+      return "Set Up Voice Now";
+    });
+
+    await runTelegramSetup(mockContext());
+
+    expect(mockExecuteCommand).toHaveBeenCalledWith("gsd.setOpenAiApiKey");
   });
 
   it("redacts token in OutputChannel logs on network error", async () => {
@@ -236,18 +290,16 @@ describe("runTelegramSetup", () => {
     mockWithProgress.mockImplementation(async (_opts: unknown, task: (p: unknown, c: vscode.CancellationToken) => Promise<unknown>) => {
       callCount++;
       if (callCount === 2) {
-        // Simulate immediate cancellation so loop runs once then exits
         const cancelToken = { isCancellationRequested: false, onCancellationRequested: vi.fn() } as unknown as vscode.CancellationToken;
-        // Run task but expire deadline immediately after first iteration
         const origNow = Date.now;
         let n = 0;
-        Date.now = () => { n++; return n <= 2 ? origNow() : origNow() + 120_000; };
-        const result = await task({}, cancelToken);
+        Date.now = () => { n++; return n <= 2 ? origNow() : origNow() + 200_000; };
+        const result = await task({ report: vi.fn() }, cancelToken);
         Date.now = origNow;
         return result;
       }
       const cancelToken = { isCancellationRequested: false, onCancellationRequested: vi.fn() } as unknown as vscode.CancellationToken;
-      return task({}, cancelToken);
+      return task({ report: vi.fn() }, cancelToken);
     });
 
     await runTelegramSetup(mockContext());
