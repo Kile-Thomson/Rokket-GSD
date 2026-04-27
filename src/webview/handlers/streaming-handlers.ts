@@ -242,13 +242,17 @@ export function handleMessageEnd(msg: Msg<'message_end'>): void {
       .filter(b => toolBlockTypes.has(b.type as string))
       .map(b => b.id)
       .filter(Boolean) as string[];
-    if (toolIds.length >= 2) {
-      for (const toolId of toolIds) {
-        const tc = state.currentTurn.toolCalls.get(toolId);
-        if (tc && !tc.isParallel) {
-          tc.isParallel = true;
-          renderer.updateToolSegmentElement(toolId);
-        }
+    console.debug(`[gsd:parallel] message_end: ${toolIds.length} tool IDs found`);
+    // Only mark tools as parallel if they were already detected as parallel
+    // during streaming (runtime overlap). This avoids false positives from
+    // sequential tools that happen to share a message.
+    const parallelIds = toolIds.filter(id => {
+      const tc = state.currentTurn!.toolCalls.get(id);
+      return tc?.isParallel;
+    });
+    if (parallelIds.length >= 2) {
+      for (const toolId of parallelIds) {
+        renderer.updateToolSegmentElement(toolId);
       }
     }
   }
