@@ -1,5 +1,4 @@
 import { execFile } from "child_process";
-import * as os from "os";
 import { EXEC_TIMEOUT_MS } from "../shared/constants";
 
 let cachedEnv: Record<string, string> | null = null;
@@ -53,7 +52,10 @@ export function mergeShellEnv(base: Record<string, string>, shell: Record<string
         const pathKey = "PATH" in merged ? "PATH" : "Path" in merged ? "Path" : "PATH";
         merged[pathKey] = basePath ? `${basePath}:${newParts.join(":")}` : newParts.join(":");
       }
-    } else if (!(key in merged)) {
+    } else if (!(key in base)) {
+      // Only add keys that weren't in the original base env.
+      // Using `base` (not `merged`) prevents shell env from reintroducing
+      // vars that were intentionally removed during sanitization.
       merged[key] = value;
     }
   }
