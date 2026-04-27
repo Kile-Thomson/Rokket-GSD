@@ -4,6 +4,14 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.47] — 2026-04-27
+
+### Fixed
+- **Question dialogs render inline** — question dialogs now appear within the streaming turn instead of stacking at the bottom of the chat
+
+### Changed
+- **Updated README and branding** — marketplace listing now reflects new Rokketek logo and updated documentation
+
 ## [0.3.45] — 2026-04-27
 
 ### Added
