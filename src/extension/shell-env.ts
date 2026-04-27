@@ -26,9 +26,8 @@ export function resolveShellEnv(): Promise<Record<string, string>> {
     resolving = null;
     return env;
   }).catch(() => {
-    cachedEnv = {};
     resolving = null;
-    return cachedEnv;
+    return {} as Record<string, string>;
   });
 
   return resolving;

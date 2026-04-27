@@ -1253,7 +1253,9 @@ export function buildToolCallHtml(tc: ToolCallState): string {
   }
 
   const isCollapsed = collapsedClass === "collapsed";
-  const displayName = isAgent ? "Agent" : tc.name;
+  const displayName = isAgent
+    ? (tc.args?.subagent_type ? String(tc.args.subagent_type) : "Agent")
+    : tc.name;
   return `<div class="gsd-tool-block ${stateClass}${parallelClass} ${collapsedClass} cat-${category}" data-tool-id="${escapeAttr(tc.id)}">
     <div class="gsd-tool-header" role="button" tabindex="0" aria-label="Toggle ${escapeAttr(tc.name)} details" aria-expanded="${isCollapsed ? "false" : "true"}">
       ${statusIcon}
