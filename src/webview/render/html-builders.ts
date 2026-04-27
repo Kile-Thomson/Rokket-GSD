@@ -15,8 +15,9 @@ import {
   getToolIcon,
   getToolKeyArg,
   formatToolResult,
-  buildSubagentOutputHtml,
+  truncateArg,
   buildUsagePills,
+  parseAgentUsage,
   renderMarkdown,
   type SubagentResult,
 } from "../helpers";
@@ -304,10 +305,12 @@ export function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void 
   }
 
   const stateClass = tc.isRunning ? "running" : tc.isSkipped ? "skipped" : tc.isError ? "error" : "done";
-  const n = tc.name.toLowerCase();
-  const isSubagent = n === "subagent" || n === "async_subagent" || n === "await_subagent" || n === "agent";
-  const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
-  const shouldCollapse = !tc.isRunning && !isSubagent && (lines > 5 || tc.isSkipped);
+  const category = getToolCategory(tc.name);
+  const isAgentPatch = category === "agent";
+  const agentUsageParsedEarly = isAgentPatch && tc.resultText ? parseAgentUsage(tc.resultText) : null;
+  const resultForCollapse = agentUsageParsedEarly ? agentUsageParsedEarly.cleanText : tc.resultText;
+  const lines = resultForCollapse ? resultForCollapse.split("\n").length : 0;
+  const shouldCollapse = !tc.isRunning && !isAgentPatch && (lines > 5 || tc.isSkipped);
 
   block.classList.remove("running", "skipped", "error", "done", "collapsed");
   block.classList.add(stateClass);
@@ -384,25 +387,71 @@ export function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void 
     durationEl.remove();
   }
 
-  const outputEl = block.querySelector<HTMLElement>(".gsd-tool-output");
-  if (isSubagent) {
-    const newOutputHtml = buildSubagentOutputHtml(tc);
-    if (outputEl) {
-      const existingPanel = outputEl.querySelector<HTMLElement>(".gsd-subagent-panel");
-      if (existingPanel) {
-        patchSubagentPanel(existingPanel, tc);
+  // Agent meta — update model pill + description when args arrive, usage pills when result arrives
+  const isAgentUpdate = isAgentPatch;
+  const agentUsageParsed = agentUsageParsedEarly;
+  if (isAgentUpdate) {
+    const headerEl = block.querySelector<HTMLElement>(".gsd-tool-header");
+    if (headerEl && Object.keys(tc.args).length > 0) {
+      const model = tc.args.model ? String(tc.args.model)
+        : tc.args.subagent_type ? String(tc.args.subagent_type)
+        : "inherited";
+      const agentDesc = tc.args.description ? String(tc.args.description)
+        : tc.args.prompt ? truncateArg(String(tc.args.prompt), 100)
+        : "";
+      const pills: string[] = [model];
+      if (tc.args.run_in_background) pills.push("bg");
+
+      // Update or insert pills inline in header
+      const pillsEl = headerEl.querySelector<HTMLElement>(".gsd-agent-meta-pills");
+      if (pillsEl) {
+        pillsEl.innerHTML = pills.map(p => `<span class="gsd-agent-pill">${escapeHtml(p)}</span>`).join("");
       } else {
-        outputEl.className = "gsd-tool-output gsd-tool-output-rich";
-        outputEl.innerHTML = newOutputHtml;
+        const rightEl = headerEl.querySelector<HTMLElement>(".gsd-tool-header-right");
+        if (rightEl) {
+          rightEl.insertAdjacentHTML("beforebegin", `<span class="gsd-agent-meta-pills">${pills.map(p => `<span class="gsd-agent-pill">${escapeHtml(p)}</span>`).join("")}</span>`);
+        }
       }
-    } else {
-      const div = document.createElement("div");
-      div.className = "gsd-tool-output gsd-tool-output-rich";
-      div.innerHTML = newOutputHtml;
-      block.appendChild(div);
+
+      // Update or insert description inline in header
+      if (agentDesc) {
+        const descEl = headerEl.querySelector<HTMLElement>(".gsd-agent-desc");
+        if (descEl) {
+          descEl.textContent = agentDesc;
+        } else {
+          const pillsEl2 = headerEl.querySelector<HTMLElement>(".gsd-agent-meta-pills");
+          if (pillsEl2) {
+            pillsEl2.insertAdjacentHTML("beforebegin", `<span class="gsd-agent-desc">${escapeHtml(agentDesc)}</span>`);
+          } else {
+            const rightEl2 = headerEl.querySelector<HTMLElement>(".gsd-tool-header-right");
+            if (rightEl2) {
+              rightEl2.insertAdjacentHTML("beforebegin", `<span class="gsd-agent-desc">${escapeHtml(agentDesc)}</span>`);
+            }
+          }
+        }
+      }
     }
-  } else if (tc.resultText) {
-    const formattedResult = formatToolResult(tc.name, tc.resultText, tc.args);
+
+    if (tc.resultText) {
+      const existingUsage = block.querySelector<HTMLElement>(".gsd-agent-usage");
+      if (agentUsageParsed) {
+        const usageHtml = buildUsagePills(agentUsageParsed.usage);
+        if (existingUsage) {
+          existingUsage.outerHTML = usageHtml;
+        } else {
+          const headerEl = block.querySelector<HTMLElement>(".gsd-tool-header");
+          if (headerEl) {
+            headerEl.insertAdjacentHTML("afterend", usageHtml);
+          }
+        }
+      }
+    }
+  }
+
+  const outputEl = block.querySelector<HTMLElement>(".gsd-tool-output");
+  if (tc.resultText) {
+    const resultForDisplay = agentUsageParsed ? agentUsageParsed.cleanText : tc.resultText;
+    const formattedResult = formatToolResult(tc.name, resultForDisplay, tc.args);
     const maxOutputLen = MAX_OUTPUT_LEN;
     let displayText = formattedResult;
     let truncated = false;
@@ -575,6 +624,7 @@ export function buildToolCallHtml(tc: ToolCallState): string {
   const keyArg = getToolKeyArg(tc.name, tc.args);
   const category = getToolCategory(tc.name);
   const toolIcon = getToolIcon(tc.name, category);
+  const isAgent = category === "agent";
 
   const statusIcon = tc.isRunning ? `<span class="gsd-tool-spinner"></span>` :
     tc.isSkipped ? `<span class="gsd-tool-icon skipped">⏭</span>` :
@@ -592,19 +642,18 @@ export function buildToolCallHtml(tc: ToolCallState): string {
 
   const stateClass = tc.isRunning ? "running" : tc.isSkipped ? "skipped" : tc.isError ? "error" : "done";
   const parallelClass = tc.isParallel ? " parallel" : "";
-  const n = tc.name.toLowerCase();
-  const isSubagent = n === "subagent" || n === "async_subagent" || n === "await_subagent" || n === "agent";
 
-  const lines = tc.resultText ? tc.resultText.split("\n").length : 0;
-  const shouldCollapse = !tc.isRunning && !isSubagent && (lines > 5 || tc.isSkipped);
+  const agentUsageParsed = isAgent && tc.resultText ? parseAgentUsage(tc.resultText) : null;
+  const resultForCollapse = agentUsageParsed ? agentUsageParsed.cleanText : tc.resultText;
+  const lines = resultForCollapse ? resultForCollapse.split("\n").length : 0;
+  const shouldCollapse = !tc.isRunning && (lines > 5 || tc.isSkipped);
   const collapsedClass = shouldCollapse ? "collapsed" : "";
 
   let outputHtml = "";
 
-  if (isSubagent) {
-    outputHtml = `<div class="gsd-tool-output gsd-tool-output-rich">${buildSubagentOutputHtml(tc)}</div>`;
-  } else if (tc.resultText) {
-    const formattedResult = formatToolResult(tc.name, tc.resultText, tc.args);
+  if (tc.resultText) {
+    const resultForDisplay = agentUsageParsed ? agentUsageParsed.cleanText : tc.resultText;
+    const formattedResult = formatToolResult(tc.name, resultForDisplay, tc.args);
     const maxOutputLen = MAX_OUTPUT_LEN;
     let displayText = formattedResult;
     let truncated = false;
@@ -623,16 +672,40 @@ export function buildToolCallHtml(tc: ToolCallState): string {
 
   const parallelBadge = tc.isParallel ? `<span class="gsd-tool-parallel-badge" title="Running in parallel">⚡</span>` : "";
 
+  // Agent-specific: inline pills in header, description below
+  let agentMetaHtml = "";
+  let agentUsageHtml = "";
+  let agentPillsHtml = "";
+  if (isAgent) {
+    const model = tc.args.model ? String(tc.args.model)
+      : tc.args.subagent_type ? String(tc.args.subagent_type)
+      : "inherited";
+    const agentDesc = tc.args.description ? String(tc.args.description)
+      : tc.args.prompt ? truncateArg(String(tc.args.prompt), 100)
+      : "";
+    const pills: string[] = [model];
+    if (tc.args.run_in_background) pills.push("bg");
+    agentPillsHtml = `<span class="gsd-agent-meta-pills">${pills.map(p => `<span class="gsd-agent-pill">${escapeHtml(p)}</span>`).join("")}</span>`;
+    agentMetaHtml = agentDesc ? `<span class="gsd-agent-desc">${escapeHtml(agentDesc)}</span>` : "";
+
+    if (agentUsageParsed) {
+      agentUsageHtml = buildUsagePills(agentUsageParsed.usage);
+    }
+  }
+
   const isCollapsed = collapsedClass === "collapsed";
-  const displayName = isSubagent && tc.args.subagent_type ? String(tc.args.subagent_type) : tc.name;
+  const displayName = isAgent && tc.args.subagent_type ? String(tc.args.subagent_type) : isAgent ? "Agent" : tc.name;
   return `<div class="gsd-tool-block ${stateClass}${parallelClass} ${collapsedClass} cat-${category}" data-tool-id="${escapeAttr(tc.id)}">
     <div class="gsd-tool-header" role="button" tabindex="0" aria-label="Toggle ${escapeAttr(tc.name)} details" aria-expanded="${isCollapsed ? "false" : "true"}">
       ${statusIcon}
       <span class="gsd-tool-cat-icon">${toolIcon}</span>
       <span class="gsd-tool-name">${escapeHtml(displayName)}</span>
       ${keyArg ? `<span class="gsd-tool-arg">${escapeHtml(keyArg)}</span>` : ""}
+      ${agentMetaHtml}
+      ${agentPillsHtml}
       <span class="gsd-tool-header-right">${parallelBadge}${durationHtml}<span class="gsd-tool-chevron">▸</span></span>
     </div>
+    ${agentUsageHtml}
     ${outputHtml}
   </div>`;
 }

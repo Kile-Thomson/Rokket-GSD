@@ -47,21 +47,10 @@ export type MessageUsage = {
   cost?: { total?: number };
 } | null;
 
-let activeBatchToolIds: Set<string> | null = null;
-let batchFinalizeTimer: ReturnType<typeof setTimeout> | null = null;
-let messageParallelToolIds: Set<string> | null = null;
 let lastMessageUsage: MessageUsage = null;
 let hasCostUpdateSource = false;
 let prevCostTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
-
-export function getActiveBatchToolIds(): Set<string> | null { return activeBatchToolIds; }
-export function setActiveBatchToolIds(v: Set<string> | null): void { activeBatchToolIds = v; }
-
-export function getBatchFinalizeTimer(): ReturnType<typeof setTimeout> | null { return batchFinalizeTimer; }
-export function setBatchFinalizeTimer(v: ReturnType<typeof setTimeout> | null): void { batchFinalizeTimer = v; }
-
-export function getMessageParallelToolIds(): Set<string> | null { return messageParallelToolIds; }
-export function setMessageParallelToolIds(v: Set<string> | null): void { messageParallelToolIds = v; }
+let prevMessageEndUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 
 export function getLastMessageUsage(): MessageUsage { return lastMessageUsage; }
 export function setLastMessageUsage(v: MessageUsage): void { lastMessageUsage = v; }
@@ -71,6 +60,9 @@ export function setHasCostUpdateSource(v: boolean): void { hasCostUpdateSource =
 
 export function getPrevCostTotals() { return prevCostTotals; }
 export function setPrevCostTotals(v: typeof prevCostTotals): void { prevCostTotals = v; }
+
+export function getPrevMessageEndUsage() { return prevMessageEndUsage; }
+export function setPrevMessageEndUsage(v: typeof prevMessageEndUsage): void { prevMessageEndUsage = v; }
 
 // ============================================================
 // Pending → Streaming transition
@@ -91,10 +83,8 @@ export function confirmBackendActive(): void {
 export function resetDerivedSessionTracking(): void {
   hasCostUpdateSource = false;
   prevCostTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
+  prevMessageEndUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   lastMessageUsage = null;
-  if (batchFinalizeTimer) { clearTimeout(batchFinalizeTimer); batchFinalizeTimer = null; }
-  activeBatchToolIds = null;
-  messageParallelToolIds = null;
 }
 
 // ============================================================

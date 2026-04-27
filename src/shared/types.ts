@@ -59,6 +59,9 @@ export type WebviewToExtensionMessage =
   | { type: "get_dashboard" }
   | { type: "get_changelog" }
   | { type: "set_theme"; theme: string }
+  | { type: "ollama_action"; action: "load" | "unload" | "pull" | "remove"; model: string }
+  | { type: "telegram_sync_toggle"; forceOff?: boolean }
+  | { type: "telegram_setup" }
   | { type: "shutdown" };
 
 // --- Messages FROM extension TO webview ---
@@ -83,7 +86,7 @@ export type ExtensionToWebviewMessage =
   | { type: "turn_end"; message: AgentMessage; toolResults: AgentMessage[] }
   | { type: "message_start"; message: AgentMessage }
   | { type: "message_update"; message: AgentMessage; assistantMessageEvent: StreamDelta }
-  | { type: "message_end"; message: AgentMessage & { stopReason?: string; errorMessage?: string; usage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } } } }
+  | { type: "message_end"; message: AgentMessage & { stopReason?: string; errorMessage?: string; usage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; totalTokens?: number; cost?: { total?: number } } } }
   | { type: "tool_execution_start"; toolCallId: string; toolName: string; args: Record<string, unknown> }
   | { type: "tool_execution_update"; toolCallId: string; toolName: string; partialResult: ToolResult }
   | { type: "tool_execution_end"; toolCallId: string; toolName: string; result: ToolResult; isError: boolean; durationMs?: number }
@@ -120,10 +123,11 @@ export type ExtensionToWebviewMessage =
   | { type: "session_shutdown" }
   | { type: "extension_error"; extensionPath: string; event: string; error: string }
   | { type: "steer_persisted" }
-  | { type: "async_subagent_progress"; toolCallId: string; mode: string; results: Array<{ agent: string; agentSource?: string; task: string; step?: number; exitCode: number; status: string; stopReason?: string; errorMessage?: string; usage?: Record<string, number>; model?: string }> }
+
   | { type: "cost_update"; runId: string; turnCost: number; cumulativeCost: number; tokens: { input: number; output: number; cacheRead: number; cacheWrite: number } }
   | { type: "execution_complete"; runId: string; status: string; stats?: unknown }
-  | { type: "terminal_output"; data: string };
+  | { type: "terminal_output"; data: string }
+  | { type: "telegram_user_message"; text: string; images?: ImageAttachment[] };
 
 // --- Session List Types ---
 
@@ -199,6 +203,7 @@ export interface GsdState {
   retryAttempt?: number;
   /** Whether auto-retry is enabled (gsd-pi 2.44+). */
   autoRetryEnabled?: boolean;
+  telegramSyncActive?: boolean;
 }
 
 /**

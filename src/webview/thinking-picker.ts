@@ -111,8 +111,13 @@ function currentModelSupportsReasoning(): boolean {
 function currentModelSupportsXhigh(): boolean {
   if (!state.model) return false;
   const id = state.model.id.toLowerCase();
-  // Matches supportsXhigh() in pi-ai — Opus 4.6
-  return id.includes("opus-4-6") || id.includes("opus-4.6");
+  // Matches supportsXhigh() in pi-ai — Opus 4.6 / 4.7 expose the "max" effort tier.
+  return (
+    id.includes("opus-4-6") ||
+    id.includes("opus-4.6") ||
+    id.includes("opus-4-7") ||
+    id.includes("opus-4.7")
+  );
 }
 
 function getAvailableLevels(): ThinkingOption[] {

@@ -11,6 +11,8 @@ import {
 import {
   armGsdFallbackProbe,
   startGsdFallbackTimer,
+  TUI_ONLY_COMMAND_RE,
+  handleTuiOnlyFallback,
 } from "../command-fallback";
 import { sendDashboardData } from "./dispatch-utils";
 import type { MessageDispatchContext } from "../message-dispatch";
@@ -125,6 +127,14 @@ export async function handlePrompt(
 
   const c = ctx.getSession(sessionId).client;
   if (c?.isRunning) {
+    // Intercept TUI-only commands — they use ctx.ui.custom() which can't
+    // render through RPC. Convert to an LLM prompt instead.
+    if (TUI_ONLY_COMMAND_RE.test(msg.message.trim())) {
+      ctx.getSession(sessionId).lastUserActionTime = Date.now();
+      await handleTuiOnlyFallback(ctx.commandFallbackCtx, c, webview, sessionId, msg.message.trim());
+      return;
+    }
+
     try {
       const images = sanitizeImages(msg.images);
       if (msg.message.startsWith("/")) {
@@ -151,7 +161,10 @@ export async function handlePrompt(
         const isSlash = msg.message.trimStart().startsWith("/");
         try {
           const imgs = sanitizeImages(msg.images);
-          if (isSlash) {
+          if (isSlash && TUI_ONLY_COMMAND_RE.test(msg.message.trim())) {
+            try { await c.abort(); } catch { /* may not be streaming */ }
+            await handleTuiOnlyFallback(ctx.commandFallbackCtx, c, webview, sessionId, msg.message.trim());
+          } else if (isSlash) {
             startSlashCommandWatchdog(ctx.watchdogCtx, webview, sessionId, msg.message, imgs);
             armGsdFallbackProbe(ctx.commandFallbackCtx, msg.message.trim(), sessionId, webview);
             await abortAndPrompt(ctx.watchdogCtx, c, webview, msg.message, imgs);

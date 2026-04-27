@@ -315,7 +315,7 @@ export function updateToolSegmentElement(toolCallId: string, searchAllEntries: b
   }
   if (!targetEl) return;
   patchToolBlockElement(targetEl, tc);
-  if (!tc.isRunning && targetSegIdx !== null && !targetEl.closest(".gsd-parallel-batch-content")) {
+  if (!tc.isRunning && targetSegIdx !== null) {
     if (tc.isSkipped) {
       tryStreamingSkippedCollapse(targetEl, targetSegIdx);
     } else {
@@ -474,9 +474,22 @@ function insertSegmentElement(container: HTMLElement, segIdx: number, el: HTMLEl
   el.dataset.segIdx = String(segIdx);
   let inserted = false;
   for (const [idx, existingEl] of segmentElements) {
-    if (idx > segIdx) { container.insertBefore(el, existingEl); inserted = true; break; }
+    if (idx > segIdx) {
+      const anchor = resolveContainerLevelAnchor(container, existingEl);
+      anchor.parentNode!.insertBefore(el, anchor);
+      inserted = true;
+      break;
+    }
   }
   if (!inserted) container.appendChild(el);
+}
+
+export function resolveContainerLevelAnchor(container: HTMLElement, anchor: HTMLElement): HTMLElement {
+  let cur: HTMLElement | null = anchor;
+  while (cur && cur.parentNode !== container) {
+    cur = cur.parentElement;
+  }
+  return cur || anchor;
 }
 
 export function initStreaming(deps: { messagesContainer: HTMLElement; welcomeScreen: HTMLElement }): void {

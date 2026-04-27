@@ -16,13 +16,13 @@ vi.mock("../../renderer", () => ({
   finalizeCurrentTurn: vi.fn(),
   clearMessages: vi.fn(),
   renderNewEntry: vi.fn(),
-  createParallelBatch: vi.fn(),
-  expandParallelBatch: vi.fn(),
-  syncBatchState: vi.fn(),
-  updateParallelBatchStatus: vi.fn(),
-  finalizeParallelBatch: vi.fn(),
-  clearActiveBatch: vi.fn(),
-  getActiveBatchElement: vi.fn(() => null),
+  getCurrentTurnElement: vi.fn(() => null),
+
+  appendServerToolSegment: vi.fn(),
+  completeServerToolSegment: vi.fn(),
+  reattachTurnElement: vi.fn(),
+  patchToolBlock: vi.fn(),
+  init: vi.fn(),
 }));
 
 vi.mock("../../session-history", () => ({
@@ -94,14 +94,10 @@ vi.mock("../../a11y", () => ({
   announceToScreenReader: vi.fn(),
 }));
 
-import { init, addSystemEntry } from "../../message-handler";
+import { init } from "../../message-handler";
 import * as renderer from "../../renderer";
 import * as uiDialogs from "../../ui-dialogs";
 import { announceToScreenReader } from "../../a11y";
-// session-history imported transitively via message-handler
-import * as autoProgress from "../../auto-progress";
-import * as toasts from "../../toasts";
-import * as thinkingPicker from "../../thinking-picker";
 
 // ============================================================
 // Helpers
@@ -390,6 +386,41 @@ describe("streaming-handlers", () => {
       expect(state.sessionStats.tokens?.total).toBe(850);
     });
 
+    it("tracks session totals as monotonic-max from message_end usage", () => {
+      // pi's `message_end.usage` is a session-wide running aggregate (see
+      // gsd-pi agent-session.ts getSessionStats — totalInput sums across all
+      // assistant messages). Treat each field as monotonic-max so the header
+      // never visibly dips between turns.
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 17, output: 4464, cacheRead: 881636, cacheWrite: 72261 },
+        },
+      });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 50, output: 9100, cacheRead: 1700000, cacheWrite: 50000 },
+        },
+      });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 50, output: 16000, cacheRead: 2100000, cacheWrite: 40000 },
+        },
+      });
+      const t = state.sessionStats.tokens!;
+      expect(t.input).toBe(50);
+      expect(t.output).toBe(16000);
+      expect(t.cacheRead).toBe(2100000);
+      expect(t.cacheWrite).toBe(72261);
+      expect(t.total).toBe(t.input + t.output + t.cacheRead + t.cacheWrite);
+    });
+
     it("accumulates cost from message_end usage", () => {
       sendMessage({ type: "agent_start" });
       sendMessage({
@@ -402,7 +433,75 @@ describe("streaming-handlers", () => {
       expect(state.sessionStats.cost).toBe(0.005);
     });
 
-    it("computes contextPercent from usage tokens when cost_update is absent", () => {
+    it("computes contextPercent from perCallUsage.totalTokens when present", () => {
+      // pi's claude-code-cli adapter attaches `perCallUsage` — the last API
+      // call's snapshot. `totalTokens` is the authoritative value (matches
+      // pi's calculateContextTokens exactly).
+      state.sessionStats.contextWindow = 100_000;
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0 },
+          perCallUsage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0, totalTokens: 55000 },
+        },
+      });
+      expect(state.sessionStats.contextPercent).toBeCloseTo(55, 5);
+      expect(state.sessionStats.contextTokens).toBe(55000);
+    });
+
+    it("falls back to perCallUsage field sum when totalTokens is missing", () => {
+      state.sessionStats.contextWindow = 100_000;
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 50, output: 500, cacheRead: 40000, cacheWrite: 5000 },
+          // No totalTokens — handler sums input+output+cacheRead+cacheWrite = 45550.
+          perCallUsage: { input: 50, output: 500, cacheRead: 40000, cacheWrite: 5000 },
+        },
+      });
+      expect(state.sessionStats.contextTokens).toBe(45550);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(45.55, 5);
+    });
+
+    it("reflects only the LAST call's perCallUsage across multiple message_end events", () => {
+      // The 91.7% regression was caused by delta-computing from `usage`
+      // (session-cumulative). With perCallUsage each message_end carries the
+      // exact pressure of its own API call — so multi-message turns do not
+      // balloon the displayed percentage.
+      state.sessionStats.contextWindow = 100_000;
+      sendMessage({ type: "agent_start" });
+
+      // Internal call 1: 10000 → 10%
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 10000, output: 2000, cacheRead: 0, cacheWrite: 0 },
+          perCallUsage: { input: 10000, output: 2000, cacheRead: 0, cacheWrite: 0, totalTokens: 12000 },
+        },
+      });
+      expect(state.sessionStats.contextPercent).toBe(12);
+
+      // Internal call 2: 20000 → 20% (NOT 32% — per-call replaces, not sums)
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 30000, output: 4000, cacheRead: 0, cacheWrite: 0 },
+          perCallUsage: { input: 20000, output: 2000, cacheRead: 0, cacheWrite: 0, totalTokens: 22000 },
+        },
+      });
+      expect(state.sessionStats.contextPercent).toBe(22);
+      expect(state.sessionStats.contextTokens).toBe(22000);
+    });
+
+    it("computes contextPercent via delta fallback when perCallUsage is absent", () => {
+      // When perCallUsage is missing (legacy upstream), the handler falls back
+      // to computing a delta from the previous message_end's cumulative usage.
       state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
       sendMessage({
@@ -412,27 +511,23 @@ describe("streaming-handlers", () => {
           usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0 },
         },
       });
-      expect(state.sessionStats.contextPercent).toBe(50);
+      expect(state.sessionStats.contextTokens).toBe(55000);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(55, 5);
     });
 
-    it("does NOT compute contextPercent from message_end when cost_update is active", () => {
-      state.sessionStats.contextWindow = 100_000;
-      sendMessage({
-        type: "cost_update",
-        cumulativeCost: 0.01,
-        tokens: { input: 5000, output: 500, cacheRead: 2000, cacheWrite: 1000 },
-      });
-      expect(state.sessionStats.contextPercent).toBe(8);
-
+    it("updates contextWindow even when perCallUsage is absent", () => {
+      // Context window resolution is independent of per-call data — we still
+      // want header chrome to know the model's capacity.
+      state.model = { id: "claude-sonnet-4-6", name: "Sonnet", provider: "anthropic", contextWindow: 180_000 };
       sendMessage({ type: "agent_start" });
       sendMessage({
         type: "message_end",
         message: {
           role: "assistant",
-          usage: { input: 500000, output: 50000, cacheRead: 200000, cacheWrite: 100000 },
+          usage: { input: 100, output: 50, cacheRead: 0, cacheWrite: 0 },
         },
       });
-      expect(state.sessionStats.contextPercent).toBe(8);
+      expect(state.sessionStats.contextWindow).toBe(180_000);
     });
 
     it("handles message_end with stopReason:error without crashing", () => {
@@ -473,11 +568,6 @@ describe("streaming-handlers", () => {
       expect(uiDialogs.expireAllPending).toHaveBeenCalledWith("Agent finished");
     });
 
-    it("clears active batch on agent_end", () => {
-      sendMessage({ type: "agent_start" });
-      sendMessage({ type: "agent_end" });
-      expect(renderer.clearActiveBatch).toHaveBeenCalled();
-    });
   });
 
   // ============================================================
@@ -513,18 +603,6 @@ describe("streaming-handlers", () => {
         assistantMessageEvent: { type: "text_delta", delta: "Hello world" },
       });
       expect(renderer.appendToTextSegment).toHaveBeenCalledWith("text", "Hello world");
-    });
-
-    it("strips async_subagent_progress from text_delta", () => {
-      sendMessage({ type: "agent_start" });
-      sendMessage({
-        type: "message_update",
-        assistantMessageEvent: {
-          type: "text_delta",
-          delta: 'some text\n{"__async_subagent_progress": true}\nmore text',
-        },
-      });
-      expect(renderer.appendToTextSegment).toHaveBeenCalledWith("text", "some text\nmore text");
     });
 
     it("auto-detects thinking level from thinking_delta when null", () => {

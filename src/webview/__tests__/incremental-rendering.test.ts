@@ -11,7 +11,6 @@ import {
 import {
   state,
   nextId,
-  type AssistantTurn,
 } from "../state";
 
 vi.mock("../helpers", () => ({
@@ -24,8 +23,6 @@ vi.mock("../helpers", () => ({
   getToolIcon: () => "🔧",
   getToolKeyArg: () => "",
   formatToolResult: (_n: string, t: string) => t,
-  buildSubagentOutputHtml: () =>
-    '<div class="gsd-subagent-panel"><div class="gsd-subagent-summary"><span class="gsd-subagent-mode">Parallel</span><span class="gsd-subagent-counts"></span><span class="gsd-subagent-total">0/0</span></div><div class="gsd-agent-cards"></div></div>',
   buildUsagePills: () => "",
   renderMarkdown: (t: string) => `<p>${t}</p>`,
   sanitizeAndPostProcess: (html: string) => html,

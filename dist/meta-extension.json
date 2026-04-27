@@ -1,17 +1,17 @@
 {
   "inputs": {
     "src/shared/errors.ts": {
-      "bytes": 116,
+      "bytes": 119,
       "imports": [],
       "format": "esm"
     },
     "src/shared/constants.ts": {
-      "bytes": 2756,
+      "bytes": 2730,
       "imports": [],
       "format": "esm"
     },
     "src/extension/rpc-client.ts": {
-      "bytes": 31142,
+      "bytes": 30578,
       "imports": [
         {
           "path": "child_process",
@@ -214,12 +214,12 @@
       "format": "esm"
     },
     "src/shared/types.ts": {
-      "bytes": 23458,
+      "bytes": 23499,
       "imports": [],
       "format": "esm"
     },
     "src/extension/watchdogs.ts": {
-      "bytes": 12842,
+      "bytes": 12832,
       "imports": [
         {
           "path": "vscode",
@@ -240,7 +240,7 @@
       "format": "esm"
     },
     "src/extension/rpc-events.ts": {
-      "bytes": 13306,
+      "bytes": 18324,
       "imports": [
         {
           "path": "vscode",
@@ -256,137 +256,6 @@
           "path": "src/extension/watchdogs.ts",
           "kind": "import-statement",
           "original": "./watchdogs"
-        }
-      ],
-      "format": "esm"
-    },
-    "src/extension/file-ops.ts": {
-      "bytes": 13704,
-      "imports": [
-        {
-          "path": "vscode",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "src/shared/errors.ts",
-          "kind": "import-statement",
-          "original": "../shared/errors"
-        }
-      ],
-      "format": "esm"
-    },
-    "src/extension/handlers/config-handlers.ts": {
-      "bytes": 5916,
-      "imports": [
-        {
-          "path": "vscode",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "src/shared/errors.ts",
-          "kind": "import-statement",
-          "original": "../../shared/errors"
-        }
-      ],
-      "format": "esm"
-    },
-    "src/extension/metrics-parser.ts": {
-      "bytes": 9537,
-      "imports": [
-        {
-          "path": "fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        }
-      ],
-      "format": "esm"
-    },
-    "src/extension/handlers/dispatch-utils.ts": {
-      "bytes": 1971,
-      "imports": [
-        {
-          "path": "vscode",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "src/extension/dashboard-parser.ts",
-          "kind": "import-statement",
-          "original": "../dashboard-parser"
-        },
-        {
-          "path": "src/extension/metrics-parser.ts",
-          "kind": "import-statement",
-          "original": "../metrics-parser"
-        }
-      ],
-      "format": "esm"
-    },
-    "src/extension/handlers/query-handlers.ts": {
-      "bytes": 4386,
-      "imports": [
-        {
-          "path": "vscode",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "src/shared/errors.ts",
-          "kind": "import-statement",
-          "original": "../../shared/errors"
-        },
-        {
-          "path": "src/extension/update-checker.ts",
-          "kind": "import-statement",
-          "original": "../update-checker"
-        },
-        {
-          "path": "src/extension/handlers/dispatch-utils.ts",
-          "kind": "import-statement",
-          "original": "./dispatch-utils"
-        }
-      ],
-      "format": "esm"
-    },
-    "src/extension/handlers/process-handlers.ts": {
-      "bytes": 7040,
-      "imports": [
-        {
-          "path": "vscode",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "src/extension/update-checker.ts",
-          "kind": "import-statement",
-          "original": "../update-checker"
-        },
-        {
-          "path": "src/shared/errors.ts",
-          "kind": "import-statement",
-          "original": "../../shared/errors"
-        },
-        {
-          "path": "src/shared/types.ts",
-          "kind": "import-statement",
-          "original": "../../shared/types"
         }
       ],
       "format": "esm"
@@ -412,8 +281,24 @@
       ],
       "format": "esm"
     },
-    "src/extension/handlers/session-handlers.ts": {
-      "bytes": 8407,
+    "src/extension/metrics-parser.ts": {
+      "bytes": 9537,
+      "imports": [
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/command-fallback.ts": {
+      "bytes": 42932,
       "imports": [
         {
           "path": "vscode",
@@ -421,25 +306,35 @@
           "external": true
         },
         {
-          "path": "src/extension/session-list-service.ts",
+          "path": "fs",
           "kind": "import-statement",
-          "original": "../session-list-service"
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "http",
+          "kind": "import-statement",
+          "external": true
         },
         {
           "path": "src/shared/errors.ts",
           "kind": "import-statement",
-          "original": "../../shared/errors"
+          "original": "../shared/errors"
         },
         {
-          "path": "src/shared/types.ts",
+          "path": "src/shared/constants.ts",
           "kind": "import-statement",
-          "original": "../../shared/types"
+          "original": "../shared/constants"
         }
       ],
       "format": "esm"
     },
-    "src/extension/command-fallback.ts": {
-      "bytes": 25663,
+    "src/extension/file-ops.ts": {
+      "bytes": 14070,
       "imports": [
         {
           "path": "vscode",
@@ -460,22 +355,57 @@
           "path": "src/shared/errors.ts",
           "kind": "import-statement",
           "original": "../shared/errors"
-        },
-        {
-          "path": "src/shared/constants.ts",
-          "kind": "import-statement",
-          "original": "../shared/constants"
         }
       ],
       "format": "esm"
     },
-    "src/extension/handlers/prompt-handlers.ts": {
-      "bytes": 11006,
+    "src/extension/message-dispatch.ts": {
+      "bytes": 46494,
       "imports": [
         {
           "path": "vscode",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "src/extension/session-list-service.ts",
+          "kind": "import-statement",
+          "original": "./session-list-service"
+        },
+        {
+          "path": "src/extension/update-checker.ts",
+          "kind": "import-statement",
+          "original": "./update-checker"
+        },
+        {
+          "path": "src/extension/dashboard-parser.ts",
+          "kind": "import-statement",
+          "original": "./dashboard-parser"
+        },
+        {
+          "path": "src/extension/metrics-parser.ts",
+          "kind": "import-statement",
+          "original": "./metrics-parser"
+        },
+        {
+          "path": "src/shared/types.ts",
+          "kind": "import-statement",
+          "original": "../shared/types"
+        },
+        {
+          "path": "src/extension/watchdogs.ts",
+          "kind": "import-statement",
+          "original": "./watchdogs"
+        },
+        {
+          "path": "src/extension/command-fallback.ts",
+          "kind": "import-statement",
+          "original": "./command-fallback"
+        },
+        {
+          "path": "src/extension/file-ops.ts",
+          "kind": "import-statement",
+          "original": "./file-ops"
         },
         {
           "path": "node:fs",
@@ -486,74 +416,133 @@
           "path": "node:path",
           "kind": "import-statement",
           "external": true
-        },
-        {
-          "path": "src/shared/errors.ts",
-          "kind": "import-statement",
-          "original": "../../shared/errors"
-        },
-        {
-          "path": "src/extension/watchdogs.ts",
-          "kind": "import-statement",
-          "original": "../watchdogs"
-        },
-        {
-          "path": "src/extension/command-fallback.ts",
-          "kind": "import-statement",
-          "original": "../command-fallback"
-        },
-        {
-          "path": "src/extension/handlers/dispatch-utils.ts",
-          "kind": "import-statement",
-          "original": "./dispatch-utils"
         }
       ],
       "format": "esm"
     },
-    "src/extension/message-dispatch.ts": {
-      "bytes": 8128,
+    "src/extension/telegram/topicManager.ts": {
+      "bytes": 7536,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/extension/telegram/api.ts": {
+      "bytes": 7416,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/extension/telegram/config.ts": {
+      "bytes": 2092,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/extension/openai/transcribe.ts": {
+      "bytes": 1464,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/extension/telegram/formatter.ts": {
+      "bytes": 3032,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/extension/telegram/poller-ipc.ts": {
+      "bytes": 1490,
       "imports": [
         {
-          "path": "vscode",
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/telegram/poller-server.ts": {
+      "bytes": 6032,
+      "imports": [
+        {
+          "path": "net",
           "kind": "import-statement",
           "external": true
         },
         {
-          "path": "src/shared/errors.ts",
+          "path": "fs",
           "kind": "import-statement",
-          "original": "../shared/errors"
+          "external": true
         },
         {
-          "path": "src/extension/file-ops.ts",
+          "path": "src/extension/telegram/api.ts",
           "kind": "import-statement",
-          "original": "./file-ops"
+          "original": "./api"
         },
         {
-          "path": "src/extension/handlers/config-handlers.ts",
+          "path": "src/extension/telegram/poller-ipc.ts",
           "kind": "import-statement",
-          "original": "./handlers/config-handlers"
-        },
-        {
-          "path": "src/extension/handlers/query-handlers.ts",
-          "kind": "import-statement",
-          "original": "./handlers/query-handlers"
-        },
-        {
-          "path": "src/extension/handlers/process-handlers.ts",
-          "kind": "import-statement",
-          "original": "./handlers/process-handlers"
-        },
-        {
-          "path": "src/extension/handlers/session-handlers.ts",
-          "kind": "import-statement",
-          "original": "./handlers/session-handlers"
-        },
-        {
-          "path": "src/extension/handlers/prompt-handlers.ts",
-          "kind": "import-statement",
-          "original": "./handlers/prompt-handlers"
+          "original": "./poller-ipc"
         }
       ],
+      "format": "esm"
+    },
+    "src/extension/telegram/poller-client.ts": {
+      "bytes": 3205,
+      "imports": [
+        {
+          "path": "net",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/extension/telegram/poller-ipc.ts",
+          "kind": "import-statement",
+          "original": "./poller-ipc"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/telegram/poller-coordinator.ts": {
+      "bytes": 4465,
+      "imports": [
+        {
+          "path": "src/extension/telegram/poller-server.ts",
+          "kind": "import-statement",
+          "original": "./poller-server"
+        },
+        {
+          "path": "src/extension/telegram/poller-client.ts",
+          "kind": "import-statement",
+          "original": "./poller-client"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/telegram/bridge.ts": {
+      "bytes": 31489,
+      "imports": [
+        {
+          "path": "src/extension/telegram/api.ts",
+          "kind": "import-statement",
+          "original": "./api"
+        },
+        {
+          "path": "src/extension/openai/transcribe.ts",
+          "kind": "import-statement",
+          "original": "../openai/transcribe"
+        },
+        {
+          "path": "src/extension/telegram/formatter.ts",
+          "kind": "import-statement",
+          "original": "./formatter"
+        },
+        {
+          "path": "src/extension/telegram/poller-coordinator.ts",
+          "kind": "import-statement",
+          "original": "./poller-coordinator"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/openai/config.ts": {
+      "bytes": 501,
+      "imports": [],
       "format": "esm"
     },
     "src/extension/polling.ts": {
@@ -594,7 +583,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 22700,
+      "bytes": 28244,
       "imports": [
         {
           "path": "vscode",
@@ -662,6 +651,31 @@
           "original": "./message-dispatch"
         },
         {
+          "path": "src/extension/telegram/topicManager.ts",
+          "kind": "import-statement",
+          "original": "./telegram/topicManager"
+        },
+        {
+          "path": "src/extension/telegram/api.ts",
+          "kind": "import-statement",
+          "original": "./telegram/api"
+        },
+        {
+          "path": "src/extension/telegram/config.ts",
+          "kind": "import-statement",
+          "original": "./telegram/config"
+        },
+        {
+          "path": "src/extension/telegram/bridge.ts",
+          "kind": "import-statement",
+          "original": "./telegram/bridge"
+        },
+        {
+          "path": "src/extension/openai/config.ts",
+          "kind": "import-statement",
+          "original": "./openai/config"
+        },
+        {
           "path": "src/extension/polling.ts",
           "kind": "import-statement",
           "original": "./polling"
@@ -680,7 +694,7 @@
       "format": "esm"
     },
     "src/extension/health-check.ts": {
-      "bytes": 9635,
+      "bytes": 9891,
       "imports": [
         {
           "path": "vscode",
@@ -720,8 +734,29 @@
       ],
       "format": "esm"
     },
+    "src/extension/telegram/setup.ts": {
+      "bytes": 6070,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/extension/telegram/api.ts",
+          "kind": "import-statement",
+          "original": "./api"
+        },
+        {
+          "path": "src/extension/telegram/config.ts",
+          "kind": "import-statement",
+          "original": "./config"
+        }
+      ],
+      "format": "esm"
+    },
     "src/extension/index.ts": {
-      "bytes": 6399,
+      "bytes": 7499,
       "imports": [
         {
           "path": "vscode",
@@ -762,6 +797,16 @@
           "path": "src/extension/health-check.ts",
           "kind": "import-statement",
           "original": "./health-check"
+        },
+        {
+          "path": "src/extension/telegram/setup.ts",
+          "kind": "import-statement",
+          "original": "./telegram/setup"
+        },
+        {
+          "path": "src/extension/openai/config.ts",
+          "kind": "import-statement",
+          "original": "./openai/config"
         }
       ],
       "format": "esm"
@@ -772,7 +817,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 415911
+      "bytes": 575222
     },
     "dist/extension.js": {
       "imports": [
@@ -932,42 +977,52 @@
           "external": true
         },
         {
-          "path": "vscode",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "vscode",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "vscode",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "require-call",
-          "external": true
-        },
-        {
           "path": "os",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "http",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
           "kind": "require-call",
           "external": true
         },
@@ -982,7 +1037,7 @@
           "external": true
         },
         {
-          "path": "vscode",
+          "path": "net",
           "kind": "require-call",
           "external": true
         },
@@ -992,7 +1047,12 @@
           "external": true
         },
         {
-          "path": "path",
+          "path": "crypto",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "net",
           "kind": "require-call",
           "external": true
         },
@@ -1040,31 +1100,36 @@
           "path": "os",
           "kind": "require-call",
           "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
         }
       ],
       "exports": [],
       "entryPoint": "src/extension/index.ts",
       "inputs": {
         "src/extension/index.ts": {
-          "bytesInOutput": 2891
+          "bytesInOutput": 3372
         },
         "src/shared/errors.ts": {
           "bytesInOutput": 60
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 10453
+          "bytesInOutput": 13295
         },
         "src/extension/rpc-client.ts": {
-          "bytesInOutput": 10280
+          "bytesInOutput": 9909
         },
         "src/extension/update-checker.ts": {
           "bytesInOutput": 6206
         },
         "src/extension/auto-progress-poller.ts": {
-          "bytesInOutput": 4215
+          "bytesInOutput": 4217
         },
         "src/extension/dashboard-parser.ts": {
-          "bytesInOutput": 2979
+          "bytesInOutput": 2980
         },
         "src/extension/state-parser.ts": {
           "bytesInOutput": 805
@@ -1085,40 +1150,55 @@
           "bytesInOutput": 3655
         },
         "src/extension/rpc-events.ts": {
-          "bytesInOutput": 4799
+          "bytesInOutput": 6535
         },
-        "src/extension/file-ops.ts": {
-          "bytesInOutput": 5975
-        },
-        "src/extension/handlers/config-handlers.ts": {
-          "bytesInOutput": 2363
-        },
-        "src/extension/handlers/dispatch-utils.ts": {
-          "bytesInOutput": 592
-        },
-        "src/extension/metrics-parser.ts": {
-          "bytesInOutput": 2502
-        },
-        "src/extension/handlers/query-handlers.ts": {
-          "bytesInOutput": 1689
-        },
-        "src/extension/handlers/process-handlers.ts": {
-          "bytesInOutput": 3203
-        },
-        "src/extension/handlers/session-handlers.ts": {
-          "bytesInOutput": 4194
+        "src/extension/message-dispatch.ts": {
+          "bytesInOutput": 18990
         },
         "src/extension/session-list-service.ts": {
           "bytesInOutput": 2191
         },
-        "src/extension/handlers/prompt-handlers.ts": {
-          "bytesInOutput": 5150
+        "src/extension/metrics-parser.ts": {
+          "bytesInOutput": 2502
         },
         "src/extension/command-fallback.ts": {
-          "bytesInOutput": 15866
+          "bytesInOutput": 25238
         },
-        "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 2545
+        "src/extension/file-ops.ts": {
+          "bytesInOutput": 6104
+        },
+        "src/extension/telegram/topicManager.ts": {
+          "bytesInOutput": 3580
+        },
+        "src/extension/telegram/api.ts": {
+          "bytesInOutput": 2627
+        },
+        "src/extension/telegram/config.ts": {
+          "bytesInOutput": 608
+        },
+        "src/extension/openai/transcribe.ts": {
+          "bytesInOutput": 634
+        },
+        "src/extension/telegram/formatter.ts": {
+          "bytesInOutput": 896
+        },
+        "src/extension/telegram/poller-server.ts": {
+          "bytesInOutput": 2791
+        },
+        "src/extension/telegram/poller-ipc.ts": {
+          "bytesInOutput": 361
+        },
+        "src/extension/telegram/poller-client.ts": {
+          "bytesInOutput": 1323
+        },
+        "src/extension/telegram/poller-coordinator.ts": {
+          "bytesInOutput": 2005
+        },
+        "src/extension/telegram/bridge.ts": {
+          "bytesInOutput": 15938
+        },
+        "src/extension/openai/config.ts": {
+          "bytesInOutput": 107
         },
         "src/extension/polling.ts": {
           "bytesInOutput": 1769
@@ -1127,10 +1207,13 @@
           "bytesInOutput": 860
         },
         "src/extension/health-check.ts": {
-          "bytesInOutput": 4419
+          "bytesInOutput": 4473
+        },
+        "src/extension/telegram/setup.ts": {
+          "bytesInOutput": 3483
         }
       },
-      "bytes": 103841
+      "bytes": 151694
     }
   }
 }

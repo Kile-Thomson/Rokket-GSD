@@ -228,7 +228,6 @@
 .gsd-session-history-close:focus-visible,
 .gsd-ui-cancel-btn:focus-visible,
 .gsd-ui-multi-cancel:focus-visible,
-.gsd-parallel-batch-header:focus-visible,
 .gsd-model-picker-close:focus-visible,
 .gsd-thinking-picker-close:focus-visible,
 .gsd-update-btn:focus-visible,
@@ -241,7 +240,10 @@
 .gsd-session-action-btn:focus-visible,
 .gsd-ui-multi-option:focus-visible,
 .gsd-link:focus-visible,
-.gsd-welcome-attribution:focus-visible {
+.gsd-welcome-attribution:focus-visible,
+.gsd-ollama-btn:focus-visible,
+.gsd-ollama-btn--load:focus-visible,
+.gsd-ollama-btn--remove:focus-visible {
   outline: 2px solid var(--gsd-color-border-focus);
   outline-offset: 2px;
 }
@@ -272,7 +274,8 @@
 .gsd-welcome-attribution:active,
 .gsd-fork-btn:active,
 .gsd-stale-echo-bar:active,
-.gsd-header-version:active {
+.gsd-header-version:active,
+.gsd-ollama-btn:active {
   opacity: 0.8;
 }
 
@@ -477,4 +480,62 @@
   padding: 8px 16px;
   border-bottom: 1px solid var(--gsd-color-border-subtle);
   opacity: 0.8;
+}
+
+/* ============================================================
+   Ollama Action Buttons (inline in model tables)
+   ============================================================ */
+
+.gsd-ollama-btn {
+  display: inline-block;
+  padding: 2px 8px;
+  margin: 0 2px;
+  border: 1px solid var(--gsd-color-btn-border);
+  border-radius: var(--gsd-radius-md);
+  background: transparent;
+  color: var(--gsd-color-text);
+  font-size: var(--gsd-font-size-sm);
+  font-family: var(--gsd-font-family);
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  line-height: var(--gsd-line-height-tight);
+  vertical-align: middle;
+}
+
+.gsd-ollama-btn:hover {
+  background: var(--gsd-color-surface-highlight-dim);
+}
+
+.gsd-ollama-btn--load {
+  color: var(--gsd-color-accent);
+  border-color: var(--gsd-color-accent);
+}
+
+.gsd-ollama-btn--load:hover {
+  background: var(--gsd-color-accent);
+  color: var(--gsd-color-accent-fg);
+}
+
+.gsd-ollama-btn--unload {
+  color: var(--gsd-color-text-muted);
+  border-color: var(--gsd-color-border-strong);
+}
+
+.gsd-ollama-btn--remove {
+  color: var(--gsd-color-error);
+  border-color: var(--gsd-color-error);
+  opacity: 0.7;
+}
+
+.gsd-ollama-btn--remove:hover {
+  opacity: 1;
+  background: var(--gsd-color-error);
+  color: var(--gsd-color-accent-fg);
+}
+
+.gsd-ollama-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }

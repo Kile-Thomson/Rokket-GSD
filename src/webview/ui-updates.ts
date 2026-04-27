@@ -134,6 +134,13 @@ export function updateHeaderUI(): void {
     contextBadge.classList.remove("warn", "crit");
     if (pct > 90) contextBadge.classList.add("crit");
     else if (pct > 70) contextBadge.classList.add("warn");
+    const spent = stats.tokens
+      ? (stats.tokens.input || 0) + (stats.tokens.output || 0) + (stats.tokens.cacheRead || 0) + (stats.tokens.cacheWrite || 0)
+      : 0;
+    contextBadge.title =
+      "Size of the NEXT prompt relative to the context window.\n" +
+      "This is a level, not a total — it can drop after compaction.\n" +
+      (spent > 0 ? `Cumulative session spend: ${formatTokens(spent)} tokens (see footer 'spent:').` : "");
   } else {
     contextBadge.classList.add('gsd-hidden');
   }
@@ -159,7 +166,7 @@ function updateContextBar(): void {
   }
 
   contextBarContainer.classList.remove('gsd-hidden');
-  contextBar.style.width = `${Math.min(pct, 100)}%`;
+  contextBar.style.setProperty('--progress', `${Math.min(pct, 100) / 100}`);
 
   contextBar.classList.remove("ok", "warn", "crit");
   if (pct > 90) {
@@ -184,6 +191,8 @@ export function updateFooterUI(): void {
     if (tokens.input) tokenParts.push(`in:${formatTokens(tokens.input)}`);
     if (tokens.output) tokenParts.push(`out:${formatTokens(tokens.output)}`);
     if (tokens.cacheRead) tokenParts.push(`cache:${formatTokens(tokens.cacheRead)}`);
+    const totalSpent = (tokens.input || 0) + (tokens.output || 0) + (tokens.cacheRead || 0) + (tokens.cacheWrite || 0);
+    if (totalSpent > 0) tokenParts.push(`spent:${formatTokens(totalSpent)}`);
     if (tokenParts.length > 0) parts.push(tokenParts.join(" "));
   }
 
@@ -195,6 +204,9 @@ export function updateFooterUI(): void {
   if (ctx) parts.push(ctx);
 
   footerStats.textContent = parts.join(" · ");
+  footerStats.title =
+    "spent = cumulative tokens this session (grows monotonically)\n" +
+    "%/window = size of the NEXT prompt relative to the context window — can shrink after compaction";
 
   let right = "";
   if (state.model) {

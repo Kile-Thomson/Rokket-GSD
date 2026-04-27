@@ -8,7 +8,6 @@ import type { SessionStats } from "../shared/types";
 import type { AppState, ToolCategory, ToolCallState } from "./state";
 import { registerCleanup } from "./dispose";
 import {
-  TASK_PREVIEW_MAX_CHARS,
   TOKEN_THRESHOLD_K,
   TOKEN_THRESHOLD_10K,
   TOKEN_THRESHOLD_M,
@@ -145,6 +144,18 @@ export function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+/** Format an elapsed time in milliseconds as a compact human-readable string (e.g. `"42s"`, `"3m 5s"`, `"1h 2m"`). */
+export function formatElapsed(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rs = s % 60;
+  if (m < 60) return `${m}m ${rs}s`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return `${h}h ${rm}m`;
+}
+
 /** Truncate a string to `max` characters, taking only the first line and appending "…" if truncated. */
 export function truncateArg(s: string, max: number): string {
   const line = s.split("\n")[0];
@@ -207,7 +218,7 @@ export function getToolKeyArg(name: string, args: Record<string, unknown>): stri
   const filePath = args.file_path || args.path;
   if ((n === "read" || n === "write" || n === "edit") && filePath) return shortenPath(String(filePath));
   if ((n === "grep" || n === "glob") && args.pattern) return truncateArg(String(args.pattern), 80);
-  if (n === "agent" && args.description) return truncateArg(String(args.description), 80);
+  if ((n === "agent" || n === "subagent") && args.description) return truncateArg(String(args.description), 80);
   if (n === "browser_navigate" && args.url) return truncateArg(String(args.url), 60);
   if (n === "browser_click" && args.selector) return truncateArg(String(args.selector), 60);
   if (n === "browser_type" && args.selector) return truncateArg(String(args.selector), 60);
@@ -234,18 +245,7 @@ export function getToolKeyArg(name: string, args: Record<string, unknown>): stri
   if (n === "browser_emulate_device" && args.device) return truncateArg(String(args.device), 40);
   if (n === "browser_mock_route" && args.url) return truncateArg(String(args.url), 60);
   if (n === "browser_extract" && args.selector) return truncateArg(String(args.selector), 60);
-  if (n === "subagent" || n === "async_subagent") {
-    const agent = args.agent || (args.chain as Record<string, unknown>[] | undefined)?.[0]?.agent || (args.tasks as Record<string, unknown>[] | undefined)?.[0]?.agent || "";
-    const task = args.task || "";
-    if (agent) return truncateArg(`${agent}: ${task}`, 80);
-    if (task) return truncateArg(String(task), 80);
-    return "";
-  }
-  if (n === "await_subagent") {
-    const jobs = args.jobs as string[] | undefined;
-    if (jobs && jobs.length > 0) return jobs.length === 1 ? jobs[0] : `${jobs.length} jobs`;
-    return "(all running)";
-  }
+
   if (n === "bg_shell") {
     const action = args.action ? String(args.action) : "";
     const cmd = args.command ? truncateArg(String(args.command), 60) : "";
@@ -334,11 +334,10 @@ export function formatToolResult(toolName: string, resultText: string, args: Rec
 // Subagent formatting helpers
 // ============================================================
 
-function formatTokenCount(count: number): string {
-  if (count < TOKEN_THRESHOLD_K) return count.toString();
-  if (count < TOKEN_THRESHOLD_10K) return `${(count / TOKEN_THRESHOLD_K).toFixed(1)}k`;
-  if (count < TOKEN_THRESHOLD_M) return `${Math.round(count / TOKEN_THRESHOLD_K)}k`;
-  return `${(count / TOKEN_THRESHOLD_M).toFixed(1)}M`;
+export function formatTokenCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
 }
 
 export interface UsageInfo {
@@ -348,30 +347,70 @@ export interface UsageInfo {
   cacheRead?: number;
   cacheWrite?: number;
   cost?: number;
+  totalTokens?: number;
+  toolUses?: number;
+  durationMs?: number;
 }
 
 export function buildUsagePills(usage: UsageInfo | null | undefined, model?: string): string {
   if (!usage) return "";
   const pills: string[] = [];
   if (usage.turns) pills.push(`${usage.turns} turn${usage.turns > 1 ? "s" : ""}`);
+  if (usage.totalTokens) pills.push(`${formatTokenCount(usage.totalTokens)} tok`);
   if (usage.input) pills.push(`↑${formatTokenCount(usage.input)}`);
   if (usage.output) pills.push(`↓${formatTokenCount(usage.output)}`);
   if (usage.cacheRead) pills.push(`R${formatTokenCount(usage.cacheRead)}`);
   if (usage.cacheWrite) pills.push(`W${formatTokenCount(usage.cacheWrite)}`);
+  if (usage.toolUses != null) pills.push(`${usage.toolUses} tool${usage.toolUses !== 1 ? "s" : ""}`);
+  if (usage.durationMs) pills.push(formatDuration(usage.durationMs));
   if (usage.cost) pills.push(`$${(Number(usage.cost) || 0).toFixed(4)}`);
   if (model) pills.push(model);
   if (pills.length === 0) return "";
   return `<div class="gsd-agent-usage">${pills.map(p => `<span class="gsd-agent-pill">${escapeHtml(p)}</span>`).join("")}</div>`;
 }
 
+const USAGE_TAG_RE = /<usage>([\s\S]*?)<\/usage>/;
+const USAGE_TOTAL_TOKENS_RE = /total_tokens:\s*(\d+)/;
+const USAGE_TOOL_USES_RE = /tool_uses:\s*(\d+)/;
+const USAGE_DURATION_MS_RE = /duration_ms:\s*(\d+)/;
+
+export interface AgentUsageParsed {
+  usage: UsageInfo;
+  cleanText: string;
+}
+
+export function parseAgentUsage(resultText: string): AgentUsageParsed | null {
+  const m = USAGE_TAG_RE.exec(resultText);
+  if (!m) return null;
+  const block = m[1];
+  const num = (re: RegExp): number | undefined => {
+    const km = re.exec(block);
+    return km ? parseInt(km[1], 10) : undefined;
+  };
+  const usage: UsageInfo = {
+    totalTokens: num(USAGE_TOTAL_TOKENS_RE),
+    toolUses: num(USAGE_TOOL_USES_RE),
+    durationMs: num(USAGE_DURATION_MS_RE),
+  };
+  if (usage.totalTokens === undefined && usage.toolUses === undefined && usage.durationMs === undefined) return null;
+  const cleanText = resultText.replace(USAGE_TAG_RE, "").trim();
+  return { usage, cleanText };
+}
+
+// ============================================================
+// Subagent rich rendering
+// ============================================================
+
+const TASK_PREVIEW_MAX_CHARS = 200;
+
 export interface SubagentResult {
   agent: string;
   task?: string;
+  model?: string;
   exitCode: number;
   stopReason?: string;
   errorMessage?: string;
   usage?: UsageInfo;
-  model?: string;
 }
 
 function buildAgentCard(r: SubagentResult, _isRunning: boolean): string {
@@ -567,7 +606,7 @@ export function sanitizeAndPostProcess(html: string): string {
   // Sanitize HTML output — strips script tags, event handlers, dangerous attributes
   let result = DOMPurify.sanitize(html, {
     ADD_TAGS: ["details", "summary"],
-    ADD_ATTR: ["class", "data-code-id", "data-path", "data-idx", "data-value", "data-action", "title"],
+    ADD_ATTR: ["class", "data-code-id", "data-path", "data-idx", "data-value", "data-action", "data-model", "title", "disabled"],
   });
 
   // Wrap bare <table> elements in a scrollable container

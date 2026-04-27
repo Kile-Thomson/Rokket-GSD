@@ -202,7 +202,7 @@
   border: var(--gsd-border-width) solid var(--gsd-tool-border);
   overflow: hidden;
   font-size: var(--gsd-font-size-md);
-  transition: border-color 0.2s;
+  position: relative;
 }
 
 .gsd-tool-block.running {
@@ -223,13 +223,21 @@
   100% { background-position: -200% 0; }
 }
 
-.gsd-tool-block.done {
-  animation: gsd-tool-complete 0.3s ease-out;
+/* Completion flash: a compositor-friendly opacity fade on a ::after overlay
+   avoids triggering paint/layout that animating border-color would cause. */
+.gsd-tool-block.done::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: var(--gsd-border-width) solid var(--gsd-color-accent-border);
+  pointer-events: none;
+  animation: gsd-tool-complete 0.35s ease-out forwards;
 }
 
 @keyframes gsd-tool-complete {
-  from { border-color: var(--gsd-color-accent-border); }
-  to { border-color: var(--gsd-color-border); }
+  from { opacity: 1; }
+  to   { opacity: 0; }
 }
 
 .gsd-tool-block.error {
@@ -343,142 +351,6 @@
   50% { opacity: 1; }
 }
 
-/* ============================================================
-   Parallel Batch Tracker
-   ============================================================ */
-
-.gsd-parallel-batch {
-  margin: 6px 0 10px;
-  border-radius: var(--gsd-radius-lg);
-  border: 1px solid var(--gsd-color-border);
-  overflow: hidden;
-}
-
-.gsd-parallel-batch.running {
-  border-color: var(--gsd-color-warning);
-  border-style: solid;
-  box-shadow: 0 0 0 1px var(--gsd-color-warning-glow);
-}
-
-.gsd-parallel-batch.done {
-  border-color: var(--gsd-color-border);
-  border-style: solid;
-  opacity: 0.85;
-}
-
-.gsd-parallel-batch-header {
-  display: flex;
-  align-items: center;
-  gap: var(--gsd-space-sm);
-  padding: 5px 10px;
-  background: var(--gsd-color-surface-hover);
-  font-size: var(--gsd-font-size-sm);
-  font-weight: var(--gsd-font-weight-medium);
-  color: var(--gsd-color-warning);
-  list-style: none;
-  letter-spacing: 0.3px;
-}
-
-.gsd-parallel-batch.done .gsd-parallel-batch-header {
-  color: var(--gsd-color-text-muted);
-}
-
-.gsd-parallel-batch-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.gsd-parallel-batch-elapsed {
-  font-size: var(--gsd-font-size-xs);
-  color: var(--gsd-color-text-muted);
-  opacity: 0.6;
-  font-family: var(--gsd-font-family-mono);
-  font-variant-numeric: tabular-nums;
-}
-
-.gsd-parallel-batch-header .gsd-tool-spinner {
-  width: 10px;
-  height: 10px;
-  border-width: 1.5px;
-}
-
-.gsd-parallel-batch-header .gsd-tool-icon {
-  font-size: var(--gsd-font-size-sm);
-}
-
-
-.gsd-parallel-batch-content {
-  padding: 4px 8px 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-/* Compact card style inside batch — matches subagent card layout */
-.gsd-parallel-batch-content .gsd-tool-segment {
-  margin: 0;
-}
-
-.gsd-parallel-batch-content .gsd-tool-block {
-  margin: 0;
-  border: none;
-  border-left: 2px solid transparent;
-  border-radius: var(--gsd-radius-md);
-  background: var(--gsd-code-bg);
-  padding: 4px 8px;
-  transition: border-color 0.2s;
-}
-
-.gsd-parallel-batch-content .gsd-tool-block.running {
-  border-left-color: var(--gsd-color-text-link);
-}
-.gsd-parallel-batch-content .gsd-tool-block.done {
-  border-left-color: var(--gsd-color-ansi-green);
-}
-.gsd-parallel-batch-content .gsd-tool-block.error {
-  border-left-color: var(--gsd-color-text-error);
-}
-
-/* Hide output inside batch — keep it compact */
-.gsd-parallel-batch-content .gsd-tool-output {
-  display: none;
-}
-
-/* Hide chevron and parallel badge inside batch */
-.gsd-parallel-batch-content .gsd-tool-chevron,
-.gsd-parallel-batch-content .gsd-tool-block .gsd-tool-parallel-badge {
-  display: none;
-}
-
-/* Stats footer */
-.gsd-parallel-batch-footer {
-  display: flex;
-  gap: 6px;
-  padding: 4px 8px;
-  border-top: var(--gsd-border-width) solid var(--gsd-color-border-subtle);
-  opacity: 0.7;
-  font-size: var(--gsd-font-size-xs);
-}
-
-.gsd-batch-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 6px;
-  border-radius: var(--gsd-radius-sm);
-  background: var(--gsd-color-bg-subtle);
-  color: var(--gsd-color-text-secondary);
-  font-size: var(--gsd-font-size-xs);
-}
-
-/* Compact header inside batch */
-.gsd-parallel-batch-content .gsd-tool-header {
-  padding: 0;
-  min-height: 18px;
-}
-
 .gsd-tool-chevron {
   font-size: var(--gsd-font-size-xs);
   opacity: 0.35;
@@ -530,241 +402,6 @@
   font-family: var(--gsd-font-family-mono);
 }
 
-/* Rich tool output (subagent, etc.) — render markdown inside tool blocks */
-.gsd-tool-output-rich {
-  background: transparent;
-}
-
-/* ── Subagent panel ── */
-.gsd-subagent-panel {
-  padding: 6px 10px 8px;
-}
-
-.gsd-subagent-summary {
-  display: flex;
-  align-items: center;
-  gap: var(--gsd-space-md);
-  padding: 5px 0 8px;
-  font-size: var(--gsd-font-size-sm);
-  border-bottom: var(--gsd-border-width) solid var(--gsd-color-border-subtle);
-  margin-bottom: 6px;
-}
-
-.gsd-subagent-mode {
-  font-weight: var(--gsd-font-weight-bold);
-  text-transform: uppercase;
-  font-size: var(--gsd-font-size-xs);
-  letter-spacing: 0.05em;
-  color: var(--gsd-color-text-link);
-  background: var(--gsd-color-accent-subtle);
-  padding: 2px 7px;
-  border-radius: var(--gsd-radius-sm);
-}
-
-.gsd-subagent-counts {
-  display: flex;
-  align-items: center;
-  gap: var(--gsd-space-xs);
-  flex: 1;
-}
-
-.gsd-agent-stat {
-  font-size: 10.5px;
-  font-weight: var(--gsd-font-weight-medium);
-}
-.gsd-agent-stat.done { color: var(--gsd-color-ansi-green); }
-.gsd-agent-stat.running { color: var(--gsd-color-text-link); }
-.gsd-agent-stat.error { color: var(--gsd-color-text-error); }
-.gsd-agent-sep { color: var(--gsd-color-text-muted); opacity: 0.4; font-size: var(--gsd-font-size-xs); }
-
-.gsd-subagent-total {
-  font-size: 10.5px;
-  font-weight: var(--gsd-font-weight-semibold);
-  color: var(--gsd-color-text-muted);
-  opacity: 0.7;
-  font-variant-numeric: tabular-nums;
-}
-
-/* ── Agent cards ── */
-.gsd-agent-cards {
-  display: flex;
-  flex-direction: column;
-  gap: var(--gsd-space-xs);
-}
-
-.gsd-agent-card {
-  padding: 7px 9px;
-  border-radius: var(--gsd-radius-md);
-  border-left: 2px solid transparent;
-  background: var(--gsd-code-bg);
-  transition: border-color 0.2s;
-}
-.gsd-agent-card.running { border-left-color: var(--gsd-color-text-link); }
-.gsd-agent-card.done { border-left-color: var(--gsd-color-ansi-green); }
-.gsd-agent-card.error { border-left-color: var(--gsd-color-text-error); }
-
-.gsd-agent-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--gsd-space-md);
-  min-height: 18px;
-}
-
-.gsd-agent-header-left {
-  display: flex;
-  align-items: center;
-  gap: var(--gsd-space-sm);
-  min-width: 0;
-}
-
-.gsd-agent-icon {
-  font-size: var(--gsd-font-size-sm);
-  line-height: var(--gsd-line-height-none);
-  flex-shrink: 0;
-}
-.gsd-agent-icon.done { color: var(--gsd-color-ansi-green); }
-.gsd-agent-icon.error { color: var(--gsd-color-text-error); }
-
-.gsd-agent-name {
-  font-size: 11.5px;
-  font-weight: var(--gsd-font-weight-semibold);
-  color: var(--gsd-color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.gsd-agent-task {
-  font-size: 10.5px;
-  color: var(--gsd-color-text-muted);
-  margin-top: 3px;
-  line-height: var(--gsd-line-height);
-  opacity: 0.8;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.gsd-agent-error {
-  font-size: 10.5px;
-  color: var(--gsd-color-text-error);
-  margin-top: 3px;
-  line-height: var(--gsd-line-height-tight);
-}
-
-/* Usage pills */
-.gsd-agent-usage {
-  display: flex;
-  align-items: center;
-  gap: var(--gsd-space-xxs);
-  flex-shrink: 0;
-}
-
-.gsd-agent-pill {
-  font-size: 9.5px;
-  font-weight: var(--gsd-font-weight-medium);
-  color: var(--gsd-color-text-muted);
-  background: var(--gsd-color-surface-neutral-08);
-  padding: 1px 5px;
-  border-radius: var(--gsd-radius-sm);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.gsd-subagent-footer {
-  margin-top: 8px;
-  padding-top: 6px;
-  border-top: 1px solid var(--gsd-color-border);
-  display: flex;
-  justify-content: flex-end;
-}
-
-.gsd-subagent-footer .gsd-agent-pill {
-  opacity: 0.7;
-}
-
-/* ── Legacy subagent styles (fallback when no structured details) ── */
-.gsd-subagent-live {
-  padding: 8px 10px;
-}
-
-.gsd-subagent-status {
-  display: flex;
-  align-items: center;
-  gap: var(--gsd-space-md);
-  font-size: var(--gsd-font-size-sm);
-  font-weight: var(--gsd-font-weight-semibold);
-  color: var(--gsd-color-text-link);
-  margin-bottom: 4px;
-}
-
-.gsd-subagent-progress {
-  font-size: var(--gsd-font-size-sm);
-  color: var(--gsd-color-text-muted);
-  white-space: pre-wrap;
-  word-break: break-all;
-  font-family: var(--gsd-font-family-mono);
-  line-height: var(--gsd-line-height);
-  max-height: 120px;
-  overflow-y: auto;
-  opacity: 0.7;
-}
-
-.gsd-subagent-result {
-  padding: 8px 10px;
-  font-size: var(--gsd-font-size-md);
-  line-height: var(--gsd-line-height-relaxed);
-}
-
-/* Subagent results inherit assistant text styling */
-.gsd-subagent-result h1,
-.gsd-subagent-result h2,
-.gsd-subagent-result h3,
-.gsd-subagent-result h4 { margin-top: 12px; margin-bottom: 4px; }
-.gsd-subagent-result h1 { font-size: 1.15em; border-bottom: none; }
-.gsd-subagent-result h2 { font-size: 1.05em; }
-.gsd-subagent-result p { margin-bottom: 8px; }
-.gsd-subagent-result p:last-child { margin-bottom: 0; }
-.gsd-subagent-result ul, .gsd-subagent-result ol { padding-left: 20px; margin: 4px 0 8px; }
-.gsd-subagent-result li { margin: 2px 0; }
-.gsd-subagent-result code {
-  font-family: var(--gsd-font-family-mono);
-  background: var(--gsd-code-bg);
-  padding: 1px 5px;
-  border-radius: var(--gsd-radius-sm);
-  font-size: 0.88em;
-}
-.gsd-subagent-result pre {
-  margin: 6px 0;
-  padding: 8px;
-  background: var(--gsd-code-bg);
-  border-radius: var(--gsd-radius-md);
-  overflow-x: auto;
-}
-.gsd-subagent-result pre code {
-  background: none;
-  padding: 0;
-}
-.gsd-subagent-result .gsd-table-wrapper { margin: 6px 0; }
-.gsd-subagent-result blockquote {
-  border-left: 2px solid var(--gsd-color-accent-subtle-border);
-  padding: 4px 10px;
-  margin: 6px 0;
-  opacity: 0.8;
-}
-.gsd-subagent-result a {
-  color: var(--gsd-color-text-link);
-  text-decoration: none;
-}
-.gsd-subagent-result hr {
-  border: none;
-  border-top: var(--gsd-border-width) solid var(--gsd-color-border-subtle);
-  margin: 10px 0;
-}
-.gsd-subagent-result strong { font-weight: var(--gsd-font-weight-semibold); }
-
 /* Tool category accent colors */
 .gsd-tool-block.cat-file .gsd-tool-name { color: var(--gsd-color-icon-file); }
 .gsd-tool-block.cat-shell .gsd-tool-name { color: var(--gsd-color-ansi-green); }
@@ -772,6 +409,44 @@
 .gsd-tool-block.cat-search .gsd-tool-name { color: var(--gsd-color-ansi-magenta); }
 .gsd-tool-block.cat-agent .gsd-tool-name { color: var(--gsd-color-ansi-yellow); }
 .gsd-tool-block.cat-process .gsd-tool-name { color: var(--gsd-color-ansi-blue); }
+
+/* Agent meta — description shown below header; pills are inline in header */
+.gsd-agent-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 4px 28px;
+  font-size: 0.8em;
+  opacity: 0.85;
+}
+.gsd-agent-meta-pills {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.gsd-agent-pill {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--gsd-color-ansi-yellow);
+  color: #1e1e1e;
+  font-size: 0.85em;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.gsd-agent-desc {
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  font-size: 0.85em;
+}
+.gsd-agent-usage {
+  display: flex;
+  gap: 4px;
+  padding: 2px 8px 4px 28px;
+}
 
 /* ============================================================
    Server-Side Tool (Anthropic native web search, etc.)

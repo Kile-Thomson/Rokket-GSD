@@ -16,13 +16,6 @@ vi.mock("../../renderer", () => ({
   finalizeCurrentTurn: vi.fn(),
   clearMessages: vi.fn(),
   renderNewEntry: vi.fn(),
-  createParallelBatch: vi.fn(),
-  expandParallelBatch: vi.fn(),
-  syncBatchState: vi.fn(),
-  updateParallelBatchStatus: vi.fn(),
-  finalizeParallelBatch: vi.fn(),
-  clearActiveBatch: vi.fn(),
-  getActiveBatchElement: vi.fn(() => null),
 }));
 
 vi.mock("../../session-history", () => ({

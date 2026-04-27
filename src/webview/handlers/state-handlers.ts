@@ -1,4 +1,4 @@
-import type { ExtensionToWebviewMessage, ProcessStatus, AvailableModelInfo } from "../../shared/types";
+import type { ExtensionToWebviewMessage, AvailableModelInfo } from "../../shared/types";
 type Msg<T extends ExtensionToWebviewMessage['type']> = Extract<ExtensionToWebviewMessage, { type: T }>;
 import { scrollToBottom } from "../helpers";
 import {
@@ -21,11 +21,11 @@ import * as autoProgress from "../auto-progress";
 import * as visualizer from "../visualizer";
 import { persistAttachments } from "../persist-attachments";
 import { announceToScreenReader } from "../a11y";
+import { registerTimeout } from "../dispose";
 import { TOAST_SHORT_DURATION_MS } from "../../shared/constants";
 import {
   getDeps,
   resetDerivedSessionTracking,
-  resolveContextWindow,
   getHeaderVersion,
   updateSkillPills,
   setLastMessageUsage,
@@ -78,6 +78,9 @@ export function handleState(msg: Msg<'state'>): void {
     if (!state.modelsLoaded && !state.modelsRequested) {
       state.modelsRequested = true;
       deps.vscode.postMessage({ type: "get_available_models" });
+      registerTimeout("models-retry", setTimeout(() => {
+        deps.vscode.postMessage({ type: "get_available_models" });
+      }, 5000));
     }
     deps.updateAllUI();
   }
@@ -280,14 +283,10 @@ export function handleCostUpdate(msg: Msg<'cost_update'>): void {
     cost: typeof turnCost === "number" ? { total: turnCost } : undefined,
   });
 
-  const turnContextTokens = turnInput + turnCacheRead + turnCacheWrite;
-  const contextWindow = resolveContextWindow();
-  if (contextWindow > 0 && turnContextTokens > 0) {
-    state.sessionStats.contextTokens = turnContextTokens;
-    state.sessionStats.contextWindow = contextWindow;
-    state.sessionStats.contextPercent = (turnContextTokens / contextWindow) * 100;
-    console.debug(`[gsd:context] cost_update context%: ${(turnContextTokens / contextWindow * 100).toFixed(1)}% (turn tokens=${turnContextTokens}, window=${contextWindow})`);
-  }
+  // Context % is NOT computed here. cost_update fires once per turn, so
+  // its token deltas aggregate multiple API calls — inflating context%
+  // quadratically on high-context models. message_end (per API call) is
+  // the correct source for context window usage.
 
   if (typeof costValue === "number") {
     state.sessionStats.cost = costValue;
