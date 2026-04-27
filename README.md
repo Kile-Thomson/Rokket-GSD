@@ -409,6 +409,7 @@ Built to handle real-world agent sessions that run for hours:
 │  Session history    │                   │  Status bar          │
 │  Slash commands     │                   │  Health monitoring   │
 │  Worker dashboard   │                   │  Parallel polling    │
+│  Agent cards        │                   │  Telegram bridge     │
 └─────────────────────┘                   └──────────┬───────────┘
                                                      │ stdin/stdout
                                                      │ JSON-RPC
@@ -416,13 +417,19 @@ Built to handle real-world agent sessions that run for hours:
                                           │   gsd --mode rpc     │
                                           │   (Child Process)    │
                                           └──────────────────────┘
+                                                     │
+                                          ┌──────────▼───────────┐
+                                          │   Telegram Poller    │
+                                          │   OpenAI Whisper     │
+                                          └──────────────────────┘
 ```
 
-- **Webview** - vanilla DOM (no framework), ~10K lines of TypeScript + ~5.8K lines of CSS (16 modules + 3 theme files), esbuild-bundled IIFE. Sequential segment-based renderer with `requestAnimationFrame` batching for smooth streaming. CSS uses a semantic token layer (`--gsd-*`) bridging VS Code's theme system — components never reference `--vscode-*` directly.
-- **Extension Host** - ~13K lines of TypeScript managing the GSD child process, routes messages, handles file operations, monitors health, polls parallel worker status. All hot-path I/O is async; polling runs via parallelized `Promise.all`.
-- **GSD Process** - the full `gsd-pi` agent running via JSON-RPC over stdin/stdout. Each session gets its own process.
+- **Webview** — vanilla DOM (no framework), ~12K lines of TypeScript + 16 CSS modules + 3 theme files, esbuild-bundled IIFE. Sequential segment-based renderer with `requestAnimationFrame` batching for smooth streaming. CSS uses a semantic token layer (`--gsd-*`) bridging VS Code's theme system — components never reference `--vscode-*` directly.
+- **Extension Host** — ~12K lines of TypeScript managing the GSD child process, routes messages, handles file operations, monitors health, polls parallel worker status, and coordinates the Telegram bridge. All hot-path I/O is async; polling runs via parallelized `Promise.all`.
+- **GSD Process** — the full `gsd-pi` agent running via JSON-RPC over stdin/stdout. Each session gets its own process.
+- **Telegram Bridge** — poller, coordinator, IPC, topic manager, and message formatter. Voice messages transcribed via OpenAI Whisper; photos forwarded as image attachments.
 
-The extension ships as a ~160KB `.vsix` with no runtime dependencies beyond VS Code and the `gsd` CLI.
+The extension ships as a `.vsix` with no runtime dependencies beyond VS Code and the `gsd` CLI. 1370 tests across 66 files.
 
 ---
 

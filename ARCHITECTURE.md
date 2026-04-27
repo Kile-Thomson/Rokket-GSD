@@ -3,7 +3,7 @@
 Rokket GSD VS Code Extension — post-remediation architecture reference.
 
 > **Audience:** New contributors and AI agents working on the codebase.
-> **Last updated:** March 2026 (post-M018 S02)
+> **Last updated:** April 2026 (v0.3.45 — Telegram integration, M025 tech debt refactor)
 
 ---
 
@@ -16,7 +16,13 @@ The extension uses a **three-layer architecture** with strict communication boun
 │   Webview (IIFE)     │ ◄──────────────────► │  Extension Host (CJS) │ ◄──────────────────► │  gsd-pi (RPC)    │
 │   Browser sandbox    │                      │  Node.js process      │                      │  Child process   │
 │   Vanilla DOM        │                      │  VS Code API access   │                      │  AI agent engine │
-└──────────────────────┘                      └──────────────────────┘                      └──────────────────┘
+└──────────────────────┘                      └──────────┬───────────┘                      └──────────────────┘
+                                                         │ IPC
+                                              ┌──────────▼───────────┐
+                                              │  Telegram Bridge     │
+                                              │  Poller (child proc) │
+                                              │  OpenAI Whisper      │
+                                              └──────────────────────┘
 ```
 
 **Layer 1 — Webview (IIFE, browser environment):**
@@ -28,14 +34,20 @@ The extension host runs as a CommonJS module inside VS Code's Node.js process (~
 **Layer 3 — gsd-pi (child process):**
 The GSD AI agent runs as a child process spawned with `--mode rpc`. Communication uses JSON-RPC over stdin/stdout with newline-delimited JSON (JSONL). The extension host writes requests to stdin and reads events/responses from stdout.
 
+**Layer 4 — Telegram Bridge (optional, child process):**
+The Telegram bridge runs as an isolated child process coordinated by the extension host. It polls the Telegram Bot API for incoming messages, routes them to GSD sessions via topic-to-session mapping, and formats GSD responses back to Telegram HTML. Voice messages are transcribed via OpenAI Whisper before forwarding. The bridge communicates with the extension host over IPC.
+
 ### Communication Boundaries
 
 | Boundary | Transport | Format | Direction |
 |---|---|---|---|
 | Webview ↔ Extension Host | `postMessage` | Typed discriminated unions | Bidirectional |
 | Extension Host ↔ gsd-pi | stdin/stdout | JSON-RPC JSONL | Bidirectional |
+| Extension Host ↔ Telegram Poller | IPC (child process) | Typed messages | Bidirectional |
+| Telegram Poller ↔ Telegram API | HTTPS | Bot API JSON | Bidirectional |
+| Extension Host ↔ OpenAI Whisper | HTTPS | Multipart form | Request/Response |
 
-The webview never communicates directly with gsd-pi. All interactions are mediated by the extension host.
+The webview never communicates directly with gsd-pi or Telegram. All interactions are mediated by the extension host.
 
 ---
 
@@ -109,7 +121,7 @@ User sees streaming response
 
 ## Module Map
 
-### Extension Host — `src/extension/` (6,312 LOC)
+### Extension Host — `src/extension/` (~8,400 LOC)
 
 | File | LOC | Responsibility | Key Exports |
 |---|---|---|---|
@@ -134,6 +146,21 @@ User sees streaming response
 | `health-check.ts` | 270 | Process health monitoring via RPC ping | `HealthChecker` |
 | `update-checker.ts` | 570 | GitHub release checking, download, and install | `downloadAndInstallUpdate()`, `fetchReleaseNotes()` |
 | `parallel-status.ts` | 128 | Parallel worker status aggregation | `ParallelStatusTracker` |
+
+### Telegram Bridge — `src/extension/telegram/` (2,094 LOC)
+
+| File | LOC | Responsibility | Key Exports |
+|---|---|---|---|
+| `bridge.ts` | 787 | Orchestrates Telegram↔GSD session bridging, message routing | `TelegramBridge` |
+| `api.ts` | 300 | Telegram Bot API client — polling, sending, file downloads | `TelegramApi` |
+| `topicManager.ts` | 219 | Maps Telegram topics/threads to GSD sessions | `TopicManager` |
+| `poller-server.ts` | 190 | Runs Telegram polling in a child process for isolation | `PollerServer` |
+| `setup.ts` | 170 | Guided setup wizard for Telegram bot configuration | `runTelegramSetup()` |
+| `poller-coordinator.ts` | 136 | Coordinates poller lifecycle (start/stop/restart) | `PollerCoordinator` |
+| `poller-client.ts` | 112 | Client-side IPC to communicate with poller process | `PollerClient` |
+| `formatter.ts` | 77 | Formats GSD responses for Telegram (markdown→Telegram HTML) | `formatForTelegram()` |
+| `config.ts` | 55 | Telegram configuration loading and validation | `TelegramConfig` |
+| `poller-ipc.ts` | 48 | Shared IPC message types between poller client/server | `PollerIpcMessage` |
 
 ### Shared — `src/shared/` (477 LOC)
 
@@ -457,4 +484,4 @@ The extension is packaged as a `.vsix` via `vsce`. Only `dist/`, `resources/`, `
 - Webview tests: `src/webview/__tests__/*.test.ts` — jsdom environment (`// @vitest-environment jsdom` directive)
 - Coverage target: 60% line coverage (CI-enforced via `vitest.config.ts`)
 - Run: `npx vitest --run` (all tests) or `npx vitest --run --coverage` (with coverage report)
-- Current: 842 tests across 44 files, 60.45% line coverage
+- Current: 1370 tests across 66 files
