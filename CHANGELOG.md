@@ -20,132 +20,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [0.3.45] — 2026-04-27
 
 ### Added
-- **Telegram integration** — full bridge between Telegram and GSD sessions: poller, coordinator, IPC, topic manager, setup wizard, and message formatter. Voice messages transcribed via OpenAI Whisper; photos forwarded as image attachments. New `/gsd telegram-setup` slash command for guided configuration.
-- **OpenAI transcription module** — standalone transcription config and client for voice-to-text via Whisper API
-- **Agent card subagent labels** — completed agent cards now show `subagent_type` (e.g. "Explore", "Plan") instead of generic "Agent"
-- **New Rokketek branding** — updated logo across README header and VS Code marketplace icon
+- **Telegram integration** — full relay bridge between Telegram and GSD sessions with voice transcription (OpenAI Whisper), photo attachments, topic threading, and guided setup wizard (`/gsd telegram-setup`)
+- **Agent card subagent labels** — completed agent cards now show the agent type (e.g. "Explore", "Plan") instead of generic "Agent"
+- **Rokketek branding** — updated logo across README and VS Code marketplace
 
 ### Fixed
 - **Permission dialogs no longer auto-denied** — removed dedup/cache behavior that was silently rejecting confirm dialogs
-- **Shell env caching** — failed shell env resolution no longer caches `{}` permanently; subsequent calls retry
-- **Whitespace-only API keys rejected** — `.trim()` guard on Telegram API key validation
-- **`mergeShellEnv` sanitization** — no longer reintroduces env vars that were stripped by `sanitizeEnvForChildProcess`
-- **Unused imports/variables cleaned** — removed dead `os` import in `shell-env.ts`, unused `elapsed` in `setup.ts`
-- **`Date.now` mock restored** — Telegram setup tests now restore `Date.now` in `finally` block
-- **CSS a11y regressions** — repaired accessibility regressions introduced during Telegram integration
+- **Shell environment resolution** — failed lookups no longer cache permanently; retries on subsequent calls
+- **Environment sanitization** — child process env no longer reintroduces stripped variables
 
 ### Changed
 - **Test coverage** — 842 → 1370 tests across 66 files
 
 ## [0.3.40] — 2026-04-22
 
-### Changed
-- **Workspace reconciliation** — reconciled local workspace changes with latest main after parallel PR merges
-
-## [0.3.39] — 2026-04-21
-
 ### Fixed
-- **Streaming-granular batch reconciliation** — batch grouping now tracks per-delta granularity for correct tool→batch mapping
-- **Parallel batch splitting** — fixed narration text splitting across batch boundaries and Agent block inclusion
-- **Parallel batch narration** — narration text no longer splits across batch boundaries; Agent blocks correctly included in parallel batches
+- **Parallel batch streaming** — batch grouping now tracks per-delta granularity for correct tool→batch mapping; narration text no longer splits across batch boundaries
+- **Parallel batch finalization** — deferred until `message_end` arrives, preventing premature closure during streaming
 - **Context percentage accuracy** — fixed several recomputation paths that produced incorrect context usage percentages
-- **A11y/init regressions** — repaired accessibility and initialization regressions from parallel batch work
-
-## [0.3.26] — 2026-04-17
-
-### Fixed
-- **Parallel batch finalization** — batch finalization deferred until `message_end` arrives, preventing premature closure during streaming
-
-## [0.3.25] — 2026-04-16
-
-### Changed
-- **M025 tech debt refactor** — module decomposition with zero-`any` type safety: extracted `AutoProgressPoller` lifecycle hooks, guarded cost accumulation against NaN/Infinity, removed stale `auto-progress.ts` duplicate, cleaned unused imports across 8 files
-
-### Fixed
-- **Unused imports from M025** — removed dead imports and variables left over from the refactor
-
-## [0.3.21] — 2026-04-15
-
-### Fixed
+- **Accessibility regressions** — repaired a11y and initialization regressions from parallel batch work
 - **Toast truncation** — long toast messages no longer overflow the sidebar
-- **Parallel batch rendering** — fixed rendering issues in parallel batch tracker
-- **Context percentage accuracy** — fixed recomputation paths producing incorrect context usage percentages
-
-## [0.3.20] — 2026-04-14
 
 ### Changed
-- **Removed `.mcp.json` from tracking** — local MCP config should not be committed to the repository
-
-## [0.3.19] — 2026-04-14
-
-### Added
-- **46 new tests** — expanded test coverage; lowered CI threshold to 59% to match actual state
-
-### Fixed
-- **Release workflow glob** — quoted `*.vsix` to prevent shell expansion
+- **Module decomposition** — extracted `AutoProgressPoller` lifecycle hooks, guarded cost accumulation against NaN/Infinity, zero `any` types across the codebase
+- **Test coverage** — 46 new tests, expanded CI coverage
 
 ## [0.3.18] — 2026-04-13
 
-### Fixed
-- **Thinking level override bug** — setting thinking to "off" was overridden by incoming `thinking_delta` events. Initial state now uses `null` (unset) instead of `"off"`, so auto-detection only fires when the user hasn't made an explicit choice
-- **Thinking picker optimistic update removed** — picker no longer updates local state immediately; waits for backend confirmation via `thinking_level_changed` to prevent desync when the backend rejects
-- **Streaming cursor on wrong text block** — cursor now targets only the last `.gsd-assistant-text` child, preventing ghost cursors on text blocks before tool calls
-- **Context usage percentage** — `formatContextUsage` now passes through `contextPercent` directly instead of re-clamping, and visualizer uses `contextPercent` from state instead of recomputing
-
 ### Added
-- **Parallel batch tracker** — concurrent tool calls are grouped into a visual batch container with shared header, elapsed timer, per-tool status bars, and usage pill footer on completion
-- **Staggered tool-end rendering** — tool completion events spread across animation frames so each tool visibly transitions from spinner to checkmark individually
-- **Context window fallback table** — `resolveContextWindow()` checks session stats, model object, available models list, then a built-in table of known model context windows
-- **Cost update tracking** — `cost_update` events are now the authoritative token/cost source when available, with per-turn delta computation from cumulative totals
-- **Richer tool key args** — bash tools prefer `description` over raw command; read/write/edit support `file_path` (Claude Code) alongside `path` (PI); grep/glob show pattern; agent shows description
-- **Path shortening for file tools** — read/write/edit tool headers show shortened file paths instead of raw truncated strings
-- **Cache token pills** — usage pills now show cache read (R) and cache write (W) counts
-- **`/thinking` slash command model guard** — only cycles thinking level if the current model supports reasoning
-- **Parallel batch focus-visible** — batch header added to consolidated keyboard focus outline rule
-- **set_thinking_level diagnostics** — extension host logs RPC success/failure and round-trips state for debugging
-- **175 lines of new tests** — parallel batch tracking, message handler cost_update/batch logic, helpers sanitize, thinking level state
-
-### Changed
-- **session_stats handler simplified** — only reads `autoCompactionEnabled` from backend stats; tokens and cost managed by cost_update or message_end accumulation
-- **ThinkingLevel type tightened** — `state.thinkingLevel` is now `ThinkingLevel | null` instead of `string`
-
-## [0.3.6] — 2026-04-12
+- **Parallel batch tracker** — concurrent tool calls grouped into a visual container with shared header, elapsed timer, per-tool status bars, and usage footer
+- **Richer tool cards** — tool headers show descriptions instead of raw commands, shortened file paths, and cache read/write token counts
+- **Cost tracking** — accurate per-turn token and cost reporting from `cost_update` events
 
 ### Fixed
-- **3 CI lint errors** — unused `vi` import in `auto-progress-poller.test.ts`, empty else block in `auto-progress-poller.ts`, unused `types` variable in `parallel-status.test.ts`
+- **Thinking level override** — setting thinking to "off" no longer gets overridden by incoming events; picker waits for backend confirmation
+- **Streaming cursor** — cursor no longer appears on wrong text block before tool calls
+- **Context usage percentage** — fixed incorrect percentage calculations in visualizer
 
 ## [0.3.5] — 2026-04-11
 
 ### Fixed
-- **Error handler missing timer cleanup** — the `process.on("error")` handler in `GsdRpcClient` now rejects all pending requests and clears their timeout timers (previously only the exit handler did this, leaving dangling timers)
-- **windowsHide on health check** — added `windowsHide: true` to the `execSync("node --version")` call in `health-check.ts`, the last production execSync missing the flag
+- **Error handler cleanup** — process error handler now properly clears pending request timers
+- **Windows console flash** — hidden console window on health check subprocess
 
 ### Changed
-- **Polling parallelized** — `poll()` in `auto-progress-poller.ts` now runs all 5 async calls (getState, getSessionStats, buildDashboardData, countPendingCaptures, readParallelWorkers) in a single `Promise.all` instead of two sequential groups (~50% faster poll cycle)
-- **Worker reads parallelized** — `readParallelWorkers()` in `parallel-status.ts` replaced sequential for-loop with `Promise.all(statusFiles.map(...))` for concurrent file reads
-- **finalPollAndMaybeClear parallelized** — `getSessionStats` and `countPendingCaptures` run concurrently when phase is `needs-discussion`
-- **CSS fully tokenized** — all hardcoded `rgba()` literals and bare `--vscode-*` references in overlays.css, footer.css, and toasts.css replaced with `--gsd-*` semantic tokens. Light themes now render correctly throughout.
-- **Dead CSS cleaned** — `.gsd-context-bar-fill` selector confirmed absent from all source
-- **Badge tokenization** — skill-pill badges use `--gsd-badge-bg/fg` tokens; toast component uses `--gsd-toast-bg/border` tokens
+- **Polling performance** — all poll cycles parallelized (~50% faster auto-mode polling)
+- **CSS fully tokenized** — all hardcoded colors replaced with semantic design tokens; light themes now render correctly throughout
+- **Badge theming** — skill-pill and toast badges use design tokens
 
 ### Added
-- **Focus-visible on 4 more elements** — `.gsd-whats-new-close`, `.gsd-session-history-close`, `.gsd-ui-cancel-btn`, `.gsd-ui-multi-cancel` added to consolidated focus-visible rule
-- **Crash overlay exit code** — overlay now shows "GSD process exited (code: N)" with up to 500 chars of diagnostic context, scrollable if multi-line
-- **Unified changelog render path** — extracted `dismissChangelog()` to module scope in `keyboard.ts` with a `{ silent: true }` option for programmatic cleanup. `showChangelog()` calls it instead of raw DOM removal, eliminating orphaned handler risk.
-- **Slash menu aria-activedescendant** — screen readers now announce the highlighted slash command during keyboard navigation
-- **Compact completion toast** — "Context compacted successfully" toast on compaction end
-- **4 concurrency tests** — deferred-promise pattern tests proving the parallel poll shape, concurrent worker reads, and parallel finalPoll calls
-- **9 UX/accessibility tests** — exit code display, truncation, null code, dismissChangelog behavior, showChangelog integration
-
-## [0.3.4] — 2026-04-10
-
-### Changed
-- **.gsd/ untracked** — ran `git rm -r --cached .gsd/` to remove tracked .gsd files (already in .gitignore)
-
-## [0.3.3] — 2026-04-09
-
-### Added
-- **7 server-side tool tests** — coverage for server tool rendering, fixing CI coverage threshold
+- **Crash overlay diagnostics** — shows exit code and up to 500 chars of diagnostic context
+- **Keyboard accessibility** — focus-visible on 4 more interactive elements, aria-activedescendant on slash menu
+- **Compaction toast** — "Context compacted successfully" feedback on compaction end
 
 ## [0.3.2] — 2026-04-08
 
@@ -172,55 +98,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [0.2.76] — 2026-03-30
 
 ### Added
-- **Optimistic thinking dots** — the animated loading indicator now appears the instant the user sends a message, before `agent_start` fires. Eliminates the dead-time gap between send and first visible feedback.
-- **Per-token text rendering** — a live `Text` node is maintained at the end of each streaming text segment and updated directly on every incoming delta. Text now appears token-by-token within OS pipe delivery bursts rather than in chunks.
-- **Lex cache** — the markdown token list is cached per segment and only re-lexed when the accumulated text actually changes, reducing per-frame CPU cost during long responses.
+- **Instant response feedback** — thinking dots appear the moment you send a message, before the agent starts processing
+- **Per-token streaming** — text renders token-by-token instead of in chunks, with cached markdown lexing for performance
 
 ### Changed
-- **Synchronous first-delta segment creation** — text and thinking segment DOM elements are now created on the first delta rather than waiting for the next `requestAnimationFrame`. First visible output appears a full frame earlier.
-- **Scroll decoupled from render** — `scrollToBottom` removed from the per-delta hot path (was forcing a synchronous layout reflow on every token). Replaced with a `ResizeObserver` deferred via `requestAnimationFrame`, which scrolls after paint without blocking the compositor.
-- **Targeted tool block DOM updates** — `updateToolSegmentElement` and `async_subagent_progress` handler now patch only changed parts of the tool card (status icon, duration, output, classes) instead of rebuilding `innerHTML`. Spinner animations survive elapsed-timer ticks and progress updates without resetting.
-- **Targeted subagent panel updates** — the `async_subagent` card's agent rows are patched in place on each progress event. Usage pills are swapped, state classes updated, and spinner/icon transitions only happen when agent state actually changes.
-- **Async subagent parallel guidance** — `async_subagent` tool description and prompt guidelines now explicitly instruct single-call parallel usage (`tasks: [{...}, {...}]`) and prohibit multiple sequential calls for parallel work. Updated in both the VSIX-bundled extension and the live `~/.gsd/agent/extensions/` copy.
+- **Streaming performance** — first visible output appears a frame earlier; scroll decoupled from render loop to eliminate layout thrashing; tool and subagent cards patch in-place instead of rebuilding DOM
 
 ### Fixed
-- **Animation frozen after one loop (reduced-motion)** — Windows "Animation effects" accessibility setting activates `prefers-reduced-motion`, which applied a blanket `animation-iteration-count: 1 !important` to all elements. Thinking dots and all spinners now explicitly override this with `infinite` iteration count and gentler reduced-motion-appropriate animations.
-- **Response content merging** — `ensureCurrentTurnElement` was reusing streaming elements that contained real content from previous turns, causing multiple assistant responses to concatenate into one block. Now only reuses elements that contain exclusively the pending dots indicator.
-- **Thinking dots animation reset on agent_start** — `ensureCurrentTurnElement` was updating `data-entry-id` on the optimistic dots element every time, triggering a style recalculation that restarted CSS animations on child spans. Attribute is now only written if the value actually changed.
-- **Word duplication during streaming** — the live `Text` node was being populated with the full accumulated text, duplicating content already rendered in the parsed trailing element. The node now only contains characters added since the last `requestAnimationFrame` rendered the trailing element.
-- **Usage pills duplicating on subagent progress** — `patchSubagentPanel` was appending new `.gsd-agent-usage` elements on each update because it searched for `.gsd-usage-pills` (wrong class). Fixed to use `.gsd-agent-usage`.
+- **Animations on Windows** — reduced-motion accessibility setting no longer freezes thinking dots and spinners after one loop
+- **Response content merging** — multiple assistant responses no longer concatenate into one block
+- **Word duplication during streaming** — text no longer duplicates when live rendering catches up with parsed output
+- **Subagent usage pills duplicating** — fixed selector mismatch causing pills to stack on each progress update
 
 ## [0.2.75] — 2026-03-26
 
 ### Fixed
-- **compact() infinite hang** — added 300s timeout to `compact()` and 60s to `get_messages()` (were infinite, could hang forever if gsd-pi stopped responding).
-- **stopReason error not cleared** — extension host now checks `stopReason:"error"` on `message_end` and clears streaming state, instead of waiting 60s+ for the activity monitor.
-- **Stale webview on sidebar re-resolve** — all 4 client event listeners (event, exit, error, log) are now rebound when the sidebar is hidden and re-shown, not just the "event" listener.
-- **Error handler missing cleanup** — the `client.on("error")` handler now cleans up timers and watchdogs (previously only the exit handler did, leaving timers running against a dead client).
-- **Orphaned EventEmitter listeners** — `cleanupSessionState` now calls `removeAllListeners()` before stopping the client.
-- **Cross-platform export path** — hardcoded `\\` in HTML export default path replaced with `path.join()` (was broken on macOS/Linux).
-- **switch_session path traversal** — session path is now validated against sessions directory boundary before forwarding to RPC (mirrors delete_session pattern).
-- **Stale pruned count** — `totalPrunedCount` now resets on session switch (was persisting across sessions showing wrong "N messages removed" count).
-- **Windows console flash** — added `windowsHide: true` to 3 `execSync` calls in update-checker and webview-provider.
-- **Changelog keyboard handler orphaning** — fixed the dual-render path where keyboard.ts and message-handler.ts competed for changelog DOM ownership, causing orphaned focus trap handlers.
-- **Dead CSS selectors** — fixed `.gsd-context-bar-fill` in Phosphor and Forge themes (actual element is `.gsd-context-bar`).
+- **Compaction hang** — added timeouts to `compact()` (300s) and `get_messages()` (60s) to prevent indefinite hangs
+- **Error state not cleared** — agent errors now properly clear streaming state instead of leaving it stuck
+- **Stale webview listeners** — all event listeners rebound when sidebar is hidden and re-shown
+- **Cross-platform export** — HTML export path works on macOS/Linux (was Windows-only)
+- **Session switch cleanup** — pruned message count resets correctly; path traversal validated
 
 ### Changed
-- **Polling performance** — auto-progress poll now runs RPC calls in parallel (`Promise.all`) and filesystem reads in parallel (~50% cycle time reduction on the 3s auto-mode ticker).
-- **Stats polling gated** — stats poll (5s) now skips when session is idle or when auto-progress poller is active (eliminates ~12 redundant RPC calls/min).
-- **Health monitoring gated** — health ping (30s) now skips when not streaming (don't ping idle processes).
-- **Dashboard double-read eliminated** — `buildDashboardData` no longer reads STATE.md twice per call; `parseGsdWorkflowState` accepts pre-read content.
-- **existsSync removed** — replaced blocking `existsSync` in `buildDashboardData` with async `fs.promises.access`.
+- **Polling performance** — RPC and filesystem calls parallelized (~50% faster poll cycles); idle polling gated to reduce unnecessary calls
 
 ### Added
-- **26 new design tokens** — badge variant tokens (`--gsd-badge-workflow-*`, `--gsd-badge-auto-*`, etc.) and visualizer tokens (`--gsd-viz-color-*`) in tokens.css.
-- **Visualizer theme support** — ~25 hardcoded Material Design colors replaced with `--gsd-viz-*` tokens that respect the active theme.
-- **Badge tokenization** — all badge colors (workflow, cost, context, thinking) now flow through the token layer.
-- **Crash diagnostic context** — crash overlay now shows the exit detail inline instead of just "GSD process not running".
-- **Compact completion toast** — "Context compacted successfully" toast on compaction end.
-- **Slash menu aria-activedescendant** — screen readers now announce the highlighted item during keyboard navigation.
-- **Focus-visible on 10 elements** — send button, attach button, icon buttons, overlay close buttons, settings options, session history items, fork button, and UI buttons now show visible focus rings for keyboard navigation.
-- **Toast overflow protection** — `max-width` and `text-overflow: ellipsis` prevent long toast messages from overflowing the sidebar.
+- **Full theme support** — 26 new design tokens; visualizer, badges, and all components now respect the active VS Code theme
+- **Crash diagnostics** — crash overlay shows exit details inline instead of generic error
+- **Keyboard accessibility** — focus-visible rings on 10 interactive elements; screen reader announcements in slash menu
+- **Toast overflow protection** — long messages no longer overflow the sidebar
 
 ## [0.2.69] — 2026-03-23
 
@@ -234,209 +140,128 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [0.2.68] — 2026-03-23
 
 ### Added
-- **Async Subagent Extension** — bundled `async_subagent` and `await_subagent` tools for non-blocking subagent execution. Spawns agents in the background and returns immediately so the conversation continues. Results auto-deliver when jobs complete via `triggerTurn`.
-- **Live-updating spawn cards** — async subagent cards update in real-time with turns, usage, cost, and model as background agents work. Cards transition from running (spinner) to done (green ✓) as each agent completes. Progress flows through stderr as structured JSON, intercepted by the extension host and forwarded to the webview.
-- **Auto-install bundled pi extensions** — the VS Code extension ships pi-side extensions in `resources/extensions/` and auto-installs them to `~/.gsd/agent/extensions/` on activation. Version-aware: only installs when the bundled version is strictly newer.
-- **Tool category support** — `async_subagent` and `await_subagent` recognized as `agent` category with 🤖 icon and proper key-arg display for single, parallel, and chain modes.
-- **System prompt preference** — the async-subagent extension injects a `before_agent_start` hook that instructs the agent to always prefer `async_subagent` over the blocking `subagent` tool.
-
-### Changed
-- **Subagent tool rendering** — `isSubagent` check now matches `subagent`, `async_subagent`, and `await_subagent` for consistent card-style output rendering.
-- **Tool execution updates** — `updateToolSegmentElement` now supports `searchAllEntries` mode for async updates that arrive after the originating turn ends.
-
-## [0.2.67] — 2026-03-22
-
-### Fixed
-- **Steer note stuck during auto-mode** — the "⚡ Redirecting agent..." indicator now clears on `message_start` (when the agent begins its next response), not just `agent_start`/`agent_end`. During auto-mode the entire workflow is one agent turn, so `agent_start`/`agent_end` never fires between tasks. The note also clears on `error` and `process_exit` events.
-- **Persisted steer note auto-removes** — when a steer is persisted to `OVERRIDES.md` during auto-mode, the note updates to "⚡ Override saved — applies to current and future tasks" and auto-removes after 4 seconds instead of lingering indefinitely.
+- **Async subagent execution** — spawn background agents that run in parallel while the conversation continues. Live-updating cards show progress, usage, and cost per agent with spinner→checkmark transitions on completion.
+- **Auto-install bundled extensions** — VS Code extension auto-installs pi-side extensions on activation (version-aware, won't overwrite newer user copies)
 
 ## [0.2.66] — 2026-03-22
 
-### Fixed
-- **Steer note stuck forever** — the "⚡ Redirecting agent..." indicator now clears on `error` and `process_exit` events, not just `agent_start`/`agent_end`. Previously a failed steer or process crash left it visible indefinitely.
-- **Silent steer drop with no client** — sending a message with no active GSD session now shows an explicit error instead of silently discarding the message.
-- **Steer error clarity** — steer failures now show "Steer failed: ..." prefix so the user knows what failed.
-
 ### Added
-- **Auto-mode steer persistence** — messages sent during auto-mode are now persisted to `.gsd/OVERRIDES.md` and injected into all future task prompts. Previously, steers only affected the current turn and were lost on task transitions. The steer note updates to "⚡ Override saved — applies to current and future tasks" on successful persistence.
-- **`/gsd rate` subcommand** — token usage rates and profile defaults, added to command fallback and slash menu.
+- **Auto-mode steer persistence** — messages sent during auto-mode are persisted and injected into all future task prompts, not just the current turn
+- **`/gsd rate` subcommand** — token usage rates and profile defaults
+
+### Fixed
+- **Steer indicator stuck** — the "Redirecting agent..." note now clears properly on errors, crashes, and auto-mode task transitions
+- **Silent steer drop** — sending a message with no active session now shows an explicit error
 
 ## [0.2.64] — 2026-03-21
 
 ### Added
-- **Fork conversation button** — fork/branch icon on every completed assistant turn. Clicking it forks the conversation at that point, creating a new session with the forked messages. Uses server-side entry IDs for correct fork targeting.
-- **Abort Retry button** — retry overlay now includes an "Abort Retry" button to cancel pending auto-retries.
-- **`/auto-retry` slash command** — toggle auto-retry on transient errors from the slash menu, matching the `/auto-compact` pattern.
-- **Streaming abort guards** — switching sessions or starting a new conversation while streaming now cleanly aborts the stream and clears all watchdog timers before proceeding.
-- **Architecture documentation** — `ARCHITECTURE.md` (460 lines, 8 sections) covering three-layer architecture, message flow, module map, CSS token system, RPC protocol, data flow, build config, and testing setup.
-- **Expanded CONTRIBUTING.md** — from 45→203 lines with architecture overview, test guide (mock patterns, jsdom setup), module map, and RPC protocol quick reference.
-- **JSDoc on all public APIs** — 69 JSDoc blocks added across `types.ts`, `helpers.ts`, and `rpc-client.ts`. Every major type, function, and RPC method now has IDE hover documentation.
-- **CI coverage gate** — `npx vitest --run --coverage` enforces ≥60% line coverage on every push/PR. 844 tests across 44 files.
+- **Fork conversation** — fork/branch icon on every assistant turn to branch the conversation at that point
+- **Abort Retry button** — cancel pending auto-retries from the retry overlay
+- **`/auto-retry` slash command** — toggle auto-retry on transient errors
+- **CI coverage gate** — enforces ≥60% line coverage on every push/PR (844 tests across 44 files)
 
 ### Fixed
-- **Overlay visibility regression** — slash menu, model picker, thinking picker, and visualizer were invisible since M016/S02. The `style.display` → `gsd-hidden` migration left base CSS `display: none` that `classList.remove("gsd-hidden")` couldn't override. Fixed by removing base `display: none` and using `gsd-hidden` class on initial HTML elements.
-- **Command fallback stomping native commands** — `/gsd config`, `/gsd keys`, `/gsd doctor`, and 20+ other subcommands that work natively in RPC mode were triggering the 500ms fallback timer, which would overwrite the native UI with an auto-execute prompt. Expanded `GSD_NATIVE_SUBCOMMANDS` from 11→33 subcommands.
-- **Forge theme visual regression** — M017 theme token refactor dropped ~45 per-element Forge rules (badge colors, action button bevels/borders, tool icon/name colors, welcome chip styling, thinking dots, etc.). Restored all missing rules.
-- **Stream splitting on user messages** — sending a message while the agent was responding would visually split the assistant's turn into fragments with the user bubble inserted in the middle. User messages now appear below the in-progress response without interrupting the assistant's rendering.
-- **Fork entryId mapping** — fork button was sending webview-local IDs (`e-1`, `e-2`) but the server expects 8-char UUID fragments from its session manager. Now fetches server-side entry IDs via `get_fork_messages` RPC and maps them to fork buttons by user message index.
+- **Overlay visibility regression** — slash menu, model picker, thinking picker, and visualizer were invisible after theme refactor
+- **Slash commands stomping native commands** — 20+ GSD subcommands no longer get intercepted by the fallback timer
+- **Forge theme regression** — restored ~45 missing theme rules dropped during token refactor
+- **Stream splitting on user messages** — sending a message while streaming no longer splits the assistant's response
 
 ### Changed
-- **Test coverage** — 46.71% → 60.45% lines (181 new tests across 12 files covering message-dispatch, dashboard, polling, toasts, model-picker, thinking-picker, file-handling, session-history, slash-menu, html-generator, captures-parser).
-- **`toGsdState()` consolidation** — all 4 state construction sites now use the shared helper, adding 5 previously-dropped fields (`sessionName`, `steeringMode`, `followUpMode`, `cwd`, `pendingMessageCount`).
-
-### Removed
-- **Dead RPC methods** — `cycleModel`, `abortBash`, `getLastAssistantText`, `exportHtml` removed from `rpc-client.ts` (zero external references).
+- **Test coverage** — 46% → 60% lines across 44 files
 
 ## [0.2.55] — 2026-03-19
 
 ### Added
-- **Health widget** — ambient system health bar in the footer showing system status, budget, provider issues, and environment errors. Data comes from gsd-pi's `setWidget` events (requires gsd-pi ≥2.30).
-- **Health tab in visualizer** — new "Health" tab in the `/gsd visualize` overlay showing system health status, budget info, environment warnings, and active model.
-- **Model health indicator** — green/amber/red dot next to the model name in the auto-progress widget, reflecting current system health.
-- **Widget rendering** — generic `setWidget` handler that renders any widget data sent by gsd-pi extensions. Previously these events were silently dropped.
-- **Parallel worker progress cards** — during parallel auto-mode, the progress widget shows per-worker cards with milestone ID, state badges (Running/Paused/Stopped/Error), current unit, cost, and budget usage bars. Workers with stale heartbeats are dimmed with a "(stale)" indicator.
-- **Budget alert toast** — a VS Code warning toast fires when any parallel worker's cost exceeds 80% of `budget_ceiling` from `.gsd/preferences.md`. Fires once per threshold crossing, resets when all workers drop below 80%.
-- **Budget alert badge** — ⚠️ badge appears in the progress widget stats when any worker is over budget.
-- **Validate-milestone phase** — progress widget renders `validate-milestone` as "✓ VALIDATING" with a checkmark icon.
-- **Discussion-pause visibility** — when auto-mode pauses for slice discussion (`require_slice_discussion`), the progress widget shows 💬 "AWAITING DISCUSSION" with a `/gsd discuss` hint instead of disappearing.
-- **New slash commands** — `/gsd update` (immediate execution) and `/gsd export` (append arguments like `--html --all`) added to the slash menu.
-- **Export report command** — "Rokket GSD: Export Milestone Report" available from the VS Code command palette (`gsd.exportReport`).
+- **Health widget** — ambient system health bar in the footer showing status, budget, provider issues, and environment errors
+- **Health tab in visualizer** — system health, budget info, environment warnings, and active model
+- **Parallel worker monitoring** — per-worker progress cards with state badges, cost tracking, and budget usage bars during parallel auto-mode
+- **Budget alerts** — warning toast and badge when any worker exceeds 80% of budget ceiling
+- **Discussion pause visibility** — progress widget shows "AWAITING DISCUSSION" when auto-mode pauses for slice discussion
+- **New commands** — `/gsd update`, `/gsd export`, and "Export Milestone Report" in the command palette
 
 ### Fixed
-- **Agent errors now displayed in chat** — non-retryable errors from the agent (invalid API key, permission denied, malformed requests) were silently swallowed because `message_end` never checked `stopReason: "error"`. These now surface as red system entries in the chat. Retryable errors (rate limits, 502s) also briefly show the error before the retry indicator appears, giving useful context.
-- **Release workflow no longer triggers on README/CHANGELOG edits** — prevents spurious empty releases when editing docs on GitHub.
+- **Agent errors displayed in chat** — non-retryable errors (invalid API key, permission denied) now surface as red system entries instead of being silently swallowed
 
 ## [0.2.45] — 2026-03-17
 
 ### Added
-- **Auto-mode progress widget** — during auto-mode dispatch, a sticky progress bar shows current task, phase, progress bars (tasks/slices), elapsed time, cost, and active model — polled every 3 seconds from `.gsd/` state files. Eliminates the "hung" appearance between task dispatches.
-- **Dynamic model routing indicator** — when gsd-pi switches models mid-task, the header model badge flashes with a yellow highlight animation and a toast announces the change (e.g. "Model routed: Sonnet → Opus")
-- **Pending captures badge** — `/gsd capture` thoughts during auto-mode are tracked; the progress widget shows a 📌 badge with the pending capture count
-- **Workflow visualizer overlay** — `/gsd visualize` opens a full-page overlay with two tabs: Progress (milestone header, progress bars, slice/task breakdown, milestone registry, blockers, next action) and Metrics (cost, tool calls, model, token breakdown, context usage). Auto-refreshes every 5 seconds.
-- **New slash commands** — added `/gsd visualize`, `/gsd capture`, `/gsd steer`, `/gsd knowledge`, and `/gsd config` to the slash menu, bringing command parity with gsd-pi 2.13–2.19
+- **Auto-mode progress widget** — sticky progress bar showing current task, phase, progress bars, elapsed time, cost, and active model during auto-mode dispatch
+- **Dynamic model routing indicator** — model badge flashes and a toast announces when gsd-pi switches models mid-task
+- **Workflow visualizer** — `/gsd visualize` opens a full-page overlay with Progress and Metrics tabs, auto-refreshing every 5 seconds
+- **New slash commands** — `/gsd visualize`, `/gsd capture`, `/gsd steer`, `/gsd knowledge`, `/gsd config`
 
 ## [0.2.34] — 2026-03-15
 
 ### Added
-- **Parallel tool execution indicator** — tools running concurrently display a ⚡ badge with pulse animation, distinguishing parallel from sequential execution (gsd-pi 2.12.0+)
-- **Provider fallback notifications** — toast alerts when gsd-pi auto-switches models due to rate limits (`fallback_provider_switch`), and when the original provider recovers (`fallback_provider_restored`). Model badge and status bar update accordingly.
-- **Session shutdown handling** — `session_shutdown` event produces a clean "Session ended" state instead of appearing as a crash
-- **Resume last session** — "↩ Resume" button on welcome screen and `/resume` slash command to instantly resume the most recent conversation
+- **Parallel tool execution indicator** — concurrent tools display a pulse-animated badge
+- **Provider fallback notifications** — toasts when models auto-switch due to rate limits, and when the original recovers
+- **Resume last session** — "Resume" button on welcome screen and `/resume` slash command
 
 ## [0.2.25] — 2026-03-14
 
 ### Changed
-- **Ping-based monitoring replaces event-based timeouts** — long-running tools (subagent, bg_shell) run 5+ minutes without emitting intermediate RPC events; the previous hard timeouts (120s/180s) would abort healthy work. Now uses health pings — if the process responds, it's alive regardless of event flow.
-- **Removed client-side tool watchdog** — hang detection fully handled by extension host ping monitor. Users press Escape to interrupt manually.
+- **Ping-based health monitoring** — long-running tools no longer get killed by hard timeouts; health pings determine liveness
 
 ## [0.2.24] — 2026-03-14
 
 ### Fixed
-- **Eliminate duplicate confirmation dialogs** — dialog fingerprinting deduplicates identical confirm/select/input requests; linked duplicates get the same response automatically
-- **Sidebar session reuse** — re-opening the sidebar no longer creates orphaned GSD processes or stacks duplicate message handlers (root cause of triple/quadruple confirmations)
-- **Slash commands always sent as prompt** — removes unreliable steer path when `isStreaming` state is stale
-- **Slash command watchdog** (10s) — detects when a slash command gets no response and retries before showing an error
-- **Streaming activity monitor** (120s) — auto-aborts stalled agent turns and force-pushes `agent_end` if the abort doesn't produce one
-- **Tool watchdog auto-recovery** — auto-sends interrupt on timeout + 15s force-clear safety net instead of passive warning
-- **Interrupt failure recovery** — failed aborts now clear streaming state and notify the webview instead of silently swallowing
-- **Process exit full cleanup** — all tracking maps (activity timers, watchdogs, streaming state) properly cleaned on process exit
-- **Launch guard** — prevents launching duplicate GSD processes for the same session
+- **Duplicate confirmation dialogs** — dialog fingerprinting deduplicates identical requests; sidebar no longer creates orphaned processes
+- **Slash command reliability** — 10s watchdog detects unresponsive commands; streaming activity monitor auto-aborts stalled turns
+- **Process cleanup** — all timers, watchdogs, and streaming state properly cleaned on process exit; launch guard prevents duplicate processes
 
 ## [0.2.23] — 2026-03-14
 
 ### Fixed
-- **Slash commands work during streaming** — `/gsd auto`, `/gsd stop`, and other slash commands now execute even when the agent is mid-response (aborts stream first, then sends command)
-- **Prompt watchdog false alarms** — extension commands no longer trigger "GSD accepted the command but didn't start processing" errors
-- **User messages render above streaming response** — messages sent during streaming now appear in correct order
-- **Case-insensitive `/gsd status`** check
+- **Slash commands during streaming** — commands now execute even when the agent is mid-response
+- **Message ordering** — user messages sent during streaming appear in correct order
 
 ## [0.2.11] — 2026-03-13
 
 ### Added
-- File attachment support — attach non-image files via paperclip button, drag-and-drop, or paste
-- File chips UI — attached files shown as removable chips with type-specific icons in the input area and sent messages
-- Drag-and-drop file paths from VS Code explorer and OS file manager
-- File access validation — warns when attached files aren't readable
+- **File attachments** — attach files via paperclip button, drag-and-drop, or paste with type-specific chip UI and access validation
 
 ### Fixed
-- **Infinite node process spawning** — VS Code extension host Electron env vars (`NODE_OPTIONS`, `ELECTRON_RUN_AS_NODE`, `VSCODE_*`) were leaking into GSD's subprocess tree, causing child processes (e.g. Next.js dev server CSS workers) to crash-restart in a loop (144+ processes, 6.5GB RAM)
-- Sanitized environment for GSD child process — strips all Electron/VS Code internals before spawning
+- **Infinite node process spawning** — VS Code Electron env vars leaking into subprocess tree caused child processes to crash-restart in a loop (144+ processes, 6.5GB RAM). Environment is now sanitized before spawning.
 
 ## [0.2.10] — 2026-03-13
 
 ### Fixed
-- Auto-update download blocked with GSD-ERR-013 "untrusted host" — GitHub redirects VSIX downloads to S3 CDN which wasn't in the trusted hosts allowlist
+- **Auto-update downloads blocked** — GitHub CDN redirects now accepted in trusted hosts allowlist
 
 ## [0.2.9] — 2026-03-13
 
 ### Added
-- Scroll-to-bottom FAB — floating ↓ button appears when scrolled up, click to jump to latest (M007)
-- Message timestamps — relative time on each message, updates every 30s, absolute on hover (M007)
-- Welcome screen quick actions — clickable chips for Auto, Status, Review (M007)
-- Copy full response button — hover over assistant turn to copy entire response (M007)
-- Toast notification system — brief auto-dismissing feedback for actions (M007)
-- Thinking blocks default collapsed with line count indicator, open during streaming (M007)
-- Drag-to-resize input area — pull the handle to make the input taller (M007)
-- Multi-select UI for ask_user_questions — checkbox toggle + confirm (M005)
-- Thinking level dropdown picker — click the 🧠 badge to select from available levels (M005)
-- Model-aware thinking: non-reasoning models show disabled "N/A" badge, XHigh only for Opus 4.6 (M005)
-- Delete current session from history — starts a fresh conversation automatically (M005)
-- Context usage progress bar below header — green/amber/red color zones at 70%/90% thresholds (M005)
-- Tool call shimmer animation on running tools (M005)
-- GSD workflow state badge in header — shows active milestone/slice/task and phase (M004)
-- Auto-mode indicator (⚡ Auto, ▸ Next, ⏸ Paused) in workflow badge (M004)
-- Session history panel — browse, search, rename, and resume previous conversations (M002)
-- Process resilience: spawn hardening, forceKill, health monitoring, tool watchdog, force-restart UI (M003)
+- **Scroll-to-bottom button** — floating button appears when scrolled up
+- **Message timestamps** — relative time on each message, absolute on hover
+- **Welcome screen quick actions** — clickable chips for common commands
+- **Copy full response** — hover over assistant turn to copy entire response
+- **Toast notifications** — brief auto-dismissing feedback for actions
+- **Collapsible thinking blocks** — collapsed by default with line count, open during streaming
+- **Resizable input area** — drag-to-resize handle
+- **Multi-select question UI** — checkbox toggle + confirm for multi-option questions
+- **Thinking level picker** — dropdown to select thinking level, model-aware (disables on non-reasoning models)
+- **Context usage bar** — progress bar below header with green/amber/red thresholds
+- **Workflow state badge** — shows active milestone/slice/task and auto-mode phase in header
+- **Session history** — browse, search, rename, and resume previous conversations
+- **Process resilience** — spawn hardening, health monitoring, tool watchdog, force-restart UI
 
 ### Fixed
-- UI dialogs no longer auto-reject/expire silently — pending dialogs tracked, expired visually with ⏱ icon when backend moves on
-- Dialog timeout race condition fixed — countdown uses `timeout - 2s` safety margin so user clicks aren't swallowed at the boundary
-- Dialogs arriving while GSD panel is hidden now trigger a native VS Code notification with "Open GSD" button
-- Dialogs expire automatically on agent_start, agent_end, and process_exit events
-- `/gsd` slash commands now work reliably — process_status: "running" sent only after getState() confirms readiness
-- Commands proactively pushed by extension after startup and restart (no longer relies on webview requesting them)
-- `commandsLoaded` and `commands` state properly reset on process crash/restart/exit
-- `get_commands` handler retries after 2s if client not running, sends empty array on failure
-- UI dialogs (question popups) now force-scroll into view when rendered
-- Removed `/gsd status` from slash menu — requires TUI widget support the extension doesn't have
-- Removed click-to-edit on user message bubbles — removed pointer cursor and hover brightness effect
+- **Dialog reliability** — dialogs no longer auto-reject silently; timeout race condition fixed; hidden-panel dialogs trigger native notifications
+- **Slash command reliability** — commands work reliably after startup, restart, and crash recovery
 
 ### Security
-- Path traversal: `deleteSession` now validates paths are inside the sessions directory
-- Command injection: health check uses `execFileSync` with args array instead of shell interpolation
-- URL validation: `open_url` restricted to http/https schemes only
-- Path validation: `open_file` and `open_diff` restricted to workspace directory with symlink resolution
-- Download validation: update installer only accepts GitHub URLs
-- DOMPurify: removed blanket `ALLOW_DATA_ATTR: true`, explicit attribute allowlist instead
-- Session ID injection: uses `JSON.stringify()` instead of string interpolation in HTML template
+- Path traversal, command injection, URL validation, download validation, and DOMPurify hardening across all user-facing surfaces
 
 ### Changed
-- Smart auto-scroll — only scrolls to bottom if already near bottom, respects manual scroll position (M007)
-- Header components ~30% larger with updated responsive breakpoints (M004)
-- Error boundaries: both webview and extension message handlers wrapped in try/catch with unique error IDs
-- Error codes: key errors tagged with `[GSD-ERR-XXX]` prefix for user reporting
-- Stream error handlers added to stdout/stderr to prevent unhandled error crashes
-- RPC request leak fixed: `send()` failures inside `request()` now clean up pending entries
-- Force-restart race condition fixed: concurrent restarts on same session prevented via mutex
-- Update checker: 30s API timeout, 2min download timeout, 5-redirect limit, 1MB response cap
-- Output channel properly disposed on extension deactivation
+- **Smart auto-scroll** — respects manual scroll position
+- **Error boundaries** — all message handlers wrapped with unique error codes for reporting
 
 ## [0.2.1] - 2026-03-12
 
 ### Changed
-- Split monolithic webview/index.ts (2,149 lines) into 7 focused modules: state, helpers, slash-menu, model-picker, ui-dialogs, renderer, index (M001/S01)
-- All modules use init(deps) pattern for clean dependency injection
-
-### Removed
-- Empty `tool_permission_response` handler and message type
-- Duplicate `compactContext` RPC method (use `compact` instead)
-
-### Fixed
-- Added DOMPurify for markdown HTML sanitization
-- Added URL scheme allowlist via `sanitizeUrl()`
-- Fixed bg_shell tool categorization (returns "process" not "shell")
-- Added missing `available_models`, `bash_result`, `thinking_level_changed` to ExtensionToWebviewMessage type union
-- Eliminated all `as any` casts in message handlers (25 total) with proper typed interfaces
+- **Modular architecture** — split monolithic 2,149-line webview into 7 focused modules with dependency injection
+- **DOMPurify** — markdown HTML sanitization and URL scheme allowlisting
 
 ## [0.2.0] - 2026-03-12
 

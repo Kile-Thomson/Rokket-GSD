@@ -7,18 +7,17 @@
 <h3 align="center">The GSD-PI / GSD V2 VS Code Extension</h3>
 
 <p align="center">
-  Built on <a href="https://github.com/gsd-build/gsd-2">GSD-2</a> by <a href="https://github.com/glittercowboy">Glittercowboy</a> (Lex Christopherson), based on <a href="https://github.com/badlogic/pi-mono">Pi Mono</a> by <a href="https://github.com/badlogic">Mario Zechner</a> ❤️
+  Built on <a href="https://github.com/gsd-build/gsd-2">gsd-pi</a> by <a href="https://github.com/glittercowboy">Glittercowboy</a> (Lex Christopherson), based on <a href="https://github.com/badlogic/pi-mono">Pi Mono</a> by <a href="https://github.com/badlogic">Mario Zechner</a> ❤️
 </p>
 
 <p align="center">
-  A full-featured VS Code frontend for the <a href="https://github.com/gsd-build/gsd-2">GSD-2 (gsd-pi)</a> AI coding agent.<br>
-  Streaming chat, real-time tool visualization, parallel worker monitoring,<br>
-  model switching, session history, and full workflow automation.
+  A full-featured VS Code frontend for the <a href="https://github.com/gsd-build/gsd-2">gsd-pi</a> AI coding agent.<br>
+  Streaming responses, 40+ tool visualizations, Telegram relay with voice transcription,<br>
+  parallel worker dashboards, model controls, four built-in themes, and deep workflow integration.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.3.44-blue" alt="Version" />
-  <img src="https://img.shields.io/badge/gsd--pi-v2.12--v2.71-blue" alt="gsd-pi compatibility" />
+  <img src="https://img.shields.io/badge/version-0.3.48-blue" alt="Version" />
   <img src="https://img.shields.io/badge/VS%20Code-1.94%2B-blue" alt="VS Code" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform" />
@@ -28,7 +27,7 @@
 
 ## What Is This?
 
-<img width="1670" height="1005" alt="RokketGSD" src="https://github.com/user-attachments/assets/e68aea08-cb2c-415f-ad2e-dbad08d39dbc"/>
+<img alt="RokketGSD" src="https://github.com/user-attachments/assets/e68aea08-cb2c-415f-ad2e-dbad08d39dbc" style="max-width:100%;"/>
 
 Rokket GSD turns the `gsd-pi` CLI into a native VS Code experience. Streaming responses, 40+ tool visualizations, Telegram relay with voice transcription, parallel worker dashboards, model controls, four built-in themes, and deep workflow integration. Everything runs inside your editor.
 
@@ -48,7 +47,7 @@ One-click install from GitHub Releases
 📂 **Session History**<br>
 Search, rename, resume right where you left off
 
-⌨️ **45+ Slash Commands**<br>
+⌨️ **59+ Slash Commands**<br>
 Full GSD workflow from a single `/` keystroke
 
 🧠 **Model Picker**<br>
@@ -84,8 +83,8 @@ Built for multi-hour sessions with crash recovery
 📡 **Telegram Relay**<br>
 Stream conversations to Telegram with voice transcription
 
-🧪 **1370+ Tests, 60%+ Coverage**<br>
-CI coverage gate enforced on every push
+🧪 **1370+ Tests**<br>
+CI enforced on every push
 
 </td>
 </tr>
@@ -115,6 +114,10 @@ You need a working GSD environment before installing:
 ---
 
 ## 📦 Installation
+
+### VS Code Marketplace
+
+Search **"Rokket GSD"** in the Extensions sidebar, or install directly from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=Rokketek.rokket-gsd).
 
 ### One-Liner (macOS / Linux / Git Bash)
 
@@ -146,6 +149,55 @@ Then reload VS Code (`Ctrl+Shift+P` > "Developer: Reload Window").
 > If `code --install-extension` succeeds silently but the extension doesn't appear, install manually: VS Code > Extensions > `...` menu > "Install from VSIX..." > select the `.vsix` file.
 
 </details>
+
+---
+
+## 🏁 Getting Started
+
+Once installed, follow these steps to get up and running:
+
+### 1. Set up GSD (first time only)
+
+If you haven't already, install and authenticate the GSD agent:
+
+```bash
+npm install -g gsd-pi
+gsd
+```
+
+The first run walks you through provider authentication (Anthropic, OpenAI, Google, etc.). You'll need at least one configured provider before the extension will work.
+
+### 2. Open Rokket GSD
+
+- Click the **rocket icon** in the VS Code activity bar (left sidebar), or
+- Press `Ctrl+Shift+P` → **"Rokket GSD: Open"**
+
+The extension spawns a `gsd` process automatically — if everything is set up correctly, you'll see the welcome screen with quick-action chips.
+
+### 3. Verify your setup
+
+If something isn't right, the extension runs a **health check on startup** and shows a notification with specific fix instructions. You can also run `/gsd doctor` in the chat to diagnose issues.
+
+### 4. (Optional) Connect Telegram
+
+To relay conversations to a Telegram group with voice message support:
+
+1. **Create a bot** — message [@BotFather](https://t.me/BotFather) on Telegram, send `/newbot`, and copy the token
+2. **Add the bot** to your Telegram group and make it an admin
+3. **Run the setup wizard** — type `/telegram` in the Rokket GSD chat or use `Ctrl+Shift+P` → **"Rokket GSD: Telegram Setup"**
+4. **Paste your bot token** when prompted — the wizard auto-detects your group and verifies the connection
+5. **(Optional) Enable voice transcription** — run `/telegram voice` and enter an OpenAI API key for Whisper
+
+All credentials are stored securely in VS Code's SecretStorage — never in config files or source code.
+
+### 5. (Optional) Customize settings
+
+Open VS Code Settings (`Ctrl+,`) and search for "gsd" to configure:
+
+- **Theme** — choose from Classic, Phosphor, Clarity, or Forge
+- **Send key** — switch to `Ctrl+Enter` if you prefer `Enter` for newlines
+- **Layout** — open as sidebar panel or editor tab
+- **Auto-updates** — enabled by default, checks GitHub Releases
 
 ---
 
@@ -263,7 +315,7 @@ Type `/` to open the command palette with 59+ commands:
 - **`!command` shortcut** to run bash commands directly without the agent
 
 ### 🔧 Tool Execution Visualization
-<img width="1749" height="775" alt="subagents" src="https://github.com/user-attachments/assets/90e4d43d-18ca-4a87-b5e9-7cd90afd50ce" />
+<img alt="subagents" src="https://github.com/user-attachments/assets/90e4d43d-18ca-4a87-b5e9-7cd90afd50ce" style="max-width:100%;" />
 
 - **Live tool calls** with category-specific icons and color accents for 40+ tools
 - **Rich key arg display** for lsp, browser_*, github_*, gsd_*, mcp_call, bash, and more
@@ -377,7 +429,7 @@ Type `/` to open the command palette with 59+ commands:
 | `gsd.preferredLocation` | `"panel"` | Default open location: `"sidebar"` or `"panel"` |
 | `gsd.autoUpdate` | `true` | Check for new versions on GitHub Releases |
 | `gsd.githubToken` | `""` | GitHub token for update checks (also reads `GH_TOKEN` / `GITHUB_TOKEN` env vars) |
-| `gsd.telegramGroupId` | `""` | Telegram group ID for the relay |
+| `gsd.telegramGroupId` | `0` | Telegram group ID for the relay |
 | `gsd.telegramChatTitle` | `""` | Telegram group chat title |
 | `gsd.telegramBotUsername` | `""` | Telegram bot username |
 | `gsd.telegramStreamingGranularity` | `"throttled"` | Streaming mode: `off`, `throttled`, or `final-only` |
@@ -424,8 +476,8 @@ Built to handle real-world agent sessions that run for hours:
                                           └──────────────────────┘
 ```
 
-- **Webview** — vanilla DOM (no framework), ~12K lines of TypeScript + 16 CSS modules + 3 theme files, esbuild-bundled IIFE. Sequential segment-based renderer with `requestAnimationFrame` batching for smooth streaming. CSS uses a semantic token layer (`--gsd-*`) bridging VS Code's theme system — components never reference `--vscode-*` directly.
-- **Extension Host** — ~12K lines of TypeScript managing the GSD child process, routes messages, handles file operations, monitors health, polls parallel worker status, and coordinates the Telegram bridge. All hot-path I/O is async; polling runs via parallelized `Promise.all`.
+- **Webview** — vanilla DOM (no framework), ~13K lines of TypeScript + 16 CSS modules + 3 theme files, esbuild-bundled IIFE. Sequential segment-based renderer with `requestAnimationFrame` batching for smooth streaming. CSS uses a semantic token layer (`--gsd-*`) bridging VS Code's theme system — components never reference `--vscode-*` directly.
+- **Extension Host** — ~10K lines of TypeScript managing the GSD child process, routes messages, handles file operations, monitors health, polls parallel worker status, and coordinates the Telegram bridge. All hot-path I/O is async; polling runs via parallelized `Promise.all`.
 - **GSD Process** — the full `gsd-pi` agent running via JSON-RPC over stdin/stdout. Each session gets its own process.
 - **Telegram Bridge** — poller, coordinator, IPC, topic manager, and message formatter. Voice messages transcribed via OpenAI Whisper; photos forwarded as image attachments.
 
@@ -532,9 +584,8 @@ resources/
 
 ## Known Limitations
 
-- **Requires `gsd-pi`** - this is a UI wrapper, not a standalone agent. The `gsd` CLI must be installed and configured separately.
-- **Not on the VS Code Marketplace** - install via `.vsix` from [GitHub Releases](https://github.com/Kile-Thomson/Rokket-GSD/releases) or the install scripts above.
-- **Some GSD custom UI commands** still rely on TUI widgets that VS Code webviews cannot render directly. `/gsd status` (and `/gsd auto` when requesting status) is supported via Rokket GSD's structured dashboard renderer; other widget-dependent commands produce text-only output.
+- **Requires `gsd-pi`** — this is a UI wrapper, not a standalone agent. The `gsd` CLI must be installed and configured separately.
+- **Some GSD custom UI commands** rely on TUI widgets that VS Code webviews cannot render directly. `/gsd status` is supported via the structured dashboard renderer; other widget-dependent commands produce text-only output.
 
 ---
 
