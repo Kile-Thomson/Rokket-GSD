@@ -25,6 +25,7 @@ import {
   truncateArg,
   buildUsagePills,
   parseAgentUsage,
+  detectModelFromResult,
   renderMarkdown,
   sanitizeAndPostProcess,
   lexMarkdown,
@@ -1237,7 +1238,7 @@ export function buildToolCallHtml(tc: ToolCallState): string {
   if (isAgent) {
     const model = tc.args.model ? String(tc.args.model)
       : tc.args.subagent_type ? String(tc.args.subagent_type)
-      : "inherited";
+      : detectModelFromResult(tc.resultText) ?? "inherited";
     const agentDesc = tc.args.description ? String(tc.args.description)
       : tc.args.prompt ? truncateArg(String(tc.args.prompt), 100)
       : "";

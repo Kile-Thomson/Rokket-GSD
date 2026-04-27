@@ -73,6 +73,25 @@ export function hasPending(): boolean {
   return pendingDialogs.size > 0;
 }
 
+/**
+ * Move any dialog wrappers out of a turn element before its innerHTML is
+ * rebuilt (stale-echo path). Re-inserts them as siblings after the turn
+ * element so they aren't destroyed.
+ */
+export function evacuateDialogsFromTurn(turnEl: HTMLElement): void {
+  const dialogs = turnEl.querySelectorAll<HTMLElement>(".gsd-entry-ui-request");
+  const parent = turnEl.parentElement;
+  if (!parent || dialogs.length === 0) return;
+  const ref = turnEl.nextSibling;
+  for (const d of dialogs) {
+    if (ref) {
+      parent.insertBefore(d, ref);
+    } else {
+      parent.appendChild(d);
+    }
+  }
+}
+
 // ============================================================
 // Public API
 // ============================================================
@@ -252,28 +271,14 @@ export function handleRequest(data: DialogRequestData): void {
     startTimeoutCountdown(wrapper, id, safeTimeout);
   }
 
-  // Insert in chronological position within the conversation.
-  // When a turn is active, place the dialog right after the turn element
-  // (and any preceding dialogs for the same turn) in messagesContainer.
-  // We insert as a sibling — not a child — because finalizeCurrentTurn()
-  // rebuilds the turn element's innerHTML which would destroy children.
+  // Insert inline within the active turn so questions appear at the current
+  // streaming position rather than stacking up at the bottom of the chat.
+  // The only path that rebuilds the turn container's innerHTML is the rare
+  // stale-echo branch in finalizeCurrentTurn — that path evacuates dialog
+  // wrappers before the rebuild (see evacuateDialogsFromTurn).
   const turnEl = getDialogContainer?.() ?? null;
   if (turnEl && turnEl.parentElement === messagesContainer) {
-    // Walk forward past any existing dialog wrappers for this same turn
-    // so consecutive dialogs appear in chronological (FIFO) order.
-    let insertionPoint: Node | null = turnEl.nextSibling;
-    while (
-      insertionPoint &&
-      insertionPoint instanceof HTMLElement &&
-      insertionPoint.classList.contains("gsd-entry-ui-request")
-    ) {
-      insertionPoint = insertionPoint.nextSibling;
-    }
-    if (insertionPoint) {
-      messagesContainer.insertBefore(wrapper, insertionPoint);
-    } else {
-      messagesContainer.appendChild(wrapper);
-    }
+    turnEl.appendChild(wrapper);
   } else {
     messagesContainer.appendChild(wrapper);
   }
