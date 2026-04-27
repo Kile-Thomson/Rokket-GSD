@@ -441,7 +441,29 @@ export function patchToolBlock(el: HTMLElement, tc: ToolCallState): void {
 function patchSubagentPanel(panel: HTMLElement, tc: ToolCallState): void {
   const details = tc.details as { mode?: string; results?: SubagentResult[] } | undefined;
   const results = details?.results;
-  if (!results) return;
+  if (!results) {
+    if (!tc.isRunning) {
+      const countsEl = panel.querySelector<HTMLElement>(".gsd-subagent-counts");
+      if (countsEl) {
+        const stat = tc.isError ? "error" : "done";
+        const label = tc.isError ? "failed" : "done";
+        countsEl.innerHTML = `<span class="gsd-agent-stat ${stat}">${label}</span>`;
+      }
+      const spinners = panel.querySelectorAll<HTMLElement>(".gsd-tool-spinner");
+      spinners.forEach(s => {
+        const icon = document.createElement("span");
+        icon.className = `gsd-agent-icon ${tc.isError ? "error" : "done"}`;
+        icon.textContent = tc.isError ? "✗" : "✓";
+        s.replaceWith(icon);
+      });
+      const cards = panel.querySelectorAll<HTMLElement>(".gsd-agent-card.running");
+      cards.forEach(c => {
+        c.classList.remove("running");
+        c.classList.add(tc.isError ? "error" : "done");
+      });
+    }
+    return;
+  }
 
   const running = results.filter((r) => r.exitCode === -1).length;
   const done = results.filter((r) => r.exitCode !== -1 && r.exitCode === 0).length;

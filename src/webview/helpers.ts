@@ -521,10 +521,11 @@ export function buildSubagentOutputHtml(tc: ToolCallState): string {
   }
 
   // Completed without structured details — show a done card + result
+  const modeLabel = mode === "chain" ? "Chain" : mode === "parallel" ? "Parallel" : "Agent";
   const parts: string[] = [];
   parts.push(`<div class="gsd-subagent-panel">`);
   parts.push(`<div class="gsd-subagent-summary">`);
-  parts.push(`<span class="gsd-subagent-mode">Agent</span>`);
+  parts.push(`<span class="gsd-subagent-mode">${escapeHtml(modeLabel)}</span>`);
   if (tc.isError) {
     parts.push(`<span class="gsd-subagent-counts"><span class="gsd-agent-stat error">failed</span></span>`);
   } else {

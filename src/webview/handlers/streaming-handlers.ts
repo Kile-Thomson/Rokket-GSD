@@ -328,11 +328,17 @@ export function handleMessageEnd(msg: Msg<'message_end'>): void {
     console.debug(`[gsd:parallel] message_end: ${toolIds.length} tool IDs found`);
     if (toolIds.length >= 2) {
       setMessageParallelToolIds(new Set(toolIds));
-      for (const toolId of toolIds) {
-        const tc = state.currentTurn.toolCalls.get(toolId);
-        if (tc && !tc.isParallel) {
-          tc.isParallel = true;
-          renderer.updateToolSegmentElement(toolId);
+      const alreadyParallel = toolIds.some(id => {
+        const tc = state.currentTurn!.toolCalls.get(id);
+        return tc?.isParallel;
+      });
+      if (alreadyParallel) {
+        for (const toolId of toolIds) {
+          const tc = state.currentTurn.toolCalls.get(toolId);
+          if (tc && !tc.isParallel) {
+            tc.isParallel = true;
+            renderer.updateToolSegmentElement(toolId);
+          }
         }
       }
       let activeBatch = getActiveBatchToolIds();
