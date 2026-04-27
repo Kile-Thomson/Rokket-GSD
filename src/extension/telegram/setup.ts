@@ -102,7 +102,6 @@ export async function runTelegramSetup(context: vscode.ExtensionContext): Promis
     async (progress, cancellation) => {
       const deadline = Date.now() + 180_000;
       let updateOffset: number | undefined;
-      let elapsed = 0;
 
       while (Date.now() < deadline) {
         if (cancellation.isCancellationRequested) {
@@ -132,7 +131,6 @@ export async function runTelegramSetup(context: vscode.ExtensionContext): Promis
         }
 
         await new Promise((r) => setTimeout(r, 2_000));
-        elapsed += 2;
       }
 
       return null;

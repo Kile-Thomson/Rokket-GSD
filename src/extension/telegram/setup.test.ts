@@ -294,9 +294,12 @@ describe("runTelegramSetup", () => {
         const origNow = Date.now;
         let n = 0;
         Date.now = () => { n++; return n <= 2 ? origNow() : origNow() + 200_000; };
-        const result = await task({ report: vi.fn() }, cancelToken);
-        Date.now = origNow;
-        return result;
+        try {
+          const result = await task({ report: vi.fn() }, cancelToken);
+          return result;
+        } finally {
+          Date.now = origNow;
+        }
       }
       const cancelToken = { isCancellationRequested: false, onCancellationRequested: vi.fn() } as unknown as vscode.CancellationToken;
       return task({ report: vi.fn() }, cancelToken);

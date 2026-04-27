@@ -181,8 +181,8 @@ export function activate(context: vscode.ExtensionContext): void {
         password: true,
         ignoreFocusOut: true,
       });
-      if (!key) return;
-      await setOpenAiApiKey(context.secrets, key);
+      if (!key || !key.trim()) return;
+      await setOpenAiApiKey(context.secrets, key.trim());
       vscode.window.showInformationMessage("OpenAI API key saved — voice transcription is ready!");
     })
   );
