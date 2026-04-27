@@ -319,13 +319,17 @@ export function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void 
     header.setAttribute("aria-expanded", shouldCollapse ? "false" : "true");
   }
 
+  const nameEl = block.querySelector<HTMLElement>(".gsd-tool-name");
+  if (nameEl && tc.args.subagent_type) {
+    nameEl.textContent = String(tc.args.subagent_type);
+  }
+
   const newKeyArg = getToolKeyArg(tc.name, tc.args);
   const argEl = block.querySelector<HTMLElement>(".gsd-tool-arg");
   if (newKeyArg) {
     if (argEl) {
       argEl.textContent = newKeyArg;
     } else {
-      const nameEl = block.querySelector<HTMLElement>(".gsd-tool-name");
       if (nameEl) {
         const span = document.createElement("span");
         span.className = "gsd-tool-arg";
@@ -620,11 +624,12 @@ export function buildToolCallHtml(tc: ToolCallState): string {
   const parallelBadge = tc.isParallel ? `<span class="gsd-tool-parallel-badge" title="Running in parallel">⚡</span>` : "";
 
   const isCollapsed = collapsedClass === "collapsed";
+  const displayName = isSubagent && tc.args.subagent_type ? String(tc.args.subagent_type) : tc.name;
   return `<div class="gsd-tool-block ${stateClass}${parallelClass} ${collapsedClass} cat-${category}" data-tool-id="${escapeAttr(tc.id)}">
     <div class="gsd-tool-header" role="button" tabindex="0" aria-label="Toggle ${escapeAttr(tc.name)} details" aria-expanded="${isCollapsed ? "false" : "true"}">
       ${statusIcon}
       <span class="gsd-tool-cat-icon">${toolIcon}</span>
-      <span class="gsd-tool-name">${escapeHtml(tc.name)}</span>
+      <span class="gsd-tool-name">${escapeHtml(displayName)}</span>
       ${keyArg ? `<span class="gsd-tool-arg">${escapeHtml(keyArg)}</span>` : ""}
       <span class="gsd-tool-header-right">${parallelBadge}${durationHtml}<span class="gsd-tool-chevron">▸</span></span>
     </div>
