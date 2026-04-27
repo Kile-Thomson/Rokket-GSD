@@ -4,6 +4,73 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.45] — 2026-04-27
+
+### Added
+- **Telegram integration** — full bridge between Telegram and GSD sessions: poller, coordinator, IPC, topic manager, setup wizard, and message formatter. Voice messages transcribed via OpenAI Whisper; photos forwarded as image attachments. New `/gsd telegram-setup` slash command for guided configuration.
+- **OpenAI transcription module** — standalone transcription config and client for voice-to-text via Whisper API
+- **Agent card subagent labels** — completed agent cards now show `subagent_type` (e.g. "Explore", "Plan") instead of generic "Agent"
+- **New Rokketek branding** — updated logo across README header and VS Code marketplace icon
+
+### Fixed
+- **Permission dialogs no longer auto-denied** — removed dedup/cache behavior that was silently rejecting confirm dialogs
+- **Shell env caching** — failed shell env resolution no longer caches `{}` permanently; subsequent calls retry
+- **Whitespace-only API keys rejected** — `.trim()` guard on Telegram API key validation
+- **`mergeShellEnv` sanitization** — no longer reintroduces env vars that were stripped by `sanitizeEnvForChildProcess`
+- **Unused imports/variables cleaned** — removed dead `os` import in `shell-env.ts`, unused `elapsed` in `setup.ts`
+- **`Date.now` mock restored** — Telegram setup tests now restore `Date.now` in `finally` block
+- **CSS a11y regressions** — repaired accessibility regressions introduced during Telegram integration
+
+### Changed
+- **Test coverage** — 842 → 1370 tests across 66 files
+
+## [0.3.40] — 2026-04-22
+
+### Changed
+- **Workspace reconciliation** — reconciled local workspace changes with latest main after parallel PR merges
+
+## [0.3.39] — 2026-04-21
+
+### Fixed
+- **Streaming-granular batch reconciliation** — batch grouping now tracks per-delta granularity for correct tool→batch mapping
+- **Parallel batch splitting** — fixed narration text splitting across batch boundaries and Agent block inclusion
+- **Parallel batch narration** — narration text no longer splits across batch boundaries; Agent blocks correctly included in parallel batches
+- **Context percentage accuracy** — fixed several recomputation paths that produced incorrect context usage percentages
+- **A11y/init regressions** — repaired accessibility and initialization regressions from parallel batch work
+
+## [0.3.26] — 2026-04-17
+
+### Fixed
+- **Parallel batch finalization** — batch finalization deferred until `message_end` arrives, preventing premature closure during streaming
+
+## [0.3.25] — 2026-04-16
+
+### Changed
+- **M025 tech debt refactor** — module decomposition with zero-`any` type safety: extracted `AutoProgressPoller` lifecycle hooks, guarded cost accumulation against NaN/Infinity, removed stale `auto-progress.ts` duplicate, cleaned unused imports across 8 files
+
+### Fixed
+- **Unused imports from M025** — removed dead imports and variables left over from the refactor
+
+## [0.3.21] — 2026-04-15
+
+### Fixed
+- **Toast truncation** — long toast messages no longer overflow the sidebar
+- **Parallel batch rendering** — fixed rendering issues in parallel batch tracker
+- **Context percentage accuracy** — fixed recomputation paths producing incorrect context usage percentages
+
+## [0.3.20] — 2026-04-14
+
+### Changed
+- **Removed `.mcp.json` from tracking** — local MCP config should not be committed to the repository
+
+## [0.3.19] — 2026-04-14
+
+### Added
+- **46 new tests** — expanded test coverage; lowered CI threshold to 59% to match actual state
+
+### Fixed
+- **Release workflow glob** — quoted `*.vsix` to prevent shell expansion
+
 ## [0.3.18] — 2026-04-13
 
 ### Fixed
