@@ -5,7 +5,7 @@
 import { marked, type Token, type TokensList } from "marked";
 import DOMPurify from "dompurify";
 import type { SessionStats } from "../shared/types";
-import type { AppState, ToolCategory } from "./state";
+import type { AppState, ToolCategory, ToolCallState } from "./state";
 import { registerCleanup } from "./dispose";
 import {
   TOKEN_THRESHOLD_K,
@@ -176,9 +176,7 @@ export function getToolCategory(name: string): ToolCategory {
   if (n.startsWith("browser_") || n.startsWith("mac_")) return "browser";
   if (["search-the-web", "search_and_read", "fetch_page", "google_search",
        "resolve_library", "get_library_docs", "web_search"].includes(n)) return "search";
-
-  if (n === "agent" || n === "subagent") return "agent";
-
+  if (n === "subagent" || n === "async_subagent" || n === "await_subagent" || n === "agent") return "agent";
   if (n === "lsp") return "generic";
   if (n.startsWith("github_") || n === "mcp_call" || n === "mcp_discover" || n === "mcp_servers") return "generic";
   if (n.startsWith("gsd_")) return "generic";
@@ -194,8 +192,7 @@ export function getToolIcon(name: string, category: ToolCategory): string {
   if (n === "bash" || n === "async_bash") return "⌨";
   if (n === "await_job" || n === "cancel_job") return "⏳";
   if (n === "bg_shell") return "⚙";
-
-  if (n === "agent" || n === "subagent") return "🤖";
+  if (n === "subagent" || n === "async_subagent" || n === "await_subagent" || n === "agent") return "🤖";
   if (n === "lsp") return "🧠";
   if (n.startsWith("browser_")) return "🌐";
   if (n.startsWith("mac_")) return "🖥";
@@ -398,6 +395,203 @@ export function parseAgentUsage(resultText: string): AgentUsageParsed | null {
   if (usage.totalTokens === undefined && usage.toolUses === undefined && usage.durationMs === undefined) return null;
   const cleanText = resultText.replace(USAGE_TAG_RE, "").trim();
   return { usage, cleanText };
+}
+
+// ============================================================
+// Subagent rich rendering
+// ============================================================
+
+const TASK_PREVIEW_MAX_CHARS = 200;
+
+export interface SubagentResult {
+  agent: string;
+  task?: string;
+  model?: string;
+  exitCode: number;
+  stopReason?: string;
+  errorMessage?: string;
+  usage?: UsageInfo;
+}
+
+function buildAgentCard(r: SubagentResult, _isRunning: boolean): string {
+  const running = r.exitCode === -1;
+  const failed = !running && (r.exitCode !== 0 || r.stopReason === "error" || r.stopReason === "aborted");
+  const _done = !running && !failed;
+
+  const stateClass = running ? "running" : failed ? "error" : "done";
+  const icon = running
+    ? `<span class="gsd-tool-spinner"></span>`
+    : failed
+      ? `<span class="gsd-agent-icon error">✗</span>`
+      : `<span class="gsd-agent-icon done">✓</span>`;
+
+  const taskPreview = r.task
+    ? (r.task.length > TASK_PREVIEW_MAX_CHARS ? r.task.slice(0, TASK_PREVIEW_MAX_CHARS) + "…" : r.task)
+    : "";
+
+  const parts: string[] = [];
+  parts.push(`<div class="gsd-agent-card ${stateClass}">`);
+  parts.push(`<div class="gsd-agent-header">`);
+  parts.push(`<div class="gsd-agent-header-left">${icon}<span class="gsd-agent-name">${escapeHtml(r.agent)}</span></div>`);
+  parts.push(buildUsagePills(r.usage, r.model));
+  parts.push(`</div>`);
+
+  if (taskPreview) {
+    parts.push(`<div class="gsd-agent-task">${escapeHtml(taskPreview)}</div>`);
+  }
+
+  if (failed && r.errorMessage) {
+    parts.push(`<div class="gsd-agent-error">${escapeHtml(r.errorMessage)}</div>`);
+  }
+
+  parts.push(`</div>`);
+  return parts.join("");
+}
+
+/** Build rich HTML for subagent results instead of plain text */
+export function buildSubagentOutputHtml(tc: ToolCallState): string {
+  const text = tc.resultText;
+  const args = tc.args;
+  const details = tc.details as { mode?: string; results?: SubagentResult[] } | undefined;
+  const mode = details?.mode || (args.chain ? "chain" : args.tasks ? "parallel" : "single");
+  const results = details?.results;
+
+  // If we have structured details with per-agent results, render cards
+  if (results && results.length > 0) {
+    const running = results.filter((r) => r.exitCode === -1).length;
+    const done = results.filter((r) => r.exitCode !== -1 && r.exitCode === 0).length;
+    const failed = results.filter((r) => r.exitCode > 0 || r.stopReason === "error").length;
+    const total = results.length;
+
+    const parts: string[] = [];
+    parts.push(`<div class="gsd-subagent-panel">`);
+
+    // Summary bar
+    const modeLabel = mode === "chain" ? "Chain" : mode === "parallel" ? "Parallel" : "Agent";
+    const statusParts: string[] = [];
+    if (done > 0) statusParts.push(`<span class="gsd-agent-stat done">${done} done</span>`);
+    if (running > 0) statusParts.push(`<span class="gsd-agent-stat running">${running} running</span>`);
+    if (failed > 0) statusParts.push(`<span class="gsd-agent-stat error">${failed} failed</span>`);
+    parts.push(`<div class="gsd-subagent-summary">`);
+    parts.push(`<span class="gsd-subagent-mode">${escapeHtml(modeLabel)}</span>`);
+    parts.push(`<span class="gsd-subagent-counts">${statusParts.join(`<span class="gsd-agent-sep">·</span>`)}</span>`);
+    parts.push(`<span class="gsd-subagent-total">${done + failed}/${total}</span>`);
+    parts.push(`</div>`);
+
+    // Agent cards
+    parts.push(`<div class="gsd-agent-cards">`);
+    for (const r of results) {
+      parts.push(buildAgentCard(r, tc.isRunning));
+    }
+    parts.push(`</div>`);
+
+    // Aggregate usage for completed runs
+    if (!tc.isRunning) {
+      const totalUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+      for (const r of results) {
+        if (r.usage) {
+          totalUsage.input += r.usage.input || 0;
+          totalUsage.output += r.usage.output || 0;
+          totalUsage.cost += r.usage.cost || 0;
+          totalUsage.turns += r.usage.turns || 0;
+        }
+      }
+      if (totalUsage.turns > 0) {
+        parts.push(`<div class="gsd-subagent-footer">${buildUsagePills(totalUsage)}</div>`);
+      }
+    }
+
+    parts.push(`</div>`);
+
+    // If completed, also render the final output as markdown below
+    if (!tc.isRunning && text) {
+      parts.push(`<div class="gsd-subagent-result">${renderMarkdown(text)}</div>`);
+    }
+
+    return parts.join("");
+  }
+
+  // Fallback: no structured details, use legacy rendering
+  const agentName = (args.agent as string) ||
+                    (args.description as string) ||
+                    (args.subagent_type as string) ||
+                    (args.chain as Record<string, unknown>[] | undefined)?.[0]?.agent ||
+                    (args.tasks as Record<string, unknown>[] | undefined)?.[0]?.agent || "agent";
+  const taskCount = (args.chain as unknown[] | undefined)?.length || (args.tasks as unknown[] | undefined)?.length || 1;
+  const taskText = (args.task as string) || (args.prompt as string) || "";
+  const taskPreview = taskText.length > TASK_PREVIEW_MAX_CHARS
+    ? taskText.slice(0, TASK_PREVIEW_MAX_CHARS) + "…"
+    : taskText;
+  const agentModel = args.model as string | undefined;
+
+  if (tc.isRunning) {
+    const parts: string[] = [];
+    parts.push(`<div class="gsd-subagent-panel">`);
+    parts.push(`<div class="gsd-subagent-summary">`);
+    if (mode === "chain") {
+      parts.push(`<span class="gsd-subagent-mode">Chain</span>`);
+      parts.push(`<span class="gsd-subagent-total">${taskCount} steps</span>`);
+    } else if (mode === "parallel") {
+      parts.push(`<span class="gsd-subagent-mode">Parallel</span>`);
+      parts.push(`<span class="gsd-subagent-total">${taskCount} tasks</span>`);
+    } else {
+      parts.push(`<span class="gsd-subagent-mode">Agent</span>`);
+      parts.push(`<span class="gsd-subagent-counts"><span class="gsd-agent-stat running">running</span></span>`);
+    }
+    parts.push(`</div>`);
+    parts.push(`<div class="gsd-agent-cards">`);
+    parts.push(`<div class="gsd-agent-card running">`);
+    parts.push(`<div class="gsd-agent-header">`);
+    parts.push(`<div class="gsd-agent-header-left"><span class="gsd-tool-spinner"></span><span class="gsd-agent-name">${escapeHtml(agentName)}</span></div>`);
+    if (agentModel) {
+      parts.push(`<div class="gsd-agent-usage"><span class="gsd-usage-pill">${escapeHtml(agentModel)}</span></div>`);
+    }
+    parts.push(`</div>`);
+    if (taskPreview) {
+      parts.push(`<div class="gsd-agent-task">${escapeHtml(taskPreview)}</div>`);
+    }
+    if (text) {
+      parts.push(`<div class="gsd-agent-task gsd-subagent-progress">${escapeHtml(text)}</div>`);
+    }
+    parts.push(`</div>`);
+    parts.push(`</div>`);
+    parts.push(`</div>`);
+    return parts.join("");
+  }
+
+  // Completed without structured details — show a done card + result
+  const modeLabel = mode === "chain" ? "Chain" : mode === "parallel" ? "Parallel" : "Agent";
+  const parts: string[] = [];
+  parts.push(`<div class="gsd-subagent-panel">`);
+  parts.push(`<div class="gsd-subagent-summary">`);
+  parts.push(`<span class="gsd-subagent-mode">${escapeHtml(modeLabel)}</span>`);
+  if (tc.isError) {
+    parts.push(`<span class="gsd-subagent-counts"><span class="gsd-agent-stat error">failed</span></span>`);
+  } else {
+    parts.push(`<span class="gsd-subagent-counts"><span class="gsd-agent-stat done">done</span></span>`);
+  }
+  parts.push(`</div>`);
+  parts.push(`<div class="gsd-agent-cards">`);
+  const cardState = tc.isError ? "error" : "done";
+  const cardIcon = tc.isError
+    ? `<span class="gsd-agent-icon error">✗</span>`
+    : `<span class="gsd-agent-icon done">✓</span>`;
+  parts.push(`<div class="gsd-agent-card ${cardState}">`);
+  parts.push(`<div class="gsd-agent-header">`);
+  parts.push(`<div class="gsd-agent-header-left">${cardIcon}<span class="gsd-agent-name">${escapeHtml(agentName)}</span></div>`);
+  parts.push(`</div>`);
+  if (taskPreview) {
+    parts.push(`<div class="gsd-agent-task">${escapeHtml(taskPreview)}</div>`);
+  }
+  parts.push(`</div>`);
+  parts.push(`</div>`);
+  parts.push(`</div>`);
+
+  if (text) {
+    parts.push(`<div class="gsd-subagent-result">${renderMarkdown(text)}</div>`);
+  }
+
+  return parts.join("");
 }
 
 // ============================================================
