@@ -379,6 +379,20 @@ export interface AgentUsageParsed {
   cleanText: string;
 }
 
+const MODEL_DETECT_RE = /\b(claude[-\s]?(?:opus|sonnet|haiku)[-\s\d.]*|opus[-\s\d.]+|sonnet[-\s\d.]+|haiku[-\s\d.]+)\b/i;
+
+export function detectModelFromResult(resultText: string | undefined): string | undefined {
+  if (!resultText) return undefined;
+  const first500 = resultText.slice(0, 500);
+  const m = MODEL_DETECT_RE.exec(first500);
+  if (!m) return undefined;
+  const raw = m[1].toLowerCase().trim();
+  if (raw.includes("opus")) return "opus (detected)";
+  if (raw.includes("sonnet")) return "sonnet (detected)";
+  if (raw.includes("haiku")) return "haiku (detected)";
+  return undefined;
+}
+
 export function parseAgentUsage(resultText: string): AgentUsageParsed | null {
   const m = USAGE_TAG_RE.exec(resultText);
   if (!m) return null;

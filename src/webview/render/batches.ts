@@ -3,6 +3,7 @@ import {
   escapeAttr,
   renderMarkdown,
 } from "../helpers";
+import { evacuateDialogsFromTurn } from "../ui-dialogs";
 import { buildStaleEchoHtml, buildTimestampHtml, patchToolBlockElement } from "./html-builders";
 import {
   stopElapsedTimer,
@@ -45,6 +46,7 @@ export function finalizeCurrentTurn(): void {
       for (const prior of priorElements) prior.classList.remove("streaming");
       if (cte.innerHTML.trim() === "") cte.remove();
     } else if (isStaleEcho) {
+      evacuateDialogsFromTurn(cte);
       cte.classList.add("gsd-stale-echo");
       cte.innerHTML = buildStaleEchoHtml(turn);
     } else {
