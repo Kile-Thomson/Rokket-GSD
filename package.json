@@ -2,7 +2,7 @@
 	"name": "rokket-gsd",
 	"displayName": "Rokket GSD",
 	"description": "AI coding agent by Rokketek — full chat UI, tool execution, model picker, and GSD workflow automation in VS Code",
-	"version": "0.3.45",
+	"version": "0.3.46",
 	"publisher": "rokketek",
 	"license": "MIT",
 	"repository": {
