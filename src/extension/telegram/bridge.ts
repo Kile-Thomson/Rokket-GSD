@@ -1,6 +1,6 @@
 import type { TelegramApi, TelegramUpdate, CallbackQuery } from "./api";
 import { redactToken } from "./api";
-import { transcribeAudio, TranscriptionError } from "../openai/transcribe";
+import { TranscriptionError } from "../openai/transcribe";
 import { truncateMessage, markdownToTelegramHtml, escapeHtml } from "./formatter";
 import type { TopicManager, TopicManagerLogger } from "./topicManager";
 import { PollerCoordinator } from "./poller-coordinator";
@@ -70,7 +70,7 @@ export class TelegramBridge {
   private readonly pendingToolEnds = new Map<string, { isError: boolean; durationMs?: number }>();
   private coordinator: PollerCoordinator | null = null;
   private polling = false;
-  private getOpenAiKey: (() => Promise<string | undefined>) | undefined;
+  private transcribeVoice: ((audioBuffer: Buffer) => Promise<string>) | undefined;
   private readonly typingLoops = new Map<string, ReturnType<typeof setInterval>>();
   private readonly turnStartMs = new Map<string, number>();
   private readonly TYPING_INTERVAL_MS = 4500;
@@ -89,10 +89,10 @@ export class TelegramBridge {
     private readonly logger: TopicManagerLogger,
     private readonly botToken: string,
     chatId: number | string,
-    getOpenAiKey?: () => Promise<string | undefined>,
+    transcribeVoice?: (audioBuffer: Buffer) => Promise<string>,
   ) {
     this.chatId = chatId;
-    this.getOpenAiKey = getOpenAiKey;
+    this.transcribeVoice = transcribeVoice;
   }
 
   setStreamingGranularity(value: "off" | "throttled" | "final-only"): void {
@@ -235,19 +235,9 @@ export class TelegramBridge {
   private async handleVoiceMessage(sessionId: string, fileId: string, threadId: number): Promise<void> {
     this.logger.info(`[telegram-bridge] Voice message received for ${sessionId}, file_id=${fileId}`);
 
-    if (!this.getOpenAiKey) {
-      this.logger.info("[telegram-bridge] No OpenAI key provider — cannot transcribe voice");
-      await this.api.sendMessage(this.chatId, "⚠️ Voice transcription is not configured. Run <b>Rokket GSD: Set OpenAI API Key</b> from the Command Palette.", {
-        message_thread_id: threadId,
-        parse_mode: "HTML",
-      }).catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
-      return;
-    }
-
-    const apiKey = await this.getOpenAiKey();
-    if (!apiKey) {
-      this.logger.info("[telegram-bridge] OpenAI key not set — cannot transcribe voice");
-      await this.api.sendMessage(this.chatId, "⚠️ No OpenAI API key set. Run <b>Rokket GSD: Set OpenAI API Key</b> from the Command Palette.", {
+    if (!this.transcribeVoice) {
+      this.logger.info("[telegram-bridge] No transcription provider configured — cannot transcribe voice");
+      await this.api.sendMessage(this.chatId, "⚠️ Voice transcription is not configured. Set an API key for your chosen provider in the voice settings.", {
         message_thread_id: threadId,
         parse_mode: "HTML",
       }).catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
@@ -269,7 +259,7 @@ export class TelegramBridge {
       if (!file.file_path) throw new Error("getFile returned no file_path");
 
       const audioBuffer = await this.api.downloadFileBuffer(file.file_path);
-      const transcript = await transcribeAudio(apiKey, audioBuffer, "voice.ogg");
+      const transcript = await this.transcribeVoice(audioBuffer);
 
       this.logger.info(`[telegram-bridge] Transcribed voice for ${sessionId}: ${transcript.slice(0, 80)}`);
 

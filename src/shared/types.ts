@@ -62,6 +62,13 @@ export type WebviewToExtensionMessage =
   | { type: "ollama_action"; action: "load" | "unload" | "pull" | "remove"; model: string }
   | { type: "telegram_sync_toggle"; forceOff?: boolean }
   | { type: "telegram_setup" }
+  | { type: "voice_audio"; audioBase64: string; mimeType: string }
+  | { type: "voice_start_recording" }
+  | { type: "voice_stop_recording" }
+  | { type: "voice_cancel_recording" }
+  | { type: "set_voice_provider"; provider: string }
+  | { type: "set_voice_api_key"; provider: string; key: string }
+  | { type: "get_voice_config" }
   | { type: "shutdown" };
 
 // --- Messages FROM extension TO webview ---
@@ -127,7 +134,12 @@ export type ExtensionToWebviewMessage =
   | { type: "cost_update"; runId: string; turnCost: number; cumulativeCost: number; tokens: { input: number; output: number; cacheRead: number; cacheWrite: number } }
   | { type: "execution_complete"; runId: string; status: string; stats?: unknown }
   | { type: "terminal_output"; data: string }
-  | { type: "telegram_user_message"; text: string; images?: ImageAttachment[] };
+  | { type: "telegram_user_message"; text: string; images?: ImageAttachment[] }
+  | { type: "voice_transcription"; text: string }
+  | { type: "voice_recording_started" }
+  | { type: "voice_recording_stopped" }
+  | { type: "voice_error"; message: string }
+  | { type: "voice_config"; provider: string; hasOpenaiKey: boolean; hasAzureKey: boolean; hasXaiKey: boolean; openaiKeyVerified?: boolean; azureKeyVerified?: boolean; xaiKeyVerified?: boolean; azureRegion: string };
 
 // --- Session List Types ---
 
