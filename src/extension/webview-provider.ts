@@ -19,6 +19,10 @@ import { TelegramApi, redactToken } from "./telegram/api";
 import { loadTelegramConfig } from "./telegram/config";
 import { TelegramBridge } from "./telegram/bridge";
 import { getOpenAiApiKey } from "./openai/config";
+import { TranscriptionError } from "./openai/transcribe";
+import { transcribeWithProvider, validateApiKey, type TranscriptionProvider } from "./transcription/providers";
+import { getTranscriptionApiKey, setTranscriptionApiKey, getVoiceProvider, getAzureRegion } from "./transcription/config";
+import { AudioRecorder } from "./transcription/recorder";
 import { startStatsPolling, startHealthMonitoring, refreshWorkflowState, startWorkflowPolling, stopAllPolling, type PollingContext } from "./polling";
 import { getWebviewHtml } from "./html-generator";
 
@@ -46,6 +50,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private tempDir: string | null = null;
   private topicManager: TopicManager | null = null;
   private bridge: TelegramBridge | null = null;
+  private recorder = new AudioRecorder();
 
   private async getOrCreateTopicManager(): Promise<TopicManager> {
     if (this.topicManager) return this.topicManager;
@@ -78,7 +83,14 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       bridgeLogger,
       telegramConfig.botToken,
       telegramConfig.chatId,
-      () => getOpenAiApiKey(this.context.secrets),
+      async (audioBuffer: Buffer) => {
+        const config = vscode.workspace.getConfiguration("gsd");
+        const provider = getVoiceProvider(config);
+        const apiKey = await getTranscriptionApiKey(this.context.secrets, provider);
+        if (!apiKey) throw new TranscriptionError(`No API key set for voice provider "${provider}"`);
+        const azureRegion = getAzureRegion(config);
+        return transcribeWithProvider({ provider, apiKey, azureRegion }, audioBuffer, "voice.ogg");
+      },
     );
     this.bridge.setStreamingGranularity(telegramConfig.streamingGranularity);
     this.bridge.setOnInboundMessage((sessionId, text, images) => {
@@ -132,6 +144,94 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       const redacted = telegramConfig ? redactToken(msg, telegramConfig.botToken) : msg;
       this.output.appendLine(`[telegram-sync] Error: ${redacted}`);
     }
+  }
+
+  private async handleVoiceTranscription(audioBuffer: Buffer, webview: vscode.Webview): Promise<void> {
+    try {
+      const config = vscode.workspace.getConfiguration("gsd");
+      const provider = getVoiceProvider(config);
+      const apiKey = await getTranscriptionApiKey(this.context.secrets, provider);
+      if (!apiKey) {
+        this.postToWebview(webview, { type: "voice_error", message: `No API key set for ${provider}. Open voice settings to configure.` } as any);
+        return;
+      }
+      const text = await transcribeWithProvider(
+        { provider, apiKey, azureRegion: getAzureRegion(config) },
+        audioBuffer,
+      );
+      this.postToWebview(webview, { type: "voice_transcription", text } as any);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.output.appendLine(`[voice] Transcription error: ${msg}`);
+      this.postToWebview(webview, { type: "voice_error", message: msg } as any);
+    }
+  }
+
+  private async handleStartRecording(webview: vscode.Webview): Promise<void> {
+    try {
+      await this.recorder.start();
+      this.postToWebview(webview, { type: "voice_recording_started" } as any);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.output.appendLine(`[voice] Recording start error: ${msg}`);
+      this.postToWebview(webview, { type: "voice_error", message: msg } as any);
+    }
+  }
+
+  private async handleStopRecording(webview: vscode.Webview): Promise<void> {
+    try {
+      this.postToWebview(webview, { type: "voice_recording_stopped" } as any);
+      const audioBuffer = await this.recorder.stop();
+      await this.handleVoiceTranscription(audioBuffer, webview);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.output.appendLine(`[voice] Recording stop error: ${msg}`);
+      this.postToWebview(webview, { type: "voice_error", message: msg } as any);
+    }
+  }
+
+  private async sendVoiceConfig(webview: vscode.Webview): Promise<void> {
+    const config = vscode.workspace.getConfiguration("gsd");
+    const provider = getVoiceProvider(config);
+    const azureRegion = getAzureRegion(config);
+    const [openaiKey, azureKey, xaiKey] = await Promise.all([
+      getTranscriptionApiKey(this.context.secrets, "openai"),
+      getTranscriptionApiKey(this.context.secrets, "azure"),
+      getTranscriptionApiKey(this.context.secrets, "xai"),
+    ]);
+    this.postToWebview(webview, {
+      type: "voice_config",
+      provider,
+      hasOpenaiKey: !!openaiKey,
+      hasAzureKey: !!azureKey,
+      hasXaiKey: !!xaiKey,
+      azureRegion,
+    } as any);
+    const validations = await Promise.all([
+      openaiKey ? validateApiKey("openai", openaiKey).catch(() => false) : Promise.resolve(undefined),
+      azureKey ? validateApiKey("azure", azureKey, azureRegion).catch(() => false) : Promise.resolve(undefined),
+      xaiKey ? validateApiKey("xai", xaiKey).catch(() => false) : Promise.resolve(undefined),
+    ]);
+    this.postToWebview(webview, {
+      type: "voice_config",
+      provider,
+      hasOpenaiKey: !!openaiKey,
+      hasAzureKey: !!azureKey,
+      hasXaiKey: !!xaiKey,
+      openaiKeyVerified: validations[0] as boolean | undefined,
+      azureKeyVerified: validations[1] as boolean | undefined,
+      xaiKeyVerified: validations[2] as boolean | undefined,
+      azureRegion,
+    } as any);
+  }
+
+  private async setVoiceProviderConfig(provider: string): Promise<void> {
+    const config = vscode.workspace.getConfiguration("gsd");
+    await config.update("voiceTranscriptionProvider", provider, vscode.ConfigurationTarget.Global);
+  }
+
+  private async setVoiceApiKeyConfig(provider: string, key: string): Promise<void> {
+    await setTranscriptionApiKey(this.context.secrets, provider as TranscriptionProvider, key);
   }
 
   private getSession(sessionId: string): SessionState {
@@ -439,6 +539,13 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       fileOpsCtx: this.fileOpsCtx,
       telegramSyncToggle: (sid, wv) => this.handleTelegramSyncToggle(sid, wv),
       cancelTelegramQuestion: (requestId) => this.bridge?.cancelQuestion(requestId),
+      transcribeAudio: (buf, wv) => this.handleVoiceTranscription(buf, wv),
+      startRecording: (wv) => this.handleStartRecording(wv),
+      stopRecording: (wv) => this.handleStopRecording(wv),
+      cancelRecording: () => this.recorder.cancel(),
+      getVoiceConfig: (wv) => this.sendVoiceConfig(wv),
+      setVoiceProvider: (p) => this.setVoiceProviderConfig(p),
+      setVoiceApiKey: (p, k) => this.setVoiceApiKeyConfig(p, k),
     };
 
     const disposable = webview.onDidReceiveMessage(async (msg) => {

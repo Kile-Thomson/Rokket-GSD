@@ -130,6 +130,26 @@
 						"final-only"
 					],
 					"description": "Controls how GSD streams messages to Telegram (set automatically by /telegram setup)."
+				},
+				"gsd.voiceTranscriptionProvider": {
+					"type": "string",
+					"default": "openai",
+					"enum": [
+						"openai",
+						"azure",
+						"xai"
+					],
+					"enumDescriptions": [
+						"OpenAI Whisper (whisper-1)",
+						"Azure Speech Services",
+						"xAI / Grok (whisper-large-v3)"
+					],
+					"description": "Which provider to use for voice-to-text transcription."
+				},
+				"gsd.azureSpeechRegion": {
+					"type": "string",
+					"default": "eastus",
+					"description": "Azure region for Speech Services (e.g. eastus, westus2, westeurope)."
 				}
 			}
 		},

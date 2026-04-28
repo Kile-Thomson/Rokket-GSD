@@ -143,6 +143,35 @@ root.innerHTML = `
                 </button>
               </div>
             </div>
+            <div class="gsd-settings-divider"></div>
+            <div class="gsd-settings-section">
+              <span class="gsd-settings-label">Voice Transcription</span>
+              <div class="gsd-settings-voice-providers" id="voiceProviders">
+                <button class="gsd-settings-option active" data-provider="openai" role="menuitemradio" aria-checked="true">
+                  <span class="gsd-settings-option-dot"></span>
+                  <span>OpenAI Whisper</span>
+                </button>
+                <button class="gsd-settings-option" data-provider="xai" role="menuitemradio" aria-checked="false">
+                  <span class="gsd-settings-option-dot"></span>
+                  <span>xAI / Grok</span>
+                </button>
+                <button class="gsd-settings-option" data-provider="azure" role="menuitemradio" aria-checked="false">
+                  <span class="gsd-settings-option-dot"></span>
+                  <span>Azure Speech</span>
+                </button>
+              </div>
+              <div class="gsd-settings-voice-key">
+                <div class="gsd-settings-voice-key-row">
+                  <input type="password" class="gsd-settings-voice-key-input" id="voiceKeyInput" placeholder="Paste API key..." autocomplete="off" />
+                  <button class="gsd-settings-voice-key-save" id="voiceKeySave">Save</button>
+                </div>
+                <span class="gsd-settings-voice-key-status" id="voiceKeyStatus"></span>
+              </div>
+              <div class="gsd-settings-voice-azure gsd-hidden" id="voiceAzureRegion">
+                <label class="gsd-settings-voice-label" for="voiceAzureRegionInput" title="The Azure datacenter region where your Speech Services resource is deployed. Find it in Azure Portal → your Speech resource → Keys and Endpoint.">Region</label>
+                <input type="text" class="gsd-settings-voice-key-input" id="voiceAzureRegionInput" placeholder="e.g. eastus, australiaeast" title="The Azure datacenter region where your Speech Services resource is deployed. Find it in Azure Portal → your Speech resource → Keys and Endpoint." autocomplete="off" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -190,6 +219,13 @@ root.innerHTML = `
     <div class="gsd-thinking-picker gsd-hidden" id="thinkingPicker"></div>
     <div class="gsd-session-history gsd-hidden" id="sessionHistory"></div>
 
+    <div class="gsd-voice-recording gsd-hidden" id="voiceRecording">
+      <div class="gsd-voice-pulse"></div>
+      <span class="gsd-voice-recording-text">Recording...</span>
+      <span class="gsd-voice-recording-time" id="voiceRecordingTime">0:00</span>
+      <button class="gsd-voice-cancel" id="voiceCancelBtn" title="Cancel recording">&times;</button>
+    </div>
+
     <div class="gsd-input-area">
       <div class="gsd-resize-handle" id="resizeHandle" title="Drag to resize"></div>
       <div class="gsd-file-chips gsd-hidden" id="fileChips"></div>
@@ -197,6 +233,9 @@ root.innerHTML = `
       <div class="gsd-input-row">
         <button class="gsd-attach-btn" id="attachBtn" title="Attach files">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M10.404 2.318a2.5 2.5 0 0 0-3.536 0L3.343 5.843a4 4 0 1 0 5.657 5.657l3.525-3.525-.707-.707-3.525 3.525a3 3 0 1 1-4.243-4.243l3.525-3.525a1.5 1.5 0 0 1 2.122 2.121L6.172 8.672a.5.5 0 0 1-.708-.708l3.025-3.025-.707-.707-3.025 3.025a1.5 1.5 0 0 0 2.122 2.121l3.525-3.525a2.5 2.5 0 0 0 0-3.535z"/></svg>
+        </button>
+        <button class="gsd-voice-btn" id="voiceBtn" title="Record voice message">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" id="voiceIcon"><path d="M8 1a2.5 2.5 0 0 0-2.5 2.5v4a2.5 2.5 0 0 0 5 0v-4A2.5 2.5 0 0 0 8 1zM6.5 3.5a1.5 1.5 0 1 1 3 0v4a1.5 1.5 0 0 1-3 0v-4zM4 7a.5.5 0 0 0-1 0 5 5 0 0 0 4.5 4.975V13.5H6a.5.5 0 0 0 0 1h4a.5.5 0 0 0 0-1H8.5v-1.525A5 5 0 0 0 13 7a.5.5 0 0 0-1 0 4 4 0 0 1-8 0z"/></svg>
         </button>
         <div class="gsd-input-wrapper">
           <textarea id="promptInput" class="gsd-input" placeholder="Message GSD..." rows="1" aria-label="Chat message input"></textarea>
@@ -245,6 +284,16 @@ const slashMenuEl = document.getElementById("slashMenu")!;
 const modelPickerEl = document.getElementById("modelPicker")!;
 const thinkingPickerEl = document.getElementById("thinkingPicker")!;
 const sessionHistoryEl = document.getElementById("sessionHistory")!;
+const voiceBtn = document.getElementById("voiceBtn")!;
+const voiceProviders = document.getElementById("voiceProviders")!;
+const voiceKeyInput = document.getElementById("voiceKeyInput") as HTMLInputElement;
+const voiceKeySave = document.getElementById("voiceKeySave")!;
+const voiceKeyStatus = document.getElementById("voiceKeyStatus")!;
+const voiceAzureRegionEl = document.getElementById("voiceAzureRegion")!;
+const voiceAzureRegionInput = document.getElementById("voiceAzureRegionInput") as HTMLInputElement;
+const voiceRecordingEl = document.getElementById("voiceRecording")!;
+const voiceRecordingTime = document.getElementById("voiceRecordingTime")!;
+const voiceCancelBtn = document.getElementById("voiceCancelBtn")!;
 const contextBarContainer = document.getElementById("contextBarContainer")!;
 const contextBar = document.getElementById("contextBar")!;
 const overlayIndicators = document.getElementById("overlayIndicators")!;
@@ -439,6 +488,113 @@ telegramSyncBtn.addEventListener("click", () => {
 });
 
 // ============================================================
+// Voice recording
+// ============================================================
+
+let voiceIsRecording = false;
+let voiceTimerInterval: ReturnType<typeof setInterval> | null = null;
+let voiceStartTime = 0;
+
+function startVoiceTimer(): void {
+  voiceStartTime = Date.now();
+  voiceTimerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - voiceStartTime) / 1000);
+    const m = Math.floor(elapsed / 60);
+    const s = elapsed % 60;
+    voiceRecordingTime.textContent = `${m}:${s.toString().padStart(2, "0")}`;
+  }, 250);
+}
+
+function stopVoiceTimer(): void {
+  if (voiceTimerInterval) {
+    clearInterval(voiceTimerInterval);
+    voiceTimerInterval = null;
+  }
+}
+
+function showVoiceRecording(show: boolean): void {
+  voiceRecordingEl.classList.toggle("gsd-hidden", !show);
+  voiceBtn.classList.toggle("gsd-voice-active", show);
+}
+
+function startRecording(): void {
+  vscode.postMessage({ type: "voice_start_recording" } as WebviewToExtensionMessage);
+  showVoiceRecording(true);
+  startVoiceTimer();
+  voiceIsRecording = true;
+}
+
+function stopRecording(): void {
+  if (!voiceIsRecording) return;
+  voiceIsRecording = false;
+  stopVoiceTimer();
+  showVoiceRecording(false);
+  voiceBtn.classList.add("gsd-voice-transcribing");
+  voiceBtn.title = "Transcribing...";
+
+  // Show transcribing placeholder in chat
+  const placeholder = document.createElement("div");
+  placeholder.id = "voiceTranscribingPlaceholder";
+  placeholder.className = "gsd-voice-transcribing-placeholder";
+  placeholder.innerHTML = `
+    <div class="gsd-voice-transcribing-wave">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <span class="gsd-voice-transcribing-label">Transcribing...</span>
+  `;
+  messagesContainer.appendChild(placeholder);
+  scrollToBottom(messagesContainer, true);
+
+  vscode.postMessage({ type: "voice_stop_recording" } as WebviewToExtensionMessage);
+}
+
+function cancelRecording(): void {
+  if (!voiceIsRecording) return;
+  voiceIsRecording = false;
+  stopVoiceTimer();
+  showVoiceRecording(false);
+  vscode.postMessage({ type: "voice_cancel_recording" } as WebviewToExtensionMessage);
+}
+
+voiceBtn.addEventListener("click", () => {
+  if (voiceIsRecording) {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+});
+
+voiceCancelBtn.addEventListener("click", () => cancelRecording());
+
+voiceProviders.addEventListener("click", (e) => {
+  const btn = (e.target as HTMLElement).closest("[data-provider]") as HTMLElement | null;
+  if (!btn) return;
+  e.stopPropagation();
+  const provider = btn.dataset.provider!;
+  state.voiceProvider = provider;
+  voiceProviders.querySelectorAll("[data-provider]").forEach((el) => {
+    const isActive = (el as HTMLElement).dataset.provider === provider;
+    el.classList.toggle("active", isActive);
+    el.setAttribute("aria-checked", String(isActive));
+  });
+  voiceAzureRegionEl.classList.toggle("gsd-hidden", provider !== "azure");
+  vscode.postMessage({ type: "set_voice_provider", provider } as WebviewToExtensionMessage);
+});
+
+voiceKeySave.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const key = voiceKeyInput.value.trim();
+  if (!key) return;
+  vscode.postMessage({ type: "set_voice_api_key", provider: state.voiceProvider, key } as WebviewToExtensionMessage);
+  voiceKeyInput.value = "";
+  voiceKeyStatus.textContent = "Saved!";
+  setTimeout(() => { voiceKeyStatus.textContent = ""; }, 2000);
+});
+
+voiceKeyInput.addEventListener("click", (e) => e.stopPropagation());
+voiceAzureRegionInput.addEventListener("click", (e) => e.stopPropagation());
+
+// ============================================================
 // Slash command menu — input listener
 // ============================================================
 
@@ -611,6 +767,8 @@ function sendMessage(): void {
   fileHandling.renderFileChips();
   autoResize();
 }
+
+(globalThis as any).__gsdSendMessage = sendMessage;
 
 // Keyboard & click handlers are in keyboard.ts
 

@@ -1028,7 +1028,7 @@
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  min-width: 180px;
+  min-width: 220px;
   background: var(--gsd-dropdown-bg);
   border: 1px solid var(--gsd-color-border-strong);
   border-radius: var(--gsd-radius-lg);
@@ -1098,6 +1098,21 @@
   opacity: 1;
 }
 
+.gsd-settings-key-badge {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--gsd-color-text-muted);
+  opacity: 0.8;
+}
+.gsd-settings-key-badge.gsd-settings-key-verified {
+  color: #3fb950;
+  opacity: 1;
+}
+.gsd-settings-key-badge.gsd-settings-key-invalid {
+  color: #f85149;
+  opacity: 1;
+}
+
 .gsd-settings-theme-tag {
   font-size: 9px;
   font-weight: var(--gsd-font-weight-bold);
@@ -1120,6 +1135,76 @@
 .gsd-settings-theme-tag.forge {
   background: var(--gsd-theme-forge-bg);
   color: var(--gsd-theme-forge-fg);
+}
+
+.gsd-settings-divider {
+  height: 1px;
+  background: var(--gsd-color-border);
+  margin: 6px 12px;
+  opacity: 0.4;
+}
+
+.gsd-settings-voice-key {
+  margin-top: 8px;
+}
+
+.gsd-settings-voice-key-row {
+  display: flex;
+  gap: 4px;
+}
+
+.gsd-settings-voice-key-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--gsd-color-border);
+  border-radius: var(--gsd-radius-md);
+  background: var(--gsd-color-surface);
+  color: var(--gsd-color-text);
+  font-size: var(--gsd-font-size-sm);
+  font-family: var(--gsd-font-family);
+  outline: none;
+}
+
+.gsd-settings-voice-key-input:focus {
+  border-color: var(--gsd-color-border-focus);
+}
+
+.gsd-settings-voice-key-save {
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--gsd-radius-md);
+  background: var(--gsd-color-border-focus);
+  color: var(--gsd-color-bg);
+  font-size: var(--gsd-font-size-sm);
+  font-family: var(--gsd-font-family);
+  font-weight: var(--gsd-font-weight-semibold);
+  cursor: pointer;
+}
+
+.gsd-settings-voice-key-save:hover {
+  opacity: 0.85;
+}
+
+.gsd-settings-voice-key-status {
+  display: block;
+  font-size: var(--gsd-font-size-sm);
+  color: var(--gsd-color-success);
+  margin-top: 2px;
+  min-height: 16px;
+}
+
+.gsd-settings-voice-azure {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gsd-settings-voice-label {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  cursor: help;
 }
 
 /* ============================================================
