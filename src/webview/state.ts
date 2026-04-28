@@ -119,6 +119,7 @@ export interface AppState {
   widgetData: Map<string, string[]>;
   // Skills loaded in this session (detected from read tool calls to SKILL.md files)
   loadedSkills: Set<string>;
+  voiceProvider: string;
 }
 
 /** Tool categorization for icons & color accents */
@@ -216,6 +217,7 @@ export const state: AppState = {
   autoProgressLastUpdate: 0,
   widgetData: new Map(),
   loadedSkills: new Set(),
+  voiceProvider: "openai",
 };
 
 // ============================================================

@@ -460,7 +460,7 @@ function setupButtonHandlers(): void {
       const isOpen = settingsDropdown.classList.toggle("open");
       settingsBtn.setAttribute("aria-expanded", String(isOpen));
       if (isOpen) {
-        // Save focus and apply focus trap
+        vscode.postMessage({ type: "get_voice_config" });
         settingsTriggerEl = saveFocus();
         settingsTrapHandler = createFocusTrap(settingsDropdown);
         settingsDropdown.addEventListener("keydown", settingsTrapHandler);
