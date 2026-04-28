@@ -75,6 +75,15 @@ export interface MessageDispatchContext {
   // Telegram sync
   telegramSyncToggle?: (sessionId: string, webview: vscode.Webview) => Promise<void>;
   cancelTelegramQuestion?: (requestId: string) => void;
+
+  // Voice transcription
+  transcribeAudio?: (audioBuffer: Buffer, webview: vscode.Webview) => Promise<void>;
+  startRecording?: (webview: vscode.Webview) => Promise<void>;
+  stopRecording?: (webview: vscode.Webview) => Promise<void>;
+  cancelRecording?: () => void;
+  getVoiceConfig?: (webview: vscode.Webview) => Promise<void>;
+  setVoiceProvider?: (provider: string) => Promise<void>;
+  setVoiceApiKey?: (provider: string, key: string) => Promise<void>;
 }
 
 // ============================================================
@@ -1023,6 +1032,62 @@ export async function handleWebviewMessage(
 
         case "set_openai_api_key": {
           await vscode.commands.executeCommand("gsd.setOpenAiApiKey");
+          break;
+        }
+
+        case "voice_audio": {
+          if (ctx.transcribeAudio) {
+            const buf = Buffer.from(msg.audioBase64, "base64");
+            await ctx.transcribeAudio(buf, webview);
+          }
+          break;
+        }
+
+        case "voice_start_recording": {
+          if (ctx.startRecording) {
+            await ctx.startRecording(webview);
+          }
+          break;
+        }
+
+        case "voice_stop_recording": {
+          if (ctx.stopRecording) {
+            await ctx.stopRecording(webview);
+          }
+          break;
+        }
+
+        case "voice_cancel_recording": {
+          if (ctx.cancelRecording) {
+            ctx.cancelRecording();
+          }
+          break;
+        }
+
+        case "get_voice_config": {
+          if (ctx.getVoiceConfig) {
+            await ctx.getVoiceConfig(webview);
+          }
+          break;
+        }
+
+        case "set_voice_provider": {
+          if (ctx.setVoiceProvider) {
+            await ctx.setVoiceProvider(msg.provider);
+          }
+          if (ctx.getVoiceConfig) {
+            await ctx.getVoiceConfig(webview);
+          }
+          break;
+        }
+
+        case "set_voice_api_key": {
+          if (ctx.setVoiceApiKey) {
+            await ctx.setVoiceApiKey(msg.provider, msg.key);
+          }
+          if (ctx.getVoiceConfig) {
+            await ctx.getVoiceConfig(webview);
+          }
           break;
         }
 

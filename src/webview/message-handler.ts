@@ -1298,6 +1298,111 @@ function handleMessage(event: MessageEvent): void {
       break;
     }
 
+    case "voice_recording_started": {
+      // Extension confirmed recording started — UI already updated optimistically
+      break;
+    }
+
+    case "voice_recording_stopped": {
+      // Extension confirmed recording stopped — transcription in progress
+      break;
+    }
+
+    case "voice_transcription": {
+      const vt = msg as any;
+      const voiceBtnEl = document.getElementById("voiceBtn");
+      if (voiceBtnEl) {
+        voiceBtnEl.classList.remove("gsd-voice-transcribing");
+        voiceBtnEl.title = "Record voice message";
+      }
+      document.getElementById("voiceTranscribingPlaceholder")?.remove();
+      if (vt.text) {
+        const input = document.getElementById("promptInput") as HTMLTextAreaElement | null;
+        if (input) {
+          input.value = vt.text;
+          input.dispatchEvent(new Event("input"));
+        }
+        if (typeof (globalThis as any).__gsdSendMessage === "function") {
+          (globalThis as any).__gsdSendMessage();
+        }
+      }
+      break;
+    }
+
+    case "voice_error": {
+      const ve = msg as any;
+      const voiceBtnEl2 = document.getElementById("voiceBtn");
+      if (voiceBtnEl2) {
+        voiceBtnEl2.classList.remove("gsd-voice-transcribing", "gsd-voice-active");
+        voiceBtnEl2.title = "Record voice message";
+      }
+      document.getElementById("voiceTranscribingPlaceholder")?.remove();
+      const recordingEl = document.getElementById("voiceRecording");
+      if (recordingEl) recordingEl.classList.add("gsd-hidden");
+      const toastContainer = document.getElementById("toastContainer");
+      if (toastContainer) {
+        const toast = document.createElement("div");
+        toast.className = "gsd-toast gsd-toast-error";
+        toast.textContent = ve.message || "Voice transcription failed";
+        toastContainer.appendChild(toast);
+        setTimeout(() => toast.remove(), 5000);
+      }
+      break;
+    }
+
+    case "voice_config": {
+      const vc = msg as any;
+      state.voiceProvider = vc.provider || "openai";
+      const provBtns = document.querySelectorAll("#voiceProviders [data-provider]");
+      const keyMap: Record<string, boolean> = {
+        openai: !!vc.hasOpenaiKey,
+        xai: !!vc.hasXaiKey,
+        azure: !!vc.hasAzureKey,
+      };
+      const verifiedMap: Record<string, boolean | undefined> = {
+        openai: vc.openaiKeyVerified,
+        xai: vc.xaiKeyVerified,
+        azure: vc.azureKeyVerified,
+      };
+      provBtns.forEach((el) => {
+        const prov = (el as HTMLElement).dataset.provider!;
+        const isActive = prov === vc.provider;
+        el.classList.toggle("active", isActive);
+        el.setAttribute("aria-checked", String(isActive));
+        let badge = el.querySelector(".gsd-settings-key-badge") as HTMLElement | null;
+        if (keyMap[prov]) {
+          if (!badge) {
+            badge = document.createElement("span");
+            badge.className = "gsd-settings-key-badge";
+            el.appendChild(badge);
+          }
+          const verified = verifiedMap[prov];
+          if (verified === true) {
+            badge.textContent = "✓";
+            badge.title = "API key verified";
+            badge.classList.remove("gsd-settings-key-invalid");
+            badge.classList.add("gsd-settings-key-verified");
+          } else if (verified === false) {
+            badge.textContent = "✗";
+            badge.title = "API key invalid";
+            badge.classList.remove("gsd-settings-key-verified");
+            badge.classList.add("gsd-settings-key-invalid");
+          } else {
+            badge.textContent = "…";
+            badge.title = "Verifying API key…";
+            badge.classList.remove("gsd-settings-key-verified", "gsd-settings-key-invalid");
+          }
+        } else if (badge) {
+          badge.remove();
+        }
+      });
+      const azureEl = document.getElementById("voiceAzureRegion");
+      if (azureEl) azureEl.classList.toggle("gsd-hidden", vc.provider !== "azure");
+      const regionInput = document.getElementById("voiceAzureRegionInput") as HTMLInputElement | null;
+      if (regionInput && vc.azureRegion) regionInput.value = vc.azureRegion;
+      break;
+    }
+
     case "cost_update": {
       // v2 protocol: cumulative cost/token update from GSD PI.
       // GSD PI payload: { type, runId, turnCost, cumulativeCost, tokens: { input, output, cacheRead, cacheWrite } }
