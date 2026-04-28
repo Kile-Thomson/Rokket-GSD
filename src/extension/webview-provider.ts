@@ -18,7 +18,6 @@ import { TopicManager, type TopicManagerLogger } from "./telegram/topicManager";
 import { TelegramApi, redactToken } from "./telegram/api";
 import { loadTelegramConfig } from "./telegram/config";
 import { TelegramBridge } from "./telegram/bridge";
-import { getOpenAiApiKey } from "./openai/config";
 import { TranscriptionError } from "./openai/transcribe";
 import { transcribeWithProvider, validateApiKey, type TranscriptionProvider } from "./transcription/providers";
 import { getTranscriptionApiKey, setTranscriptionApiKey, getVoiceProvider, getAzureRegion } from "./transcription/config";
