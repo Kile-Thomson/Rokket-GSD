@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.3.48-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-0.3.49-blue" alt="Version" />
   <img src="https://img.shields.io/badge/VS%20Code-1.94%2B-blue" alt="VS Code" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform" />
@@ -82,6 +82,9 @@ Built for multi-hour sessions with crash recovery
 
 📡 **Telegram Relay**<br>
 Stream conversations to Telegram with voice transcription
+
+🎙️ **Voice Input**<br>
+Hold-to-record with waveform viz; OpenAI, Azure, or xAI transcription
 
 🧪 **1370+ Tests**<br>
 CI enforced on every push
