@@ -1185,6 +1185,12 @@
   opacity: 0.85;
 }
 
+.gsd-settings-voice-key-save:focus-visible {
+  opacity: 0.85;
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
 .gsd-settings-voice-key-status {
   display: block;
   font-size: var(--gsd-font-size-sm);
