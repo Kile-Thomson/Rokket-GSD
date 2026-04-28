@@ -4,6 +4,17 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.49] — 2026-04-28
+
+### Added
+- **Voice transcription in chat** — hold-to-record microphone button in the input area with real-time waveform visualizer; audio transcribed via configurable provider (OpenAI Whisper, Azure Speech Services, or xAI) and inserted as text
+- **Multi-provider voice settings** — dropdown to switch between OpenAI, Azure, and xAI transcription providers with per-provider API key storage in SecretStorage
+- **API key validation** — saving a voice provider API key triggers a lightweight verification call; badges show "…" (verifying), "✓" (valid), or "✗" (invalid) next to each provider
+- **Azure region field** — labeled input with tooltip explaining where to find the region identifier in the Azure Portal
+
+### Fixed
+- **Voice provider radio button flicker** — switching providers now syncs state from the extension host (source of truth) instead of optimistic local updates that could desync
+
 ## [0.3.47] — 2026-04-27
 
 ### Fixed
