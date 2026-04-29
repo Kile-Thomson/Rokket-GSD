@@ -208,7 +208,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     } as any);
     const validations = await Promise.all([
       openaiKey ? validateApiKey("openai", openaiKey).catch(() => false) : Promise.resolve(undefined),
-      azureKey ? validateApiKey("azure", azureKey, azureRegion).catch(() => false) : Promise.resolve(undefined),
+      azureKey ? validateApiKey("azure", azureKey, { azureRegion }).catch(() => false) : Promise.resolve(undefined),
       xaiKey ? validateApiKey("xai", xaiKey).catch(() => false) : Promise.resolve(undefined),
     ]);
     this.postToWebview(webview, {
@@ -231,6 +231,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
   private async setVoiceApiKeyConfig(provider: string, key: string): Promise<void> {
     await setTranscriptionApiKey(this.context.secrets, provider as TranscriptionProvider, key);
+  }
+
+  private async setVoiceRegionConfig(regionType: "azure", value: string): Promise<void> {
+    const config = vscode.workspace.getConfiguration("gsd");
+    await config.update("azureSpeechRegion", value, vscode.ConfigurationTarget.Global);
   }
 
   private getSession(sessionId: string): SessionState {
@@ -315,10 +320,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   private async resolveGsdVersionAsync(): Promise<string | undefined> {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { execSync } = require("child_process");
-      const gsdPath = execSync(process.platform === "win32" ? "where gsd" : "which gsd", {
-        encoding: "utf8", timeout: 5000, windowsHide: true,
-      }).trim().split(/\r?\n/)[0];
+      const { execFile } = require("child_process");
+      const gsdPath = await new Promise<string>((resolve, reject) => {
+        const bin = process.platform === "win32" ? "where" : "which";
+        execFile(bin, ["gsd"], { encoding: "utf8", timeout: 5000, windowsHide: true },
+          (err: Error | null, stdout: string) => { if (err) reject(err); else resolve(stdout); });
+      }).then((out: string) => out.trim().split(/\r?\n/)[0]);
       if (gsdPath) {
         let dir = path.dirname(gsdPath);
         for (let i = 0; i < 4; i++) {
@@ -545,6 +552,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       getVoiceConfig: (wv) => this.sendVoiceConfig(wv),
       setVoiceProvider: (p) => this.setVoiceProviderConfig(p),
       setVoiceApiKey: (p, k) => this.setVoiceApiKeyConfig(p, k),
+      setVoiceRegion: (t, v) => this.setVoiceRegionConfig(t, v),
     };
 
     const disposable = webview.onDidReceiveMessage(async (msg) => {
