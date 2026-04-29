@@ -94,24 +94,20 @@ describe("watchdogs", () => {
       expect(session.promptWatchdog!.message).toBe("hello");
     });
 
-    it("retries prompt on first timeout, then errors on second timeout", async () => {
+    it("notifies user on timeout without retrying prompt", async () => {
       const client = createMockClient();
       const session = createMockSession({ client: client as any });
       const ctx = createMockContext(session);
 
       startPromptWatchdog(ctx, FAKE_WEBVIEW, "s1", "hello");
 
-      // Advance past 8s — first timeout fires, retries prompt
       await vi.advanceTimersByTimeAsync(8000);
-      expect(client.prompt).toHaveBeenCalledWith("hello", undefined);
-      expect(session.promptWatchdog!.retried).toBe(true);
-
-      // Advance past another 8s — second timeout fires, posts error
-      await vi.advanceTimersByTimeAsync(8000);
+      expect(client.prompt).not.toHaveBeenCalled();
       expect(ctx.postToWebview).toHaveBeenCalledWith(
         FAKE_WEBVIEW,
         expect.objectContaining({ type: "error" }),
       );
+      expect(session.promptWatchdog).toBeNull();
     });
 
     it("does nothing on timeout if client is not running", async () => {
@@ -121,7 +117,6 @@ describe("watchdogs", () => {
 
       startPromptWatchdog(ctx, FAKE_WEBVIEW, "s1", "hello");
       await vi.advanceTimersByTimeAsync(8000);
-      expect(client.prompt).not.toHaveBeenCalled();
       expect(ctx.postToWebview).not.toHaveBeenCalled();
     });
 
@@ -137,10 +132,12 @@ describe("watchdogs", () => {
       startPromptWatchdog(ctx, FAKE_WEBVIEW, "s1", "second");
       expect(session.promptWatchdog!.nonce).not.toBe(firstNonce);
 
-      // Advance past timeout — only the second watchdog fires
+      // Advance past timeout — only the second watchdog fires (notifies, doesn't retry)
       await vi.advanceTimersByTimeAsync(8000);
-      expect(client.prompt).toHaveBeenCalledWith("second", undefined);
-      expect(client.prompt).not.toHaveBeenCalledWith("first", undefined);
+      expect(ctx.postToWebview).toHaveBeenCalledWith(
+        FAKE_WEBVIEW,
+        expect.objectContaining({ type: "error" }),
+      );
     });
   });
 

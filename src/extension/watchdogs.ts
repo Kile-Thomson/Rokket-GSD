@@ -68,40 +68,15 @@ export function startPromptWatchdog(
       return;
     }
 
-    if (!watchdog.retried) {
-      // First timeout — retry the prompt once
-      ctx.output.appendLine(`[${sessionId}] Prompt watchdog: no agent_start after ${PROMPT_WATCHDOG_TIMEOUT_MS / 1000}s — retrying prompt`);
-      watchdog.retried = true;
-
-      try {
-        // Start the final-chance watchdog BEFORE awaiting — if prompt()
-        // hangs, we still need the timer to fire.
-        watchdog.timer = setTimeout(() => {
-          const finalCheck = ctx.getSession(sessionId).promptWatchdog;
-          if (!finalCheck || finalCheck.nonce !== nonce) return;
-
-          ctx.output.appendLine(`[${sessionId}] Prompt watchdog: retry also got no response — notifying user`);
-          clearPromptWatchdog(ctx, sessionId);
-          ctx.postToWebview(webview, {
-            type: "error",
-            message: "GSD accepted the command but didn't start processing. Try sending it again.",
-          } as ExtensionToWebviewMessage);
-        }, PROMPT_WATCHDOG_TIMEOUT_MS);
-
-        await client.prompt(message, images);
-        // Re-check nonce after await — a new prompt may have started during the retry
-        const current = ctx.getSession(sessionId).promptWatchdog;
-        if (!current || current.nonce !== nonce) return;
-      } catch (err: unknown) {
-        ctx.output.appendLine(`[${sessionId}] Prompt watchdog: retry failed — ${toErrorMessage(err)}`);
-        // Only clear if this watchdog is still current
-        const current = ctx.getSession(sessionId).promptWatchdog;
-        if (current?.nonce === nonce) {
-          clearPromptWatchdog(ctx, sessionId);
-        }
-        // Don't show error — the prompt() catch block already handles this
-      }
-    }
+    // No agent_start after timeout — notify the user. Don't retry:
+    // retrying sends a duplicate prompt which causes "already processing"
+    // errors and compounds the problem.
+    ctx.output.appendLine(`[${sessionId}] Prompt watchdog: no agent_start after ${PROMPT_WATCHDOG_TIMEOUT_MS / 1000}s — notifying user`);
+    clearPromptWatchdog(ctx, sessionId);
+    ctx.postToWebview(webview, {
+      type: "error",
+      message: "GSD accepted the command but didn't start processing. Try sending it again.",
+    } as ExtensionToWebviewMessage);
   }, PROMPT_WATCHDOG_TIMEOUT_MS);
 
   ctx.getSession(sessionId).promptWatchdog = { timer, retried: false, nonce, message, images };
