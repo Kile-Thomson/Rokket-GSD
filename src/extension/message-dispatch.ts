@@ -84,6 +84,7 @@ export interface MessageDispatchContext {
   getVoiceConfig?: (webview: vscode.Webview) => Promise<void>;
   setVoiceProvider?: (provider: string) => Promise<void>;
   setVoiceApiKey?: (provider: string, key: string) => Promise<void>;
+  setVoiceRegion?: (regionType: "azure", value: string) => Promise<void>;
 }
 
 // ============================================================
@@ -1084,6 +1085,16 @@ export async function handleWebviewMessage(
         case "set_voice_api_key": {
           if (ctx.setVoiceApiKey) {
             await ctx.setVoiceApiKey(msg.provider, msg.key);
+          }
+          if (ctx.getVoiceConfig) {
+            await ctx.getVoiceConfig(webview);
+          }
+          break;
+        }
+
+        case "set_voice_region": {
+          if (ctx.setVoiceRegion) {
+            await ctx.setVoiceRegion(msg.regionType, msg.value);
           }
           if (ctx.getVoiceConfig) {
             await ctx.getVoiceConfig(webview);
