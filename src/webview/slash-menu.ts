@@ -25,6 +25,8 @@ interface SlashMenuItem {
 let slashMenuVisible = false;
 let slashMenuIndex = 0;
 let filteredItems: SlashMenuItem[] = [];
+let _cachedItems: SlashMenuItem[] | null = null;
+let _cachedCommandsRef: unknown = null;
 
 // ============================================================
 // Dependencies injected via init()
@@ -70,7 +72,11 @@ export function show(filter: string): void {
     vscode.postMessage({ type: "get_commands" });
   }
   const q = filter.toLowerCase();
-  const allItems = buildItems();
+  if (!_cachedItems || _cachedCommandsRef !== state.commands) {
+    _cachedItems = buildItems();
+    _cachedCommandsRef = state.commands;
+  }
+  const allItems = _cachedItems;
   filteredItems = allItems.filter(
     (item) => item.name.toLowerCase().includes(q) || item.description.toLowerCase().includes(q)
   );

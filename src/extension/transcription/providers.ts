@@ -101,7 +101,11 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 60_0
   }
 }
 
-export async function validateApiKey(provider: TranscriptionProvider, apiKey: string, azureRegion?: string): Promise<boolean> {
+export async function validateApiKey(
+  provider: TranscriptionProvider,
+  apiKey: string,
+  options?: { azureRegion?: string },
+): Promise<boolean> {
   try {
     switch (provider) {
       case "openai":
@@ -109,9 +113,10 @@ export async function validateApiKey(provider: TranscriptionProvider, apiKey: st
       case "xai":
         return await validateXAIKey(apiKey);
       case "azure":
-        return await validateAzureKey(apiKey, azureRegion ?? "eastus");
+        return await validateAzureKey(apiKey, options?.azureRegion ?? "eastus");
     }
-  } catch {
+  } catch (err) {
+    console.warn(`[GSD] ${provider} API key validation failed:`, err);
     return false;
   }
 }
@@ -129,6 +134,10 @@ async function validateXAIKey(apiKey: string): Promise<boolean> {
     method: "GET",
     headers: { Authorization: `Bearer ${apiKey}` },
   }, 10_000);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.warn(`[GSD] xAI key validation failed: HTTP ${res.status} — ${body}`);
+  }
   return res.ok;
 }
 

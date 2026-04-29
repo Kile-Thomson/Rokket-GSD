@@ -39,3 +39,4 @@ export function getVoiceProvider(config: vscode.WorkspaceConfiguration): Transcr
 export function getAzureRegion(config: vscode.WorkspaceConfiguration): string {
   return config.get<string>(AZURE_REGION_KEY) ?? "eastus";
 }
+

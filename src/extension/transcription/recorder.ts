@@ -217,11 +217,15 @@ function waitForExit(proc: ChildProcess | null): Promise<void> {
 }
 
 async function findCommand(candidates: string[]): Promise<string | null> {
-  const { execSync } = await import("child_process");
+  const { execFile } = await import("child_process");
   const which = os.platform() === "win32" ? "where" : "which";
   for (const cmd of candidates) {
     try {
-      execSync(`${which} ${cmd}`, { stdio: "ignore" });
+      await new Promise<void>((resolve, reject) => {
+        execFile(which, [cmd], { timeout: 5000, windowsHide: true }, (err) => {
+          if (err) reject(err); else resolve();
+        });
+      });
       return cmd;
     } catch {
       continue;
