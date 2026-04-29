@@ -137,6 +137,7 @@ export async function handlePrompt(
 
     try {
       const images = sanitizeImages(msg.images);
+
       if (msg.message.startsWith("/")) {
         startSlashCommandWatchdog(ctx.watchdogCtx, webview, sessionId, msg.message, images);
       } else {
@@ -156,7 +157,7 @@ export async function handlePrompt(
         sendDashboardData(ctx, webview, sessionId).catch(() => {});
       }
     } catch (err: unknown) {
-      if (err instanceof Error && err.message.includes("streaming")) {
+      if (err instanceof Error && (err.message.includes("streaming") || err.message.includes("already processing"))) {
         clearSessionWatchdogs(ctx, sessionId);
         const isSlash = msg.message.trimStart().startsWith("/");
         try {
@@ -175,7 +176,7 @@ export async function handlePrompt(
               sendDashboardData(ctx, webview, sessionId).catch(() => {});
             }
           } else {
-            await c.steer(msg.message, imgs);
+            await c.followUp(msg.message, imgs);
           }
         } catch (steerErr: unknown) {
           ctx.postToWebview(webview, { type: "error", message: toErrorMessage(steerErr) });
