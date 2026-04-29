@@ -68,6 +68,7 @@ export type WebviewToExtensionMessage =
   | { type: "voice_cancel_recording" }
   | { type: "set_voice_provider"; provider: string }
   | { type: "set_voice_api_key"; provider: string; key: string }
+  | { type: "set_voice_region"; regionType: "azure"; value: string }
   | { type: "get_voice_config" }
   | { type: "shutdown" };
 

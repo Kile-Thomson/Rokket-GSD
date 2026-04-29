@@ -19,11 +19,22 @@ vi.mock("vscode", () => ({
 }));
 
 // ── Mock child_process ──
-const mockExecSync = vi.fn();
-const mockExecFileSync = vi.fn();
+// execFile uses callback (err, stdout, stderr) — mock returns value or throws via callback
+const mockNodeResult = vi.fn<() => string>().mockReturnValue("v20.11.0\n");
+const mockWhichResult = vi.fn<() => string>().mockReturnValue("C:\\path\\to\\gsd\n");
 vi.mock("child_process", () => ({
-  execSync: (...args: unknown[]) => mockExecSync(...args),
-  execFileSync: (...args: unknown[]) => mockExecFileSync(...args),
+  execFile: (cmd: string, args: string[], _opts: unknown, cb: (err: Error | null, stdout: string) => void) => {
+    try {
+      if (cmd === "node") {
+        cb(null, mockNodeResult());
+      } else {
+        // "where" / "which" for gsd lookup
+        cb(null, mockWhichResult());
+      }
+    } catch (e) {
+      cb(e as Error, "");
+    }
+  },
 }));
 
 // ── Mock fs ──
@@ -56,9 +67,9 @@ function createMockOutput() {
 
 function setupDefaultMocks() {
   // Default: node found, correct version
-  mockExecSync.mockReturnValue("v20.11.0\n");
+  mockNodeResult.mockReturnValue("v20.11.0\n");
   // Default: gsd found
-  mockExecFileSync.mockReturnValue("C:\\path\\to\\gsd\n");
+  mockWhichResult.mockReturnValue("C:\\path\\to\\gsd\n");
   // Default: no config overrides
   mockGetConfiguration.mockReturnValue({
     get: vi.fn((key: string, defaultValue?: unknown) => {
@@ -126,7 +137,7 @@ describe("health-check", () => {
     });
 
     it("reports issue when node is not found", async () => {
-      mockExecSync.mockImplementation(() => {
+      mockNodeResult.mockImplementation(() => {
         throw new Error("not found");
       });
 
@@ -137,7 +148,7 @@ describe("health-check", () => {
     });
 
     it("reports issue when node version is too old", async () => {
-      mockExecSync.mockReturnValue("v16.0.0\n");
+      mockNodeResult.mockReturnValue("v16.0.0\n");
 
       const result = await runHealthCheck(output);
 
@@ -147,7 +158,7 @@ describe("health-check", () => {
     });
 
     it("reports issue when gsd binary is not found", async () => {
-      mockExecFileSync.mockImplementation(() => {
+      mockWhichResult.mockImplementation(() => {
         throw new Error("not found");
       });
 
@@ -164,7 +175,7 @@ describe("health-check", () => {
           return undefined;
         }),
       });
-      mockExecFileSync.mockImplementation(() => {
+      mockWhichResult.mockImplementation(() => {
         throw new Error("not found");
       });
 
@@ -308,7 +319,7 @@ describe("health-check", () => {
     });
 
     it("shows warning notification when there are error-level issues", async () => {
-      mockExecSync.mockImplementation(() => {
+      mockNodeResult.mockImplementation(() => {
         throw new Error("not found");
       });
 

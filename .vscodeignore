@@ -18,5 +18,7 @@ scripts/**
 nul
 **/*conflicted copy*
 debug.log
+coverage/**
+*.tsbuildinfo
 .dropboxignore
 .mcp.json

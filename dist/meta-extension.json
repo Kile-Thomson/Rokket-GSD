@@ -1,10 +1,5 @@
 {
   "inputs": {
-    "src/shared/errors.ts": {
-      "bytes": 119,
-      "imports": [],
-      "format": "esm"
-    },
     "src/shared/constants.ts": {
       "bytes": 2730,
       "imports": [],
@@ -60,6 +55,11 @@
           "original": "../shared/constants"
         }
       ],
+      "format": "esm"
+    },
+    "src/shared/errors.ts": {
+      "bytes": 119,
+      "imports": [],
       "format": "esm"
     },
     "src/extension/update-checker.ts": {
@@ -235,7 +235,7 @@
       "format": "esm"
     },
     "src/shared/types.ts": {
-      "bytes": 24234,
+      "bytes": 24304,
       "imports": [],
       "format": "esm"
     },
@@ -381,7 +381,7 @@
       "format": "esm"
     },
     "src/extension/message-dispatch.ts": {
-      "bytes": 48407,
+      "bytes": 48763,
       "imports": [
         {
           "path": "vscode",
@@ -562,7 +562,7 @@
       "format": "esm"
     },
     "src/extension/transcription/providers.ts": {
-      "bytes": 5174,
+      "bytes": 5606,
       "imports": [
         {
           "path": "src/extension/openai/transcribe.ts",
@@ -573,12 +573,12 @@
       "format": "esm"
     },
     "src/extension/transcription/config.ts": {
-      "bytes": 1197,
+      "bytes": 1240,
       "imports": [],
       "format": "esm"
     },
     "src/extension/transcription/recorder.ts": {
-      "bytes": 7159,
+      "bytes": 7541,
       "imports": [
         {
           "path": "child_process",
@@ -630,7 +630,7 @@
       "format": "esm"
     },
     "src/extension/html-generator.ts": {
-      "bytes": 1526,
+      "bytes": 1567,
       "imports": [
         {
           "path": "vscode",
@@ -646,7 +646,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 33492,
+      "bytes": 33964,
       "imports": [
         {
           "path": "vscode",
@@ -734,11 +734,6 @@
           "original": "./telegram/bridge"
         },
         {
-          "path": "./openai/config",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
           "path": "src/extension/openai/transcribe.ts",
           "kind": "import-statement",
           "original": "./openai/transcribe"
@@ -777,7 +772,7 @@
       "format": "esm"
     },
     "src/extension/health-check.ts": {
-      "bytes": 10651,
+      "bytes": 10867,
       "imports": [
         {
           "path": "vscode",
@@ -849,32 +844,12 @@
       "format": "esm"
     },
     "src/extension/index.ts": {
-      "bytes": 8737,
+      "bytes": 5968,
       "imports": [
         {
           "path": "vscode",
           "kind": "import-statement",
           "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "os",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "src/shared/errors.ts",
-          "kind": "import-statement",
-          "original": "../shared/errors"
         },
         {
           "path": "src/extension/webview-provider.ts",
@@ -910,27 +885,12 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 623954
+      "bytes": 622861
     },
     "dist/extension.js": {
       "imports": [
         {
           "path": "vscode",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "os",
           "kind": "require-call",
           "external": true
         },
@@ -1234,22 +1194,22 @@
       "entryPoint": "src/extension/index.ts",
       "inputs": {
         "src/extension/index.ts": {
-          "bytesInOutput": 4275
-        },
-        "src/shared/errors.ts": {
-          "bytesInOutput": 60
+          "bytesInOutput": 3159
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 15911
+          "bytesInOutput": 16179
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 9944
         },
         "src/extension/shell-env.ts": {
-          "bytesInOutput": 1393
+          "bytesInOutput": 1387
         },
         "src/extension/update-checker.ts": {
-          "bytesInOutput": 6217
+          "bytesInOutput": 6211
+        },
+        "src/shared/errors.ts": {
+          "bytesInOutput": 60
         },
         "src/extension/auto-progress-poller.ts": {
           "bytesInOutput": 4217
@@ -1279,7 +1239,7 @@
           "bytesInOutput": 6535
         },
         "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 19679
+          "bytesInOutput": 19816
         },
         "src/extension/session-list-service.ts": {
           "bytesInOutput": 2191
@@ -1324,13 +1284,13 @@
           "bytesInOutput": 15703
         },
         "src/extension/transcription/providers.ts": {
-          "bytesInOutput": 2514
+          "bytesInOutput": 2579
         },
         "src/extension/transcription/config.ts": {
           "bytesInOutput": 315
         },
         "src/extension/transcription/recorder.ts": {
-          "bytesInOutput": 4662
+          "bytesInOutput": 4712
         },
         "src/extension/polling.ts": {
           "bytesInOutput": 1769
@@ -1339,7 +1299,7 @@
           "bytesInOutput": 877
         },
         "src/extension/health-check.ts": {
-          "bytesInOutput": 4927
+          "bytesInOutput": 4989
         },
         "src/extension/telegram/setup.ts": {
           "bytesInOutput": 6190
@@ -1348,7 +1308,7 @@
           "bytesInOutput": 107
         }
       },
-      "bytes": 167252
+      "bytes": 166706
     }
   }
 }
