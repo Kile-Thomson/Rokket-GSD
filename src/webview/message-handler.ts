@@ -1400,6 +1400,8 @@ function handleMessage(event: MessageEvent): void {
       if (azureEl) azureEl.classList.toggle("gsd-hidden", vc.provider !== "azure");
       const regionInput = document.getElementById("voiceAzureRegionInput") as HTMLInputElement | null;
       if (regionInput && vc.azureRegion) regionInput.value = vc.azureRegion;
+      const keyInput = document.getElementById("voiceKeyInput") as HTMLInputElement | null;
+      if (keyInput) keyInput.placeholder = "Paste API key...";
       break;
     }
 
