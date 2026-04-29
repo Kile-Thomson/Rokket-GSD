@@ -234,8 +234,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
   }
 
   private async setVoiceRegionConfig(regionType: "azure", value: string): Promise<void> {
+    const trimmed = value.trim();
+    if (!trimmed) { return; }
     const config = vscode.workspace.getConfiguration("gsd");
-    await config.update("azureSpeechRegion", value, vscode.ConfigurationTarget.Global);
+    await config.update("azureSpeechRegion", trimmed, vscode.ConfigurationTarget.Global);
   }
 
   private getSession(sessionId: string): SessionState {
