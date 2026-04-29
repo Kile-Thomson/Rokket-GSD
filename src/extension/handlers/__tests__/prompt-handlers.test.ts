@@ -312,10 +312,10 @@ describe("prompt-handlers", () => {
       expect(ctx.launchGsd).toHaveBeenCalledWith(webview, SESSION_ID);
     });
 
-    it("posts error when prompt throws streaming error and falls back to steer", async () => {
+    it("queues followUp when prompt throws already-processing error", async () => {
       const client = createMockClient({
         prompt: vi.fn().mockRejectedValue(new Error("streaming in progress")),
-        steer: vi.fn().mockResolvedValue(undefined),
+        followUp: vi.fn().mockResolvedValue(undefined),
       });
       const session = createMockSession({ client: client as any });
       const { ctx, webview } = createMockDispatchContext(session);
@@ -325,7 +325,7 @@ describe("prompt-handlers", () => {
         message: "hello",
       } as any);
 
-      expect(client.steer).toHaveBeenCalled();
+      expect(client.followUp).toHaveBeenCalled();
     });
   });
 
