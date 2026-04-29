@@ -578,6 +578,7 @@ voiceProviders.addEventListener("click", (e) => {
     el.setAttribute("aria-checked", String(isActive));
   });
   voiceAzureRegionEl.classList.toggle("gsd-hidden", provider !== "azure");
+  voiceKeyInput.placeholder = "Paste API key...";
   vscode.postMessage({ type: "set_voice_provider", provider } as WebviewToExtensionMessage);
 });
 
@@ -593,6 +594,10 @@ voiceKeySave.addEventListener("click", (e) => {
 
 voiceKeyInput.addEventListener("click", (e) => e.stopPropagation());
 voiceAzureRegionInput.addEventListener("click", (e) => e.stopPropagation());
+voiceAzureRegionInput.addEventListener("change", () => {
+  const val = voiceAzureRegionInput.value.trim();
+  if (val) vscode.postMessage({ type: "set_voice_region", regionType: "azure", value: val } as WebviewToExtensionMessage);
+});
 
 // ============================================================
 // Slash command menu — input listener

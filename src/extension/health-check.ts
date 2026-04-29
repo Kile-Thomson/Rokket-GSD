@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { execSync, execFileSync } from "child_process";
+import { execFile } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
@@ -68,17 +68,18 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
 
   // ---- Check Node.js ----
   try {
-    result.nodeVersion = execSync("node --version", {
-      encoding: "utf8",
-      timeout: EXEC_TIMEOUT_MS,
-      stdio: ["pipe", "pipe", "pipe"],
-      windowsHide: true,
-      env: healthEnv,
-    }).trim();
+    result.nodeVersion = await new Promise<string>((resolve, reject) => {
+      execFile("node", ["--version"], {
+        encoding: "utf8",
+        timeout: EXEC_TIMEOUT_MS,
+        windowsHide: true,
+        env: healthEnv,
+      }, (err, stdout) => { if (err) reject(err); else resolve(stdout); });
+    }).then(s => s.trim());
     result.nodeFound = true;
 
     // Check minimum version (Node 18+)
-    const major = parseInt(result.nodeVersion.replace(/^v/, "").split(".")[0], 10);
+    const major = parseInt(result.nodeVersion!.replace(/^v/, "").split(".")[0], 10);
     if (major < MIN_NODE_MAJOR_VERSION) {
       result.issues.push({
         severity: "error",
@@ -103,13 +104,14 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
 
   try {
     const whichBin = process.platform === "win32" ? "where" : "which";
-    const gsdPath = execFileSync(whichBin, [gsdCommand], {
-      encoding: "utf8",
-      timeout: EXEC_TIMEOUT_MS,
-      stdio: ["pipe", "pipe", "pipe"],
-      windowsHide: true,
-      env: healthEnv,
-    }).trim().split(/\r?\n/)[0];
+    const gsdPath = await new Promise<string>((resolve, reject) => {
+      execFile(whichBin, [gsdCommand], {
+        encoding: "utf8",
+        timeout: EXEC_TIMEOUT_MS,
+        windowsHide: true,
+        env: healthEnv,
+      }, (err, stdout) => { if (err) reject(err); else resolve(stdout); });
+    }).then(s => s.trim().split(/\r?\n/)[0]);
 
     result.gsdFound = true;
     result.gsdPath = gsdPath;
