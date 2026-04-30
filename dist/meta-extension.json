@@ -240,7 +240,7 @@
       "format": "esm"
     },
     "src/extension/watchdogs.ts": {
-      "bytes": 12832,
+      "bytes": 11670,
       "imports": [
         {
           "path": "vscode",
@@ -646,7 +646,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 33964,
+      "bytes": 34032,
       "imports": [
         {
           "path": "vscode",
@@ -885,7 +885,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 622861
+      "bytes": 621251
     },
     "dist/extension.js": {
       "imports": [
@@ -1197,7 +1197,7 @@
           "bytesInOutput": 3159
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 16179
+          "bytesInOutput": 16207
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 9944
@@ -1233,7 +1233,7 @@
           "bytesInOutput": 548
         },
         "src/extension/watchdogs.ts": {
-          "bytesInOutput": 3655
+          "bytesInOutput": 3213
         },
         "src/extension/rpc-events.ts": {
           "bytesInOutput": 6535
@@ -1308,7 +1308,7 @@
           "bytesInOutput": 107
         }
       },
-      "bytes": 166706
+      "bytes": 166292
     }
   }
 }
