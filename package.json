@@ -1,7 +1,7 @@
 {
 	"name": "rokket-gsd",
-	"displayName": "Rokket GSD",
-	"description": "AI coding agent by Rokketek — full chat UI, tool execution, model picker, and GSD workflow automation in VS Code. The GSD-PI / GSD V2 frontend.",
+	"displayName": "Rokket GSD — The Premium GSD V2 / GSD PI UI",
+	"description": "The GSD-PI / GSD V2 VS Code extension — AI coding agent with chat UI, multi-model support, 40+ tool visualizations, Telegram voice relay, parallel workers, and workflow automation.",
 	"version": "0.3.53",
 	"publisher": "rokketek",
 	"license": "MIT",
@@ -15,14 +15,28 @@
 	},
 	"categories": [
 		"AI",
-		"Chat"
+		"Chat",
+		"Machine Learning",
+		"Other"
 	],
 	"keywords": [
-		"gsd",
 		"ai",
 		"agent",
-		"coding",
-		"gsd-pi"
+		"coding agent",
+		"claude",
+		"openai",
+		"llm",
+		"chat",
+		"copilot",
+		"automation",
+		"workflow",
+		"multi-model",
+		"voice",
+		"telegram",
+		"gsd",
+		"gsd-pi",
+		"gsd v2",
+		"gsd pi"
 	],
 	"activationEvents": [
 		"onStartupFinished"
