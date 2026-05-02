@@ -14,7 +14,7 @@
   overflow: hidden;
   font-family: var(--gsd-font-family-mono);
   line-height: var(--gsd-line-height-relaxed);
-  opacity: 0.65;
+  opacity: 0.75;
 }
 
 /* ── Widgets (ambient status bars from setWidget) ── */
@@ -81,24 +81,10 @@
   min-width: 0;
 }
 
-.gsd-footer-brand {
-  font-size: 8px;
-  font-weight: var(--gsd-font-weight-bold);
-  letter-spacing: 2px;
-  opacity: 0.25;
-  flex-shrink: 0;
-  font-family: var(--gsd-font-family-mono);
-}
-
-.gsd-footer-stats {
+.gsd-footer-skills {
   flex-shrink: 1;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.gsd-footer-right {
-  flex-shrink: 0;
-  text-align: right;
 }
 
 /* ── Skill pills ── */

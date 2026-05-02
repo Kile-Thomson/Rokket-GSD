@@ -22,7 +22,6 @@ function getResumeChip(): HTMLElement | null {
   return cachedResumeChip;
 }
 let welcomeProcess: HTMLElement;
-let welcomeVersion: HTMLElement;
 let welcomeModel: HTMLElement;
 let welcomeHints: HTMLElement;
 
@@ -30,7 +29,6 @@ export interface DashboardDeps {
   messagesContainer: HTMLElement;
   welcomeScreen: HTMLElement;
   welcomeProcess: HTMLElement;
-  welcomeVersion: HTMLElement;
   welcomeModel: HTMLElement;
   welcomeHints: HTMLElement;
 }
@@ -39,7 +37,6 @@ export function init(deps: DashboardDeps): void {
   messagesContainer = deps.messagesContainer;
   welcomeScreen = deps.welcomeScreen;
   welcomeProcess = deps.welcomeProcess;
-  welcomeVersion = deps.welcomeVersion;
   welcomeModel = deps.welcomeModel;
   welcomeHints = deps.welcomeHints;
 }
@@ -438,8 +435,6 @@ export function updateWelcomeScreen(): void {
     return;
   }
   welcomeScreen.classList.remove('gsd-hidden');
-
-  welcomeVersion.textContent = state.version ? `v${state.version}` : "";
 
   switch (state.processStatus) {
     case "starting":

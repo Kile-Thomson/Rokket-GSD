@@ -266,7 +266,7 @@ export function renderFileChips(): void {
     <div class="gsd-file-chip" title="${escapeHtml(f.path)}">
       <span class="gsd-file-chip-icon">${getFileIcon(f.extension)}</span>
       <span class="gsd-file-chip-name">${escapeHtml(f.name)}</span>
-      <button class="gsd-file-chip-remove" data-idx="${i}">×</button>
+      <button class="gsd-file-chip-remove" data-idx="${i}" aria-label="Remove file ${escapeHtml(f.name)}">×</button>
     </div>
   `).join("");
 
@@ -291,7 +291,7 @@ export function renderImagePreviews(): void {
   imagePreview.innerHTML = state.images.map((img, i) => `
     <div class="gsd-image-thumb">
       <img src="data:${img.mimeType};base64,${img.data}" alt="Attached" />
-      <button class="gsd-image-remove" data-idx="${i}">×</button>
+      <button class="gsd-image-remove" data-idx="${i}" aria-label="Remove attached image">×</button>
     </div>
   `).join("");
 

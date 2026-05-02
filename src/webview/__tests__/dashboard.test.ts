@@ -36,7 +36,6 @@ function createDeps(): DashboardDeps {
     messagesContainer: document.createElement("div"),
     welcomeScreen: document.createElement("div"),
     welcomeProcess: document.createElement("div"),
-    welcomeVersion: document.createElement("div"),
     welcomeModel: document.createElement("div"),
     welcomeHints: document.createElement("div"),
   };
@@ -299,7 +298,6 @@ describe("updateWelcomeScreen", () => {
 
     updateWelcomeScreen();
     expect(deps.welcomeScreen.classList.contains("gsd-hidden")).toBe(false);
-    expect(deps.welcomeVersion.textContent).toBe("v1.2.3");
     expect(deps.welcomeProcess.textContent).toBe("Type a message to start");
   });
 
