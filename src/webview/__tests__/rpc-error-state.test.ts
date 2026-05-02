@@ -49,8 +49,6 @@ function createUIDeps(): UIUpdatesDeps {
     contextBarContainer: document.createElement("div"),
     contextBar: document.createElement("div"),
     footerCwd: document.createElement("span"),
-    footerStats: document.createElement("span"),
-    footerRight: document.createElement("span"),
     sendBtn: document.createElement("button"),
     sendIcon: document.createElement("span"),
     promptInput: document.createElement("textarea") as HTMLTextAreaElement,
@@ -64,7 +62,6 @@ function createDashDeps(): DashboardDeps {
     messagesContainer: document.createElement("div"),
     welcomeScreen: document.createElement("div"),
     welcomeProcess: document.createElement("div"),
-    welcomeVersion: document.createElement("div"),
     welcomeModel: document.createElement("div"),
     welcomeHints: document.createElement("div"),
   };

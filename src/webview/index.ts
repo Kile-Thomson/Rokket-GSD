@@ -90,18 +90,6 @@ root.innerHTML = `
         <span class="gsd-context-badge gsd-hidden" id="contextBadge" title="Context usage" aria-label="Context usage"></span>
       </div>
       <div class="gsd-header-actions" role="toolbar" aria-label="Actions">
-        <button class="gsd-action-btn" id="compactBtn" title="Compact context — reduce token usage" aria-label="Compact context">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M14 2H8L7 3v3h1V3h6v5h-4l-1 1v2H8v1h2l3-3h1l1-1V3l-1-1zM9 7H3L2 8v5l1 1h6l1-1V8L9 7zm0 6H3V8h6v5z"/></svg>
-          <span>Compact</span>
-        </button>
-        <button class="gsd-action-btn" id="exportBtn" title="Export conversation as HTML" aria-label="Export conversation">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13 1H5L4 2v3h1V2h8v12H5v-3H4v3l1 1h8l1-1V2l-1-1zM1 8l3-3v2h5v2H4v2L1 8z"/></svg>
-          <span>Export</span>
-        </button>
-        <button class="gsd-action-btn" id="telegramSyncBtn" title="Toggle Telegram sync for this conversation" aria-label="Toggle Telegram sync">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M14.3 1.3L1.5 6.8c-.9.3-.9.9-.1 1.1l3.3 1 1.2 3.9c.2.4.3.5.6.5.3 0 .5-.1.6-.3l1.5-1.5 3.1 2.3c.6.3 1 .2 1.1-.5L14.9 2c.2-.8-.3-1.2-1-.7zM6.3 9.6l-.7 2.1-.8-2.7 7.4-4.6L6.3 9.6z"/></svg>
-          <span>Sync</span>
-        </button>
         <button class="gsd-action-btn" id="historyBtn" title="Browse previous sessions" aria-label="Session history">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13.507 12.324a7 7 0 0 0 .065-8.56A7 7 0 0 0 2 4.393V2H1v3.5l.5.5H5V5H2.811a6.008 6.008 0 1 1-.135 5.77l-.887.462a7 7 0 0 0 11.718 1.092zM8 4h1v4.495L11.255 10l-.51.858L7.5 9.166V4H8z"/></svg>
           <span>History</span>
@@ -109,6 +97,10 @@ root.innerHTML = `
         <button class="gsd-action-btn" id="modelPickerBtn" title="Change AI model" aria-label="Change model">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm0-9.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM4.5 8a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg>
           <span>Model</span>
+        </button>
+        <button class="gsd-action-btn" id="telegramSyncBtn" title="Toggle Telegram sync for this conversation" aria-label="Telegram sync">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M14.3 1.3L1.5 6.8c-.9.3-.9.9-.1 1.1l3.3 1 1.2 3.9c.2.4.3.5.6.5.3 0 .5-.1.6-.3l1.5-1.5 3.1 2.3c.6.3 1 .2 1.1-.5L14.9 2c.2-.8-.3-1.2-1-.7zM6.3 9.6l-.7 2.1-.8-2.7 7.4-4.6L6.3 9.6z"/></svg>
+          <span>Sync</span>
         </button>
         <button class="gsd-action-btn primary" id="newConvoBtn" title="Start a new conversation" aria-label="New conversation">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1a.5.5 0 01.5.5V7H14a.5.5 0 010 1H8.5v5.5a.5.5 0 01-1 0V8H2a.5.5 0 010-1h5.5V1.5A.5.5 0 018 1z"/></svg>
@@ -119,6 +111,20 @@ root.innerHTML = `
             <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M9.1 4.4L8.6 2H7.4l-.5 2.4-.7.3-2-1.3-.9.8 1.3 2-.3.7L2 7.4v1.2l2.4.5.3.7-1.3 2 .8.8 2-1.3.7.3.5 2.4h1.2l.5-2.4.7-.3 2 1.3.8-.8-1.3-2 .3-.7 2.4-.5V7.4l-2.4-.5-.3-.7 1.3-2-.8-.8-2 1.3-.7-.3zM8 10a2 2 0 110-4 2 2 0 010 4z"/></svg>
           </button>
           <div class="gsd-settings-dropdown" id="settingsDropdown" role="menu" aria-label="Settings">
+            <div class="gsd-settings-section">
+              <span class="gsd-settings-label">Actions</span>
+              <div class="gsd-settings-actions">
+                <button class="gsd-settings-action-btn" id="compactBtn" role="menuitem" title="Compact context — reduce token usage">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M14 2H8L7 3v3h1V3h6v5h-4l-1 1v2H8v1h2l3-3h1l1-1V3l-1-1zM9 7H3L2 8v5l1 1h6l1-1V8L9 7zm0 6H3V8h6v5z"/></svg>
+                  <span>Compact context</span>
+                </button>
+                <button class="gsd-settings-action-btn" id="exportBtn" role="menuitem" title="Export conversation as HTML">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13 1H5L4 2v3h1V2h8v12H5v-3H4v3l1 1h8l1-1V2l-1-1zM1 8l3-3v2h5v2H4v2L1 8z"/></svg>
+                  <span>Export conversation</span>
+                </button>
+              </div>
+            </div>
+            <div class="gsd-settings-divider"></div>
             <div class="gsd-settings-section">
               <span class="gsd-settings-label">Theme</span>
               <div class="gsd-settings-options" id="themeOptions">
@@ -194,7 +200,7 @@ root.innerHTML = `
 ╚██████╔╝███████║██████╔╝
  ╚═════╝ ╚══════╝╚═════╝</pre>
         </div>
-        <div class="gsd-welcome-title">Get Shit Done <span class="gsd-welcome-version" id="welcomeVersion"></span></div>
+        <div class="gsd-welcome-title">Get Shit Done</div>
         <div class="gsd-welcome-sub" id="welcomeProcess">Initializing...</div>
         <div class="gsd-welcome-model" id="welcomeModel"></div>
         <div class="gsd-welcome-hints gsd-hidden" id="welcomeHints"></div>
@@ -223,7 +229,7 @@ root.innerHTML = `
       <div class="gsd-voice-pulse"></div>
       <span class="gsd-voice-recording-text">Recording...</span>
       <span class="gsd-voice-recording-time" id="voiceRecordingTime">0:00</span>
-      <button class="gsd-voice-cancel" id="voiceCancelBtn" title="Cancel recording">&times;</button>
+      <button class="gsd-voice-cancel" id="voiceCancelBtn" title="Cancel recording" aria-label="Cancel recording">&times;</button>
     </div>
 
     <div class="gsd-input-area">
@@ -234,8 +240,8 @@ root.innerHTML = `
         <button class="gsd-attach-btn" id="attachBtn" title="Attach files">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M10.404 2.318a2.5 2.5 0 0 0-3.536 0L3.343 5.843a4 4 0 1 0 5.657 5.657l3.525-3.525-.707-.707-3.525 3.525a3 3 0 1 1-4.243-4.243l3.525-3.525a1.5 1.5 0 0 1 2.122 2.121L6.172 8.672a.5.5 0 0 1-.708-.708l3.025-3.025-.707-.707-3.025 3.025a1.5 1.5 0 0 0 2.122 2.121l3.525-3.525a2.5 2.5 0 0 0 0-3.535z"/></svg>
         </button>
-        <button class="gsd-voice-btn" id="voiceBtn" title="Record voice message">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" id="voiceIcon"><path d="M8 1a2.5 2.5 0 0 0-2.5 2.5v4a2.5 2.5 0 0 0 5 0v-4A2.5 2.5 0 0 0 8 1zM6.5 3.5a1.5 1.5 0 1 1 3 0v4a1.5 1.5 0 0 1-3 0v-4zM4 7a.5.5 0 0 0-1 0 5 5 0 0 0 4.5 4.975V13.5H6a.5.5 0 0 0 0 1h4a.5.5 0 0 0 0-1H8.5v-1.525A5 5 0 0 0 13 7a.5.5 0 0 0-1 0 4 4 0 0 1-8 0z"/></svg>
+        <button class="gsd-voice-btn" id="voiceBtn" title="Record voice message" aria-label="Record voice message">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" id="voiceIcon" aria-hidden="true"><path d="M8 1a2.5 2.5 0 0 0-2.5 2.5v4a2.5 2.5 0 0 0 5 0v-4A2.5 2.5 0 0 0 8 1zM6.5 3.5a1.5 1.5 0 1 1 3 0v4a1.5 1.5 0 0 1-3 0v-4zM4 7a.5.5 0 0 0-1 0 5 5 0 0 0 4.5 4.975V13.5H6a.5.5 0 0 0 0 1h4a.5.5 0 0 0 0-1H8.5v-1.525A5 5 0 0 0 13 7a.5.5 0 0 0-1 0 4 4 0 0 1-8 0z"/></svg>
         </button>
         <div class="gsd-input-wrapper">
           <textarea id="promptInput" class="gsd-input" placeholder="Message GSD..." rows="1" aria-label="Chat message input"></textarea>
@@ -251,11 +257,7 @@ root.innerHTML = `
       <div class="gsd-widgets" id="widgetContainer"></div>
       <div class="gsd-footer-line" id="footerLine1">
         <span class="gsd-footer-cwd" id="footerCwd" title="Working directory"></span>
-        <span class="gsd-footer-brand">▲ ROKKETEK</span>
-      </div>
-      <div class="gsd-footer-line" id="footerLine2">
-        <span class="gsd-footer-stats" id="footerStats"></span>
-        <span class="gsd-footer-right" id="footerRight"></span>
+        <span class="gsd-footer-skills" id="footerStats"></span>
       </div>
     </footer>
   </div>
@@ -265,7 +267,6 @@ root.innerHTML = `
 const messagesContainer = document.getElementById("messagesContainer")!;
 const welcomeScreen = document.getElementById("welcomeScreen")!;
 const welcomeProcess = document.getElementById("welcomeProcess")!;
-const welcomeVersion = document.getElementById("welcomeVersion")!;
 const welcomeModel = document.getElementById("welcomeModel")!;
 const welcomeHints = document.getElementById("welcomeHints")!;
 const promptInput = document.getElementById("promptInput") as HTMLTextAreaElement;
@@ -310,8 +311,6 @@ const contextBadge = document.getElementById("contextBadge")!;
 
 // Footer
 const footerCwd = document.getElementById("footerCwd")!;
-const footerStats = document.getElementById("footerStats")!;
-const footerRight = document.getElementById("footerRight")!;
 
 // ============================================================
 // Header toolbar — roving tabindex (WAI-ARIA toolbar pattern)
@@ -802,8 +801,6 @@ uiUpdates.init({
   contextBarContainer,
   contextBar,
   footerCwd,
-  footerStats,
-  footerRight,
   sendBtn,
   sendIcon,
   promptInput,
@@ -815,7 +812,6 @@ dashboard.init({
   messagesContainer,
   welcomeScreen,
   welcomeProcess,
-  welcomeVersion,
   welcomeModel,
   welcomeHints,
 });

@@ -25,8 +25,6 @@ let contextBadge: HTMLElement;
 let contextBarContainer: HTMLElement;
 let contextBar: HTMLElement;
 let footerCwd: HTMLElement;
-let footerStats: HTMLElement;
-let footerRight: HTMLElement;
 let sendBtn: HTMLElement;
 let sendIcon: HTMLElement;
 let promptInput: HTMLTextAreaElement;
@@ -43,8 +41,6 @@ export interface UIUpdatesDeps {
   contextBarContainer: HTMLElement;
   contextBar: HTMLElement;
   footerCwd: HTMLElement;
-  footerStats: HTMLElement;
-  footerRight: HTMLElement;
   sendBtn: HTMLElement;
   sendIcon: HTMLElement;
   promptInput: HTMLTextAreaElement;
@@ -62,8 +58,6 @@ export function init(deps: UIUpdatesDeps): void {
   contextBarContainer = deps.contextBarContainer;
   contextBar = deps.contextBar;
   footerCwd = deps.footerCwd;
-  footerStats = deps.footerStats;
-  footerRight = deps.footerRight;
   sendBtn = deps.sendBtn;
   sendIcon = deps.sendIcon;
   promptInput = deps.promptInput;
@@ -140,7 +134,7 @@ export function updateHeaderUI(): void {
     contextBadge.title =
       "Size of the NEXT prompt relative to the context window.\n" +
       "This is a level, not a total — it can drop after compaction.\n" +
-      (spent > 0 ? `Cumulative session spend: ${formatTokens(spent)} tokens (see footer 'spent:').` : "");
+      (spent > 0 ? `Cumulative session spend: ${formatTokens(spent)} tokens.` : "");
   } else {
     contextBadge.classList.add('gsd-hidden');
   }
@@ -181,43 +175,6 @@ function updateContextBar(): void {
 export function updateFooterUI(): void {
   footerCwd.textContent = state.cwd || "";
   footerCwd.title = state.cwd;
-
-  const stats = state.sessionStats;
-  const tokens = stats.tokens;
-  const parts: string[] = [];
-
-  if (tokens) {
-    const tokenParts: string[] = [];
-    if (tokens.input) tokenParts.push(`in:${formatTokens(tokens.input)}`);
-    if (tokens.output) tokenParts.push(`out:${formatTokens(tokens.output)}`);
-    if (tokens.cacheRead) tokenParts.push(`cache:${formatTokens(tokens.cacheRead)}`);
-    const totalSpent = (tokens.input || 0) + (tokens.output || 0) + (tokens.cacheRead || 0) + (tokens.cacheWrite || 0);
-    if (totalSpent > 0) tokenParts.push(`spent:${formatTokens(totalSpent)}`);
-    if (tokenParts.length > 0) parts.push(tokenParts.join(" "));
-  }
-
-  if (stats.cost != null && stats.cost > 0) {
-    parts.push(formatCost(stats.cost));
-  }
-
-  const ctx = formatContextUsage(stats, state.model);
-  if (ctx) parts.push(ctx);
-
-  footerStats.textContent = parts.join(" · ");
-  footerStats.title =
-    "spent = cumulative tokens this session (grows monotonically)\n" +
-    "%/window = size of the NEXT prompt relative to the context window — can shrink after compaction";
-
-  let right = "";
-  if (state.model) {
-    right = state.model.id || state.model.name || "";
-    if (state.thinkingLevel && state.thinkingLevel !== "off") {
-      right += ` • ${state.thinkingLevel}`;
-    } else {
-      right += " • thinking off";
-    }
-  }
-  footerRight.textContent = right;
 }
 
 // Cached DOM ref — queried once, survives for webview lifetime

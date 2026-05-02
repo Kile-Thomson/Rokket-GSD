@@ -353,15 +353,6 @@
   white-space: nowrap;
 }
 
-/* Disabled state for non-reasoning models */
-.gsd-thinking-badge.disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.gsd-thinking-badge.disabled:hover {
-  background: var(--gsd-badge-thinking-bg-active);
-}
 
 /* ============================================================
    Session History Panel
@@ -1051,7 +1042,7 @@
   font-weight: var(--gsd-font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  opacity: 0.5;
+  opacity: 0.7;
   margin-bottom: 6px;
 }
 
@@ -1142,6 +1133,39 @@
   background: var(--gsd-color-border);
   margin: 6px 12px;
   opacity: 0.4;
+}
+
+.gsd-settings-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gsd-space-xxs);
+}
+
+.gsd-settings-action-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--gsd-space-md);
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--gsd-radius-md);
+  background: transparent;
+  color: var(--gsd-color-text);
+  cursor: pointer;
+  font-size: var(--gsd-font-size-base);
+  font-family: var(--gsd-font-family);
+  transition: background 0.1s;
+  width: 100%;
+  text-align: left;
+}
+
+.gsd-settings-action-btn:hover,
+.gsd-settings-action-btn:focus-visible {
+  background: var(--gsd-color-surface-hover);
+}
+
+.gsd-settings-action-btn svg {
+  opacity: 0.6;
+  flex-shrink: 0;
 }
 
 .gsd-settings-voice-key {
