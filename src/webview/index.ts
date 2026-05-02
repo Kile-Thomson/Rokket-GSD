@@ -311,7 +311,6 @@ const contextBadge = document.getElementById("contextBadge")!;
 
 // Footer
 const footerCwd = document.getElementById("footerCwd")!;
-const footerStats = document.getElementById("footerStats")!;
 
 // ============================================================
 // Header toolbar — roving tabindex (WAI-ARIA toolbar pattern)
