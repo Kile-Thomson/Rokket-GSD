@@ -50,8 +50,6 @@ function createDeps(): UIUpdatesDeps {
     contextBarContainer: document.createElement("div"),
     contextBar: document.createElement("div"),
     footerCwd: document.createElement("span"),
-    footerStats: document.createElement("span"),
-    footerRight: document.createElement("span"),
     sendBtn: document.createElement("button"),
     sendIcon: document.createElement("span"),
     promptInput: document.createElement("textarea") as HTMLTextAreaElement,
@@ -187,27 +185,6 @@ describe("ui-updates", () => {
       expect(deps.footerCwd.textContent).toBe("/home/user/project");
     });
 
-    it("shows token stats in footer", () => {
-      state.sessionStats = { tokens: { input: 1000, output: 500 } } as any;
-      updateFooterUI();
-      expect(deps.footerStats.textContent).toContain("in:1000");
-      expect(deps.footerStats.textContent).toContain("out:500");
-    });
-
-    it("shows model and thinking level in footer right", () => {
-      state.model = { id: "claude-3", name: "Claude 3", provider: "anthropic" };
-      state.thinkingLevel = "medium";
-      updateFooterUI();
-      expect(deps.footerRight.textContent).toContain("claude-3");
-      expect(deps.footerRight.textContent).toContain("medium");
-    });
-
-    it("shows 'thinking off' when thinking level is off", () => {
-      state.model = { id: "gpt-4o", name: "GPT-4o", provider: "openai" };
-      state.thinkingLevel = "off";
-      updateFooterUI();
-      expect(deps.footerRight.textContent).toContain("thinking off");
-    });
   });
 
   // ----------------------------------------------------------
