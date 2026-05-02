@@ -2,7 +2,7 @@
 	"name": "rokket-gsd",
 	"displayName": "Rokket GSD — The Premium GSD V2 / GSD PI UI",
 	"description": "The GSD-PI / GSD V2 VS Code extension — AI coding agent with chat UI, multi-model support, 40+ tool visualizations, Telegram voice relay, parallel workers, and workflow automation.",
-	"version": "0.3.54",
+	"version": "0.3.55",
 	"publisher": "rokketek",
 	"license": "MIT",
 	"repository": {
