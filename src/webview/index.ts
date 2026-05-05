@@ -94,13 +94,13 @@ root.innerHTML = `
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13.507 12.324a7 7 0 0 0 .065-8.56A7 7 0 0 0 2 4.393V2H1v3.5l.5.5H5V5H2.811a6.008 6.008 0 1 1-.135 5.77l-.887.462a7 7 0 0 0 11.718 1.092zM8 4h1v4.495L11.255 10l-.51.858L7.5 9.166V4H8z"/></svg>
           <span>History</span>
         </button>
-        <button class="gsd-action-btn" id="modelPickerBtn" title="Change AI model" aria-label="Change model">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm0-9.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM4.5 8a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg>
-          <span>Model</span>
-        </button>
         <button class="gsd-action-btn" id="telegramSyncBtn" title="Toggle Telegram sync for this conversation" aria-label="Telegram sync">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M14.3 1.3L1.5 6.8c-.9.3-.9.9-.1 1.1l3.3 1 1.2 3.9c.2.4.3.5.6.5.3 0 .5-.1.6-.3l1.5-1.5 3.1 2.3c.6.3 1 .2 1.1-.5L14.9 2c.2-.8-.3-1.2-1-.7zM6.3 9.6l-.7 2.1-.8-2.7 7.4-4.6L6.3 9.6z"/></svg>
           <span>Sync</span>
+        </button>
+        <button class="gsd-action-btn" id="modelPickerBtn" title="Change AI model" aria-label="Change model">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13A6 6 0 118 2a6 6 0 010 12zm0-9.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM4.5 8a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg>
+          <span>Model</span>
         </button>
         <button class="gsd-action-btn primary" id="newConvoBtn" title="Start a new conversation" aria-label="New conversation">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1a.5.5 0 01.5.5V7H14a.5.5 0 010 1H8.5v5.5a.5.5 0 01-1 0V8H2a.5.5 0 010-1h5.5V1.5A.5.5 0 018 1z"/></svg>
