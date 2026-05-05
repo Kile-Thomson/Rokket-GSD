@@ -105,8 +105,15 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     });
     this.bridge.setOnRestartRequest(async (sessionId) => {
       const session = this.sessions.get(sessionId);
-      const client = session?.client;
-      if (!client) return false;
+      if (!session) return false;
+      // If the process is fully dead (client null), do a fresh launch instead of restart.
+      if (!session.client) {
+        const webview = session.webview;
+        if (!webview) return false;
+        try { await this._doLaunchGsd(webview, sessionId); } catch { return false; }
+        return true;
+      }
+      const client = session.client;
       const ok = await client.restart();
       if (ok && session) {
         // The clean-exit handler nulls session.client when stop() fires during restart.

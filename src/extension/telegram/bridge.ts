@@ -810,6 +810,8 @@ export class TelegramBridge {
         }).catch((err: unknown) => {
           const errMsg = err instanceof Error ? err.message : String(err);
           this.logger.info(`[telegram-bridge] Tool end (deferred) edit error: ${redactToken(errMsg, this.botToken)}`);
+        }).finally(() => {
+          this._removeFromSessionTools(toolCallId);
         });
       } else {
         this.activeTools.set(toolCallId, tool);
@@ -817,6 +819,7 @@ export class TelegramBridge {
     }).catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.info(`[telegram-bridge] Tool start send error: ${redactToken(msg, this.botToken)}`);
+      this._removeFromSessionTools(toolCallId);
     });
   }
 
@@ -846,7 +849,10 @@ export class TelegramBridge {
       this.logger.info(`[telegram-bridge] Tool end edit error: ${redactToken(msg, this.botToken)}`);
     });
 
-    // Remove from session tracking
+    this._removeFromSessionTools(toolCallId);
+  }
+
+  private _removeFromSessionTools(toolCallId: string): void {
     for (const [sessionId, toolSet] of this.activeToolsBySession) {
       if (toolSet.has(toolCallId)) {
         toolSet.delete(toolCallId);
