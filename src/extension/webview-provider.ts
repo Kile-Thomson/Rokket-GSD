@@ -691,7 +691,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       try {
         const rpcState = await client.getState() as RpcStateResult;
         this.postToWebview(webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
-        this.postToWebview(webview, { type: "state", data: toGsdState(rpcState) } as ExtensionToWebviewMessage);
+        const gsdState = toGsdState(rpcState);
+        gsdState.telegramSyncActive = this.topicManager?.getTopicForSession(sessionId) !== undefined;
+        this.postToWebview(webview, { type: "state", data: gsdState } as ExtensionToWebviewMessage);
         if (rpcState?.model) this.emitStatus({ model: rpcState.model.id || rpcState.model.name });
       } catch (err: unknown) {
         this.output.appendLine(`[${sessionId}] Initial getState failed: ${toErrorMessage(err)}`);
