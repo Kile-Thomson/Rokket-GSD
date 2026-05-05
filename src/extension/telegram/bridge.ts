@@ -41,6 +41,7 @@ interface QueuedMessage {
 }
 
 export type InboundMessageCallback = (sessionId: string, text: string, images?: BridgeImage[]) => void;
+export type RestartRequestCallback = (sessionId: string) => Promise<boolean>;
 
 interface PendingQuestion {
   resolve: (value: string | null) => void;
@@ -63,11 +64,14 @@ export class TelegramBridge {
   private readonly EDIT_THROTTLE_MS = 2000;
   private streamingGranularity: "off" | "throttled" | "final-only" = "throttled";
   private onInboundMessage: InboundMessageCallback | undefined;
+  private onRestartRequest: RestartRequestCallback | undefined;
   private readonly messageQueue = new Map<string, QueuedMessage[]>();
   private readonly processingSession = new Set<string>();
   private readonly pendingQuestions = new Map<string, PendingQuestion>();
   private readonly activeTools = new Map<string, ActiveTool>();
   private readonly pendingToolEnds = new Map<string, { isError: boolean; durationMs?: number }>();
+  private readonly activeToolsBySession = new Map<string, Set<string>>();
+  private readonly pendingDoneBySession = new Map<string, { threadId: number; elapsedStr: string }>();
   private coordinator: PollerCoordinator | null = null;
   private polling = false;
   private transcribeVoice: ((audioBuffer: Buffer) => Promise<string>) | undefined;
@@ -101,6 +105,10 @@ export class TelegramBridge {
 
   setOnInboundMessage(cb: InboundMessageCallback): void {
     this.onInboundMessage = cb;
+  }
+
+  setOnRestartRequest(cb: RestartRequestCallback): void {
+    this.onRestartRequest = cb;
   }
 
   startPolling(): void {
@@ -175,6 +183,11 @@ export class TelegramBridge {
         this.logger.info(
           `[telegram-bridge] No session for topic ${message.message_thread_id}`,
         );
+        continue;
+      }
+
+      if (rawText.toLowerCase() === "/restart") {
+        await this.handleRestartCommand(sessionId, message.message_thread_id);
         continue;
       }
 
@@ -326,10 +339,26 @@ export class TelegramBridge {
       return undefined;
     };
 
+    const notifyUnavailable = (reason: string, threadId: number | undefined) => {
+      this.logger.info(`[telegram-bridge] GSD unavailable for ${sessionId}: ${reason}`);
+      if (threadId == null) return;
+      this.api.sendMessage(
+        this.chatId,
+        `⚠️ GSD is not responding — ${reason}. Your message was received but could not be delivered.`,
+        {
+          message_thread_id: threadId,
+          reply_markup: {
+            inline_keyboard: [[{ text: "🔄 Restart GSD", callback_data: `restart:${sessionId}` }]],
+          },
+        },
+      ).catch((err: unknown) => this.logger.info(`[telegram-bridge] failed to send unavailable notice: ${err instanceof Error ? err.message : String(err)}`));
+    };
+
     const deliver = async () => {
+      const threadId = this.topicManager.getTopicForSession(sessionId);
       let current = await waitForClient();
       if (!current?.client) {
-        this.logger.info(`[telegram-bridge] No client for ${sessionId} after retries, dropping message`);
+        notifyUnavailable("the session is not running", threadId ?? undefined);
         return;
       }
 
@@ -341,13 +370,12 @@ export class TelegramBridge {
         await new Promise((r) => setTimeout(r, 800));
         current = await waitForClient();
         if (!current?.client) {
-          this.logger.info(`[telegram-bridge] No client for ${sessionId} after abort settle, dropping message`);
+          notifyUnavailable("the session stopped while handling a previous message", threadId ?? undefined);
           return;
         }
       }
 
       this.onInboundMessage?.(sessionId, msg.text, msg.images);
-      const threadId = this.topicManager.getTopicForSession(sessionId);
       if (threadId != null) {
         this.startTypingLoop(sessionId, threadId);
       }
@@ -358,6 +386,7 @@ export class TelegramBridge {
       if (result === "timeout") {
         this.stopTypingLoop(sessionId);
         this.logger.info(`[telegram-bridge] prompt timed out for ${sessionId} — continuing drain`);
+        notifyUnavailable("the process stopped responding", threadId ?? undefined);
       } else {
         this.logger.info(`[telegram-bridge] Routed ${msg.routeLabel} to ${sessionId}`);
       }
@@ -368,6 +397,8 @@ export class TelegramBridge {
         this.stopTypingLoop(sessionId);
         const errMsg = err instanceof Error ? err.message : String(err);
         this.logger.info(`[telegram-bridge] prompt error for ${sessionId}: ${redactToken(errMsg, this.botToken)}`);
+        const catchThreadId = this.topicManager.getTopicForSession(sessionId);
+        notifyUnavailable("an unexpected error occurred", catchThreadId ?? undefined);
       })
       .finally(() => {
         this._activeDeliveries.delete(deliveryPromise);
@@ -430,9 +461,39 @@ export class TelegramBridge {
     }
   }
 
+  private async handleRestartCommand(sessionId: string, threadId: number): Promise<void> {
+    this.logger.info(`[telegram-bridge] /restart command for ${sessionId}`);
+    if (!this.onRestartRequest) {
+      await this.api.sendMessage(this.chatId, "⚠️ Restart is not available.", { message_thread_id: threadId })
+        .catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
+      return;
+    }
+    const statusMsg = await this.api.sendMessage(this.chatId, "🔄 Restarting GSD…", { message_thread_id: threadId })
+      .catch(() => null);
+    const ok = await this.onRestartRequest(sessionId).catch(() => false);
+    const resultText = ok ? "✅ GSD restarted." : "❌ Restart failed — no active session to restart.";
+    if (statusMsg) {
+      await this.api.editMessageText(this.chatId, statusMsg.message_id, resultText, { message_thread_id: threadId })
+        .catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
+    } else {
+      await this.api.sendMessage(this.chatId, resultText, { message_thread_id: threadId })
+        .catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
+    }
+  }
+
   private async handleCallbackQuery(query: CallbackQuery): Promise<void> {
     const data = query.data;
     if (!data) return;
+
+    if (data.startsWith("restart:")) {
+      const sessionId = data.slice("restart:".length);
+      const threadId = this.topicManager.getTopicForSession(sessionId);
+      await this.api.answerCallbackQuery(query.id, "Restarting…").catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
+      if (threadId != null) {
+        await this.handleRestartCommand(sessionId, threadId);
+      }
+      return;
+    }
 
     const match = data.match(/^q:([^:]+):(\d+)$/);
     if (!match) return;
@@ -575,21 +636,24 @@ export class TelegramBridge {
               this.logger.info(`[telegram-bridge] Send final error: ${redactToken(msg, this.botToken)}`);
             });
         }
-        await this.api.sendMessage(this.chatId, `✅ Done${elapsedStr}`, { message_thread_id: threadId, parse_mode: "HTML" })
-          .catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
-        return;
+      } else {
+        await this.api.editMessageText(this.chatId, resolvedMessageId, text, { parse_mode: "HTML" })
+          .then(() => this.logger.info(`[telegram-bridge] Final flush for ${sessionId}`))
+          .catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.logger.info(`[telegram-bridge] Final edit error: ${redactToken(msg, this.botToken)}`);
+          })
+          .finally(() => this.streamingState.delete(sessionId));
       }
 
-      await this.api.editMessageText(this.chatId, resolvedMessageId, text, { parse_mode: "HTML" })
-        .then(() => this.logger.info(`[telegram-bridge] Final flush for ${sessionId}`))
-        .catch((err: unknown) => {
-          const msg = err instanceof Error ? err.message : String(err);
-          this.logger.info(`[telegram-bridge] Final edit error: ${redactToken(msg, this.botToken)}`);
-        })
-        .finally(() => this.streamingState.delete(sessionId));
-
-      await this.api.sendMessage(this.chatId, `✅ Done${elapsedStr}`, { message_thread_id: threadId, parse_mode: "HTML" })
-        .catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
+      // Defer ✅ Done until all in-flight tools for this session have resolved
+      if ((this.activeToolsBySession.get(sessionId)?.size ?? 0) > 0) {
+        this.pendingDoneBySession.set(sessionId, { threadId, elapsedStr });
+        this.logger.info(`[telegram-bridge] Done deferred — tools still active for ${sessionId}`);
+      } else {
+        await this.api.sendMessage(this.chatId, `✅ Done${elapsedStr}`, { message_thread_id: threadId, parse_mode: "HTML" })
+          .catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
+      }
     };
 
     if (state?.placeholderPromise) {
@@ -710,6 +774,14 @@ export class TelegramBridge {
     const threadId = this.topicManager.getTopicForSession(sessionId);
     if (threadId == null) return;
 
+    // Track this tool under its session so handleStreamEnd can wait for it
+    let sessionTools = this.activeToolsBySession.get(sessionId);
+    if (!sessionTools) {
+      sessionTools = new Set();
+      this.activeToolsBySession.set(sessionId, sessionTools);
+    }
+    sessionTools.add(toolCallId);
+
     const summary = this.toolStatusText(toolName, args);
     const messageText = `⏳ ${summary}`;
 
@@ -738,6 +810,8 @@ export class TelegramBridge {
         }).catch((err: unknown) => {
           const errMsg = err instanceof Error ? err.message : String(err);
           this.logger.info(`[telegram-bridge] Tool end (deferred) edit error: ${redactToken(errMsg, this.botToken)}`);
+        }).finally(() => {
+          this._removeFromSessionTools(toolCallId);
         });
       } else {
         this.activeTools.set(toolCallId, tool);
@@ -745,6 +819,7 @@ export class TelegramBridge {
     }).catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.info(`[telegram-bridge] Tool start send error: ${redactToken(msg, this.botToken)}`);
+      this._removeFromSessionTools(toolCallId);
     });
   }
 
@@ -773,5 +848,28 @@ export class TelegramBridge {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.info(`[telegram-bridge] Tool end edit error: ${redactToken(msg, this.botToken)}`);
     });
+
+    this._removeFromSessionTools(toolCallId);
+  }
+
+  private _removeFromSessionTools(toolCallId: string): void {
+    for (const [sessionId, toolSet] of this.activeToolsBySession) {
+      if (toolSet.has(toolCallId)) {
+        toolSet.delete(toolCallId);
+        if (toolSet.size === 0) {
+          this.activeToolsBySession.delete(sessionId);
+          // Flush a deferred Done message if the turn already ended
+          const pending = this.pendingDoneBySession.get(sessionId);
+          if (pending) {
+            this.pendingDoneBySession.delete(sessionId);
+            this.api.sendMessage(this.chatId, `✅ Done${pending.elapsedStr}`, {
+              message_thread_id: pending.threadId,
+              parse_mode: "HTML",
+            }).catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
+          }
+        }
+        break;
+      }
+    }
   }
 }

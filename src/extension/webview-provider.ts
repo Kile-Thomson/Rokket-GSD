@@ -103,6 +103,31 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         });
       }
     });
+    this.bridge.setOnRestartRequest(async (sessionId) => {
+      const session = this.sessions.get(sessionId);
+      if (!session) return false;
+      // If the process is fully dead (client null), do a fresh launch instead of restart.
+      if (!session.client) {
+        const webview = session.webview;
+        if (!webview) return false;
+        try { await this._doLaunchGsd(webview, sessionId); } catch { return false; }
+        return true;
+      }
+      const client = session.client;
+      const ok = await client.restart();
+      if (ok && session) {
+        // The clean-exit handler nulls session.client when stop() fires during restart.
+        // Re-wire it so the bridge can find the client again for subsequent messages.
+        session.client = client;
+        // Re-negotiate the protocol so GSD is fully ready before we return.
+        try { await client.initV2("rokket-gsd"); } catch { /* fall back to v1 */ }
+        // Tell the webview the process is running again (exit handler posted "stopped").
+        if (session.webview) {
+          this.postToWebview(session.webview, { type: "process_status", status: "running" } as ExtensionToWebviewMessage);
+        }
+      }
+      return ok;
+    });
 
     return this.topicManager;
   }
