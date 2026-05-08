@@ -797,6 +797,7 @@ export class TelegramBridge {
     }, this.ORPHANED_TOOL_TIMEOUT_MS);
     this.toolTimeouts.set(toolCallId, orphanTimer);
 
+
     const summary = this.toolStatusText(toolName, args);
     const messageText = `⏳ ${summary}`;
 

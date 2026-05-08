@@ -536,7 +536,7 @@
       "format": "esm"
     },
     "src/extension/telegram/bridge.ts": {
-      "bytes": 36009,
+      "bytes": 36011,
       "imports": [
         {
           "path": "src/extension/telegram/api.ts",
@@ -885,7 +885,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 631278
+      "bytes": 631282
     },
     "dist/extension.js": {
       "imports": [

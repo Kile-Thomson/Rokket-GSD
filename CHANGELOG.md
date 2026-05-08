@@ -4,6 +4,18 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.59] — 2026-05-08
+
+### Added
+- **Push-to-talk voice** — hold the microphone button to record, release to transcribe and send; Space/Enter keyboard support included
+- **Orphaned tool safety net** — tool calls that never resolve are automatically closed with an error indicator after 5 minutes
+
+### Fixed
+- **Telegram slash commands in groups** — `/gsd@BotName` style commands are now correctly normalized; they were previously treated as plain text
+- **Telegram tool-call ordering** — tool status messages (⏳/✅) now appear in real time instead of all at once after the turn ends; ✅ Done fires via `agent_end` after all tools settle
+- **Orphaned tool error state** — timed-out tools now show an error indicator instead of a false success checkmark
+- **Restart error logging** — failed GSD re-launch on restart now logs the session ID and error to the output channel
+
 ## [0.3.49] — 2026-04-28
 
 ### Added
