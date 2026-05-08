@@ -110,7 +110,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       if (!session.client) {
         const webview = session.webview;
         if (!webview) return false;
-        try { await this._doLaunchGsd(webview, sessionId); } catch { return false; }
+        try { await this._doLaunchGsd(webview, sessionId); } catch (err: unknown) { this.output.appendLine(`[${sessionId}] Restart re-launch failed: ${toErrorMessage(err)}`); return false; }
         return true;
       }
       const client = session.client;
@@ -315,6 +315,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         this.bridge?.handleToolStart(sessionId, toolCallId, toolName, args),
       onToolEnd: (_sessionId, toolCallId, isError, durationMs) =>
         this.bridge?.handleToolEnd(toolCallId, isError, durationMs),
+      onAgentEnd: (sessionId) => this.bridge?.handleAgentEnd(sessionId),
     };
   }
 

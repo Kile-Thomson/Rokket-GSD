@@ -555,12 +555,34 @@ function cancelRecording(): void {
   vscode.postMessage({ type: "voice_cancel_recording" } as WebviewToExtensionMessage);
 }
 
-voiceBtn.addEventListener("click", () => {
-  if (voiceIsRecording) {
-    stopRecording();
-  } else {
-    startRecording();
-  }
+voiceBtn.addEventListener("mousedown", (e) => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  if (!voiceIsRecording) startRecording();
+});
+
+voiceBtn.addEventListener("mouseup", (e) => {
+  if (e.button !== 0) return;
+  if (voiceIsRecording) stopRecording();
+});
+
+voiceBtn.addEventListener("mouseleave", () => {
+  if (voiceIsRecording) stopRecording();
+});
+
+voiceBtn.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (e.key !== " " && e.key !== "Enter") return;
+  e.preventDefault();
+  if (!voiceIsRecording) startRecording();
+});
+
+voiceBtn.addEventListener("keyup", (e: KeyboardEvent) => {
+  if (e.key !== " " && e.key !== "Enter") return;
+  if (voiceIsRecording) stopRecording();
+});
+
+voiceBtn.addEventListener("blur", () => {
+  if (voiceIsRecording) stopRecording();
 });
 
 voiceCancelBtn.addEventListener("click", () => cancelRecording());
