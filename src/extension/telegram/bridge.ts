@@ -71,7 +71,8 @@ export class TelegramBridge {
   private readonly activeTools = new Map<string, ActiveTool>();
   private readonly pendingToolEnds = new Map<string, { isError: boolean; durationMs?: number }>();
   private readonly activeToolsBySession = new Map<string, Set<string>>();
-  private readonly pendingDoneBySession = new Map<string, { threadId: number; elapsedStr: string }>();
+  private readonly toolTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly ORPHANED_TOOL_TIMEOUT_MS = 5 * 60 * 1000;
   private coordinator: PollerCoordinator | null = null;
   private polling = false;
   private transcribeVoice: ((audioBuffer: Buffer) => Promise<string>) | undefined;
@@ -168,9 +169,15 @@ export class TelegramBridge {
         continue;
       }
 
-      const rawText = hasPhoto
-        ? (message.caption ?? message.text ?? "")
-        : (message.text ?? "");
+      // Strip @botname suffix that Telegram appends to slash commands in groups
+      // e.g. "/gsd@MyBot" → "/gsd", "/restart@MyBot arg" → "/restart arg"
+      const normalizeCommand = (t: string) =>
+        t.replace(/^(\/\w+)@\w+/, "$1");
+      const rawText = normalizeCommand(
+        hasPhoto
+          ? (message.caption ?? message.text ?? "")
+          : (message.text ?? ""),
+      );
       if (rawText.toLowerCase().startsWith("/telegram")) {
         this.logger.info("[telegram-bridge] Skipping /telegram command");
         continue;
@@ -621,9 +628,6 @@ export class TelegramBridge {
         state.pendingEdit = null;
       }
 
-      const elapsedMs = this.stopTypingLoop(sessionId);
-      const elapsedStr = elapsedMs != null ? `  <i>${(elapsedMs / 1000).toFixed(1)}s</i>` : "";
-
       const text = markdownToTelegramHtml(truncateMessage(finalText));
 
       if (!resolvedMessageId) {
@@ -645,15 +649,6 @@ export class TelegramBridge {
           })
           .finally(() => this.streamingState.delete(sessionId));
       }
-
-      // Defer ✅ Done until all in-flight tools for this session have resolved
-      if ((this.activeToolsBySession.get(sessionId)?.size ?? 0) > 0) {
-        this.pendingDoneBySession.set(sessionId, { threadId, elapsedStr });
-        this.logger.info(`[telegram-bridge] Done deferred — tools still active for ${sessionId}`);
-      } else {
-        await this.api.sendMessage(this.chatId, `✅ Done${elapsedStr}`, { message_thread_id: threadId, parse_mode: "HTML" })
-          .catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
-      }
     };
 
     if (state?.placeholderPromise) {
@@ -662,6 +657,18 @@ export class TelegramBridge {
     } else {
       doFlush(state?.messageId ?? null);
     }
+  }
+
+  handleAgentEnd(sessionId: string): void {
+    const threadId = this.topicManager.getTopicForSession(sessionId);
+    if (threadId == null) return;
+
+    const elapsedMs = this.stopTypingLoop(sessionId);
+    const elapsedStr = elapsedMs != null ? `  <i>${(elapsedMs / 1000).toFixed(1)}s</i>` : "";
+    this.logger.info(`[telegram-bridge] Agent end for ${sessionId}, elapsed=${elapsedMs}ms`);
+
+    this.api.sendMessage(this.chatId, `✅ Done${elapsedStr}`, { message_thread_id: threadId, parse_mode: "HTML" })
+      .catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
   }
 
   clearStreamingState(sessionId?: string): void {
@@ -782,6 +789,15 @@ export class TelegramBridge {
     }
     sessionTools.add(toolCallId);
 
+    // Safety net: if the tool never resolves, treat it as complete after timeout
+    const orphanTimer = setTimeout(() => {
+      this.logger.info(`[telegram-bridge] Orphaned tool timeout: ${toolName} (${toolCallId})`);
+      this.toolTimeouts.delete(toolCallId);
+      this.handleToolEnd(toolCallId, true);
+    }, this.ORPHANED_TOOL_TIMEOUT_MS);
+    this.toolTimeouts.set(toolCallId, orphanTimer);
+
+
     const summary = this.toolStatusText(toolName, args);
     const messageText = `⏳ ${summary}`;
 
@@ -853,20 +869,16 @@ export class TelegramBridge {
   }
 
   private _removeFromSessionTools(toolCallId: string): void {
+    const timer = this.toolTimeouts.get(toolCallId);
+    if (timer) {
+      clearTimeout(timer);
+      this.toolTimeouts.delete(toolCallId);
+    }
     for (const [sessionId, toolSet] of this.activeToolsBySession) {
       if (toolSet.has(toolCallId)) {
         toolSet.delete(toolCallId);
         if (toolSet.size === 0) {
           this.activeToolsBySession.delete(sessionId);
-          // Flush a deferred Done message if the turn already ended
-          const pending = this.pendingDoneBySession.get(sessionId);
-          if (pending) {
-            this.pendingDoneBySession.delete(sessionId);
-            this.api.sendMessage(this.chatId, `✅ Done${pending.elapsedStr}`, {
-              message_thread_id: pending.threadId,
-              parse_mode: "HTML",
-            }).catch((err: unknown) => console.warn("[telegram]", err instanceof Error ? err.message : err));
-          }
         }
         break;
       }
