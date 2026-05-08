@@ -110,7 +110,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       if (!session.client) {
         const webview = session.webview;
         if (!webview) return false;
-        try { await this._doLaunchGsd(webview, sessionId); } catch { return false; }
+        try { await this._doLaunchGsd(webview, sessionId); } catch (err: unknown) { this.output.appendLine(`[${sessionId}] Restart re-launch failed: ${toErrorMessage(err)}`); return false; }
         return true;
       }
       const client = session.client;

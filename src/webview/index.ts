@@ -570,6 +570,21 @@ voiceBtn.addEventListener("mouseleave", () => {
   if (voiceIsRecording) stopRecording();
 });
 
+voiceBtn.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (e.key !== " " && e.key !== "Enter") return;
+  e.preventDefault();
+  if (!voiceIsRecording) startRecording();
+});
+
+voiceBtn.addEventListener("keyup", (e: KeyboardEvent) => {
+  if (e.key !== " " && e.key !== "Enter") return;
+  if (voiceIsRecording) stopRecording();
+});
+
+voiceBtn.addEventListener("blur", () => {
+  if (voiceIsRecording) stopRecording();
+});
+
 voiceCancelBtn.addEventListener("click", () => cancelRecording());
 
 voiceProviders.addEventListener("click", (e) => {

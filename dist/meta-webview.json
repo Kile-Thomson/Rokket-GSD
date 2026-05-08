@@ -621,7 +621,7 @@
       "format": "esm"
     },
     "src/webview/index.ts": {
-      "bytes": 40739,
+      "bytes": 41178,
       "imports": [
         {
           "path": "src/webview/perf-utils.ts",
@@ -812,7 +812,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 891221
+      "bytes": 891963
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -944,10 +944,10 @@
           "bytesInOutput": 7068
         },
         "src/webview/index.ts": {
-          "bytesInOutput": 25227
+          "bytesInOutput": 25439
         }
       },
-      "bytes": 232496
+      "bytes": 232708
     },
     "dist/webview/index.css.map": {
       "imports": [],

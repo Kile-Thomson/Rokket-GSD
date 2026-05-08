@@ -793,7 +793,7 @@ export class TelegramBridge {
     const orphanTimer = setTimeout(() => {
       this.logger.info(`[telegram-bridge] Orphaned tool timeout: ${toolName} (${toolCallId})`);
       this.toolTimeouts.delete(toolCallId);
-      this.handleToolEnd(toolCallId, false);
+      this.handleToolEnd(toolCallId, true);
     }, this.ORPHANED_TOOL_TIMEOUT_MS);
     this.toolTimeouts.set(toolCallId, orphanTimer);
 

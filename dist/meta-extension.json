@@ -536,7 +536,7 @@
       "format": "esm"
     },
     "src/extension/telegram/bridge.ts": {
-      "bytes": 36010,
+      "bytes": 36009,
       "imports": [
         {
           "path": "src/extension/telegram/api.ts",
@@ -646,7 +646,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 35487,
+      "bytes": 35593,
       "imports": [
         {
           "path": "vscode",
@@ -885,7 +885,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 631114
+      "bytes": 631278
     },
     "dist/extension.js": {
       "imports": [
@@ -1197,7 +1197,7 @@
           "bytesInOutput": 3159
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 16705
+          "bytesInOutput": 16776
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 9944
@@ -1308,7 +1308,7 @@
           "bytesInOutput": 107
         }
       },
-      "bytes": 169176
+      "bytes": 169247
     }
   }
 }
