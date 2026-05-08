@@ -315,6 +315,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         this.bridge?.handleToolStart(sessionId, toolCallId, toolName, args),
       onToolEnd: (_sessionId, toolCallId, isError, durationMs) =>
         this.bridge?.handleToolEnd(toolCallId, isError, durationMs),
+      onAgentEnd: (sessionId) => this.bridge?.handleAgentEnd(sessionId),
     };
   }
 

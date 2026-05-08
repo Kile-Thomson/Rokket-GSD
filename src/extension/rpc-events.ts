@@ -32,6 +32,7 @@ export interface RpcEventContext {
   cancelTelegramQuestion?: (requestId: string) => void;
   onToolStart?: (sessionId: string, toolCallId: string, toolName: string, args: Record<string, unknown>) => void;
   onToolEnd?: (sessionId: string, toolCallId: string, isError: boolean, durationMs?: number) => void;
+  onAgentEnd?: (sessionId: string) => void;
 }
 
 // ============================================================
@@ -111,6 +112,7 @@ export function handleRpcEvent(
     }
     // Refresh workflow state after each agent turn
     ctx.refreshWorkflowState(webview, sessionId);
+    ctx.onAgentEnd?.(sessionId);
   } else if (eventType === "message_update") {
     const evt = event.assistantMessageEvent as Record<string, unknown> | undefined;
     if (evt && (evt.type === "text" || evt.type === "text_delta")) {
