@@ -62,6 +62,7 @@ export type WebviewToExtensionMessage =
   | { type: "ollama_action"; action: "load" | "unload" | "pull" | "remove"; model: string }
   | { type: "telegram_sync_toggle"; forceOff?: boolean }
   | { type: "telegram_setup" }
+  | { type: "set_telegram_bot_token"; token: string }
   | { type: "voice_audio"; audioBase64: string; mimeType: string }
   | { type: "voice_start_recording" }
   | { type: "voice_stop_recording" }

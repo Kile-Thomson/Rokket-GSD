@@ -150,6 +150,18 @@ export function updateHeaderUI(): void {
 
   // Context usage bar
   updateContextBar();
+
+  // Sync behavior toggle checkboxes with state
+  const compactCb = document.getElementById("toggleAutoCompact") as HTMLInputElement | null;
+  const retryCb = document.getElementById("toggleAutoRetry") as HTMLInputElement | null;
+  if (compactCb) {
+    compactCb.checked = state.sessionStats.autoCompactionEnabled === true;
+    compactCb.closest("[role=menuitemcheckbox]")?.setAttribute("aria-checked", String(compactCb.checked));
+  }
+  if (retryCb) {
+    retryCb.checked = state.sessionStats.autoRetryEnabled !== false;
+    retryCb.closest("[role=menuitemcheckbox]")?.setAttribute("aria-checked", String(retryCb.checked));
+  }
 }
 
 function updateContextBar(): void {

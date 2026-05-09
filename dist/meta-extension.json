@@ -235,7 +235,7 @@
       "format": "esm"
     },
     "src/shared/types.ts": {
-      "bytes": 24304,
+      "bytes": 24359,
       "imports": [],
       "format": "esm"
     },
@@ -381,7 +381,7 @@
       "format": "esm"
     },
     "src/extension/message-dispatch.ts": {
-      "bytes": 48763,
+      "bytes": 49005,
       "imports": [
         {
           "path": "vscode",
@@ -646,7 +646,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 35593,
+      "bytes": 35815,
       "imports": [
         {
           "path": "vscode",
@@ -885,7 +885,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 631282
+      "bytes": 632030
     },
     "dist/extension.js": {
       "imports": [
@@ -1197,7 +1197,7 @@
           "bytesInOutput": 3159
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 16776
+          "bytesInOutput": 16927
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 9944
@@ -1239,7 +1239,7 @@
           "bytesInOutput": 6553
         },
         "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 19816
+          "bytesInOutput": 19912
         },
         "src/extension/session-list-service.ts": {
           "bytesInOutput": 2191
@@ -1308,7 +1308,7 @@
           "bytesInOutput": 107
         }
       },
-      "bytes": 169247
+      "bytes": 169494
     }
   }
 }

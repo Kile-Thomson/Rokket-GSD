@@ -258,6 +258,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     await setTranscriptionApiKey(this.context.secrets, provider as TranscriptionProvider, key);
   }
 
+  private async setTelegramBotTokenConfig(token: string): Promise<void> {
+    await this.context.secrets.store("gsd.telegramBotToken", token);
+  }
+
   private async setVoiceRegionConfig(regionType: "azure", value: string): Promise<void> {
     const trimmed = value.trim();
     if (!trimmed) { return; }
@@ -581,6 +585,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       setVoiceProvider: (p) => this.setVoiceProviderConfig(p),
       setVoiceApiKey: (p, k) => this.setVoiceApiKeyConfig(p, k),
       setVoiceRegion: (t, v) => this.setVoiceRegionConfig(t, v),
+      setTelegramBotToken: (t) => this.setTelegramBotTokenConfig(t),
     };
 
     const disposable = webview.onDidReceiveMessage(async (msg) => {
