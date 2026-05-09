@@ -150,6 +150,16 @@ export function updateHeaderUI(): void {
 
   // Context usage bar
   updateContextBar();
+
+  // Sync behavior toggle checkboxes with state
+  const compactCb = document.getElementById("toggleAutoCompact") as HTMLInputElement | null;
+  const retryCb = document.getElementById("toggleAutoRetry") as HTMLInputElement | null;
+  if (compactCb && typeof state.sessionStats.autoCompactionEnabled === "boolean") {
+    compactCb.checked = state.sessionStats.autoCompactionEnabled;
+  }
+  if (retryCb && typeof state.sessionStats.autoRetryEnabled === "boolean") {
+    retryCb.checked = state.sessionStats.autoRetryEnabled;
+  }
 }
 
 function updateContextBar(): void {

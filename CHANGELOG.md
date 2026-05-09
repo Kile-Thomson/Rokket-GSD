@@ -4,7 +4,7 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.3.59] — 2026-05-08
+## [0.3.59] — 2026-05-10
 
 ### Added
 - **Push-to-talk voice** — hold the microphone button to record, release to transcribe and send; Space/Enter keyboard support included
@@ -15,6 +15,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **Telegram tool-call ordering** — tool status messages (⏳/✅) now appear in real time instead of all at once after the turn ends; ✅ Done fires via `agent_end` after all tools settle
 - **Orphaned tool error state** — timed-out tools now show an error indicator instead of a false success checkmark
 - **Restart error logging** — failed GSD re-launch on restart now logs the session ID and error to the output channel
+
+## [0.3.55] — 2026-05-05
+
+### Changed
+- **Telegram sync in header** — sync button moved before the model badge in the toolbar for quicker access
+- **UI polish** — improved footer and settings label readability, hover transitions on welcome chips, larger ASCII art, simplified model badge hover
+- **Accessibility** — added aria-labels to voice and file chip controls
+- **Removed dead CSS rules** and duplicate version display from welcome screen
+
+## [0.3.52] — 2026-05-02
+
+### Fixed
+- **Watchdog retry suppressed** — watchdog no longer retries after timeout; uses followUp instead of steer for queued messages
+- **xAI validation error logging** — transcription provider validation now logs xAI-specific errors; removed unused AWS provider option
 
 ## [0.3.49] — 2026-04-28
 

@@ -4,7 +4,7 @@
 
 <h1 align="center">Rokket GSD</h1>
 
-<h3 align="center">The GSD-PI / GSD V2 VS Code Extension — AI Coding Agent with Chat, Multi-Model, Voice &amp; Workflow Automation</h3>
+<h3 align="center">GSD2+ Premium GUI — AI Coding Agent with Chat, Multi-Model, Voice &amp; Workflow Automation</h3>
 
 <p align="center">
   Built on <a href="https://github.com/gsd-build/gsd-2">gsd-pi</a> by <a href="https://github.com/glittercowboy">Glittercowboy</a> (Lex Christopherson), based on <a href="https://github.com/badlogic/pi-mono">Pi Mono</a> by <a href="https://github.com/badlogic">Mario Zechner</a> ❤️
@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.3.49-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-0.3.59-blue" alt="Version" />
   <img src="https://img.shields.io/badge/VS%20Code-1.94%2B-blue" alt="VS Code" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform" />

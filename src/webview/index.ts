@@ -151,6 +151,20 @@ root.innerHTML = `
             </div>
             <div class="gsd-settings-divider"></div>
             <div class="gsd-settings-section">
+              <span class="gsd-settings-label">Behavior</span>
+              <div class="gsd-settings-toggles">
+                <label class="gsd-settings-toggle">
+                  <input type="checkbox" id="toggleAutoCompact" />
+                  <span>Auto-compact</span>
+                </label>
+                <label class="gsd-settings-toggle">
+                  <input type="checkbox" id="toggleAutoRetry" checked />
+                  <span>Auto-retry on error</span>
+                </label>
+              </div>
+            </div>
+            <div class="gsd-settings-divider"></div>
+            <div class="gsd-settings-section">
               <span class="gsd-settings-label">Voice Transcription</span>
               <div class="gsd-settings-voice-providers" id="voiceProviders">
                 <button class="gsd-settings-option active" data-provider="openai" role="menuitemradio" aria-checked="true">
@@ -176,6 +190,17 @@ root.innerHTML = `
               <div class="gsd-settings-voice-azure gsd-hidden" id="voiceAzureRegion">
                 <label class="gsd-settings-voice-label" for="voiceAzureRegionInput" title="The Azure datacenter region where your Speech Services resource is deployed. Find it in Azure Portal → your Speech resource → Keys and Endpoint.">Region</label>
                 <input type="text" class="gsd-settings-voice-key-input" id="voiceAzureRegionInput" placeholder="e.g. eastus, australiaeast" title="The Azure datacenter region where your Speech Services resource is deployed. Find it in Azure Portal → your Speech resource → Keys and Endpoint." autocomplete="off" />
+              </div>
+            </div>
+            <div class="gsd-settings-divider"></div>
+            <div class="gsd-settings-section">
+              <span class="gsd-settings-label">Telegram</span>
+              <div class="gsd-settings-voice-key">
+                <div class="gsd-settings-voice-key-row">
+                  <input type="password" class="gsd-settings-voice-key-input" id="telegramTokenInput" placeholder="Paste bot token..." autocomplete="off" />
+                  <button class="gsd-settings-voice-key-save" id="telegramTokenSave">Save</button>
+                </div>
+                <span class="gsd-settings-voice-key-status" id="telegramTokenStatus"></span>
               </div>
             </div>
           </div>
@@ -292,6 +317,11 @@ const voiceKeySave = document.getElementById("voiceKeySave")!;
 const voiceKeyStatus = document.getElementById("voiceKeyStatus")!;
 const voiceAzureRegionEl = document.getElementById("voiceAzureRegion")!;
 const voiceAzureRegionInput = document.getElementById("voiceAzureRegionInput") as HTMLInputElement;
+const toggleAutoCompact = document.getElementById("toggleAutoCompact") as HTMLInputElement;
+const toggleAutoRetry = document.getElementById("toggleAutoRetry") as HTMLInputElement;
+const telegramTokenInput = document.getElementById("telegramTokenInput") as HTMLInputElement;
+const telegramTokenSave = document.getElementById("telegramTokenSave")!;
+const telegramTokenStatus = document.getElementById("telegramTokenStatus")!;
 const voiceRecordingEl = document.getElementById("voiceRecording")!;
 const voiceRecordingTime = document.getElementById("voiceRecordingTime")!;
 const voiceCancelBtn = document.getElementById("voiceCancelBtn")!;
@@ -619,6 +649,35 @@ voiceAzureRegionInput.addEventListener("change", () => {
   const val = voiceAzureRegionInput.value.trim();
   if (val) vscode.postMessage({ type: "set_voice_region", regionType: "azure", value: val } as WebviewToExtensionMessage);
 });
+
+// Behavior toggles
+toggleAutoCompact.addEventListener("change", (e) => {
+  e.stopPropagation();
+  const enabled = toggleAutoCompact.checked;
+  vscode.postMessage({ type: "set_auto_compaction", enabled } as WebviewToExtensionMessage);
+  state.sessionStats.autoCompactionEnabled = enabled;
+  toggleAutoCompact.closest("[role=menuitemcheckbox]")?.setAttribute("aria-checked", String(enabled));
+});
+toggleAutoCompact.addEventListener("click", (e) => e.stopPropagation());
+
+toggleAutoRetry.addEventListener("change", (e) => {
+  e.stopPropagation();
+  const enabled = toggleAutoRetry.checked;
+  vscode.postMessage({ type: "set_auto_retry", enabled } as WebviewToExtensionMessage);
+  state.sessionStats.autoRetryEnabled = enabled;
+  toggleAutoRetry.closest("[role=menuitemcheckbox]")?.setAttribute("aria-checked", String(enabled));
+});
+toggleAutoRetry.addEventListener("click", (e) => e.stopPropagation());
+
+// Telegram bot token
+telegramTokenSave.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const token = telegramTokenInput.value.trim();
+  if (!token) return;
+  telegramTokenStatus.textContent = "Saving…";
+  vscode.postMessage({ type: "set_telegram_bot_token", token } as WebviewToExtensionMessage);
+});
+telegramTokenInput.addEventListener("click", (e) => e.stopPropagation());
 
 // ============================================================
 // Slash command menu — input listener
