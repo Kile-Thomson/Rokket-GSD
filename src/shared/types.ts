@@ -62,6 +62,7 @@ export type WebviewToExtensionMessage =
   | { type: "ollama_action"; action: "load" | "unload" | "pull" | "remove"; model: string }
   | { type: "telegram_sync_toggle"; forceOff?: boolean }
   | { type: "telegram_setup" }
+  | { type: "set_telegram_bot_token"; token: string }
   | { type: "voice_audio"; audioBase64: string; mimeType: string }
   | { type: "voice_start_recording" }
   | { type: "voice_stop_recording" }
@@ -140,7 +141,8 @@ export type ExtensionToWebviewMessage =
   | { type: "voice_recording_started" }
   | { type: "voice_recording_stopped" }
   | { type: "voice_error"; message: string }
-  | { type: "voice_config"; provider: string; hasOpenaiKey: boolean; hasAzureKey: boolean; hasXaiKey: boolean; openaiKeyVerified?: boolean; azureKeyVerified?: boolean; xaiKeyVerified?: boolean; azureRegion: string };
+  | { type: "voice_config"; provider: string; hasOpenaiKey: boolean; hasAzureKey: boolean; hasXaiKey: boolean; openaiKeyVerified?: boolean; azureKeyVerified?: boolean; xaiKeyVerified?: boolean; azureRegion: string }
+  | { type: "telegram_token_saved"; success: boolean; error?: string };
 
 // --- Session List Types ---
 

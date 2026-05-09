@@ -1089,6 +1089,59 @@
   opacity: 1;
 }
 
+.gsd-settings-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gsd-space-xxs);
+}
+.gsd-settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--gsd-space-md);
+  padding: 6px 8px;
+  border-radius: var(--gsd-radius-md);
+  cursor: pointer;
+  font-size: var(--gsd-font-size-base);
+  color: var(--gsd-color-text);
+  transition: background 0.1s;
+}
+.gsd-settings-toggle:hover {
+  background: var(--gsd-color-surface-hover);
+}
+.gsd-settings-toggle input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--gsd-color-border);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.gsd-settings-toggle input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--gsd-color-border-focus);
+  outline-offset: 2px;
+}
+.gsd-settings-toggle input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--gsd-radius-circle);
+  background: var(--gsd-color-text);
+  transition: transform 0.2s;
+}
+.gsd-settings-toggle input[type="checkbox"]:checked {
+  background: var(--gsd-color-border-focus);
+}
+.gsd-settings-toggle input[type="checkbox"]:checked::after {
+  transform: translateX(14px);
+}
+
 .gsd-settings-key-badge {
   margin-left: auto;
   font-size: 10px;

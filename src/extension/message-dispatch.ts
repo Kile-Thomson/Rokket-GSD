@@ -85,6 +85,7 @@ export interface MessageDispatchContext {
   setVoiceProvider?: (provider: string) => Promise<void>;
   setVoiceApiKey?: (provider: string, key: string) => Promise<void>;
   setVoiceRegion?: (regionType: "azure", value: string) => Promise<void>;
+  setTelegramBotToken?: (token: string) => Promise<void>;
 }
 
 // ============================================================
@@ -1028,6 +1029,19 @@ export async function handleWebviewMessage(
 
         case "telegram_setup": {
           await vscode.commands.executeCommand("gsd.telegramSetup");
+          break;
+        }
+
+        case "set_telegram_bot_token": {
+          try {
+            if (ctx.setTelegramBotToken) {
+              await ctx.setTelegramBotToken(msg.token);
+            }
+            webview.postMessage({ type: "telegram_token_saved", success: true });
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            webview.postMessage({ type: "telegram_token_saved", success: false, error: message });
+          }
           break;
         }
 
