@@ -141,7 +141,8 @@ export type ExtensionToWebviewMessage =
   | { type: "voice_recording_started" }
   | { type: "voice_recording_stopped" }
   | { type: "voice_error"; message: string }
-  | { type: "voice_config"; provider: string; hasOpenaiKey: boolean; hasAzureKey: boolean; hasXaiKey: boolean; openaiKeyVerified?: boolean; azureKeyVerified?: boolean; xaiKeyVerified?: boolean; azureRegion: string };
+  | { type: "voice_config"; provider: string; hasOpenaiKey: boolean; hasAzureKey: boolean; hasXaiKey: boolean; openaiKeyVerified?: boolean; azureKeyVerified?: boolean; xaiKeyVerified?: boolean; azureRegion: string }
+  | { type: "telegram_token_saved"; success: boolean; error?: string };
 
 // --- Session List Types ---
 

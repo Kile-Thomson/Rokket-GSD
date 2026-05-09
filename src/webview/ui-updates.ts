@@ -154,13 +154,11 @@ export function updateHeaderUI(): void {
   // Sync behavior toggle checkboxes with state
   const compactCb = document.getElementById("toggleAutoCompact") as HTMLInputElement | null;
   const retryCb = document.getElementById("toggleAutoRetry") as HTMLInputElement | null;
-  if (compactCb) {
-    compactCb.checked = state.sessionStats.autoCompactionEnabled === true;
-    compactCb.closest("[role=menuitemcheckbox]")?.setAttribute("aria-checked", String(compactCb.checked));
+  if (compactCb && typeof state.sessionStats.autoCompactionEnabled === "boolean") {
+    compactCb.checked = state.sessionStats.autoCompactionEnabled;
   }
-  if (retryCb) {
-    retryCb.checked = state.sessionStats.autoRetryEnabled !== false;
-    retryCb.closest("[role=menuitemcheckbox]")?.setAttribute("aria-checked", String(retryCb.checked));
+  if (retryCb && typeof state.sessionStats.autoRetryEnabled === "boolean") {
+    retryCb.checked = state.sessionStats.autoRetryEnabled;
   }
 }
 

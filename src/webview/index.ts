@@ -153,11 +153,11 @@ root.innerHTML = `
             <div class="gsd-settings-section">
               <span class="gsd-settings-label">Behavior</span>
               <div class="gsd-settings-toggles">
-                <label class="gsd-settings-toggle" role="menuitemcheckbox" aria-checked="false">
+                <label class="gsd-settings-toggle">
                   <input type="checkbox" id="toggleAutoCompact" />
                   <span>Auto-compact</span>
                 </label>
-                <label class="gsd-settings-toggle" role="menuitemcheckbox" aria-checked="true">
+                <label class="gsd-settings-toggle">
                   <input type="checkbox" id="toggleAutoRetry" checked />
                   <span>Auto-retry on error</span>
                 </label>
@@ -674,10 +674,8 @@ telegramTokenSave.addEventListener("click", (e) => {
   e.stopPropagation();
   const token = telegramTokenInput.value.trim();
   if (!token) return;
+  telegramTokenStatus.textContent = "Saving…";
   vscode.postMessage({ type: "set_telegram_bot_token", token } as WebviewToExtensionMessage);
-  telegramTokenInput.value = "";
-  telegramTokenStatus.textContent = "Saved!";
-  setTimeout(() => { telegramTokenStatus.textContent = ""; }, 2000);
 });
 telegramTokenInput.addEventListener("click", (e) => e.stopPropagation());
 

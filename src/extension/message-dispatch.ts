@@ -1033,8 +1033,14 @@ export async function handleWebviewMessage(
         }
 
         case "set_telegram_bot_token": {
-          if (ctx.setTelegramBotToken) {
-            await ctx.setTelegramBotToken(msg.token);
+          try {
+            if (ctx.setTelegramBotToken) {
+              await ctx.setTelegramBotToken(msg.token);
+            }
+            webview.postMessage({ type: "telegram_token_saved", success: true });
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            webview.postMessage({ type: "telegram_token_saved", success: false, error: message });
           }
           break;
         }
