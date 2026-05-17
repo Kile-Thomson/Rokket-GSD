@@ -1366,6 +1366,22 @@ function handleMessage(event: MessageEvent): void {
       break;
     }
 
+    case "telegram_owner_id_saved": {
+      const res = msg as any;
+      const statusEl = document.getElementById("telegramOwnerIdStatus");
+      const inputEl = document.getElementById("telegramOwnerIdInput") as HTMLInputElement | null;
+      if (statusEl) {
+        if (res.success) {
+          statusEl.textContent = "Saved!";
+          if (inputEl) inputEl.value = "";
+        } else {
+          statusEl.textContent = res.error || "Failed";
+        }
+        setTimeout(() => { statusEl.textContent = ""; }, 2000);
+      }
+      break;
+    }
+
     case "voice_config": {
       const vc = msg as any;
       state.voiceProvider = vc.provider || "openai";

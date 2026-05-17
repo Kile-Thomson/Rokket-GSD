@@ -202,6 +202,13 @@ root.innerHTML = `
                 </div>
                 <span class="gsd-settings-voice-key-status" id="telegramTokenStatus"></span>
               </div>
+              <div class="gsd-settings-voice-key">
+                <div class="gsd-settings-voice-key-row">
+                  <input type="text" class="gsd-settings-voice-key-input" id="telegramOwnerIdInput" placeholder="Paste your user ID..." autocomplete="off" />
+                  <button class="gsd-settings-voice-key-save" id="telegramOwnerIdSave">Save</button>
+                </div>
+                <span class="gsd-settings-voice-key-status" id="telegramOwnerIdStatus"></span>
+              </div>
             </div>
           </div>
         </div>
@@ -322,6 +329,9 @@ const toggleAutoRetry = document.getElementById("toggleAutoRetry") as HTMLInputE
 const telegramTokenInput = document.getElementById("telegramTokenInput") as HTMLInputElement;
 const telegramTokenSave = document.getElementById("telegramTokenSave")!;
 const telegramTokenStatus = document.getElementById("telegramTokenStatus")!;
+const telegramOwnerIdInput = document.getElementById("telegramOwnerIdInput") as HTMLInputElement;
+const telegramOwnerIdSave = document.getElementById("telegramOwnerIdSave")!;
+const telegramOwnerIdStatus = document.getElementById("telegramOwnerIdStatus")!;
 const voiceRecordingEl = document.getElementById("voiceRecording")!;
 const voiceRecordingTime = document.getElementById("voiceRecordingTime")!;
 const voiceCancelBtn = document.getElementById("voiceCancelBtn")!;
@@ -678,6 +688,16 @@ telegramTokenSave.addEventListener("click", (e) => {
   vscode.postMessage({ type: "set_telegram_bot_token", token } as WebviewToExtensionMessage);
 });
 telegramTokenInput.addEventListener("click", (e) => e.stopPropagation());
+
+// Telegram owner ID
+telegramOwnerIdSave.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const ownerId = telegramOwnerIdInput.value.trim();
+  if (!ownerId) return;
+  telegramOwnerIdStatus.textContent = "Saving…";
+  vscode.postMessage({ type: "set_telegram_owner_id", ownerId } as WebviewToExtensionMessage);
+});
+telegramOwnerIdInput.addEventListener("click", (e) => e.stopPropagation());
 
 // ============================================================
 // Slash command menu — input listener

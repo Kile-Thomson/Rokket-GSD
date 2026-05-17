@@ -145,6 +145,17 @@
 					],
 					"description": "Controls how GSD streams messages to Telegram (set automatically by /telegram setup)."
 				},
+				"gsd.telegramOwnerId": {
+					"type": "number",
+					"default": 0,
+					"description": "Your Telegram user ID. Only this user can trigger launch commands. Use /whoami in the group to find it."
+				},
+				"gsd.telegramProjectDirs": {
+					"type": "array",
+					"items": { "type": "string" },
+					"default": [],
+					"description": "Directories to search when launching projects from Telegram general chat. E.g. [\"G:/Dropbox/Rocket Social/Rokketek/Software\"]."
+				},
 				"gsd.voiceTranscriptionProvider": {
 					"type": "string",
 					"default": "openai",

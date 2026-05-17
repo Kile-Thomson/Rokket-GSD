@@ -92,7 +92,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       },
     );
     this.bridge.setStreamingGranularity(telegramConfig.streamingGranularity);
-    this.bridge.setOnInboundMessage((sessionId, text, images) => {
+    if (telegramConfig.ownerId) this.bridge.setOwnerId(telegramConfig.ownerId);
+    if (telegramConfig.projectSearchDirs.length > 0) this.bridge.setProjectSearchDirs(telegramConfig.projectSearchDirs);
+    this.bridge.startPolling();
+    this.bridge.setOnInboundMessage((sessionId, text, images, opts) => {
+      if (opts?.isGeneralTopic) return;
       const session = this.sessions.get(sessionId);
       const webview = session?.webview;
       if (webview) {
@@ -102,6 +106,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
           images: images?.map(img => ({ type: "image" as const, data: img.data, mimeType: img.mimeType })),
         });
       }
+    });
+    this.bridge.setOnLaunchRequest(async (folderPath) => {
+      await this.handleTelegramLaunch(folderPath);
     });
     this.bridge.setOnRestartRequest(async (sessionId) => {
       const session = this.sessions.get(sessionId);
@@ -149,8 +156,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         await tm.syncOff(sessionId);
         this.postToWebview(webview, { type: "state", data: { telegramSyncActive: false } } as any);
         this.output.appendLine(`[telegram-sync] Sync off for session ${sessionId}`);
-        if (this.bridge && tm.activeSessions.length === 0) {
-          this.bridge.stopPolling();
+        if (this.bridge) {
+          // Update general session: pick the next active session, or clear if none
+          const remaining = tm.activeSessions;
+          this.bridge.setGeneralSession(remaining.length > 0 ? remaining[0] : null);
         }
       } else {
         const folderName = vscode.workspace.workspaceFolders?.[0]?.name ?? "Untitled";
@@ -158,7 +167,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         this.postToWebview(webview, { type: "state", data: { telegramSyncActive: true } } as any);
         this.output.appendLine(`[telegram-sync] Sync on for session ${sessionId}`);
         if (this.bridge) {
-          this.bridge.startPolling();
+          // First synced session becomes the general session (leader)
+          if (!this.bridge.getGeneralSessionId()) {
+            this.bridge.setGeneralSession(sessionId);
+          }
         }
       }
     } catch (err: unknown) {
@@ -168,6 +180,51 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       const redacted = telegramConfig ? redactToken(msg, telegramConfig.botToken) : msg;
       this.output.appendLine(`[telegram-sync] Error: ${redacted}`);
     }
+  }
+
+  private static readonly PENDING_LAUNCH_KEY = "gsd.telegramPendingLaunch";
+
+  private async handleTelegramLaunch(folderPath: string): Promise<void> {
+    const resolved = folderPath.startsWith("~")
+      ? path.join(os.homedir(), folderPath.slice(1))
+      : path.resolve(folderPath);
+
+    if (!fs.existsSync(resolved)) {
+      throw new Error(`Folder not found: ${resolved}`);
+    }
+
+    // Write a pending launch flag so the new window auto-syncs Telegram
+    const pending = { folderPath: resolved, timestamp: Date.now() };
+    await this.context.globalState.update(GsdWebviewProvider.PENDING_LAUNCH_KEY, pending);
+    this.output.appendLine(`[telegram-launch] Pending launch written for ${resolved}`);
+
+    // Open the folder in a new VS Code window
+    const uri = vscode.Uri.file(resolved);
+    await vscode.commands.executeCommand("vscode.openFolder", uri, { forceNewWindow: true });
+  }
+
+  async checkPendingTelegramLaunch(webview: vscode.Webview, sessionId: string): Promise<void> {
+    const pending = this.context.globalState.get<{ folderPath: string; timestamp: number }>(GsdWebviewProvider.PENDING_LAUNCH_KEY);
+    if (!pending) return;
+
+    // Only consume if less than 60 seconds old and matches current workspace
+    const age = Date.now() - pending.timestamp;
+    if (age > 60_000) {
+      await this.context.globalState.update(GsdWebviewProvider.PENDING_LAUNCH_KEY, undefined);
+      return;
+    }
+
+    const currentFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!currentFolder) return;
+
+    // Normalize paths for comparison (Windows case-insensitive, forward/back slashes)
+    const normalize = (p: string) => p.replace(/\\/g, "/").toLowerCase();
+    if (normalize(currentFolder) !== normalize(pending.folderPath)) return;
+
+    // Consume the flag and auto-sync
+    await this.context.globalState.update(GsdWebviewProvider.PENDING_LAUNCH_KEY, undefined);
+    this.output.appendLine(`[telegram-launch] Auto-syncing for launched folder ${currentFolder}`);
+    await this.handleTelegramSyncToggle(sessionId, webview);
   }
 
   private async handleVoiceTranscription(audioBuffer: Buffer, webview: vscode.Webview): Promise<void> {
@@ -270,6 +327,14 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.bridge = null;
     }
     this.topicManager = null;
+  }
+
+  private async setTelegramOwnerIdConfig(ownerId: number): Promise<void> {
+    const config = vscode.workspace.getConfiguration("gsd");
+    await config.update("telegramOwnerId", ownerId, vscode.ConfigurationTarget.Global);
+    if (this.bridge) {
+      this.bridge.setOwnerId(ownerId);
+    }
   }
 
   private async setVoiceRegionConfig(regionType: "azure", value: string): Promise<void> {
@@ -596,6 +661,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       setVoiceApiKey: (p, k) => this.setVoiceApiKeyConfig(p, k),
       setVoiceRegion: (t, v) => this.setVoiceRegionConfig(t, v),
       setTelegramBotToken: (t) => this.setTelegramBotTokenConfig(t),
+      setTelegramOwnerId: (id) => this.setTelegramOwnerIdConfig(id),
     };
 
     const disposable = webview.onDidReceiveMessage(async (msg) => {
@@ -751,6 +817,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       startStatsPolling(this.pollingCtx, webview, sessionId);
       startHealthMonitoring(this.pollingCtx, webview, sessionId);
       startWorkflowPolling(this.pollingCtx, webview, sessionId);
+
+      // Check if this window was opened via a Telegram /launch command
+      this.checkPendingTelegramLaunch(webview, sessionId).catch((err: unknown) => {
+        this.output.appendLine(`[telegram-launch] Auto-sync check failed: ${toErrorMessage(err)}`);
+      });
     } catch (err: unknown) {
       this.postToWebview(webview, {
         type: "process_exit", code: null, signal: null,
