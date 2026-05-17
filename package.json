@@ -2,7 +2,7 @@
 	"name": "rokket-gsd",
 	"displayName": "GSD2+ Premium GUI — RokketGSD",
 	"description": "The GSD-PI / GSD V2 VS Code extension — AI coding agent with chat UI, multi-model support, 40+ tool visualizations, Telegram voice relay, parallel workers, and workflow automation.",
-	"version": "0.3.61",
+	"version": "0.3.62",
 	"publisher": "rokketek",
 	"license": "MIT",
 	"repository": {
@@ -152,7 +152,9 @@
 				},
 				"gsd.telegramProjectDirs": {
 					"type": "array",
-					"items": { "type": "string" },
+					"items": {
+						"type": "string"
+					},
 					"default": [],
 					"description": "Directories to search when launching projects from Telegram general chat. E.g. [\"G:/Dropbox/Rocket Social/Rokketek/Software\"]."
 				},
