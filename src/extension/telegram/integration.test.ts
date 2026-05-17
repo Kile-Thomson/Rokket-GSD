@@ -162,6 +162,7 @@ describe("Telegram Integration (composed system)", () => {
       BOT_TOKEN,
       CHAT_ID,
     );
+    bridge.setOwnerId(555);
   });
 
   afterEach(() => {

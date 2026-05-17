@@ -3,6 +3,16 @@ import { TelegramBridge } from "./bridge";
 import type { TelegramApi, TelegramUpdate } from "./api";
 import type { TopicManager, TopicManagerLogger } from "./topicManager";
 import type { BridgeClient, BridgeSessionState } from "./bridge";
+import * as fs from "fs";
+
+vi.mock("fs", () => ({
+  existsSync: vi.fn().mockReturnValue(false),
+  readdirSync: vi.fn().mockReturnValue([]),
+  default: {
+    existsSync: vi.fn().mockReturnValue(false),
+    readdirSync: vi.fn().mockReturnValue([]),
+  },
+}));
 
 function createMockApi(updates: TelegramUpdate[] = []): TelegramApi {
   let callCount = 0;
@@ -13,6 +23,8 @@ function createMockApi(updates: TelegramUpdate[] = []): TelegramApi {
     }),
     sendMessage: vi.fn().mockResolvedValue({ message_id: 1, chat: { id: 1, type: "supergroup" } }),
     editMessageText: vi.fn().mockResolvedValue({ message_id: 1, chat: { id: 1, type: "supergroup" } }),
+    sendChatAction: vi.fn().mockResolvedValue(true),
+    answerCallbackQuery: vi.fn().mockResolvedValue(true),
     getFile: vi.fn().mockResolvedValue({ file_id: "fid", file_unique_id: "u", file_path: "photos/file_0.jpg" }),
     downloadFile: vi.fn().mockResolvedValue({ base64: "aW1hZ2VkYXRh", mimeType: "image/jpeg" }),
   } as unknown as TelegramApi;
@@ -80,6 +92,7 @@ describe("TelegramBridge", () => {
       BOT_TOKEN,
       CHAT_ID,
     );
+    bridge.setOwnerId(99);
   }
 
   describe("polling", () => {
@@ -215,14 +228,25 @@ describe("TelegramBridge", () => {
       );
     });
 
-    it("skips messages without thread_id", async () => {
+    it("sends concierge-unavailable for General topic when no general session", async () => {
       setup();
+      bridge.setOwnerId(99);
       await bridge._testInjectUpdates([{
         update_id: 1,
-        message: { message_id: 1, chat: { id: 1, type: "g" }, text: "hi" },
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "hi",
+        },
       }]);
       expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining("without thread_id"),
+        expect.stringContaining("no general session"),
+      );
+      expect(api.sendMessage).toHaveBeenCalledWith(
+        CHAT_ID,
+        expect.stringContaining("No active session"),
+        expect.anything(),
       );
     });
 
@@ -781,6 +805,384 @@ describe("TelegramBridge", () => {
       }]);
       expect(client.prompt).toHaveBeenCalledWith("has text", undefined);
       expect(api.getFile).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("General topic routing", () => {
+    it("routes General topic messages to the general session's GSD process", async () => {
+      const client = createMockClient();
+      setup([], new Map(), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      bridge.setGeneralSession("s1");
+      bridge.setOwnerId(99);
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "hello from general",
+        },
+      }]);
+      expect(client.prompt).toHaveBeenCalledWith("hello from general", undefined);
+    });
+
+    it("sends concierge-unavailable message when no general session exists", async () => {
+      setup();
+      bridge.setOwnerId(99);
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "hi",
+        },
+      }]);
+      expect(api.sendMessage).toHaveBeenCalledWith(
+        CHAT_ID,
+        expect.stringContaining("No active session"),
+        expect.anything(),
+      );
+    });
+  });
+
+  describe("launch command parsing", () => {
+    it("parses /launch <path>", () => {
+      setup();
+      expect(bridge.parseLaunchCommand("/launch ~/projects/foo")).toBe("~/projects/foo");
+    });
+
+    it("parses /launch with absolute path", () => {
+      setup();
+      expect(bridge.parseLaunchCommand("/launch C:\\Users\\me\\project")).toBe("C:\\Users\\me\\project");
+    });
+
+    it("parses 'launch gsd in <path>'", () => {
+      setup();
+      expect(bridge.parseLaunchCommand("launch gsd in ~/my-project")).toBe("~/my-project");
+    });
+
+    it("parses 'launch <path>'", () => {
+      setup();
+      expect(bridge.parseLaunchCommand("launch ~/foo")).toBe("~/foo");
+    });
+
+    it("parses 'open <path>'", () => {
+      setup();
+      expect(bridge.parseLaunchCommand("open ~/bar")).toBe("~/bar");
+    });
+
+    it("parses 'open project <path>'", () => {
+      setup();
+      expect(bridge.parseLaunchCommand("open project ~/baz")).toBe("~/baz");
+    });
+
+    it("returns null for non-launch messages", () => {
+      setup();
+      expect(bridge.parseLaunchCommand("hello world")).toBeNull();
+      expect(bridge.parseLaunchCommand("how are you")).toBeNull();
+    });
+
+    it("handles launch commands from General topic", async () => {
+      const launchHandler = vi.fn().mockResolvedValue(undefined);
+      setup();
+      bridge.setOnLaunchRequest(launchHandler);
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "/launch ~/projects/foo",
+        },
+      }]);
+      expect(launchHandler).toHaveBeenCalledWith("~/projects/foo");
+    });
+
+    it("blocks all commands from non-owner when ownerId is set", async () => {
+      const launchHandler = vi.fn().mockResolvedValue(undefined);
+      setup();
+      bridge.setOnLaunchRequest(launchHandler);
+      bridge.setOwnerId(42);
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "Stranger" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "/launch ~/projects/foo",
+        },
+      }]);
+      expect(launchHandler).not.toHaveBeenCalled();
+    });
+
+    it("allows launch commands from owner when ownerId is set", async () => {
+      const launchHandler = vi.fn().mockResolvedValue(undefined);
+      setup();
+      bridge.setOnLaunchRequest(launchHandler);
+      bridge.setOwnerId(42);
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 42, is_bot: false, first_name: "Owner" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "/launch ~/projects/foo",
+        },
+      }]);
+      expect(launchHandler).toHaveBeenCalledWith("~/projects/foo");
+    });
+
+    it("blocks all commands when ownerId is not set", async () => {
+      const launchHandler = vi.fn().mockResolvedValue(undefined);
+      setup();
+      bridge.setOnLaunchRequest(launchHandler);
+      bridge.setOwnerId(null);
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 999, is_bot: false, first_name: "Anyone" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "/launch ~/projects/foo",
+        },
+      }]);
+      expect(launchHandler).not.toHaveBeenCalled();
+      expect(api.sendMessage).toHaveBeenCalledWith(
+        CHAT_ID,
+        expect.stringContaining("No owner ID configured"),
+        expect.anything(),
+      );
+    });
+
+    it("allows /whoami even when ownerId is not set", async () => {
+      setup();
+      bridge.setOwnerId(null);
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 999, is_bot: false, first_name: "Anyone", username: "anyone" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "/whoami",
+        },
+      }]);
+      expect(api.sendMessage).toHaveBeenCalledWith(
+        CHAT_ID,
+        expect.stringContaining("999"),
+        expect.objectContaining({ parse_mode: "Markdown" }),
+      );
+    });
+  });
+
+  describe("project finder", () => {
+    beforeEach(() => {
+      setup();
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+      vi.mocked(fs.readdirSync).mockReturnValue([]);
+    });
+
+    function mockDirs(baseDir: string, subdirs: string[]) {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readdirSync).mockReturnValue(
+        subdirs.map((name) => ({
+          name,
+          isDirectory: () => true,
+          isFile: () => false,
+          isBlockDevice: () => false,
+          isCharacterDevice: () => false,
+          isFIFO: () => false,
+          isSocket: () => false,
+          isSymbolicLink: () => false,
+          path: baseDir,
+          parentPath: baseDir,
+        } as fs.Dirent)) as any,
+      );
+    }
+
+    it("returns empty when no search dirs configured", () => {
+      expect(bridge.findProjects("rokketdocs")).toEqual([]);
+    });
+
+    it("finds exact folder name match", () => {
+      bridge.setProjectSearchDirs(["/projects"]);
+      mockDirs("/projects", ["RokketDocs", "OtherProject"]);
+      const results = bridge.findProjects("rokketdocs");
+      expect(results).toHaveLength(1);
+      expect(results[0]).toContain("RokketDocs");
+    });
+
+    it("finds partial match", () => {
+      bridge.setProjectSearchDirs(["/projects"]);
+      mockDirs("/projects", ["RokketDocs-Frontend", "Backend"]);
+      const results = bridge.findProjects("rokketdocs");
+      expect(results).toHaveLength(1);
+      expect(results[0]).toContain("RokketDocs-Frontend");
+    });
+
+    it("strips stop words from query", () => {
+      bridge.setProjectSearchDirs(["/projects"]);
+      mockDirs("/projects", ["RokketDocs", "MyApp"]);
+      const results = bridge.findProjects("hey launch my rokketdocs folder please");
+      expect(results).toHaveLength(1);
+      expect(results[0]).toContain("RokketDocs");
+    });
+
+    it("ranks exact match higher than partial", () => {
+      bridge.setProjectSearchDirs(["/projects"]);
+      mockDirs("/projects", ["RokketDocs-Old", "RokketDocs"]);
+      const results = bridge.findProjects("rokketdocs");
+      expect(results[0]).toContain("RokketDocs");
+    });
+
+    it("returns multiple matches sorted by score", () => {
+      bridge.setProjectSearchDirs(["/projects"]);
+      mockDirs("/projects", ["Alpha", "Beta", "AlphaBeta"]);
+      const results = bridge.findProjects("alpha");
+      expect(results.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("skips hidden directories", () => {
+      bridge.setProjectSearchDirs(["/projects"]);
+      mockDirs("/projects", [".hidden", "Visible"]);
+      const results = bridge.findProjects("hidden");
+      expect(results).toEqual([]);
+    });
+
+    it("returns empty when all words are stop words", () => {
+      bridge.setProjectSearchDirs(["/projects"]);
+      mockDirs("/projects", ["SomeProject"]);
+      const results = bridge.findProjects("hey launch my project");
+      expect(results).toEqual([]);
+    });
+  });
+
+  describe("general chat project search", () => {
+    beforeEach(() => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+      vi.mocked(fs.readdirSync).mockReturnValue([]);
+    });
+
+    function mockProjectDirs(subdirs: string[]) {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readdirSync).mockReturnValue(
+        subdirs.map((name) => ({
+          name,
+          isDirectory: () => true,
+          isFile: () => false,
+          isBlockDevice: () => false,
+          isCharacterDevice: () => false,
+          isFIFO: () => false,
+          isSocket: () => false,
+          isSymbolicLink: () => false,
+          path: "/projects",
+          parentPath: "/projects",
+        } as fs.Dirent)) as any,
+      );
+    }
+
+    it("auto-launches when single project match found", async () => {
+      setup();
+      const launchHandler = vi.fn().mockResolvedValue(undefined);
+      bridge.setOnLaunchRequest(launchHandler);
+      bridge.setProjectSearchDirs(["/projects"]);
+      mockProjectDirs(["RokketDocs"]);
+
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "hey launch rokketdocs",
+        },
+      }]);
+
+      expect(launchHandler).toHaveBeenCalled();
+      expect(launchHandler.mock.calls[0][0]).toContain("RokketDocs");
+    });
+
+    it("shows list when multiple matches found", async () => {
+      setup();
+      bridge.setProjectSearchDirs(["/projects"]);
+      mockProjectDirs(["RokketDocs", "RokketDocsV2"]);
+
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "rokketdocs",
+        },
+      }]);
+
+      expect(api.sendMessage).toHaveBeenCalledWith(
+        CHAT_ID,
+        expect.stringContaining("Found multiple matches"),
+        expect.anything(),
+      );
+    });
+
+    it("shows hint when no session and search dirs configured but no match", async () => {
+      setup();
+      bridge.setProjectSearchDirs(["/projects"]);
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "something unrelated",
+        },
+      }]);
+
+      expect(api.sendMessage).toHaveBeenCalledWith(
+        CHAT_ID,
+        expect.stringContaining("Try telling me which project to launch"),
+        expect.anything(),
+      );
+    });
+
+    it("shows no-dirs message when no search dirs and no session", async () => {
+      setup();
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "some message",
+        },
+      }]);
+
+      expect(api.sendMessage).toHaveBeenCalledWith(
+        CHAT_ID,
+        expect.stringContaining("No active session and no project search directories"),
+        expect.anything(),
+      );
+    });
+
+    it("routes to session when project search finds nothing but session exists", async () => {
+      const client = createMockClient();
+      setup([], new Map(), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      bridge.setGeneralSession("s1");
+      bridge.setProjectSearchDirs(["/projects"]);
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "hello from general",
+        },
+      }]);
+
+      expect(client.prompt).toHaveBeenCalledWith("hello from general", undefined);
     });
   });
 });

@@ -86,6 +86,7 @@ export interface MessageDispatchContext {
   setVoiceApiKey?: (provider: string, key: string) => Promise<void>;
   setVoiceRegion?: (regionType: "azure", value: string) => Promise<void>;
   setTelegramBotToken?: (token: string) => Promise<void>;
+  setTelegramOwnerId?: (ownerId: number) => Promise<void>;
 }
 
 // ============================================================
@@ -1041,6 +1042,24 @@ export async function handleWebviewMessage(
           } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             webview.postMessage({ type: "telegram_token_saved", success: false, error: message });
+          }
+          break;
+        }
+
+        case "set_telegram_owner_id": {
+          try {
+            const parsed = parseInt(msg.ownerId, 10);
+            if (isNaN(parsed) || parsed <= 0) {
+              webview.postMessage({ type: "telegram_owner_id_saved", success: false, error: "Invalid user ID" });
+              break;
+            }
+            if (ctx.setTelegramOwnerId) {
+              await ctx.setTelegramOwnerId(parsed);
+            }
+            webview.postMessage({ type: "telegram_owner_id_saved", success: true });
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            webview.postMessage({ type: "telegram_owner_id_saved", success: false, error: message });
           }
           break;
         }
