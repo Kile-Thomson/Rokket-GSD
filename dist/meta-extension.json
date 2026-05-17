@@ -235,7 +235,7 @@
       "format": "esm"
     },
     "src/shared/types.ts": {
-      "bytes": 24359,
+      "bytes": 24562,
       "imports": [],
       "format": "esm"
     },
@@ -381,7 +381,7 @@
       "format": "esm"
     },
     "src/extension/message-dispatch.ts": {
-      "bytes": 49005,
+      "bytes": 50172,
       "imports": [
         {
           "path": "vscode",
@@ -452,7 +452,7 @@
       "format": "esm"
     },
     "src/extension/telegram/config.ts": {
-      "bytes": 2092,
+      "bytes": 2450,
       "imports": [],
       "format": "esm"
     },
@@ -536,7 +536,7 @@
       "format": "esm"
     },
     "src/extension/telegram/bridge.ts": {
-      "bytes": 36011,
+      "bytes": 46628,
       "imports": [
         {
           "path": "src/extension/telegram/api.ts",
@@ -557,6 +557,16 @@
           "path": "src/extension/telegram/poller-coordinator.ts",
           "kind": "import-statement",
           "original": "./poller-coordinator"
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
         }
       ],
       "format": "esm"
@@ -646,7 +656,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 35815,
+      "bytes": 39553,
       "imports": [
         {
           "path": "vscode",
@@ -885,7 +895,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 632030
+      "bytes": 657132
     },
     "dist/extension.js": {
       "imports": [
@@ -1115,6 +1125,16 @@
           "external": true
         },
         {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
           "path": "child_process",
           "kind": "require-call",
           "external": true
@@ -1197,16 +1217,16 @@
           "bytesInOutput": 3159
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 16927
+          "bytesInOutput": 18790
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 9944
         },
         "src/extension/shell-env.ts": {
-          "bytesInOutput": 1387
+          "bytesInOutput": 1393
         },
         "src/extension/update-checker.ts": {
-          "bytesInOutput": 6211
+          "bytesInOutput": 6217
         },
         "src/shared/errors.ts": {
           "bytesInOutput": 60
@@ -1215,7 +1235,7 @@
           "bytesInOutput": 4217
         },
         "src/extension/dashboard-parser.ts": {
-          "bytesInOutput": 2988
+          "bytesInOutput": 2984
         },
         "src/extension/state-parser.ts": {
           "bytesInOutput": 805
@@ -1239,7 +1259,7 @@
           "bytesInOutput": 6553
         },
         "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 19912
+          "bytesInOutput": 20498
         },
         "src/extension/session-list-service.ts": {
           "bytesInOutput": 2191
@@ -1260,7 +1280,7 @@
           "bytesInOutput": 2627
         },
         "src/extension/telegram/config.ts": {
-          "bytesInOutput": 608
+          "bytesInOutput": 750
         },
         "src/extension/openai/transcribe.ts": {
           "bytesInOutput": 103
@@ -1281,7 +1301,7 @@
           "bytesInOutput": 2005
         },
         "src/extension/telegram/bridge.ts": {
-          "bytesInOutput": 18071
+          "bytesInOutput": 23257
         },
         "src/extension/transcription/providers.ts": {
           "bytesInOutput": 2579
@@ -1308,7 +1328,7 @@
           "bytesInOutput": 107
         }
       },
-      "bytes": 169494
+      "bytes": 177279
     }
   }
 }
