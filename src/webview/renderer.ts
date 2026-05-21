@@ -13,10 +13,6 @@ import {
 import {
   escapeHtml,
   escapeAttr,
-  formatDuration,
-  formatTokens,
-  getToolKeyArg,
-  formatToolResult,
   renderMarkdown,
   sanitizeAndPostProcess,
   lexMarkdown,
