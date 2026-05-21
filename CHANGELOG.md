@@ -4,6 +4,26 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.63] — 2026-05-21
+
+### Changed
+- **Interleaved message streaming** — messages queued while the LLM is responding now appear directly after their triggering message instead of bunching below all pending responses
+
+## [0.3.62] — 2026-05-18
+
+### Added
+- **Telegram project launcher** — natural language messages like "launch rokketdocs" search configured project directories, auto-launch VS Code, and enable Telegram sync; numbered selection for multi-match results
+
+## [0.3.61] — 2026-05-10
+
+### Changed
+- **Settings toggle keyboard focus** — custom toggle checkboxes in the settings panel now show a visible focus-visible outline
+
+## [0.3.60] — 2026-05-10
+
+### Added
+- **Settings panel behavior toggles** — auto-compact and auto-retry slider toggles synced with session state; Telegram bot token field with secure VS Code SecretStorage backing
+
 ## [0.3.59] — 2026-05-10
 
 ### Added
