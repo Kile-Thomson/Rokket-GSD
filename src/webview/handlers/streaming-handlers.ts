@@ -24,6 +24,7 @@ export function handleAgentStart(msg: Msg<'agent_start'>): void {
   }
   confirmBackendActive();
   state.isStreaming = true;
+  removeSteerNotes();
   const { updateInputUI } = getDeps();
   const isContinuation = !!msg.isContinuation && state.currentTurn === null;
   const lastEntry = state.entries[state.entries.length - 1];
@@ -47,7 +48,6 @@ export function handleAgentStart(msg: Msg<'agent_start'>): void {
     renderer.ensureCurrentTurnElement();
     announceToScreenReader("Assistant is responding...");
   }
-  removeSteerNotes();
 }
 
 export function handleAgentEnd(_msg: Msg<'agent_end'>): void {

@@ -172,6 +172,26 @@ function removePendingDotsFromContainer(container: HTMLElement): void {
   container.querySelector(".gsd-thinking-dots")?.remove();
 }
 
+/**
+ * Split the current streaming turn at the user message boundary.
+ * Called when the user sends a steer while the LLM is streaming —
+ * preserves existing content in place and creates a fresh continuation
+ * element so subsequent streamed content appears after the user message.
+ */
+export function splitTurnForUserMessage(): void {
+  if (!currentTurnElement || !state.currentTurn) return;
+
+  priorTurnElements.push(currentTurnElement);
+  _splitSegmentBarrier = state.currentTurn.segments.length - 1;
+
+  const el = document.createElement("div");
+  el.className = "gsd-entry gsd-entry-assistant streaming";
+  el.dataset.entryId = state.currentTurn.id;
+  messagesContainer.appendChild(el);
+
+  currentTurnElement = el;
+}
+
 export function ensureCurrentTurnElement(): HTMLElement {
   if (!currentTurnElement) {
     // Check if there's a pending-dots-only element in the DOM (created
@@ -204,7 +224,30 @@ export function ensureCurrentTurnElement(): HTMLElement {
       const el = document.createElement("div");
       el.className = "gsd-entry gsd-entry-assistant streaming";
       el.dataset.entryId = state.currentTurn?.id || "stream";
-      messagesContainer.appendChild(el);
+
+      // When multiple user messages are queued at the bottom (sent while the
+      // LLM was streaming), insert the new response after the first queued
+      // message instead of appending at the very end. This interleaves
+      // responses with their triggering messages:
+      //   [User B][Response B][User C][Response C]
+      // instead of clustering all messages then all responses:
+      //   [User B][User C][Response B][Response C]
+      const allEntries = messagesContainer.querySelectorAll<HTMLElement>(".gsd-entry");
+      let trailingUserCount = 0;
+      for (let i = allEntries.length - 1; i >= 0; i--) {
+        if (allEntries[i].classList.contains("gsd-entry-user")) {
+          trailingUserCount++;
+        } else {
+          break;
+        }
+      }
+      if (trailingUserCount >= 2) {
+        const firstQueued = allEntries[allEntries.length - trailingUserCount];
+        firstQueued.after(el);
+      } else {
+        messagesContainer.appendChild(el);
+      }
+
       currentTurnElement = el;
       welcomeScreen.classList.add("gsd-hidden");
     }
@@ -648,13 +691,14 @@ export function finalizeCurrentTurn(): void {
   if (currentTurnElement) {
     currentTurnElement.classList.remove("streaming");
     if (priorTurnElements.length > 0) {
-      // Turn was split by user messages — prior elements already have rendered
-      // content in place. Don't rebuild (that would duplicate). Just finalize
-      // the prior partials and the current continuation in-place.
+      // Turn was split by user messages — finalize all segments in-place
+      // (text → final markdown, tool blocks patched) regardless of which
+      // split container they live in.
+      finalizeStreamingDom(turn, currentTurnElement);
       for (const prior of priorTurnElements) {
         prior.classList.remove("streaming");
+        if (prior.innerHTML.trim() === "") prior.remove();
       }
-      // Remove empty continuation element if nothing was rendered into it
       if (currentTurnElement.innerHTML.trim() === "") {
         currentTurnElement.remove();
       }

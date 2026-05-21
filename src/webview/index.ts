@@ -805,6 +805,7 @@ function sendMessage(): void {
     pruneOldEntries(messagesContainer);
     welcomeScreen.classList.add('gsd-hidden');
     renderer.renderNewEntry(state.entries[state.entries.length - 1]);
+    renderer.splitTurnForUserMessage();
     scrollToBottom(messagesContainer, true);
 
     // Show steer note (only one at a time)
