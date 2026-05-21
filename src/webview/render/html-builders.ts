@@ -27,6 +27,8 @@ import {
   buildGroupSummaryLabel,
 } from "../tool-grouping";
 
+import { getFileIcon } from "../file-handling";
+
 import { MAX_OUTPUT_LEN } from "../../shared/constants";
 
 export function createEntryElement(entry: ChatEntry): HTMLElement {
@@ -59,26 +61,6 @@ export function buildTimestampHtml(ts: number): string {
   const abs = new Date(ts).toLocaleString();
   const rel = formatRelativeTime(ts);
   return `<span class="gsd-timestamp" data-ts="${ts}" title="${escapeAttr(abs)}">${escapeHtml(rel)}</span>`;
-}
-
-function getFileIcon(ext: string): string {
-  const icons: Record<string, string> = {
-    pdf: "📄", doc: "📝", docx: "📝", txt: "📝", md: "📝",
-    xls: "📊", xlsx: "📊", csv: "📊",
-    ppt: "📽️", pptx: "📽️",
-    jpg: "🖼️", jpeg: "🖼️", png: "🖼️", gif: "🖼️", svg: "🖼️", webp: "🖼️",
-    mp4: "🎬", mov: "🎬", avi: "🎬", mkv: "🎬",
-    mp3: "🎵", wav: "🎵", flac: "🎵",
-    zip: "📦", tar: "📦", gz: "📦", rar: "📦", "7z": "📦",
-    js: "⚡", ts: "⚡", jsx: "⚡", tsx: "⚡",
-    py: "🐍", rb: "💎", go: "🔷", rs: "🦀",
-    html: "🌐", css: "🎨", scss: "🎨",
-    json: "📋", yaml: "📋", yml: "📋", toml: "📋", xml: "📋",
-    sh: "⚙️", bash: "⚙️", ps1: "⚙️", cmd: "⚙️", bat: "⚙️",
-    sql: "🗃️", db: "🗃️",
-    env: "🔒", key: "🔒", pem: "🔒",
-  };
-  return icons[ext] || "📎";
 }
 
 function buildUserHtml(entry: ChatEntry): string {
