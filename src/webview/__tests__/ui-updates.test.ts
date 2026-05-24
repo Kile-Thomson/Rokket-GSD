@@ -41,7 +41,7 @@ let mockVscode: { postMessage: ReturnType<typeof vi.fn> };
 function createDeps(): UIUpdatesDeps {
   mockVscode = { postMessage: vi.fn() };
   return {
-    vscode: mockVscode,
+    vscode: mockVscode as unknown as { postMessage(msg: unknown): void },
     modelBadge: document.createElement("span"),
     thinkingBadge: document.createElement("span"),
     headerSep1: document.createElement("span"),

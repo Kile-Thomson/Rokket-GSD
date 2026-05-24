@@ -35,7 +35,7 @@ function buildMockFetch(): {
 
     createForumTopic: (_b) => ({
       message_thread_id: THREAD_ID,
-      name: _b?.name ?? "topic",
+      name: (_b?.name as string) ?? "topic",
     } satisfies ForumTopic),
 
     getUpdates: () => updateQueue.shift() ?? [],
@@ -43,8 +43,8 @@ function buildMockFetch(): {
     sendMessage: (b) => ({
       message_id: 900 + apiCalls.length,
       chat: { id: CHAT_ID, type: "supergroup" },
-      text: b?.text,
-      message_thread_id: b?.message_thread_id,
+      text: b?.text as string | undefined,
+      message_thread_id: b?.message_thread_id as number | undefined,
     } satisfies TelegramMessage),
 
     editMessageText: (b) => ({

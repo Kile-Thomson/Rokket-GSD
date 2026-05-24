@@ -70,7 +70,7 @@ npx vitest
 
 ### Coverage Target
 
-The project enforces a **60% line coverage** threshold (configured in `vitest.config.ts`). CI will fail if coverage drops below this. Run `npx vitest --run --coverage` locally to check before pushing.
+The project enforces a **50% line coverage** threshold (configured in `vitest.config.ts`). CI will fail if coverage drops below this. Run `npx vitest --run --coverage` locally to check before pushing.
 
 ### Adding a New Test File
 

@@ -31,9 +31,10 @@ function createDeps(): SessionHistoryDeps {
   return {
     panelEl: document.createElement("div"),
     historyBtn: document.createElement("button"),
-    vscode: { postMessage: vi.fn() },
+    vscode: { postMessage: vi.fn() as unknown as (msg: unknown) => void },
     _onSessionSwitched: vi.fn(),
     onNewConversation: vi.fn(),
+    hasDraft: vi.fn(() => false),
   };
 }
 
@@ -84,8 +85,8 @@ describe("session-history", () => {
   it("updateSessions renders the session list", () => {
     show();
     updateSessions([
-      { id: "s1", path: "/sessions/s1", name: "Session 1", firstMessage: "Hello", startedAt: Date.now(), messageCount: 5, costTotal: 0.05 },
-      { id: "s2", path: "/sessions/s2", name: "Session 2", firstMessage: "World", startedAt: Date.now(), messageCount: 3, costTotal: 0.02 },
+      { id: "s1", path: "/sessions/s1", name: "Session 1", firstMessage: "Hello", created: new Date().toISOString(), modified: new Date().toISOString(), messageCount: 5 },
+      { id: "s2", path: "/sessions/s2", name: "Session 2", firstMessage: "World", created: new Date().toISOString(), modified: new Date().toISOString(), messageCount: 3 },
     ]);
 
     expect(deps.panelEl.innerHTML).toContain("Session 1");
@@ -118,8 +119,8 @@ describe("session-history", () => {
     Element.prototype.scrollIntoView = vi.fn();
     show();
     updateSessions([
-      { id: "s1", path: "/p1", name: "S1", firstMessage: "a", startedAt: 0, messageCount: 1, costTotal: 0 },
-      { id: "s2", path: "/p2", name: "S2", firstMessage: "b", startedAt: 0, messageCount: 1, costTotal: 0 },
+      { id: "s1", path: "/p1", name: "S1", firstMessage: "a", created: "2024-01-01T00:00:00Z", modified: "2024-01-01T00:00:00Z", messageCount: 1 },
+      { id: "s2", path: "/p2", name: "S2", firstMessage: "b", created: "2024-01-01T00:00:00Z", modified: "2024-01-01T00:00:00Z", messageCount: 1 },
     ]);
     const event = new KeyboardEvent("keydown", { key: "ArrowDown" });
     const handled = handleKeyDown(event);

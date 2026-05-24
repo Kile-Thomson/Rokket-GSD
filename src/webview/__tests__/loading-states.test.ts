@@ -254,7 +254,7 @@ describe("Model Badge Loading State", () => {
     document.body.appendChild(badge);
 
     const model = null;
-    const processStatus = "stopped";
+    const processStatus: string = "stopped";
 
     if (model) {
       badge.textContent = "some-model";

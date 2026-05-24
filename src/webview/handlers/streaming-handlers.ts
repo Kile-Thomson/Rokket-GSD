@@ -113,9 +113,9 @@ export function handleMessageUpdate(msg: Msg<'message_update'>): void {
     const content = partial?.content;
     const idx = delta.contentIndex;
     if (Array.isArray(content) && typeof idx === "number" && idx >= 0 && idx < content.length) {
-      const block = content[idx];
+      const block = content[idx] as Record<string, unknown> | undefined;
       if (block && block.type === "serverToolUse") {
-        renderer.appendServerToolSegment(block.id, block.name, block.input);
+        renderer.appendServerToolSegment(block.id as string, block.name as string, block.input as Record<string, unknown>);
       }
     }
   } else if (delta.type === "web_search_result") {
@@ -123,9 +123,9 @@ export function handleMessageUpdate(msg: Msg<'message_update'>): void {
     const content = partial?.content;
     const idx = delta.contentIndex;
     if (Array.isArray(content) && typeof idx === "number" && idx >= 0 && idx < content.length) {
-      const block = content[idx];
+      const block = content[idx] as Record<string, unknown> | undefined;
       if (block && block.type === "webSearchResult") {
-        renderer.completeServerToolSegment(block.toolUseId, block.content);
+        renderer.completeServerToolSegment(block.toolUseId as string, block.content as string);
       }
     }
   } else if (delta.type === "toolcall_start") {
@@ -145,10 +145,10 @@ export function handleMessageUpdate(msg: Msg<'message_update'>): void {
       if (isToolBlock && block.id && block.name) {
         const turn = state.currentTurn;
         if (!turn) return;
-        if (!turn.toolCalls.has(block.id)) {
+        if (!turn.toolCalls.has(block.id as string)) {
           const tc: ToolCallState = {
-            id: block.id,
-            name: block.name,
+            id: block.id as string,
+            name: block.name as string,
             args: {},
             resultText: "",
             isError: false,
@@ -177,9 +177,9 @@ export function handleMessageUpdate(msg: Msg<'message_update'>): void {
             }
           }
 
-          turn.toolCalls.set(block.id, tc);
+          turn.toolCalls.set(block.id as string, tc);
           const segIdx = turn.segments.length;
-          turn.segments.push({ type: "tool", toolCallId: block.id });
+          turn.segments.push({ type: "tool", toolCallId: block.id as string });
 
           renderer.appendToolSegmentElement(tc, segIdx);
 

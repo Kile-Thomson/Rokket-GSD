@@ -72,6 +72,7 @@ export type WebviewToExtensionMessage =
   | { type: "set_voice_api_key"; provider: string; key: string }
   | { type: "set_voice_region"; regionType: "azure"; value: string }
   | { type: "get_voice_config" }
+  | { type: "set_openai_api_key" }
   | { type: "shutdown" };
 
 // --- Messages FROM extension TO webview ---
@@ -144,7 +145,9 @@ export type ExtensionToWebviewMessage =
   | { type: "voice_error"; message: string }
   | { type: "voice_config"; provider: string; hasOpenaiKey: boolean; hasAzureKey: boolean; hasXaiKey: boolean; openaiKeyVerified?: boolean; azureKeyVerified?: boolean; xaiKeyVerified?: boolean; azureRegion: string }
   | { type: "telegram_token_saved"; success: boolean; error?: string }
-  | { type: "telegram_owner_id_saved"; success: boolean; error?: string };
+  | { type: "telegram_owner_id_saved"; success: boolean; error?: string }
+  | { type: "extensions_ready" }
+  | { type: "session_state_changed"; state?: unknown };
 
 // --- Session List Types ---
 

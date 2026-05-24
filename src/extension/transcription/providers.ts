@@ -71,7 +71,7 @@ async function transcribeAzure(apiKey: string, region: string, audioBuffer: Buff
       "Content-Type": "audio/ogg; codecs=opus",
       Accept: "application/json",
     },
-    body: audioBuffer,
+    body: audioBuffer as unknown as BodyInit,
   });
 
   const body = await response.text();

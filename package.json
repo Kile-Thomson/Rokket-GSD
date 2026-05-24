@@ -279,7 +279,7 @@
 		"vitest": "^4.1.0"
 	},
 	"dependencies": {
-		"dompurify": "^3.3.3",
+		"dompurify": "^3.4.5",
 		"marked": "^15.0.0"
 	}
 }
