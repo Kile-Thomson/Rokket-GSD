@@ -436,10 +436,12 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       if (gsdPath) {
         let dir = path.dirname(gsdPath);
         for (let i = 0; i < 4; i++) {
-          const pkgPath = path.join(dir, "node_modules", "gsd-pi", "package.json");
-          if (fs.existsSync(pkgPath)) {
-            const raw = await fs.promises.readFile(pkgPath, "utf8");
-            return JSON.parse(raw).version;
+          for (const pkg of ["@opengsd/gsd-pi", "gsd-pi"]) {
+            const pkgPath = path.join(dir, "node_modules", ...pkg.split("/"), "package.json");
+            if (fs.existsSync(pkgPath)) {
+              const raw = await fs.promises.readFile(pkgPath, "utf8");
+              return JSON.parse(raw).version;
+            }
           }
           dir = path.dirname(dir);
         }

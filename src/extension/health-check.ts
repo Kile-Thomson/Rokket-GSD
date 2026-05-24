@@ -129,10 +129,10 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
     } else {
       result.issues.push({
         severity: "error",
-        message: "GSD CLI (gsd-pi) not found in PATH.",
+        message: "GSD CLI not found in PATH.",
         fix: process.platform === "linux"
-          ? "Install it with: npm install -g gsd-pi. If already installed, try launching VS Code from a terminal ('code .') or add npm's global bin to ~/.profile."
-          : "Install it with: npm install -g gsd-pi",
+          ? "Install it with: npm install -g @opengsd/gsd-pi (or gsd-pi for legacy V2). If already installed, try launching VS Code from a terminal ('code .') or add npm's global bin to ~/.profile."
+          : "Install it with: npm install -g @opengsd/gsd-pi (or gsd-pi for legacy V2)",
       });
     }
   }
@@ -282,15 +282,18 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
  * Resolve the gsd-pi version from the package.json near the binary.
  */
 async function resolveGsdVersion(gsdPath: string): Promise<string | null> {
+  const packageNames = ["@opengsd/gsd-pi", "gsd-pi"];
   try {
     let dir = path.dirname(gsdPath);
     for (let i = 0; i < 4; i++) {
-      const pkgPath = path.join(dir, "node_modules", "gsd-pi", "package.json");
-      try {
-        const pkg = JSON.parse(await fs.promises.readFile(pkgPath, "utf8"));
-        return pkg.version || null;
-      } catch (err: unknown) {
-        if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+      for (const pkg of packageNames) {
+        const pkgPath = path.join(dir, "node_modules", ...pkg.split("/"), "package.json");
+        try {
+          const parsed = JSON.parse(await fs.promises.readFile(pkgPath, "utf8"));
+          return parsed.version || null;
+        } catch (err: unknown) {
+          if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+        }
       }
       dir = path.dirname(dir);
     }

@@ -4,14 +4,15 @@
 
 <h1 align="center">Rokket GSD</h1>
 
-<h3 align="center">GSD2+ Premium GUI — AI Coding Agent with Chat, Multi-Model, Voice &amp; Workflow Automation</h3>
+<h3 align="center">GSD Pi Premium GUI — AI Coding Agent with Chat, Multi-Model, Voice &amp; Workflow Automation</h3>
 
 <p align="center">
-  Built on <a href="https://github.com/gsd-build/gsd-2">gsd-pi</a> by <a href="https://github.com/glittercowboy">Glittercowboy</a> (Lex Christopherson), based on <a href="https://github.com/badlogic/pi-mono">Pi Mono</a> by <a href="https://github.com/badlogic">Mario Zechner</a> ❤️
+  Built on <a href="https://github.com/OpenGSD/gsd-pi">GSD Pi</a> (<a href="https://github.com/OpenGSD">OpenGSD</a>), the community fork based on <a href="https://github.com/badlogic/pi-mono">Pi Mono</a> by <a href="https://github.com/badlogic">Mario Zechner</a> ❤️<br>
+  Also compatible with <a href="https://github.com/gsd-build/gsd-2">GSD V2</a>.
 </p>
 
 <p align="center">
-  A full-featured VS Code frontend for the <a href="https://github.com/gsd-build/gsd-2">gsd-pi</a> AI coding agent.<br>
+  A full-featured VS Code frontend for the <a href="https://github.com/OpenGSD/gsd-pi">GSD Pi</a> AI coding agent.<br>
   Streaming responses, 40+ tool visualizations, Telegram relay with voice transcription,<br>
   parallel worker dashboards, model controls, four built-in themes, and deep workflow integration.
 </p>
@@ -29,7 +30,9 @@
 
 <img alt="RokketGSD" src="https://github.com/user-attachments/assets/e68aea08-cb2c-415f-ad2e-dbad08d39dbc" style="max-width:100%;"/>
 
-Rokket GSD turns the `gsd-pi` CLI into a native VS Code experience. Streaming responses, 40+ tool visualizations, Telegram relay with voice transcription, parallel worker dashboards, model controls, four built-in themes, and deep workflow integration. Everything runs inside your editor.
+Rokket GSD turns the [GSD Pi](https://github.com/OpenGSD/gsd-pi) CLI into a native VS Code experience. Streaming responses, 40+ tool visualizations, Telegram relay with voice transcription, parallel worker dashboards, model controls, four built-in themes, and deep workflow integration. Everything runs inside your editor.
+
+> **GSD V2 users:** This extension remains fully compatible with GSD V2. However, primary development now targets [GSD Pi](https://github.com/OpenGSD/gsd-pi) (OpenGSD), the community fork.
 
 The extension spawns GSD as a child process over JSON-RPC (`gsd --mode rpc`), giving the agent full access to your workspace, tools, and configured providers while you get a proper UI on top.
 
@@ -98,16 +101,16 @@ CI enforced on every push
 ## ⚠️ Prerequisites
 
 > [!IMPORTANT]
-> **Rokket GSD is a frontend for the GSD agent. It does not include the agent itself.**
+> **Rokket GSD is a frontend for the GSD Pi agent. It does not include the agent itself.**
 
-You need a working GSD environment before installing:
+You need a working GSD Pi (or GSD V2) environment before installing:
 
 1. **[Node.js](https://nodejs.org/) 18+** with npm
 2. **[Git](https://git-scm.com/)**
 3. **[VS Code](https://code.visualstudio.com/) 1.94+**
 4. **`gsd-pi` installed globally:**
    ```bash
-   npm install -g gsd-pi
+   npm install -g @opengsd/gsd-pi
    ```
 5. **A configured AI provider** in GSD (Anthropic, OpenAI, Google, etc. via API key or OAuth)
 
@@ -161,10 +164,10 @@ Once installed, follow these steps to get up and running:
 
 ### 1. Set up GSD (first time only)
 
-If you haven't already, install and authenticate the GSD agent:
+If you haven't already, install and authenticate the GSD Pi agent:
 
 ```bash
-npm install -g gsd-pi
+npm install -g @opengsd/gsd-pi
 gsd
 ```
 
@@ -481,10 +484,10 @@ Built to handle real-world agent sessions that run for hours:
 
 - **Webview** — vanilla DOM (no framework), ~13K lines of TypeScript + 16 CSS modules + 3 theme files, esbuild-bundled IIFE. Sequential segment-based renderer with `requestAnimationFrame` batching for smooth streaming. CSS uses a semantic token layer (`--gsd-*`) bridging VS Code's theme system — components never reference `--vscode-*` directly.
 - **Extension Host** — ~10K lines of TypeScript managing the GSD child process, routes messages, handles file operations, monitors health, polls parallel worker status, and coordinates the Telegram bridge. All hot-path I/O is async; polling runs via parallelized `Promise.all`.
-- **GSD Process** — the full `gsd-pi` agent running via JSON-RPC over stdin/stdout. Each session gets its own process.
+- **GSD Process** — the full [GSD Pi](https://github.com/OpenGSD/gsd-pi) agent running via JSON-RPC over stdin/stdout. Each session gets its own process.
 - **Telegram Bridge** — poller, coordinator, IPC, topic manager, and message formatter. Voice messages transcribed via OpenAI Whisper; photos forwarded as image attachments.
 
-The extension ships as a `.vsix` with no runtime dependencies beyond VS Code and the `gsd` CLI. 1397 tests across 66 files.
+The extension ships as a `.vsix` with no runtime dependencies beyond VS Code and the `gsd` CLI ([GSD Pi](https://github.com/OpenGSD/gsd-pi) or GSD V2). 1397 tests across 66 files.
 
 ---
 
@@ -587,7 +590,7 @@ resources/
 
 ## Known Limitations
 
-- **Requires `gsd-pi`** — this is a UI wrapper, not a standalone agent. The `gsd` CLI must be installed and configured separately.
+- **Requires GSD Pi (or GSD V2)** — this is a UI wrapper, not a standalone agent. The `gsd` CLI must be installed and configured separately.
 - **Some GSD custom UI commands** rely on TUI widgets that VS Code webviews cannot render directly. `/gsd status` is supported via the structured dashboard renderer; other widget-dependent commands produce text-only output.
 
 ---
