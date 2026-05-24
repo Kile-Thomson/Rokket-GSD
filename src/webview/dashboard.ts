@@ -148,13 +148,13 @@ export function renderDashboard(data: DashboardData | null): void {
   }
 
   // Milestone registry
-  function milestoneList(entries: typeof d.milestoneRegistry): string {
+  function milestoneList(entries: typeof _d.milestoneRegistry): string {
     if (entries.length === 0) return "";
     return `
       <div class="gsd-dash-section">
         <div class="gsd-dash-section-title">Milestones</div>
         <div class="gsd-dash-milestones">
-          ${entries.map(m => {
+          ${entries.map((m: typeof entries[number]) => {
             const icon = m.done ? "✓" : m.active ? "▸" : "○";
             const cls = m.done ? "done" : m.active ? "active" : "pending";
             return `<div class="gsd-dash-milestone ${cls}"><span class="gsd-dash-icon">${icon}</span> ${escapeHtml(m.id)}: ${escapeHtml(m.title)}</div>`;

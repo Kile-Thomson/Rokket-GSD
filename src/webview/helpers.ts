@@ -526,11 +526,11 @@ export function buildSubagentOutputHtml(tc: ToolCallState): string {
   }
 
   // Fallback: no structured details, use legacy rendering
-  const agentName = (args.agent as string) ||
+  const agentName = String((args.agent as string) ||
                     (args.description as string) ||
                     (args.subagent_type as string) ||
                     (args.chain as Record<string, unknown>[] | undefined)?.[0]?.agent ||
-                    (args.tasks as Record<string, unknown>[] | undefined)?.[0]?.agent || "agent";
+                    (args.tasks as Record<string, unknown>[] | undefined)?.[0]?.agent || "agent");
   const taskCount = (args.chain as unknown[] | undefined)?.length || (args.tasks as unknown[] | undefined)?.length || 1;
   const taskText = (args.task as string) || (args.prompt as string) || "";
   const taskPreview = taskText.length > TASK_PREVIEW_MAX_CHARS

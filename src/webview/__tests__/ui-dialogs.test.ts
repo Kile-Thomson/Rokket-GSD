@@ -30,7 +30,7 @@ describe("ui-dialogs", () => {
     messagesContainer = document.createElement("div");
     document.body.appendChild(messagesContainer);
     mockVscode = { postMessage: vi.fn() };
-    init({ messagesContainer, vscode: mockVscode });
+    init({ messagesContainer, vscode: mockVscode as unknown as { postMessage(msg: unknown): void } });
   });
 
   afterEach(() => {
@@ -84,7 +84,7 @@ describe("ui-dialogs", () => {
       messagesContainer.appendChild(turnContainer);
 
       // Re-init with a getDialogContainer that returns the turn container
-      init({ messagesContainer, vscode: mockVscode, getDialogContainer: () => turnContainer });
+      init({ messagesContainer, vscode: mockVscode as unknown as { postMessage(msg: unknown): void }, getDialogContainer: () => turnContainer });
 
       handleRequest(makeRequest({ id: "c-inline", method: "confirm" }));
 
@@ -94,18 +94,18 @@ describe("ui-dialogs", () => {
       expect(wrapper.parentElement).toBe(turnContainer);
 
       // Reset to default
-      init({ messagesContainer, vscode: mockVscode });
+      init({ messagesContainer, vscode: mockVscode as unknown as { postMessage(msg: unknown): void } });
     });
 
     it("falls back to messagesContainer when getDialogContainer returns null", () => {
-      init({ messagesContainer, vscode: mockVscode, getDialogContainer: () => null });
+      init({ messagesContainer, vscode: mockVscode as unknown as { postMessage(msg: unknown): void }, getDialogContainer: () => null });
 
       handleRequest(makeRequest({ id: "c-fallback", method: "confirm" }));
       const wrapper = messagesContainer.querySelector('[data-ui-id="c-fallback"]');
       expect(wrapper).toBeTruthy();
 
       // Reset to default
-      init({ messagesContainer, vscode: mockVscode });
+      init({ messagesContainer, vscode: mockVscode as unknown as { postMessage(msg: unknown): void } });
     });
 
     it("preserves chronological order for multiple dialogs in the same turn", () => {
@@ -113,7 +113,7 @@ describe("ui-dialogs", () => {
       turnContainer.className = "gsd-entry gsd-entry-assistant streaming";
       messagesContainer.appendChild(turnContainer);
 
-      init({ messagesContainer, vscode: mockVscode, getDialogContainer: () => turnContainer });
+      init({ messagesContainer, vscode: mockVscode as unknown as { postMessage(msg: unknown): void }, getDialogContainer: () => turnContainer });
 
       handleRequest(makeRequest({ id: "d1", method: "confirm", title: "First?" }));
       handleRequest(makeRequest({ id: "d2", method: "confirm", title: "Second?" }));
@@ -127,7 +127,7 @@ describe("ui-dialogs", () => {
       expect((wrappers[2] as HTMLElement).dataset.uiId).toBe("d3");
 
       // Reset
-      init({ messagesContainer, vscode: mockVscode });
+      init({ messagesContainer, vscode: mockVscode as unknown as { postMessage(msg: unknown): void } });
     });
   });
 

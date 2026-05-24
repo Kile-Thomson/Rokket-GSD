@@ -66,7 +66,7 @@ function createDeps(): KeyboardDeps {
   mockAutoResize = vi.fn();
 
   return {
-    vscode: mockVscode,
+    vscode: mockVscode as unknown as KeyboardDeps["vscode"],
     messagesContainer: document.createElement("div"),
     welcomeScreen: document.createElement("div"),
     promptInput: document.createElement("textarea") as HTMLTextAreaElement,
@@ -77,9 +77,9 @@ function createDeps(): KeyboardDeps {
     exportBtn: document.createElement("button"),
     attachBtn: document.createElement("button"),
     thinkingBadge: document.createElement("span"),
-    sendMessage: mockSendMessage,
-    updateAllUI: mockUpdateAllUI,
-    autoResize: mockAutoResize,
+    sendMessage: mockSendMessage as unknown as () => void,
+    updateAllUI: mockUpdateAllUI as unknown as () => void,
+    autoResize: mockAutoResize as unknown as () => void,
   };
 }
 

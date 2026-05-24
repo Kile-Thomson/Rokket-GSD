@@ -132,10 +132,10 @@ describe("draft confirmation", () => {
     sessionHistory.init({
       panelEl,
       historyBtn,
-      vscode: { postMessage: mockPostMessage },
-      _onSessionSwitched: vi.fn(),
-      onNewConversation: vi.fn(),
-      hasDraft: mockHasDraft,
+      vscode: { postMessage: mockPostMessage as unknown as (msg: unknown) => void },
+      _onSessionSwitched: vi.fn() as unknown as () => void,
+      onNewConversation: vi.fn() as unknown as () => void,
+      hasDraft: mockHasDraft as unknown as () => boolean,
     });
   });
 

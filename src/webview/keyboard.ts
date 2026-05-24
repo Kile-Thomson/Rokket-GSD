@@ -278,7 +278,7 @@ function setupClickHandlers(): void {
       loader.addEventListener("keydown", changelogNavHandler);
 
       // Close button click
-      loader.querySelector(".gsd-changelog-close")?.addEventListener("click", dismissChangelog);
+      loader.querySelector(".gsd-changelog-close")?.addEventListener("click", () => dismissChangelog());
 
       // Focus the close button (or the container if no close button)
       const closeBtn = loader.querySelector<HTMLElement>(".gsd-changelog-close");

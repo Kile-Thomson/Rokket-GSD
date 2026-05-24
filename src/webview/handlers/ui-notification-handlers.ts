@@ -20,6 +20,7 @@ import * as renderer from "../renderer";
 import * as toasts from "../toasts";
 import * as autoProgress from "../auto-progress";
 import * as uiDialogs from "../ui-dialogs";
+import type { DialogRequestData } from "../ui-dialogs";
 import * as fileHandling from "../file-handling";
 import { announceToScreenReader, createFocusTrap, restoreFocus } from "../a11y";
 import { setChangelogHandlers, getChangelogTriggerEl, dismissChangelog } from "../keyboard";
@@ -157,12 +158,12 @@ export function handleExtensionUiRequest(msg: Msg<'extension_ui_request'>): void
   } else if (msg.method === "setStatus" && msg.statusText) {
     // Status text — could update footer
   } else if (msg.method === "setWidget") {
-    renderWidget(msg.widgetKey as string, msg.widgetLines, msg.widgetPlacement as string | undefined);
+    renderWidget(msg.widgetKey as string, msg.widgetLines, (msg as Record<string, unknown>).widgetPlacement as string | undefined);
   } else if (msg.method === "set_editor_text" && msg.text) {
     deps.promptInput.value = msg.text;
     deps.autoResize();
   } else if (msg.method === "select" || msg.method === "confirm" || msg.method === "input") {
-    uiDialogs.handleRequest(msg as Record<string, unknown>);
+    uiDialogs.handleRequest(msg as unknown as DialogRequestData);
   }
 }
 

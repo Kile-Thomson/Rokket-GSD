@@ -158,18 +158,18 @@ describe("tool-execution-handlers", () => {
     vi.clearAllMocks();
 
     init({
-      vscode: mockVscode,
+      vscode: mockVscode as unknown as { postMessage(msg: unknown): void },
       messagesContainer,
       welcomeScreen,
       promptInput,
-      updateAllUI: mockUpdateAllUI,
-      updateHeaderUI: mockUpdateHeaderUI,
-      updateFooterUI: mockUpdateFooterUI,
-      updateInputUI: mockUpdateInputUI,
-      updateOverlayIndicators: mockUpdateOverlayIndicators,
-      updateWorkflowBadge: mockUpdateWorkflowBadge,
-      handleModelRouted: mockHandleModelRouted,
-      autoResize: mockAutoResize,
+      updateAllUI: mockUpdateAllUI as unknown as () => void,
+      updateHeaderUI: mockUpdateHeaderUI as unknown as () => void,
+      updateFooterUI: mockUpdateFooterUI as unknown as () => void,
+      updateInputUI: mockUpdateInputUI as unknown as () => void,
+      updateOverlayIndicators: mockUpdateOverlayIndicators as unknown as () => void,
+      updateWorkflowBadge: mockUpdateWorkflowBadge as unknown as (wf: any) => void,
+      handleModelRouted: mockHandleModelRouted as unknown as (oldModel: any, newModel: any) => void,
+      autoResize: mockAutoResize as unknown as () => void,
     });
   });
 

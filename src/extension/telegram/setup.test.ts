@@ -53,7 +53,7 @@ const mockWithProgress = vi.fn(async (_opts: unknown, task: (progress: unknown, 
   const cancelToken = { isCancellationRequested: false, onCancellationRequested: vi.fn() } as unknown as vscode.CancellationToken;
   return task({}, cancelToken);
 });
-const mockExecuteCommand = vi.fn(async () => undefined);
+const mockExecuteCommand = vi.fn(async (_cmd: unknown) => undefined);
 
 const mockSecrets = createMockSecretStorage();
 const mockConfig = createMockWorkspaceConfig();
@@ -166,6 +166,8 @@ describe("runTelegramSetup", () => {
       chatId: CHAT.id,
       chatTitle: CHAT.title,
       streamingGranularity: "throttled",
+      ownerId: 0,
+      projectSearchDirs: [],
     });
   });
 
@@ -319,7 +321,7 @@ describe("runTelegramSetup", () => {
 
 describe("updateTelegramStatusBar", () => {
   it("appends Telegram status to tooltip when config exists", async () => {
-    savedConfig = { botToken: TOKEN, botUsername: "testbot", chatId: CHAT.id, chatTitle: CHAT.title, streamingGranularity: "throttled" };
+    savedConfig = { botToken: TOKEN, botUsername: "testbot", chatId: CHAT.id, chatTitle: CHAT.title, streamingGranularity: "throttled", ownerId: 0, projectSearchDirs: [] };
     const statusBar = { tooltip: "Rokket GSD" } as vscode.StatusBarItem;
 
     await updateTelegramStatusBar(statusBar, mockContext());

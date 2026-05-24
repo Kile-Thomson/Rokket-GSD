@@ -83,7 +83,8 @@ export function evacuateDialogsFromTurn(turnEl: HTMLElement): void {
   const parent = turnEl.parentElement;
   if (!parent || dialogs.length === 0) return;
   const ref = turnEl.nextSibling;
-  for (const d of dialogs) {
+  for (let i = 0; i < dialogs.length; i++) {
+    const d = dialogs[i];
     if (ref) {
       parent.insertBefore(d, ref);
     } else {
@@ -104,7 +105,7 @@ let preFocusEl: HTMLElement | null = null;
  * Two dialogs are considered duplicates if they have the same method, title,
  * message, and options — even if their IDs differ.
  */
-interface DialogRequestData {
+export interface DialogRequestData {
   id: string;
   method: string;
   title?: string;

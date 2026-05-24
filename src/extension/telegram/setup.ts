@@ -212,6 +212,8 @@ async function finishSetup(
     chatId,
     chatTitle,
     streamingGranularity: "throttled",
+    ownerId: 0,
+    projectSearchDirs: [],
   };
   await saveTelegramConfig(
     context.secrets,
