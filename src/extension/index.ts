@@ -140,6 +140,14 @@ export function activate(context: vscode.ExtensionContext): void {
   // Check Telegram config and update status bar
   updateTelegramStatusBar(statusBarItem, context);
 
+  // If this window was opened via a Telegram /launch command, auto-reveal GSD
+  // so the webview initializes and checkPendingTelegramLaunch can fire.
+  const pendingLaunch = context.globalState.get<{ folderPath: string; timestamp: number }>("gsd.telegramPendingLaunch");
+  if (pendingLaunch && (Date.now() - pendingLaunch.timestamp) < 120_000) {
+    output.appendLine("[telegram-launch] Pending launch detected — auto-revealing GSD panel");
+    vscode.commands.executeCommand("gsd.open");
+  }
+
   // Run startup health check (non-blocking)
   runHealthCheck(output);
 

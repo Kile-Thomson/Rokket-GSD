@@ -207,9 +207,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     const pending = this.context.globalState.get<{ folderPath: string; timestamp: number }>(GsdWebviewProvider.PENDING_LAUNCH_KEY);
     if (!pending) return;
 
-    // Only consume if less than 60 seconds old and matches current workspace
+    // Only consume if less than 120 seconds old and matches current workspace
     const age = Date.now() - pending.timestamp;
-    if (age > 60_000) {
+    if (age > 120_000) {
       await this.context.globalState.update(GsdWebviewProvider.PENDING_LAUNCH_KEY, undefined);
       return;
     }
