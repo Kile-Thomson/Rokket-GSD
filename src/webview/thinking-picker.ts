@@ -116,7 +116,9 @@ function currentModelSupportsXhigh(): boolean {
     id.includes("opus-4-6") ||
     id.includes("opus-4.6") ||
     id.includes("opus-4-7") ||
-    id.includes("opus-4.7")
+    id.includes("opus-4.7") ||
+    id.includes("opus-4-8") ||
+    id.includes("opus-4.8")
   );
 }
 
