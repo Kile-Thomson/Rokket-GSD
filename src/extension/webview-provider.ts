@@ -15,7 +15,7 @@ import { handleRpcEvent, type RpcEventContext } from "./rpc-events";
 import type { FileOpsContext } from "./file-ops";
 import { handleWebviewMessage, type MessageDispatchContext } from "./message-dispatch";
 import { TopicManager, type TopicManagerLogger } from "./telegram/topicManager";
-import { TelegramApi, redactToken } from "./telegram/api";
+import { TelegramApi, redactToken, TelegramNotForumError } from "./telegram/api";
 import { loadTelegramConfig } from "./telegram/config";
 import { TelegramBridge } from "./telegram/bridge";
 import { TranscriptionError } from "./openai/transcribe";
@@ -195,6 +195,19 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         }
       }
     } catch (err: unknown) {
+      // Topics aren't enabled on the supergroup — actionable, not a re-setup.
+      // Surface a clear instruction instead of swallowing the raw 400 (the
+      // sync button stays unlatched, which is correct since no topic exists).
+      if (err instanceof TelegramNotForumError) {
+        this.output.appendLine(
+          "[telegram-sync] Group is not a forum — Topics not enabled; prompting user to enable Topics",
+        );
+        vscode.window.showWarningMessage(
+          'Telegram sync couldn’t create a topic because your group doesn’t have Topics enabled. ' +
+            'Open your Telegram group → Edit → turn on "Topics", then click the sync button again.',
+        );
+        return;
+      }
       const msg = err instanceof Error ? err.message : String(err);
       const config = vscode.workspace.getConfiguration("gsd");
       const telegramConfig = await loadTelegramConfig(this.context.secrets, config);
