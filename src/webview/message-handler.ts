@@ -465,6 +465,15 @@ function handleMessage(event: MessageEvent): void {
       // agent..." is no longer accurate once new content is flowing.
       document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
       _lastMessageUsage = null;
+
+      // gsd-pi 1.0+ sends custom display messages (e.g. gsd-command-block)
+      // as message_start/message_end with role:"custom" and display:true,
+      // without an agent_start/agent_end cycle. Render them as system entries.
+      const startMsg = (msg as any).message;
+      if (startMsg?.role === "custom" && startMsg.display && typeof startMsg.content === "string") {
+        const kind = startMsg.customType === "gsd-command-block" ? "warning" : "info";
+        addSystemEntry(startMsg.content, kind);
+      }
       break;
     }
 
