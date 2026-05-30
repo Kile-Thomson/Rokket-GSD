@@ -4,6 +4,14 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.72] — 2026-05-31
+
+### Added
+- **Telegram owner ID auto-detect** — setup now captures your Telegram user ID from the message you send during group detection, and prompts for it when you enter the group ID manually. You can send commands back to GSD from Telegram straight away, without a separate /whoami step.
+
+### Fixed
+- **Clear guidance when Topics aren't enabled** — if your supergroup doesn't have Topics turned on, the sync button now explains how to enable them instead of silently failing with a raw API error.
+
 ## [0.3.69] — 2026-05-31
 
 ### Fixed
