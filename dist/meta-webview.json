@@ -196,7 +196,7 @@
       "format": "esm"
     },
     "src/webview/thinking-picker.ts": {
-      "bytes": 10380,
+      "bytes": 10386,
       "imports": [
         {
           "path": "src/webview/state.ts",
@@ -524,7 +524,7 @@
       "format": "esm"
     },
     "src/webview/message-handler.ts": {
-      "bytes": 73365,
+      "bytes": 73385,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -822,7 +822,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 920733
+      "bytes": 920771
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -951,7 +951,7 @@
           "bytesInOutput": 6857
         },
         "src/webview/message-handler.ts": {
-          "bytesInOutput": 26423
+          "bytesInOutput": 26440
         },
         "src/webview/ui-updates.ts": {
           "bytesInOutput": 7371
@@ -960,7 +960,7 @@
           "bytesInOutput": 28685
         }
       },
-      "bytes": 240766
+      "bytes": 240783
     },
     "dist/webview/index.css.map": {
       "imports": [],
