@@ -1,4 +1,5 @@
 import type { TelegramApi, ForumTopic } from "./api";
+import { TelegramMigrationError } from "./api";
 
 const TELEGRAM_TOPIC_NAME_LIMIT = 128;
 const TOPIC_REGISTRY_KEY = "gsd.telegram.topicRegistry";
@@ -35,10 +36,11 @@ export class TopicManager {
 
   constructor(
     private readonly api: TelegramApi,
-    private readonly chatId: number | string,
+    private chatId: number | string,
     machineId: string,
     private readonly logger: TopicManagerLogger = noopLogger,
     globalState?: GlobalStateStore,
+    private readonly onChatMigrated?: (newChatId: number) => void | Promise<void>,
   ) {
     this._machineId = machineId;
     this.globalState = globalState;
@@ -46,6 +48,11 @@ export class TopicManager {
 
   get machineId(): string {
     return this._machineId;
+  }
+
+  /** Current chat ID — updated automatically when the group migrates to a supergroup. */
+  get currentChatId(): number | string {
+    return this.chatId;
   }
 
   get activeSessions(): string[] {
@@ -80,15 +87,19 @@ export class TopicManager {
 
     this.syncing.add(sessionId);
     try {
-      this.topicCounter++;
+      // Name from the prospective count; only commit the counter once the topic
+      // is actually created, so a failed attempt doesn't burn a number (which
+      // otherwise produces "Project #2 #3 #4…" spam on repeated failed clicks).
+      const nextCount = this.topicCounter + 1;
       const topicName =
-        this.topicCounter === 1
+        nextCount === 1
           ? label.slice(0, TELEGRAM_TOPIC_NAME_LIMIT)
-          : `${label} #${this.topicCounter}`.slice(0, TELEGRAM_TOPIC_NAME_LIMIT);
+          : `${label} #${nextCount}`.slice(0, TELEGRAM_TOPIC_NAME_LIMIT);
 
       this.logger.info(`Creating forum topic "${topicName}" for session ${sessionId}`);
-      const topic: ForumTopic = await this.api.createForumTopic(this.chatId, topicName);
+      const topic: ForumTopic = await this.createTopicWithMigration(topicName);
       const threadId = topic.message_thread_id;
+      this.topicCounter = nextCount;
 
       this.sessionToTopic.set(sessionId, threadId);
       this.topicToSession.set(threadId, sessionId);
@@ -98,6 +109,32 @@ export class TopicManager {
       return threadId;
     } finally {
       this.syncing.delete(sessionId);
+    }
+  }
+
+  /**
+   * Creates a forum topic, self-healing if the group has been upgraded to a
+   * supergroup. Telegram returns the new chat ID in the migration error; we
+   * adopt it, notify the host (so it can persist the ID and update the bridge),
+   * and retry once against the new ID. A second failure propagates normally.
+   */
+  private async createTopicWithMigration(topicName: string): Promise<ForumTopic> {
+    try {
+      return await this.api.createForumTopic(this.chatId, topicName);
+    } catch (err: unknown) {
+      if (!(err instanceof TelegramMigrationError)) throw err;
+
+      this.logger.warn(
+        `Chat ${this.chatId} was upgraded to a supergroup — switching to ${err.migrateToChatId} and retrying`,
+      );
+      this.chatId = err.migrateToChatId;
+      try {
+        await this.onChatMigrated?.(err.migrateToChatId);
+      } catch (cbErr: unknown) {
+        const msg = cbErr instanceof Error ? cbErr.message : String(cbErr);
+        this.logger.warn(`onChatMigrated callback failed (continuing with retry): ${msg}`);
+      }
+      return await this.api.createForumTopic(this.chatId, topicName);
     }
   }
 
