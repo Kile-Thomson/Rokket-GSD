@@ -470,7 +470,7 @@ function handleMessage(event: MessageEvent): void {
       // as message_start/message_end with role:"custom" and display:true,
       // without an agent_start/agent_end cycle. Render them as system entries.
       const startMsg = (msg as any).message;
-      if (startMsg?.role === "custom" && startMsg.display && startMsg.content) {
+      if (startMsg?.role === "custom" && startMsg.display && typeof startMsg.content === "string") {
         const kind = startMsg.customType === "gsd-command-block" ? "warning" : "info";
         addSystemEntry(startMsg.content, kind);
       }
