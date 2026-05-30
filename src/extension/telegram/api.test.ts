@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { TelegramApi, redactToken } from "./api";
+import { TelegramApi, redactToken, TelegramMigrationError } from "./api";
 
 const TOKEN = "123456:ABC-DEF";
 
@@ -181,6 +181,39 @@ describe("TelegramApi", () => {
 
       await expect(api.getMe()).rejects.toThrow("bot***");
       await expect(api.getMe()).rejects.not.toThrow(TOKEN);
+    });
+
+    it("throws TelegramMigrationError carrying the new chat ID on supergroup upgrade", async () => {
+      globalThis.fetch = mockFetch(
+        {
+          ok: false,
+          description: "Bad Request: group chat was upgraded to a supergroup chat",
+          parameters: { migrate_to_chat_id: -1001999888777 },
+        },
+        400,
+      );
+
+      await expect(api.createForumTopic(-100, "Test")).rejects.toBeInstanceOf(
+        TelegramMigrationError,
+      );
+    });
+
+    it("TelegramMigrationError exposes migrateToChatId, status, and description", async () => {
+      globalThis.fetch = mockFetch(
+        {
+          ok: false,
+          description: "Bad Request: group chat was upgraded to a supergroup chat",
+          parameters: { migrate_to_chat_id: -1001999888777 },
+        },
+        400,
+      );
+
+      const err = await api.createForumTopic(-100, "Test").catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(TelegramMigrationError);
+      const migErr = err as TelegramMigrationError;
+      expect(migErr.migrateToChatId).toBe(-1001999888777);
+      expect(migErr.status).toBe(400);
+      expect(migErr.description).toContain("supergroup");
     });
 
     it("includes retry_after hint", async () => {

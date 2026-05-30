@@ -65,7 +65,28 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       info: (msg: string) => this.output.appendLine(`[telegram-topic] ${msg}`),
       warn: (msg: string) => this.output.appendLine(`[telegram-topic] WARN: ${msg}`),
     };
-    this.topicManager = new TopicManager(api, telegramConfig.chatId, vscode.env.machineId, logger, this.context.globalState);
+    this.topicManager = new TopicManager(
+      api,
+      telegramConfig.chatId,
+      vscode.env.machineId,
+      logger,
+      this.context.globalState,
+      async (newChatId: number) => {
+        // The group was upgraded to a supergroup. Point the bridge at the new
+        // ID and persist it so future sessions start from the valid supergroup.
+        this.bridge?.setChatId(newChatId);
+        try {
+          const cfg = vscode.workspace.getConfiguration("gsd");
+          await cfg.update("telegramGroupId", newChatId, vscode.ConfigurationTarget.Global);
+          this.output.appendLine(
+            `[telegram-sync] Group upgraded to supergroup — saved new group ID ${newChatId}`,
+          );
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.output.appendLine(`[telegram-sync] Failed to persist migrated group ID: ${msg}`);
+        }
+      },
+    );
 
     const bridgeLogger: TopicManagerLogger = {
       info: (msg: string) => this.output.appendLine(`[telegram-bridge] ${msg}`),
