@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TopicManager } from "./topicManager";
 import type { TelegramApi } from "./api";
+import { TelegramMigrationError } from "./api";
 import type { GlobalStateStore, TopicRegistryEntry } from "./topicManager";
 
 function createMockApi(): TelegramApi {
@@ -243,6 +244,53 @@ describe("TopicManager", () => {
       // second call returns -1 (syncing guard) or existing id
       expect(typeof r2).toBe("number");
       expect(api.createForumTopic).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("supergroup migration", () => {
+    const NEW_CHAT_ID = -1009999999999;
+
+    it("adopts the new chat ID, notifies the host, and retries once on migration", async () => {
+      const onChatMigrated = vi.fn();
+      (api.createForumTopic as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new TelegramMigrationError(NEW_CHAT_ID, 400, "group chat was upgraded to a supergroup chat"),
+      );
+      const m = new TopicManager(api, CHAT_ID, MACHINE_ID, undefined, undefined, onChatMigrated);
+
+      const threadId = await m.syncOn("s1", "MyProject");
+
+      expect(threadId).toBe(100);
+      expect(m.currentChatId).toBe(NEW_CHAT_ID);
+      expect(onChatMigrated).toHaveBeenCalledWith(NEW_CHAT_ID);
+      expect(api.createForumTopic).toHaveBeenCalledTimes(2);
+      expect(api.createForumTopic).toHaveBeenNthCalledWith(1, CHAT_ID, "MyProject");
+      expect(api.createForumTopic).toHaveBeenNthCalledWith(2, NEW_CHAT_ID, "MyProject");
+    });
+
+    it("propagates the error if the post-migration retry also fails", async () => {
+      const onChatMigrated = vi.fn();
+      (api.createForumTopic as ReturnType<typeof vi.fn>)
+        .mockRejectedValueOnce(new TelegramMigrationError(NEW_CHAT_ID, 400, "upgraded"))
+        .mockRejectedValueOnce(new Error("still broken"));
+      const m = new TopicManager(api, CHAT_ID, MACHINE_ID, undefined, undefined, onChatMigrated);
+
+      await expect(m.syncOn("s1", "MyProject")).rejects.toThrow("still broken");
+      expect(m.currentChatId).toBe(NEW_CHAT_ID);
+      expect(onChatMigrated).toHaveBeenCalledWith(NEW_CHAT_ID);
+    });
+
+    it("does not burn a topic number when creation fails", async () => {
+      (api.createForumTopic as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new Error("network down"),
+      );
+
+      await expect(manager.syncOn("s1", "MyProject")).rejects.toThrow("network down");
+
+      // The next successful sync is still the first topic — bare label, no "#2".
+      const threadId = await manager.syncOn("s2", "MyProject");
+      expect(threadId).toBe(100);
+      const lastName = (api.createForumTopic as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1];
+      expect(lastName).toBe("MyProject");
     });
   });
 });

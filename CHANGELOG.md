@@ -4,6 +4,12 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.69] — 2026-05-31
+
+### Fixed
+- **Telegram supergroup upgrades** — when a linked group is upgraded to a supergroup, its chat ID changes and the old one stops working. Sync now detects this, switches to the new ID, saves it, and retries automatically, so the sync button works without re-running setup. Previously every sync attempt failed with "group chat was upgraded to a supergroup chat" and created no topic.
+- **Repeated failed sync attempts** — a failed topic creation no longer consumes a topic number, so retries no longer produce escalating names like "Project #2 #3 #4".
+
 ## [0.3.63] — 2026-05-21
 
 ### Changed
