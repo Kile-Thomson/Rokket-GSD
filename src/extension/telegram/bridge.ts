@@ -117,6 +117,15 @@ export class TelegramBridge {
     this.streamingGranularity = value;
   }
 
+  /**
+   * Adopt a new chat ID after the group migrates to a supergroup, so all
+   * subsequent outbound calls (sendMessage, editMessageText, …) target the
+   * valid supergroup instead of the dead pre-migration ID.
+   */
+  setChatId(chatId: number | string): void {
+    this.chatId = chatId;
+  }
+
   setOnInboundMessage(cb: InboundMessageCallback): void {
     this.onInboundMessage = cb;
   }
