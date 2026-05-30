@@ -235,7 +235,7 @@
       "format": "esm"
     },
     "src/shared/types.ts": {
-      "bytes": 24562,
+      "bytes": 24688,
       "imports": [],
       "format": "esm"
     },
@@ -572,7 +572,7 @@
       "format": "esm"
     },
     "src/extension/transcription/providers.ts": {
-      "bytes": 5606,
+      "bytes": 5629,
       "imports": [
         {
           "path": "src/extension/openai/transcribe.ts",
@@ -656,7 +656,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 39553,
+      "bytes": 39649,
       "imports": [
         {
           "path": "vscode",
@@ -782,7 +782,7 @@
       "format": "esm"
     },
     "src/extension/health-check.ts": {
-      "bytes": 10867,
+      "bytes": 11062,
       "imports": [
         {
           "path": "vscode",
@@ -828,7 +828,7 @@
       "format": "esm"
     },
     "src/extension/telegram/setup.ts": {
-      "bytes": 9906,
+      "bytes": 9951,
       "imports": [
         {
           "path": "vscode",
@@ -854,7 +854,7 @@
       "format": "esm"
     },
     "src/extension/index.ts": {
-      "bytes": 5968,
+      "bytes": 6474,
       "imports": [
         {
           "path": "vscode",
@@ -895,7 +895,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 657132
+      "bytes": 658531
     },
     "dist/extension.js": {
       "imports": [
@@ -1214,10 +1214,10 @@
       "entryPoint": "src/extension/index.ts",
       "inputs": {
         "src/extension/index.ts": {
-          "bytesInOutput": 3159
+          "bytesInOutput": 3374
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 18790
+          "bytesInOutput": 18841
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 9944
@@ -1319,16 +1319,16 @@
           "bytesInOutput": 877
         },
         "src/extension/health-check.ts": {
-          "bytesInOutput": 4989
+          "bytesInOutput": 5109
         },
         "src/extension/telegram/setup.ts": {
-          "bytesInOutput": 6190
+          "bytesInOutput": 6221
         },
         "src/extension/openai/config.ts": {
           "bytesInOutput": 107
         }
       },
-      "bytes": 177279
+      "bytes": 177696
     }
   }
 }
