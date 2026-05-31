@@ -134,8 +134,30 @@ describe("parseJournalLines", () => {
 });
 
 describe("parseWorkflowEndFile", () => {
-  it("parses the captured end-file shape", () => {
-    // Shape from workflow-liveness-results.json.
+  it("parses the real end-file shape (workflowProgress array)", () => {
+    // Verified shape from a real wf_<id>.json: the per-agent table lives under
+    // `workflowProgress`, each entry carrying phaseTitle/state/tokens/toolCalls/durationMs.
+    const content = JSON.stringify({
+      runId: "wf_real",
+      status: "completed",
+      workflowProgress: [
+        { type: "workflow_phase", index: 1, title: "Probe" },
+        { type: "workflow_agent", index: 1, label: "probe:one", phaseTitle: "Probe", state: "done", tokens: 14227, toolCalls: 0, durationMs: 1303 },
+        { type: "workflow_agent", index: 2, label: "echo:two", phaseTitle: "Echo", state: "done", tokens: 14227, toolCalls: 2, durationMs: 1919 },
+      ],
+    });
+    const end = parseWorkflowEndFile(content);
+    expect(end).not.toBeNull();
+    expect(end!.status).toBe("completed");
+    // workflow_phase rows carry no label and map to the default "agent" label,
+    // but the agent rows must come through with their real stats + phase.
+    const probe = end!.agents.find((a) => a.label === "probe:one");
+    expect(probe).toMatchObject({ label: "probe:one", phase: "Probe", state: "done", tokens: 14227, durationMs: 1303 });
+    const echo = end!.agents.find((a) => a.label === "echo:two");
+    expect(echo).toMatchObject({ label: "echo:two", phase: "Echo", state: "done", toolCalls: 2 });
+  });
+
+  it("accepts the legacy `agents` key as a fallback", () => {
     const content = JSON.stringify({
       status: "completed",
       agents: [
@@ -145,7 +167,6 @@ describe("parseWorkflowEndFile", () => {
     });
     const end = parseWorkflowEndFile(content);
     expect(end).not.toBeNull();
-    expect(end!.status).toBe("completed");
     expect(end!.agents).toHaveLength(2);
     expect(end!.agents[0]).toMatchObject({ label: "red", state: "done", tokens: 20525 });
   });
