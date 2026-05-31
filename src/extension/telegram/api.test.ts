@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { TelegramApi, redactToken, TelegramMigrationError } from "./api";
+import { TelegramApi, redactToken, TelegramMigrationError, TelegramNotForumError } from "./api";
 
 const TOKEN = "123456:ABC-DEF";
 
@@ -196,6 +196,19 @@ describe("TelegramApi", () => {
       await expect(api.createForumTopic(-100, "Test")).rejects.toBeInstanceOf(
         TelegramMigrationError,
       );
+    });
+
+    it("throws TelegramNotForumError when the supergroup has no Topics enabled", async () => {
+      globalThis.fetch = mockFetch(
+        { ok: false, description: "Bad Request: the chat is not a forum" },
+        400,
+      );
+
+      const err = await api.createForumTopic(-100, "Test").catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(TelegramNotForumError);
+      const forumErr = err as TelegramNotForumError;
+      expect(forumErr.status).toBe(400);
+      expect(forumErr.description).toContain("not a forum");
     });
 
     it("TelegramMigrationError exposes migrateToChatId, status, and description", async () => {
