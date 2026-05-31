@@ -99,11 +99,27 @@ export interface WorkflowLaunchInfo {
 /**
  * Extract the run id + on-disk paths from the "launched in background" result text.
  * Returns null if the text isn't a recognizable workflow-launch result.
+ *
+ * The live runtime emits, e.g.:
+ *   Workflow launched in background. Task ID: wdqnq4w7q
+ *   Summary: ...
+ *   Transcript dir: <projectDir>\subagents\workflows\wf_<id>
+ *   Script file: ...
+ *
+ * Note it carries **no `Run ID:` line** — only `Task ID:` and a transcript dir
+ * whose last path segment IS the `wf_<id>` run id. We therefore derive the run id
+ * from the transcript dir's basename, preferring an explicit `Run ID:` line when a
+ * runtime does emit one. Requiring the `Run ID:` label (as this once did) made the
+ * parser return null on every real launch, so the journal poller never started and
+ * live progress never rendered — only the terminal completion snapshot did.
  */
 export function parseWorkflowLaunch(resultText: string): WorkflowLaunchInfo | null {
-  const runId = resultText.match(/Run ID:\s*(wf_[A-Za-z0-9_-]+)/)?.[1];
   const transcriptDir = resultText.match(/Transcript dir:\s*(.+?)\s*(?:\r?\n|$)/)?.[1]?.trim();
-  if (!runId || !transcriptDir) return null;
+  if (!transcriptDir) return null;
+  const explicitRunId = resultText.match(/Run ID:\s*(wf_[A-Za-z0-9_-]+)/)?.[1];
+  const dirBasename = transcriptDir.split(/[\\/]/).filter(Boolean).pop();
+  const runId = explicitRunId ?? (dirBasename && /^wf_[A-Za-z0-9_-]+$/.test(dirBasename) ? dirBasename : undefined);
+  if (!runId) return null;
   const scriptPath = resultText.match(/Script file:\s*(.+?)\s*(?:\r?\n|$)/)?.[1]?.trim();
   return { runId, transcriptDir, scriptPath };
 }
