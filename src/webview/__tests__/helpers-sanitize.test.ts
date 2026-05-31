@@ -112,3 +112,51 @@ describe("buildUsagePills", () => {
     expect(html).toContain("gsd-agent-pill");
   });
 });
+
+// ============================================================
+// parseAgentUsage
+// ============================================================
+
+import { parseAgentUsage } from "../helpers";
+
+describe("parseAgentUsage", () => {
+  it("returns null when there is no <usage> block", () => {
+    expect(parseAgentUsage("just some result text")).toBeNull();
+  });
+
+  it("parses subagent_tokens from a single-dispatch result (the real runtime shape)", () => {
+    // Exact shape emitted by a single `subagent` dispatch, captured from a live
+    // gsd --mode rpc run: tool_execution_end result text.
+    const resultText =
+      "ok\nagentId: abbee4e9671c46d2f\n" +
+      "<usage>subagent_tokens: 18132\ntool_uses: 0\nduration_ms: 1581</usage>";
+    const parsed = parseAgentUsage(resultText);
+    expect(parsed).not.toBeNull();
+    expect(parsed?.usage.totalTokens).toBe(18132);
+    expect(parsed?.usage.toolUses).toBe(0);
+    expect(parsed?.usage.durationMs).toBe(1581);
+    // the <usage> tag is stripped from the displayed text
+    expect(parsed?.cleanText).not.toContain("<usage>");
+    expect(parsed?.cleanText).toContain("ok");
+  });
+
+  it("still parses total_tokens (parallel/chain summary shape)", () => {
+    const resultText =
+      "done\n<usage>total_tokens: 50000\ntool_uses: 4\nduration_ms: 9000</usage>";
+    const parsed = parseAgentUsage(resultText);
+    expect(parsed?.usage.totalTokens).toBe(50000);
+    expect(parsed?.usage.toolUses).toBe(4);
+    expect(parsed?.usage.durationMs).toBe(9000);
+  });
+
+  it("prefers total_tokens over subagent_tokens when both are present", () => {
+    const resultText =
+      "<usage>total_tokens: 999\nsubagent_tokens: 111\ntool_uses: 1\nduration_ms: 5</usage>";
+    const parsed = parseAgentUsage(resultText);
+    expect(parsed?.usage.totalTokens).toBe(999);
+  });
+
+  it("returns null when the <usage> block has no recognized fields", () => {
+    expect(parseAgentUsage("<usage>unrelated: 1</usage>")).toBeNull();
+  });
+});
