@@ -80,6 +80,11 @@
 					"default": false,
 					"description": "Use Ctrl/Cmd+Enter to send prompts instead of Enter. Allows Enter for newlines."
 				},
+				"gsd.workflowDiagnostics": {
+					"type": "boolean",
+					"default": false,
+					"description": "Show an on-screen diagnostic overlay for Claude Code Workflow progress. When enabled, a small heads-up panel reports whether live workflow_progress updates are arriving and whether the panel can find its anchor in the conversation. Use it to diagnose why a live workflow panel isn't appearing; leave off for normal use."
+				},
 				"gsd.autoUpdate": {
 					"type": "boolean",
 					"default": true,

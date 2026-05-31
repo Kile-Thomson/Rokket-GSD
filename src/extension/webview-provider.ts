@@ -520,7 +520,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist")],
     };
-    webviewView.webview.html = getWebviewHtml(this.extensionUri, webviewView.webview, sessionId);
+    webviewView.webview.html = getWebviewHtml(this.extensionUri, webviewView.webview, sessionId, this.getWorkflowDiagnostics());
     this.setupWebviewMessageHandling(webviewView.webview, sessionId);
   }
 
@@ -535,7 +535,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       }
     );
     this.getSession(sessionId).panel = panel;
-    panel.webview.html = getWebviewHtml(this.extensionUri, panel.webview, sessionId);
+    panel.webview.html = getWebviewHtml(this.extensionUri, panel.webview, sessionId, this.getWorkflowDiagnostics());
     this.setupWebviewMessageHandling(panel.webview, sessionId);
     panel.onDidDispose(() => {
       this.getSession(sessionId).panel = null;
@@ -545,11 +545,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
   focus(): void {
     if (this.webviewView) this.webviewView.show(true);
-    this.broadcastToAll({ type: "config", useCtrlEnterToSend: this.getUseCtrlEnter(), theme: this.getTheme() } as ExtensionToWebviewMessage);
+    this.broadcastToAll({ type: "config", useCtrlEnterToSend: this.getUseCtrlEnter(), theme: this.getTheme(), workflowDiagnostics: this.getWorkflowDiagnostics() } as ExtensionToWebviewMessage);
   }
 
   onConfigChanged(): void {
-    this.broadcastToAll({ type: "config", useCtrlEnterToSend: this.getUseCtrlEnter(), theme: this.getTheme() } as ExtensionToWebviewMessage);
+    this.broadcastToAll({ type: "config", useCtrlEnterToSend: this.getUseCtrlEnter(), theme: this.getTheme(), workflowDiagnostics: this.getWorkflowDiagnostics() } as ExtensionToWebviewMessage);
   }
 
   async newConversation(): Promise<void> {
@@ -904,5 +904,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
   private getTheme(): string {
     return vscode.workspace.getConfiguration("gsd").get<string>("theme", "forge");
+  }
+
+  private getWorkflowDiagnostics(): boolean {
+    return vscode.workspace.getConfiguration("gsd").get<boolean>("workflowDiagnostics", false);
   }
 }

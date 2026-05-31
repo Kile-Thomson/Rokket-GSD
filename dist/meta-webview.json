@@ -58,7 +58,7 @@
       "imports": []
     },
     "src/webview/styles/workflow.css": {
-      "bytes": 4861,
+      "bytes": 5922,
       "imports": []
     },
     "src/webview/styles/themes/phosphor.css": {
@@ -337,7 +337,7 @@
       "format": "esm"
     },
     "src/webview/workflow-progress.ts": {
-      "bytes": 8651,
+      "bytes": 13712,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -544,7 +544,7 @@
       "format": "esm"
     },
     "src/webview/message-handler.ts": {
-      "bytes": 73541,
+      "bytes": 73671,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -852,7 +852,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 936229
+      "bytes": 944072
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -921,7 +921,7 @@
           "bytesInOutput": 38576
         },
         "node_modules/dompurify/dist/purify.es.mjs": {
-          "bytesInOutput": 25405
+          "bytesInOutput": 25410
         },
         "src/webview/dispose.ts": {
           "bytesInOutput": 383
@@ -963,16 +963,16 @@
           "bytesInOutput": 4685
         },
         "src/webview/render/html-builders.ts": {
-          "bytesInOutput": 13129
+          "bytesInOutput": 13141
         },
         "src/webview/workflow-progress.ts": {
-          "bytesInOutput": 3297
+          "bytesInOutput": 5240
         },
         "src/webview/render/streaming.ts": {
           "bytesInOutput": 151
         },
         "src/webview/renderer.ts": {
-          "bytesInOutput": 11696
+          "bytesInOutput": 11699
         },
         "src/webview/dashboard.ts": {
           "bytesInOutput": 10234
@@ -987,7 +987,7 @@
           "bytesInOutput": 6857
         },
         "src/webview/message-handler.ts": {
-          "bytesInOutput": 26482
+          "bytesInOutput": 26540
         },
         "src/webview/ui-updates.ts": {
           "bytesInOutput": 7371
@@ -996,13 +996,13 @@
           "bytesInOutput": 28685
         }
       },
-      "bytes": 244305
+      "bytes": 246326
     },
     "dist/webview/index.css.map": {
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 278435
+      "bytes": 280101
     },
     "dist/webview/index.css": {
       "imports": [],
@@ -1047,7 +1047,7 @@
           "bytesInOutput": 2258
         },
         "src/webview/styles/workflow.css": {
-          "bytesInOutput": 3733
+          "bytesInOutput": 4536
         },
         "src/webview/styles/themes/phosphor.css": {
           "bytesInOutput": 5298
@@ -1059,7 +1059,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 129022
+      "bytes": 129825
     }
   }
 }

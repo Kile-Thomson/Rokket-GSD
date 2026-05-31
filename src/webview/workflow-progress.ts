@@ -24,6 +24,56 @@ const HEARTBEAT_INTERVAL_MS = 1000;
 /** Self-healing re-attach timer — runs only while at least one workflow is live. */
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
+// --- Diagnostics overlay -----------------------------------------------------
+//
+// An opt-in heads-up panel (gsd.workflowDiagnostics) that answers the two
+// questions static analysis can't: are workflow_progress messages actually
+// reaching the webview, and can the panel find its anchor (the Workflow tool
+// segment) to attach to? It renders fixed to document.body — deliberately
+// independent of the messages DOM that gets rebuilt — so it stays visible even
+// when the anchor lookup is failing and no panel can attach. Off by default and
+// has zero effect on rendering when disabled.
+
+const DIAG_ID = "gsd-wf-diag";
+
+type AnchorOutcome = "found" | "retrying" | "missing";
+
+interface DiagState {
+  enabled: boolean;
+  /** Count of workflow_progress messages received, by status. */
+  counts: Record<WorkflowProgressData["status"], number>;
+  total: number;
+  lastName?: string;
+  lastStatus?: WorkflowProgressData["status"];
+  lastDone?: number;
+  lastPlanned?: number;
+  lastAnchor?: AnchorOutcome;
+  lastPanelAttached?: boolean;
+  /** Date.now() of the last received message — drives the "Ns ago" freshness line. */
+  lastMessageAt?: number;
+}
+
+function readDiagDefault(): boolean {
+  try {
+    return (window as unknown as { GSD_WORKFLOW_DIAGNOSTICS?: boolean }).GSD_WORKFLOW_DIAGNOSTICS === true;
+  } catch {
+    return false;
+  }
+}
+
+const diag: DiagState = {
+  enabled: readDiagDefault(),
+  counts: { launching: 0, running: 0, completed: 0, error: 0, stalled: 0 },
+  total: 0,
+};
+
+/** Toggle the diagnostics overlay (driven by the gsd.workflowDiagnostics setting). */
+export function setDiagnostics(enabled: boolean): void {
+  diag.enabled = enabled;
+  if (enabled) renderDiag();
+  else removeDiag();
+}
+
 /** Live = still producing progress; terminal states don't need re-attaching. */
 function isLive(status: WorkflowProgressData["status"]): boolean {
   return status === "running" || status === "launching" || status === "stalled";
@@ -31,6 +81,7 @@ function isLive(status: WorkflowProgressData["status"]): boolean {
 
 export function update(data: WorkflowProgressData): void {
   latest.set(data.toolCallId, data);
+  noteMessage(data);
   render(data.toolCallId, 0);
   if (isLive(data.status)) startHeartbeat();
 }
@@ -41,6 +92,16 @@ export function reset(): void {
   for (const t of retryTimers.values()) clearTimeout(t);
   retryTimers.clear();
   stopHeartbeat();
+  diag.counts = { launching: 0, running: 0, completed: 0, error: 0, stalled: 0 };
+  diag.total = 0;
+  diag.lastName = undefined;
+  diag.lastStatus = undefined;
+  diag.lastDone = undefined;
+  diag.lastPlanned = undefined;
+  diag.lastAnchor = undefined;
+  diag.lastPanelAttached = undefined;
+  diag.lastMessageAt = undefined;
+  if (diag.enabled) renderDiag();
 }
 
 function startHeartbeat(): void {
@@ -74,6 +135,7 @@ function heartbeatTick(): void {
       render(id, 0);
     }
   }
+  if (diag.enabled) renderDiag();
   if (!anyLive) stopHeartbeat();
 }
 
@@ -86,9 +148,12 @@ function render(toolCallId: string, attempt: number): void {
     // The Workflow tool segment may not be in the DOM yet (workflow_progress can
     // arrive just before tool_execution_start). Retry a bounded number of times.
     if (attempt < MAX_RETRIES) {
+      noteAnchor("retrying", false);
       const existing = retryTimers.get(toolCallId);
       if (existing) clearTimeout(existing);
       retryTimers.set(toolCallId, setTimeout(() => render(toolCallId, attempt + 1), RETRY_DELAY_MS));
+    } else {
+      noteAnchor("missing", false);
     }
     return;
   }
@@ -98,6 +163,7 @@ function render(toolCallId: string, attempt: number): void {
   const panel = ensurePanel(segment, toolCallId);
   panel.className = `gsd-workflow-panel status-${data.status}`;
   panel.innerHTML = buildPanelHtml(data);
+  noteAnchor("found", true);
 }
 
 function findSegment(toolCallId: string): HTMLElement | null {
@@ -193,6 +259,71 @@ function buildAgentRow(a: WorkflowAgentProgress): string {
     ${meta.join("")}
     ${statsHtml}
   </div>`;
+}
+
+// --- Diagnostics rendering ---
+
+/** Record a received workflow_progress message for the diagnostics overlay. */
+function noteMessage(data: WorkflowProgressData): void {
+  diag.counts[data.status] = (diag.counts[data.status] ?? 0) + 1;
+  diag.total++;
+  diag.lastName = data.name;
+  diag.lastStatus = data.status;
+  diag.lastDone = data.doneAgentCount;
+  diag.lastPlanned = Math.max(data.plannedAgentCount, data.agents.length);
+  diag.lastMessageAt = Date.now();
+  if (diag.enabled) renderDiag();
+}
+
+/** Record the outcome of the most recent attach attempt (the anchor lookup). */
+function noteAnchor(outcome: AnchorOutcome, panelAttached: boolean): void {
+  diag.lastAnchor = outcome;
+  diag.lastPanelAttached = panelAttached;
+  if (diag.enabled) renderDiag();
+}
+
+function removeDiag(): void {
+  const el = document.getElementById(DIAG_ID);
+  if (el) el.remove();
+}
+
+/** Render (or refresh) the fixed diagnostics overlay. No-op when disabled. */
+function renderDiag(): void {
+  if (!diag.enabled) return;
+  const body = document.body;
+  if (!body) return;
+  let el = document.getElementById(DIAG_ID);
+  if (!el) {
+    el = document.createElement("div");
+    el.id = DIAG_ID;
+    el.setAttribute("aria-hidden", "true");
+    body.appendChild(el);
+  }
+  el.innerHTML = buildDiagHtml();
+}
+
+function buildDiagHtml(): string {
+  const c = diag.counts;
+  const anchorText = diag.lastAnchor ? diag.lastAnchor.toUpperCase() : "—";
+  const anchorClass = diag.lastAnchor === "found" ? "ok" : diag.lastAnchor === "missing" ? "bad" : "warn";
+  const messagesPresent = !!document.getElementById("messages");
+  const last = diag.lastName
+    ? `${escapeHtml(diag.lastName)} · ${escapeHtml(diag.lastStatus ?? "—")}`
+    : "none yet";
+  const agents = diag.lastDone !== undefined && diag.lastPlanned !== undefined
+    ? ` · ${diag.lastDone}/${diag.lastPlanned} agents`
+    : "";
+  const ago = diag.lastMessageAt !== undefined
+    ? `${Math.max(0, Math.round((Date.now() - diag.lastMessageAt) / 1000))}s ago`
+    : "—";
+
+  return [
+    `<div class="gsd-wf-diag-title">⋔ workflow diagnostics</div>`,
+    `<div class="gsd-wf-diag-row">messages: <b>${diag.total}</b> <span class="gsd-wf-diag-dim">(launch ${c.launching} · run ${c.running} · done ${c.completed} · stall ${c.stalled} · err ${c.error})</span></div>`,
+    `<div class="gsd-wf-diag-row">last: ${last}${agents}</div>`,
+    `<div class="gsd-wf-diag-row">anchor: <b class="gsd-wf-diag-${anchorClass}">${anchorText}</b> · panel: ${diag.lastPanelAttached ? "attached" : "—"} · #messages: ${messagesPresent ? "yes" : "no"}</div>`,
+    `<div class="gsd-wf-diag-row gsd-wf-diag-dim">updated ${ago}</div>`,
+  ].join("");
 }
 
 /** Minimal CSS.escape fallback for attribute-selector safety. */

@@ -214,7 +214,7 @@
       "format": "esm"
     },
     "src/extension/workflow-progress.ts": {
-      "bytes": 17111,
+      "bytes": 18079,
       "imports": [
         {
           "path": "fs",
@@ -277,7 +277,7 @@
       "format": "esm"
     },
     "src/shared/types.ts": {
-      "bytes": 27049,
+      "bytes": 27080,
       "imports": [],
       "format": "esm"
     },
@@ -714,7 +714,7 @@
       "format": "esm"
     },
     "src/extension/html-generator.ts": {
-      "bytes": 1567,
+      "bytes": 1694,
       "imports": [
         {
           "path": "vscode",
@@ -730,7 +730,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 41623,
+      "bytes": 41940,
       "imports": [
         {
           "path": "vscode",
@@ -974,7 +974,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 720445
+      "bytes": 722409
     },
     "dist/extension.js": {
       "imports": [
@@ -1321,7 +1321,7 @@
           "bytesInOutput": 3374
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 19790
+          "bytesInOutput": 20048
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 9944
@@ -1351,7 +1351,7 @@
           "bytesInOutput": 1256
         },
         "src/extension/workflow-progress.ts": {
-          "bytesInOutput": 4166
+          "bytesInOutput": 4358
         },
         "src/extension/workflow-progress-poller.ts": {
           "bytesInOutput": 3766
@@ -1429,7 +1429,7 @@
           "bytesInOutput": 1769
         },
         "src/extension/html-generator.ts": {
-          "bytesInOutput": 877
+          "bytesInOutput": 941
         },
         "src/extension/health-check.ts": {
           "bytesInOutput": 5109
@@ -1441,7 +1441,7 @@
           "bytesInOutput": 107
         }
       },
-      "bytes": 189894
+      "bytes": 190408
     }
   }
 }

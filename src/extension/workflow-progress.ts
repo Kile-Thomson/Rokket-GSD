@@ -297,10 +297,17 @@ export function decideLiveWorkflowStatus(i: LiveStatusInput): LiveStatusDecision
 
 export interface WorkflowEndFile {
   status: string;
-  agents: Array<{ label: string; state: AgentRunState; tokens?: number; toolCalls?: number; durationMs?: number }>;
+  agents: Array<{ label: string; phase?: string; state: AgentRunState; tokens?: number; toolCalls?: number; durationMs?: number }>;
 }
 
-/** Parse the `<runId>.json` end-file. Returns null if absent/corrupt. */
+/**
+ * Parse the `<runId>.json` end-file. Returns null if absent/corrupt.
+ *
+ * The runtime writes the per-agent table under `workflowProgress` — verified
+ * against a real end-file: each entry carries label, phaseTitle, state, tokens,
+ * toolCalls, durationMs. The legacy `agents` key is accepted as a fallback so a
+ * future shape change doesn't silently blank the completion table.
+ */
 export function parseWorkflowEndFile(content: string): WorkflowEndFile | null {
   let obj: Record<string, unknown>;
   try {
@@ -308,17 +315,31 @@ export function parseWorkflowEndFile(content: string): WorkflowEndFile | null {
   } catch {
     return null;
   }
-  if (!obj || !Array.isArray(obj.agents)) return null;
+  const rawAgents = Array.isArray(obj?.workflowProgress)
+    ? (obj.workflowProgress as Array<Record<string, unknown>>)
+    : Array.isArray(obj?.agents)
+      ? (obj.agents as Array<Record<string, unknown>>)
+      : null;
+  if (!rawAgents) return null;
 
-  const agents = (obj.agents as Array<Record<string, unknown>>).map((raw) => {
+  // `workflowProgress` interleaves phase markers ({type:"workflow_phase"}) with
+  // agent rows ({type:"workflow_agent"}). Keep only agent rows; a row with no
+  // type discriminator (legacy `agents` shape) is treated as an agent.
+  const agents = rawAgents
+    .filter((raw) => {
+      const t = pickString(raw, "type");
+      return t === undefined || t === "workflow_agent";
+    })
+    .map((raw) => {
     const stateRaw = pickString(raw, "state", "status") ?? "done";
     const state: AgentRunState =
       stateRaw === "error" || stateRaw === "failed" ? "error"
       : stateRaw === "running" || stateRaw === "started" ? "running"
-      : stateRaw === "pending" ? "pending"
+      : stateRaw === "pending" || stateRaw === "queued" ? "pending"
       : "done";
     return {
       label: pickString(raw, "label", "agentId", "id") ?? "agent",
+      phase: pickString(raw, "phaseTitle", "phase"),
       state,
       tokens: pickNumber(raw, "tokens", "totalTokens"),
       toolCalls: pickNumber(raw, "toolCalls", "toolCallCount"),
@@ -393,7 +414,7 @@ export function buildAgentRows(
     const phaseByLabel = new Map(plan.agents.map((a) => [a.label, a.phase]));
     const agents: WorkflowAgentProgress[] = endFile.agents.map((a) => ({
       label: a.label,
-      phase: phaseByLabel.get(a.label),
+      phase: phaseByLabel.get(a.label) ?? a.phase,
       state: a.state,
       tokens: a.tokens,
       toolCalls: a.toolCalls,

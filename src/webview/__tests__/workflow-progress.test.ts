@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { update, reset } from "../workflow-progress";
+import { update, reset, setDiagnostics } from "../workflow-progress";
 import type { WorkflowProgressData } from "../../shared/types";
 
 function snapshot(over: Partial<WorkflowProgressData> = {}): WorkflowProgressData {
@@ -91,5 +91,73 @@ describe("workflow-progress panel", () => {
     mountSegment();
     vi.advanceTimersByTime(3000);
     expect(panelEl()).toBeNull();
+  });
+});
+
+function diagEl(): HTMLElement | null {
+  return document.getElementById("gsd-wf-diag");
+}
+
+describe("workflow diagnostics overlay", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    reset();
+  });
+  afterEach(() => {
+    setDiagnostics(false);
+    reset();
+    vi.useRealTimers();
+    document.body.innerHTML = "";
+  });
+
+  it("stays absent until explicitly enabled", () => {
+    mountSegment();
+    update(snapshot());
+    expect(diagEl()).toBeNull();
+  });
+
+  it("appears when enabled and reports a found anchor with a live segment", () => {
+    mountSegment();
+    setDiagnostics(true);
+    update(snapshot({ status: "running" }));
+    const el = diagEl();
+    expect(el).not.toBeNull();
+    expect(el!.textContent).toContain("messages: 1");
+    expect(el!.textContent).toContain("FOUND");
+  });
+
+  it("stays visible and reports a missing anchor when no segment exists", () => {
+    // No #messages / tool segment — the panel cannot attach, but the overlay
+    // must still be visible (that is the whole point of the diagnostic).
+    document.body.innerHTML = "";
+    setDiagnostics(true);
+    update(snapshot({ status: "launching" }));
+    expect(diagEl()).not.toBeNull();
+    expect(diagEl()!.textContent).toContain("RETRYING");
+    // After retries are exhausted it reports MISSING — and is still on screen.
+    vi.advanceTimersByTime(25 * 120 + 200);
+    expect(diagEl()).not.toBeNull();
+    expect(diagEl()!.textContent).toContain("MISSING");
+    expect(diagEl()!.textContent).toContain("#messages: no");
+  });
+
+  it("accumulates per-status message counts and clears them on reset", () => {
+    mountSegment();
+    setDiagnostics(true);
+    update(snapshot({ status: "launching" }));
+    update(snapshot({ status: "running" }));
+    update(snapshot({ status: "completed", runningAgentCount: 0, doneAgentCount: 1 }));
+    expect(diagEl()!.textContent).toContain("messages: 3");
+    reset();
+    expect(diagEl()!.textContent).toContain("messages: 0");
+  });
+
+  it("removes the overlay when disabled", () => {
+    mountSegment();
+    setDiagnostics(true);
+    update(snapshot());
+    expect(diagEl()).not.toBeNull();
+    setDiagnostics(false);
+    expect(diagEl()).toBeNull();
   });
 });

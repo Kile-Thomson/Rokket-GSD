@@ -112,7 +112,7 @@ export type ExtensionToWebviewMessage =
   | { type: "available_models"; models: AvailableModelInfo[] }
   | { type: "bash_result"; result: BashResult }
   | { type: "thinking_level_changed"; level: ThinkingLevel }
-  | { type: "config"; useCtrlEnterToSend: boolean; theme?: string; cwd?: string; version?: string; extensionVersion?: string }
+  | { type: "config"; useCtrlEnterToSend: boolean; theme?: string; cwd?: string; version?: string; extensionVersion?: string; workflowDiagnostics?: boolean }
   | { type: "process_status"; status: ProcessStatus }
   | { type: "process_health"; status: ProcessHealthStatus }
   | { type: "session_list"; sessions: SessionListItem[] }

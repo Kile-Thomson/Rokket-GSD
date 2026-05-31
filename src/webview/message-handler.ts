@@ -252,6 +252,9 @@ function handleMessage(event: MessageEvent): void {
     case "config": {
       const data = msg;
       state.useCtrlEnterToSend = data.useCtrlEnterToSend ?? false;
+      if (data.workflowDiagnostics !== undefined) {
+        workflowProgress.setDiagnostics(data.workflowDiagnostics);
+      }
       if (data.theme) {
         state.theme = data.theme;
         try { applyTheme(data.theme); } catch (e) { console.warn("applyTheme error:", e); }
