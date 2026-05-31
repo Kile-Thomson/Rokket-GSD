@@ -171,6 +171,27 @@ describe("runTelegramSetup", () => {
     });
   });
 
+  it("captures the owner ID from the detection message sender", async () => {
+    inputBoxQueue = [TOKEN];
+    mockGetMe.mockResolvedValue(BOT_USER);
+    mockGetUpdates.mockResolvedValue([
+      {
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 5550123, is_bot: false, first_name: "Operator" },
+          chat: { id: CHAT.id, title: CHAT.title, type: "supergroup" },
+        },
+      },
+    ]);
+    mockGetChatMember.mockResolvedValue({ status: "administrator", user: BOT_USER });
+    mockSendMessage.mockResolvedValue({ message_id: 2, chat: CHAT });
+
+    await runTelegramSetup(mockContext());
+
+    expect(savedConfig?.ownerId).toBe(5550123);
+  });
+
   it("aborts when user cancels step 1 modal", async () => {
     mockShowInfoMessage.mockResolvedValueOnce(undefined);
 
@@ -235,10 +256,11 @@ describe("runTelegramSetup", () => {
     mockGetChatMember.mockResolvedValue({ status: "administrator", user: BOT_USER });
     mockSendMessage.mockResolvedValue({ message_id: 2, chat: CHAT });
 
-    // First showInputBox returns token, second returns manual group ID
+    // showInputBox: 1) token, 2) manual group ID, 3) manual owner ID
     mockShowInputBox
       .mockResolvedValueOnce(TOKEN)
-      .mockResolvedValueOnce(String(CHAT.id));
+      .mockResolvedValueOnce(String(CHAT.id))
+      .mockResolvedValueOnce("7770456");
 
     let callCount = 0;
     mockWithProgress.mockImplementation(async (_opts: unknown, task: (p: unknown, c: vscode.CancellationToken) => Promise<unknown>) => {
@@ -252,9 +274,10 @@ describe("runTelegramSetup", () => {
 
     await runTelegramSetup(mockContext());
 
-    expect(mockShowInputBox).toHaveBeenCalledTimes(2);
+    expect(mockShowInputBox).toHaveBeenCalledTimes(3);
     expect(savedConfig).not.toBeNull();
     expect(savedConfig?.chatId).toBe(CHAT.id);
+    expect(savedConfig?.ownerId).toBe(7770456);
   });
 
   it("offers voice setup after completion", async () => {

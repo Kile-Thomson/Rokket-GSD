@@ -122,6 +122,10 @@ export async function runTelegramSetup(context: vscode.ExtensionContext): Promis
               return {
                 chatId: update.message.chat.id,
                 chatTitle: update.message.chat.title ?? "",
+                // The person who sent the detection message is the operator —
+                // capture their user ID as the owner so they can send commands
+                // back to GSD without a separate /whoami round trip.
+                ownerId: update.message.from?.id ?? 0,
               };
             }
           }
@@ -157,12 +161,25 @@ export async function runTelegramSetup(context: vscode.ExtensionContext): Promis
       return;
     }
 
-    await finishSetup(context, output, api, token, me, parsed, "");
+    // No detection message means no sender to read the owner ID from — ask for
+    // it directly. Optional: blank skips and they can set it later via /whoami.
+    const manualOwner = await vscode.window.showInputBox({
+      title: "Your Telegram user ID (optional)",
+      prompt:
+        "Enter your Telegram user ID so you can send commands back to GSD from Telegram. " +
+        "Leave blank to skip — you can set it later by sending /whoami in your group. " +
+        "(Tip: @RawDataBot or sending /whoami shows your user ID.)",
+      placeHolder: "123456789",
+      ignoreFocusOut: true,
+    });
+    const manualOwnerId = manualOwner ? parseInt(manualOwner, 10) : 0;
+
+    await finishSetup(context, output, api, token, me, parsed, "", Number.isNaN(manualOwnerId) ? 0 : manualOwnerId);
     return;
   }
 
   output.appendLine(`[telegram-setup] Detected chat: "${chatResult.chatTitle}" (${chatResult.chatId})`);
-  await finishSetup(context, output, api, token, me, chatResult.chatId, chatResult.chatTitle);
+  await finishSetup(context, output, api, token, me, chatResult.chatId, chatResult.chatTitle, chatResult.ownerId);
 }
 
 async function finishSetup(
@@ -173,6 +190,7 @@ async function finishSetup(
   me: { id: number; username?: string; first_name: string },
   chatId: number,
   chatTitle: string,
+  ownerId: number,
 ): Promise<void> {
   // --- Step 3: Verify & Save ---
   output.appendLine("[telegram-setup] Verifying bot admin permissions...");
@@ -212,9 +230,12 @@ async function finishSetup(
     chatId,
     chatTitle,
     streamingGranularity: "throttled",
-    ownerId: 0,
+    ownerId,
     projectSearchDirs: [],
   };
+  if (ownerId) {
+    output.appendLine(`[telegram-setup] Captured owner ID ${ownerId}`);
+  }
   await saveTelegramConfig(
     context.secrets,
     config,

@@ -510,7 +510,7 @@
       "format": "esm"
     },
     "src/extension/telegram/api.ts": {
-      "bytes": 8344,
+      "bytes": 9176,
       "imports": [],
       "format": "esm"
     },
@@ -730,7 +730,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 40865,
+      "bytes": 41623,
       "imports": [
         {
           "path": "vscode",
@@ -907,7 +907,7 @@
       "format": "esm"
     },
     "src/extension/telegram/setup.ts": {
-      "bytes": 9951,
+      "bytes": 11115,
       "imports": [
         {
           "path": "vscode",
@@ -974,7 +974,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 710165
+      "bytes": 713712
     },
     "dist/extension.js": {
       "imports": [
@@ -1321,7 +1321,7 @@
           "bytesInOutput": 3374
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 19418
+          "bytesInOutput": 19790
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 9944
@@ -1387,7 +1387,7 @@
           "bytesInOutput": 6104
         },
         "src/extension/telegram/api.ts": {
-          "bytesInOutput": 2922
+          "bytesInOutput": 3184
         },
         "src/extension/telegram/topicManager.ts": {
           "bytesInOutput": 4155
@@ -1435,13 +1435,13 @@
           "bytesInOutput": 5109
         },
         "src/extension/telegram/setup.ts": {
-          "bytesInOutput": 6221
+          "bytesInOutput": 6712
         },
         "src/extension/openai/config.ts": {
           "bytesInOutput": 107
         }
       },
-      "bytes": 188051
+      "bytes": 189176
     }
   }
 }
