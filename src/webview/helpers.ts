@@ -370,7 +370,11 @@ export function buildUsagePills(usage: UsageInfo | null | undefined, model?: str
 }
 
 const USAGE_TAG_RE = /<usage>([\s\S]*?)<\/usage>/;
-const USAGE_TOTAL_TOKENS_RE = /total_tokens:\s*(\d+)/;
+const USAGE_TOTAL_TOKENS_RE = /\btotal_tokens:\s*(\d+)/;
+// A single subagent dispatch reports its token spend as `subagent_tokens`, not
+// `total_tokens` (only parallel/chain summaries use `total_tokens`). Match both
+// so the token pill renders for the common single-dispatch case too.
+const USAGE_SUBAGENT_TOKENS_RE = /\bsubagent_tokens:\s*(\d+)/;
 const USAGE_TOOL_USES_RE = /tool_uses:\s*(\d+)/;
 const USAGE_DURATION_MS_RE = /duration_ms:\s*(\d+)/;
 
@@ -402,7 +406,7 @@ export function parseAgentUsage(resultText: string): AgentUsageParsed | null {
     return km ? parseInt(km[1], 10) : undefined;
   };
   const usage: UsageInfo = {
-    totalTokens: num(USAGE_TOTAL_TOKENS_RE),
+    totalTokens: num(USAGE_TOTAL_TOKENS_RE) ?? num(USAGE_SUBAGENT_TOKENS_RE),
     toolUses: num(USAGE_TOOL_USES_RE),
     durationMs: num(USAGE_DURATION_MS_RE),
   };

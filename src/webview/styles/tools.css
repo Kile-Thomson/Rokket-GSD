@@ -410,6 +410,19 @@
 .gsd-tool-block.cat-agent .gsd-tool-name { color: var(--gsd-color-ansi-yellow); }
 .gsd-tool-block.cat-process .gsd-tool-name { color: var(--gsd-color-ansi-blue); }
 
+/* Long-running subagent cue — wall-clock elapsed only, NOT stall detection.
+   The runtime streams no mid-flight subagent progress, so we cannot tell a hung
+   agent from a working one; this only draws the eye to agents that have been
+   running a while. Cleared automatically once the agent stops. */
+.gsd-tool-block.gsd-agent-long-running.running {
+  border-color: var(--gsd-color-warning);
+  box-shadow: 0 0 0 1px var(--gsd-color-warning);
+}
+.gsd-tool-block.gsd-agent-long-running .gsd-tool-duration {
+  color: var(--gsd-color-warning);
+  opacity: 0.95;
+}
+
 /* Agent meta — description shown below header; pills are inline in header */
 .gsd-agent-meta {
   display: flex;
