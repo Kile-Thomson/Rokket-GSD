@@ -356,7 +356,9 @@ export function buildAgentRows(
     jAgents.forEach((j, i) => {
       let idx = -1;
       if (j.label) idx = rows.findIndex((r) => r.label === j.label);
-      if (idx === -1 && i < plan.agents.length) idx = i; // bind by dispatch order
+      // Fall back to dispatch-order binding only for unlabeled entries — a labeled
+      // entry whose label isn't in the plan must not overwrite an already-matched row.
+      if (idx === -1 && !j.label && i < plan.agents.length) idx = i;
       if (idx >= 0) {
         applyJournalState(rows[idx], j);
       } else {

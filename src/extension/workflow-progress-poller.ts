@@ -46,6 +46,8 @@ interface RunTracker {
   /** When the journal last grew. Staleness is measured from here. */
   lastGrowthAt: number;
   finished: boolean;
+  /** True while a poll() is awaiting disk I/O — prevents overlapping ticks. */
+  inFlight: boolean;
 }
 
 export class WorkflowProgressManager {
@@ -80,6 +82,7 @@ export class WorkflowProgressManager {
         lastLineCount: -1,
         lastGrowthAt: Date.now(),
         finished: false,
+        inFlight: false,
       });
     }
     this.output.appendLine(
@@ -97,9 +100,11 @@ export class WorkflowProgressManager {
     const launch = parseWorkflowLaunch(resultText);
     if (!launch) {
       // Not a recognizable background-launch result (e.g. an error). Leave the
-      // plan visible but mark it done — there's nothing to poll.
+      // plan visible but mark it done — there's nothing to poll. Post a terminal
+      // snapshot so the panel drops out of its "launching" state.
       this.output.appendLine(`[${this.sessionId}] Workflow ${toolCallId}: no run dir in result, not polling`);
       run.finished = true;
+      this.post(this.snapshot(run, "completed"));
       return;
     }
 
@@ -132,8 +137,19 @@ export class WorkflowProgressManager {
 
   private startPolling(run: RunTracker): void {
     if (run.timer || run.finished) return;
-    void this.poll(run); // immediate first read
-    run.timer = setInterval(() => void this.poll(run), WORKFLOW_PROGRESS_POLL_INTERVAL_MS);
+    // A poll is async disk I/O; on a slow disk it could outlast the interval.
+    // Skip a tick if the previous poll is still in flight so they never overlap.
+    const tick = async (): Promise<void> => {
+      if (run.inFlight || run.finished) return;
+      run.inFlight = true;
+      try {
+        await this.poll(run);
+      } finally {
+        run.inFlight = false;
+      }
+    };
+    void tick(); // immediate first read
+    run.timer = setInterval(() => void tick(), WORKFLOW_PROGRESS_POLL_INTERVAL_MS);
   }
 
   private stopRun(run: RunTracker): void {
