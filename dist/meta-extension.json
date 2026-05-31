@@ -214,7 +214,7 @@
       "format": "esm"
     },
     "src/extension/workflow-progress.ts": {
-      "bytes": 18079,
+      "bytes": 19005,
       "imports": [
         {
           "path": "fs",
@@ -974,7 +974,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 722409
+      "bytes": 723540
     },
     "dist/extension.js": {
       "imports": [
@@ -1351,7 +1351,7 @@
           "bytesInOutput": 1256
         },
         "src/extension/workflow-progress.ts": {
-          "bytesInOutput": 4358
+          "bytesInOutput": 4466
         },
         "src/extension/workflow-progress-poller.ts": {
           "bytesInOutput": 3766
@@ -1441,7 +1441,7 @@
           "bytesInOutput": 107
         }
       },
-      "bytes": 190408
+      "bytes": 190516
     }
   }
 }

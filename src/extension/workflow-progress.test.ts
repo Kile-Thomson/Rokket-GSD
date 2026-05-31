@@ -28,13 +28,22 @@ const b = await agent('Return only the single word: ok', { label: 'second', phas
 return { a, b }
 `;
 
-// Real "launched in background" result text (paths shortened but structurally identical).
+// Real "launched in background" result text, captured verbatim from the live
+// runtime (paths shortened but structurally identical). Note: there is NO
+// "Run ID:" line — the runtime emits only "Task ID:" plus a transcript dir whose
+// basename is the wf_<id> run id. Requiring "Run ID:" is what silently disabled
+// live polling; this fixture guards against that regression.
 const REAL_LAUNCH = `Workflow launched in background. Task ID: wdqnq4w7q
 Summary: Run two agents that each return the word ok
 Transcript dir: C:\\Users\\K\\proj\\f991c5ce\\subagents\\workflows\\wf_c2b92968-f6f
 Script file: C:\\Users\\K\\proj\\f991c5ce\\workflows\\scripts\\two-ok-agents-wf_c2b92968-f6f.js
-Run ID: wf_c2b92968-f6f
 You will be notified when it completes. Use /workflows to watch live progress.`;
+
+// A runtime variant that DOES emit an explicit "Run ID:" line — must still work.
+const LAUNCH_WITH_RUN_ID = `Workflow launched in background. Task ID: abc123
+Transcript dir: /home/u/proj/sess/subagents/workflows/wf_explicit99
+Run ID: wf_explicit99
+Use /workflows to watch live progress.`;
 
 describe("parseWorkflowScript", () => {
   it("extracts name, description, phases, and labelled agents in order", () => {
@@ -70,7 +79,7 @@ const x = await agent('synth', { label: 'synthesize', phase: 'Find' });`;
 });
 
 describe("parseWorkflowLaunch", () => {
-  it("extracts runId, transcript dir, and script path", () => {
+  it("derives runId from the transcript dir basename when no Run ID line is present", () => {
     const info = parseWorkflowLaunch(REAL_LAUNCH);
     expect(info).not.toBeNull();
     expect(info!.runId).toBe("wf_c2b92968-f6f");
@@ -78,8 +87,20 @@ describe("parseWorkflowLaunch", () => {
     expect(info!.scriptPath).toContain("two-ok-agents-wf_c2b92968-f6f.js");
   });
 
+  it("prefers an explicit Run ID line when the runtime emits one", () => {
+    const info = parseWorkflowLaunch(LAUNCH_WITH_RUN_ID);
+    expect(info).not.toBeNull();
+    expect(info!.runId).toBe("wf_explicit99");
+    expect(info!.transcriptDir).toBe("/home/u/proj/sess/subagents/workflows/wf_explicit99");
+  });
+
   it("returns null when the text is not a launch result", () => {
     expect(parseWorkflowLaunch("some other tool output")).toBeNull();
+  });
+
+  it("returns null when a transcript dir is present but its basename is not a wf_ run id", () => {
+    const txt = `Workflow launched in background. Task ID: x\nTranscript dir: /tmp/not/a/run/dir\nUse /workflows.`;
+    expect(parseWorkflowLaunch(txt)).toBeNull();
   });
 });
 
