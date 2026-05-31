@@ -29,7 +29,22 @@ import {
 
 import { getFileIcon } from "../file-handling";
 
-import { MAX_OUTPUT_LEN } from "../../shared/constants";
+import { MAX_OUTPUT_LEN, AGENT_LONG_RUNNING_MS } from "../../shared/constants";
+
+/**
+ * Whether a running subagent block should show the "long-running" cue.
+ * Pure wall-clock check — the runtime emits no mid-flight subagent progress, so
+ * elapsed time is the only liveness signal available. This is NOT stall
+ * detection: it cannot tell a hung agent from a working one, only that one has
+ * been running a while. Returns false for completed agents (so the cue clears).
+ */
+export function isAgentLongRunning(
+  tc: { isRunning?: boolean; startTime?: number },
+  now: number,
+): boolean {
+  return Boolean(tc.isRunning) && tc.startTime != null &&
+    now - tc.startTime >= AGENT_LONG_RUNNING_MS;
+}
 
 export function createEntryElement(entry: ChatEntry): HTMLElement {
   const el = document.createElement("div");
@@ -367,6 +382,14 @@ export function patchToolBlockElement(el: HTMLElement, tc: ToolCallState): void 
     }
   } else if (durationEl) {
     durationEl.remove();
+  }
+
+  // Long-running cue for subagents: the runtime streams no mid-flight progress,
+  // so wall-clock elapsed is the only liveness signal available. Past the
+  // threshold we tint the block to draw the eye — this is an elapsed-time hint,
+  // not a stall claim. Cleared automatically once the agent stops running.
+  if (isAgentPatch) {
+    block.classList.toggle("gsd-agent-long-running", isAgentLongRunning(tc, Date.now()));
   }
 
   // Agent meta — update model pill + description when args arrive, usage pills when result arrives
