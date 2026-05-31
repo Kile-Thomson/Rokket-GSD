@@ -10,6 +10,7 @@ import {
   parseWorkflowLaunch,
   deriveWorkflowPaths,
   buildAgentRows,
+  decideLiveWorkflowStatus,
   readJournal,
   readEndFile,
   type ParsedWorkflowPlan,
@@ -215,14 +216,29 @@ export class WorkflowProgressManager {
         this.output.appendLine(`[${this.sessionId}] Workflow ${run.toolCallId} poll cap reached, stopping`);
       }
 
-      const stale = now - run.lastGrowthAt > STALE_WORKFLOW_THRESHOLD_MS;
       const rows = buildAgentRows(run.plan, journal?.result ?? null, null);
+      // A quiet journal means the run finished, not that it hung — only call it
+      // stalled when an agent is still mid-flight. See decideLiveWorkflowStatus.
+      const decision = decideLiveWorkflowStatus({
+        sawActivity: run.lastLineCount > 0,
+        quietForMs: now - run.lastGrowthAt,
+        runningAgentCount: rows.runningAgentCount,
+        doneAgentCount: rows.doneAgentCount,
+        staleThresholdMs: STALE_WORKFLOW_THRESHOLD_MS,
+      });
+      if (decision.settled && !run.finished) {
+        run.finished = true;
+        this.stopRun(run);
+        this.output.appendLine(
+          `[${this.sessionId}] Workflow ${run.toolCallId} settled via journal (no end-file), stopping`,
+        );
+      }
       this.post({
         toolCallId: run.toolCallId,
         name: run.plan.name,
         description: run.plan.description,
         phases: run.plan.phases,
-        status: stale ? "stalled" : "running",
+        status: decision.status,
         agents: rows.agents,
         plannedAgentCount: run.plan.agents.length,
         doneAgentCount: rows.doneAgentCount,
@@ -230,7 +246,7 @@ export class WorkflowProgressManager {
         logs: journal?.result.logs?.length ? journal.result.logs.slice(-8) : undefined,
         startedAt: run.startedAt,
         updatedAt: now,
-        stale,
+        stale: decision.stale,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

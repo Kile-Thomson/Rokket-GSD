@@ -7,6 +7,7 @@ import {
   parseJournalLines,
   parseWorkflowEndFile,
   buildAgentRows,
+  decideLiveWorkflowStatus,
   type ParsedWorkflowPlan,
 } from "./workflow-progress";
 
@@ -152,6 +153,50 @@ describe("parseWorkflowEndFile", () => {
   it("returns null on corrupt content", () => {
     expect(parseWorkflowEndFile("{ not json")).toBeNull();
     expect(parseWorkflowEndFile(JSON.stringify({ noAgents: true }))).toBeNull();
+  });
+});
+
+describe("decideLiveWorkflowStatus", () => {
+  const base = { staleThresholdMs: 45_000 };
+
+  it("stays running while the journal is still growing", () => {
+    const d = decideLiveWorkflowStatus({
+      ...base, sawActivity: true, quietForMs: 1_000, runningAgentCount: 1, doneAgentCount: 1,
+    });
+    expect(d).toEqual({ status: "running", stale: false, settled: false });
+  });
+
+  it("treats a quiet journal with nothing in flight as completed, not hung", () => {
+    // The exact bug: a finished run's journal goes silent and was mislabelled
+    // "stalled". With all agents terminal it must read completed + settle.
+    const d = decideLiveWorkflowStatus({
+      ...base, sawActivity: true, quietForMs: 60_000, runningAgentCount: 0, doneAgentCount: 4,
+    });
+    expect(d).toEqual({ status: "completed", stale: false, settled: true });
+  });
+
+  it("flags a genuine stall only when an agent is still mid-flight", () => {
+    const d = decideLiveWorkflowStatus({
+      ...base, sawActivity: true, quietForMs: 60_000, runningAgentCount: 1, doneAgentCount: 2,
+    });
+    expect(d).toEqual({ status: "stalled", stale: true, settled: false });
+  });
+
+  it("holds at running before any journal activity is seen (no fake completion or hang)", () => {
+    const d = decideLiveWorkflowStatus({
+      ...base, sawActivity: false, quietForMs: 60_000, runningAgentCount: 0, doneAgentCount: 0,
+    });
+    expect(d).toEqual({ status: "running", stale: false, settled: false });
+  });
+
+  it("reports completed but keeps polling when the journal schema yields no agent states", () => {
+    // Quiet + activity seen but zero recognized terminal agents (unknown schema):
+    // show completed (don't cry hung) yet do not settle, so the authoritative
+    // end-file can still be picked up.
+    const d = decideLiveWorkflowStatus({
+      ...base, sawActivity: true, quietForMs: 60_000, runningAgentCount: 0, doneAgentCount: 0,
+    });
+    expect(d).toEqual({ status: "completed", stale: false, settled: false });
   });
 });
 
