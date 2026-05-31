@@ -31,6 +31,7 @@ import * as uiDialogs from "./ui-dialogs";
 import * as toasts from "./toasts";
 import * as dashboard from "./dashboard";
 import * as autoProgress from "./auto-progress";
+import * as workflowProgress from "./workflow-progress";
 import * as visualizer from "./visualizer";
 import * as fileHandling from "./file-handling";
 import { announceToScreenReader, createFocusTrap, restoreFocus } from "./a11y";
@@ -369,6 +370,11 @@ function handleMessage(event: MessageEvent): void {
 
     case "auto_progress": {
       autoProgress.update(msg.data);
+      break;
+    }
+
+    case "workflow_progress": {
+      workflowProgress.update(msg.data);
       break;
     }
 

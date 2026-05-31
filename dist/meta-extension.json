@@ -1,7 +1,7 @@
 {
   "inputs": {
     "src/shared/constants.ts": {
-      "bytes": 2730,
+      "bytes": 3075,
       "imports": [],
       "format": "esm"
     },
@@ -213,8 +213,45 @@
       ],
       "format": "esm"
     },
+    "src/extension/workflow-progress.ts": {
+      "bytes": 14197,
+      "imports": [
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/extension/workflow-progress-poller.ts": {
+      "bytes": 9271,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
+        },
+        {
+          "path": "src/extension/workflow-progress.ts",
+          "kind": "import-statement",
+          "original": "./workflow-progress"
+        }
+      ],
+      "format": "esm"
+    },
     "src/extension/session-state.ts": {
-      "bytes": 5097,
+      "bytes": 5512,
       "imports": [
         {
           "path": "vscode",
@@ -230,12 +267,17 @@
           "path": "./auto-progress-poller",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "./workflow-progress-poller",
+          "kind": "import-statement",
+          "external": true
         }
       ],
       "format": "esm"
     },
     "src/shared/types.ts": {
-      "bytes": 24688,
+      "bytes": 27049,
       "imports": [],
       "format": "esm"
     },
@@ -260,8 +302,29 @@
       ],
       "format": "esm"
     },
+    "src/extension/workflow-event-capture.ts": {
+      "bytes": 4578,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
     "src/extension/rpc-events.ts": {
-      "bytes": 18403,
+      "bytes": 20823,
       "imports": [
         {
           "path": "vscode",
@@ -277,6 +340,11 @@
           "path": "src/extension/watchdogs.ts",
           "kind": "import-statement",
           "original": "./watchdogs"
+        },
+        {
+          "path": "src/extension/workflow-event-capture.ts",
+          "kind": "import-statement",
+          "original": "./workflow-event-capture"
         }
       ],
       "format": "esm"
@@ -441,14 +509,20 @@
       ],
       "format": "esm"
     },
-    "src/extension/telegram/topicManager.ts": {
-      "bytes": 7536,
+    "src/extension/telegram/api.ts": {
+      "bytes": 9176,
       "imports": [],
       "format": "esm"
     },
-    "src/extension/telegram/api.ts": {
-      "bytes": 7416,
-      "imports": [],
+    "src/extension/telegram/topicManager.ts": {
+      "bytes": 9260,
+      "imports": [
+        {
+          "path": "src/extension/telegram/api.ts",
+          "kind": "import-statement",
+          "original": "./api"
+        }
+      ],
       "format": "esm"
     },
     "src/extension/telegram/config.ts": {
@@ -536,7 +610,7 @@
       "format": "esm"
     },
     "src/extension/telegram/bridge.ts": {
-      "bytes": 46628,
+      "bytes": 46937,
       "imports": [
         {
           "path": "src/extension/telegram/api.ts",
@@ -656,7 +730,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 39649,
+      "bytes": 41623,
       "imports": [
         {
           "path": "vscode",
@@ -692,6 +766,11 @@
           "path": "src/extension/auto-progress-poller.ts",
           "kind": "import-statement",
           "original": "./auto-progress-poller"
+        },
+        {
+          "path": "src/extension/workflow-progress-poller.ts",
+          "kind": "import-statement",
+          "original": "./workflow-progress-poller"
         },
         {
           "path": "src/extension/session-state.ts",
@@ -828,7 +907,7 @@
       "format": "esm"
     },
     "src/extension/telegram/setup.ts": {
-      "bytes": 9951,
+      "bytes": 11115,
       "imports": [
         {
           "path": "vscode",
@@ -895,7 +974,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 658531
+      "bytes": 714948
     },
     "dist/extension.js": {
       "imports": [
@@ -1025,7 +1104,32 @@
           "external": true
         },
         {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
           "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
           "kind": "require-call",
           "external": true
         },
@@ -1217,7 +1321,7 @@
           "bytesInOutput": 3374
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 18841
+          "bytesInOutput": 19790
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 9944
@@ -1246,8 +1350,14 @@
         "src/extension/parallel-status.ts": {
           "bytesInOutput": 1256
         },
+        "src/extension/workflow-progress.ts": {
+          "bytesInOutput": 3902
+        },
+        "src/extension/workflow-progress-poller.ts": {
+          "bytesInOutput": 3468
+        },
         "src/extension/session-state.ts": {
-          "bytesInOutput": 1417
+          "bytesInOutput": 1542
         },
         "src/shared/types.ts": {
           "bytesInOutput": 548
@@ -1256,7 +1366,10 @@
           "bytesInOutput": 3213
         },
         "src/extension/rpc-events.ts": {
-          "bytesInOutput": 6553
+          "bytesInOutput": 7031
+        },
+        "src/extension/workflow-event-capture.ts": {
+          "bytesInOutput": 1051
         },
         "src/extension/message-dispatch.ts": {
           "bytesInOutput": 20498
@@ -1273,11 +1386,11 @@
         "src/extension/file-ops.ts": {
           "bytesInOutput": 6104
         },
-        "src/extension/telegram/topicManager.ts": {
-          "bytesInOutput": 3580
-        },
         "src/extension/telegram/api.ts": {
-          "bytesInOutput": 2627
+          "bytesInOutput": 3184
+        },
+        "src/extension/telegram/topicManager.ts": {
+          "bytesInOutput": 4155
         },
         "src/extension/telegram/config.ts": {
           "bytesInOutput": 750
@@ -1301,7 +1414,7 @@
           "bytesInOutput": 2005
         },
         "src/extension/telegram/bridge.ts": {
-          "bytesInOutput": 23257
+          "bytesInOutput": 23284
         },
         "src/extension/transcription/providers.ts": {
           "bytesInOutput": 2579
@@ -1310,7 +1423,7 @@
           "bytesInOutput": 315
         },
         "src/extension/transcription/recorder.ts": {
-          "bytesInOutput": 4712
+          "bytesInOutput": 4725
         },
         "src/extension/polling.ts": {
           "bytesInOutput": 1769
@@ -1322,13 +1435,13 @@
           "bytesInOutput": 5109
         },
         "src/extension/telegram/setup.ts": {
-          "bytesInOutput": 6221
+          "bytesInOutput": 6712
         },
         "src/extension/openai/config.ts": {
           "bytesInOutput": 107
         }
       },
-      "bytes": 177696
+      "bytes": 189332
     }
   }
 }
