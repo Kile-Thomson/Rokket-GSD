@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { GsdRpcClient } from "./rpc-client";
 import { AutoProgressPoller } from "./auto-progress-poller";
+import { WorkflowProgressManager } from "./workflow-progress-poller";
 import type { ProcessHealthStatus } from "../shared/types";
 
 // ============================================================
@@ -54,6 +55,9 @@ export interface SessionState {
   // --- Auto-mode progress ---
   autoProgressPoller: AutoProgressPoller | null;
 
+  // --- Workflow (Claude Code Workflow fan-out) progress ---
+  workflowProgressManager: WorkflowProgressManager | null;
+
   // --- Lifecycle ---
   launchPromise: Promise<void> | null;
   messageHandlerDisposable: vscode.Disposable | null;
@@ -90,6 +94,7 @@ export function createSessionState(): SessionState {
     lastUserActionTime: 0,
     accumulatedCost: 0,
     autoProgressPoller: null,
+    workflowProgressManager: null,
     launchPromise: null,
     messageHandlerDisposable: null,
     lastStartOptions: null,
@@ -133,6 +138,12 @@ export function cleanupSessionState(session: SessionState): void {
   if (session.autoProgressPoller) {
     session.autoProgressPoller.dispose();
     session.autoProgressPoller = null;
+  }
+
+  // Clean up workflow progress manager
+  if (session.workflowProgressManager) {
+    session.workflowProgressManager.dispose();
+    session.workflowProgressManager = null;
   }
 
   // Remove all event listeners before stopping to prevent stale handlers

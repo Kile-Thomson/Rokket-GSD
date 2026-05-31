@@ -21,6 +21,7 @@ import "./styles/toasts.css";
 import "./styles/misc.css";
 import "./styles/auto-progress.css";
 import "./styles/parallel.css";
+import "./styles/workflow.css";
 import "./styles/themes/phosphor.css";
 import "./styles/themes/clarity.css";
 import "./styles/themes/forge.css";

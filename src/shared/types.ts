@@ -127,6 +127,7 @@ export type ExtensionToWebviewMessage =
   | { type: "whats_new"; version: string; notes: string }
   | { type: "changelog"; entries: Array<{ version: string; notes: string; date: string }> }
   | { type: "auto_progress"; data: AutoProgressData | null }
+  | { type: "workflow_progress"; data: WorkflowProgressData }
   | { type: "model_routed"; oldModel: { id: string; provider: string } | null; newModel: { id: string; provider: string } | null }
   | { type: "fallback_provider_switch"; from: string; to: string; reason: string }
   | { type: "fallback_provider_restored"; provider: string; reason: string; model?: { id: string; name?: string; provider: string; contextWindow?: number } }
@@ -611,4 +612,59 @@ export interface AutoProgressData {
   workers?: WorkerProgress[] | null;
   /** True when any worker's budget exceeds 80% of budget_ceiling */
   budgetAlert?: boolean;
+}
+
+// --- Workflow Progress Data (Claude Code Workflow fan-out, polled from disk) ---
+
+/** Live state of a single sub-agent within a running workflow. */
+export interface WorkflowAgentProgress {
+  /** Human label from the script, or the journal/end-file's best available id. */
+  label: string;
+  /** Phase this agent belongs to, when known. */
+  phase?: string;
+  /** Run state. "pending" = declared but not yet started. */
+  state: "pending" | "running" | "done" | "error";
+  /** Tokens spent (exact only at completion). */
+  tokens?: number;
+  /** Tool calls made (exact only at completion). */
+  toolCalls?: number;
+  /** Wall-clock duration in ms (completion only). */
+  durationMs?: number;
+}
+
+/**
+ * In-window visibility for a Claude Code `Workflow` run — the panel rendered
+ * inside the Workflow tool block. Pushed by the extension's workflow poller,
+ * keyed to the originating tool call so the webview attaches it to that segment.
+ *
+ * The workflow runs in the background and outlives both the tool call and the
+ * agent turn, so updates keep arriving after `tool_execution_end`.
+ */
+export interface WorkflowProgressData {
+  /** Tool call id of the originating Workflow invocation — the DOM attach key. */
+  toolCallId: string;
+  /** Workflow name from `meta.name`. */
+  name: string;
+  /** Workflow description from `meta.description`. */
+  description?: string;
+  /** Declared phase titles from `meta.phases`. */
+  phases: string[];
+  /** Overall run status. */
+  status: "launching" | "running" | "completed" | "error" | "stalled";
+  /** Per-agent rows (planned agents, overlaid with live/final state). */
+  agents: WorkflowAgentProgress[];
+  /** Agents declared in the script (best-effort; computed agents may exceed this). */
+  plannedAgentCount: number;
+  /** Agents that have finished (done or error). */
+  doneAgentCount: number;
+  /** Agents currently running. */
+  runningAgentCount: number;
+  /** Narrator log() lines surfaced by the run, if any. */
+  logs?: string[];
+  /** When the workflow launched (epoch ms). */
+  startedAt: number;
+  /** When this snapshot was taken (epoch ms). */
+  updatedAt: number;
+  /** True when the run has gone quiet past the staleness threshold — hang signal. */
+  stale: boolean;
 }

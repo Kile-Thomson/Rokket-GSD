@@ -29,6 +29,7 @@ export const HEALTH_CHECK_INTERVAL_MS = 30_000;
 export const HEALTH_PING_TIMEOUT_MS = 10_000;
 export const WORKFLOW_POLL_INTERVAL_MS = 30_000;
 export const AUTO_PROGRESS_POLL_INTERVAL_MS = 3_000;
+export const WORKFLOW_PROGRESS_POLL_INTERVAL_MS = 2_000;
 export const UPDATE_CHECK_INTERVAL_MS = 3_600_000;
 export const BUDGET_CEILING_TTL_MS = 30_000;
 
@@ -36,6 +37,10 @@ export const BUDGET_CEILING_TTL_MS = 30_000;
 
 export const BUDGET_ALERT_PERCENT = 80;
 export const STALE_WORKER_THRESHOLD_MS = 30_000;
+/** Workflow run is flagged "stalled" when its journal stops growing for this long. */
+export const STALE_WORKFLOW_THRESHOLD_MS = 45_000;
+/** Hard cap on how long a single workflow run is polled before the poller gives up. */
+export const WORKFLOW_POLL_MAX_RUNTIME_MS = 60 * 60_000;
 export const MIN_NODE_MAJOR_VERSION = 18;
 
 // ── Display & Rendering ──
