@@ -1,7 +1,7 @@
 {
   "inputs": {
     "src/shared/constants.ts": {
-      "bytes": 3075,
+      "bytes": 3613,
       "imports": [],
       "format": "esm"
     },
@@ -214,7 +214,7 @@
       "format": "esm"
     },
     "src/extension/workflow-progress.ts": {
-      "bytes": 14197,
+      "bytes": 14574,
       "imports": [
         {
           "path": "fs",
@@ -230,7 +230,7 @@
       "format": "esm"
     },
     "src/extension/workflow-progress-poller.ts": {
-      "bytes": 9271,
+      "bytes": 9538,
       "imports": [
         {
           "path": "vscode",
@@ -303,7 +303,7 @@
       "format": "esm"
     },
     "src/extension/workflow-event-capture.ts": {
-      "bytes": 4578,
+      "bytes": 4695,
       "imports": [
         {
           "path": "vscode",
@@ -974,7 +974,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 714948
+      "bytes": 716470
     },
     "dist/extension.js": {
       "imports": [

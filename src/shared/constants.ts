@@ -42,6 +42,15 @@ export const STALE_WORKFLOW_THRESHOLD_MS = 45_000;
 /** Hard cap on how long a single workflow run is polled before the poller gives up. */
 export const WORKFLOW_POLL_MAX_RUNTIME_MS = 60 * 60_000;
 export const MIN_NODE_MAJOR_VERSION = 18;
+/**
+ * A running Agent (subagent) block gains a "long-running" visual cue once its
+ * elapsed wall-clock time passes this threshold. This is purely an elapsed-time
+ * affordance to draw the eye to slow subagents — it is NOT stall detection. The
+ * runtime emits no cost/token/progress events while a subagent runs (verified:
+ * scripts/capture-subagent-events.mjs), so the extension cannot distinguish a
+ * hung subagent from a working one; only wall-clock time is observable.
+ */
+export const AGENT_LONG_RUNNING_MS = 120_000;
 
 // ── Display & Rendering ──
 

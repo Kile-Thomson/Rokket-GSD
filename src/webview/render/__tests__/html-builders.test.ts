@@ -17,6 +17,9 @@ import {
   type ToolCallState,
 } from "../../state";
 
+import { isAgentLongRunning } from "../html-builders";
+import { AGENT_LONG_RUNNING_MS } from "../../../shared/constants";
+
 vi.mock("../../helpers", () => ({
   escapeHtml: (s: string) => s,
   escapeAttr: (s: string) => s,
@@ -316,5 +319,34 @@ describe("Server-side tool segments", () => {
     appendServerToolSegment("tool-1", "web_search", { query: "test" });
     completeServerToolSegment("tool-1", [{ type: "web_search_result", url: "https://a.com", title: "A" }]);
     expect(msgContainer.querySelector(".gsd-server-tool-count")?.textContent).toBe("1 result");
+  });
+});
+
+describe("isAgentLongRunning", () => {
+  const start = 1_000_000;
+
+  it("is false before the threshold", () => {
+    expect(isAgentLongRunning(
+      { isRunning: true, startTime: start },
+      start + AGENT_LONG_RUNNING_MS - 1,
+    )).toBe(false);
+  });
+
+  it("is true once elapsed reaches the threshold", () => {
+    expect(isAgentLongRunning(
+      { isRunning: true, startTime: start },
+      start + AGENT_LONG_RUNNING_MS,
+    )).toBe(true);
+  });
+
+  it("is false for a completed agent regardless of elapsed", () => {
+    expect(isAgentLongRunning(
+      { isRunning: false, startTime: start },
+      start + AGENT_LONG_RUNNING_MS * 10,
+    )).toBe(false);
+  });
+
+  it("is false when startTime is missing", () => {
+    expect(isAgentLongRunning({ isRunning: true, startTime: undefined }, start)).toBe(false);
   });
 });
