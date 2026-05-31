@@ -10,6 +10,14 @@ import {
   startActivityMonitor,
   stopActivityMonitor,
 } from "./watchdogs";
+import { captureRpcEvent, flushWorkflowEventCapture } from "./workflow-event-capture";
+
+// Workflow RPC-event capture is a diagnostic, off by default. Live workflow
+// progress is built from on-disk artifacts (see workflow-progress-poller.ts), not
+// RPC events, so this only matters if a future gsd-pi starts streaming workflow
+// events over RPC — set GSD_WORKFLOW_EVENT_CAPTURE=1 to sample their shapes into
+// .gsd/runtime/workflow-events-debug.jsonl. Disabled, it writes nothing.
+const WORKFLOW_EVENT_CAPTURE_ENABLED = process.env.GSD_WORKFLOW_EVENT_CAPTURE === "1";
 
 // ============================================================
 // RPC Event Context — dependencies injected by webview-provider
@@ -35,6 +43,16 @@ export interface RpcEventContext {
   onAgentEnd?: (sessionId: string) => void;
 }
 
+/** Concatenate the text blocks of a tool result payload. Returns "" if none. */
+function extractToolResultText(result: unknown): string {
+  const content = (result as { content?: unknown } | undefined)?.content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((b) => (b && typeof b === "object" && typeof (b as { text?: unknown }).text === "string" ? (b as { text: string }).text : ""))
+    .filter(Boolean)
+    .join("\n");
+}
+
 // ============================================================
 // handleRpcEvent — forwards RPC events to the webview
 // ============================================================
@@ -50,6 +68,10 @@ export function handleRpcEvent(
 
   // Track event arrival — used by slash command watchdog
   ctx.getSession(sessionId).lastEventTime = Date.now();
+
+  // Diagnostic (opt-in): sample the shape of each distinct RPC event type. Used
+  // only to discover whether a future gsd-pi emits workflow progress over RPC.
+  if (WORKFLOW_EVENT_CAPTURE_ENABLED) captureRpcEvent(event, ctx.output);
 
   // Clear slash command watchdog on any event — command is alive
   const slashTimer = ctx.getSession(sessionId).slashWatchdog;
@@ -104,6 +126,8 @@ export function handleRpcEvent(
     ctx.getSession(sessionId).isStreaming = false;
     ctx.getSession(sessionId).lastAgentEndTime = Date.now();
     stopActivityMonitor(ctx.watchdogCtx, sessionId);
+    // Leave a frequency profile of the events seen this turn (workflow capture).
+    if (WORKFLOW_EVENT_CAPTURE_ENABLED) flushWorkflowEventCapture(ctx.output);
     // Cancel /gsd fallback — the command completed (even without agent_start)
     const gsdTimer = ctx.getSession(sessionId).gsdFallbackTimer;
     if (gsdTimer) {
@@ -194,23 +218,33 @@ export function handleRpcEvent(
   } else if (eventType === 'execution_complete') {
     // v2 protocol: execution run completed — refresh workflow state
     ctx.refreshWorkflowState(webview, sessionId);
+    if (WORKFLOW_EVENT_CAPTURE_ENABLED) flushWorkflowEventCapture(ctx.output);
   } else if (eventType === "tool_execution_start") {
-    if (ctx.onToolStart) {
-      const toolCallId = event.toolCallId as string | undefined;
-      const toolName = event.toolName as string | undefined;
-      const args = (event.args as Record<string, unknown> | undefined) ?? {};
-      if (toolCallId && toolName) {
-        ctx.onToolStart(sessionId, toolCallId, toolName, args);
-      }
+    const toolCallId = event.toolCallId as string | undefined;
+    const toolName = event.toolName as string | undefined;
+    const args = (event.args as Record<string, unknown> | undefined) ?? {};
+    // Claude Code Workflow launch — start tracking so we can render the plan now
+    // and poll per-agent progress from disk as it runs in the background.
+    if (toolCallId && toolName === "Workflow" && typeof args.script === "string") {
+      ctx.getSession(sessionId).workflowProgressManager?.onWorkflowStart(toolCallId, args.script);
+    }
+    if (ctx.onToolStart && toolCallId && toolName) {
+      ctx.onToolStart(sessionId, toolCallId, toolName, args);
     }
   } else if (eventType === "tool_execution_end") {
-    if (ctx.onToolEnd) {
-      const toolCallId = event.toolCallId as string | undefined;
-      const isError = (event.isError as boolean | undefined) ?? false;
-      const durationMs = event.durationMs as number | undefined;
-      if (toolCallId) {
-        ctx.onToolEnd(sessionId, toolCallId, isError, durationMs);
+    const toolCallId = event.toolCallId as string | undefined;
+    const toolName = event.toolName as string | undefined;
+    const isError = (event.isError as boolean | undefined) ?? false;
+    const durationMs = event.durationMs as number | undefined;
+    // Workflow returned ("launched in background") — extract the run dir and poll.
+    if (toolCallId && toolName === "Workflow") {
+      const resultText = extractToolResultText(event.result);
+      if (resultText) {
+        ctx.getSession(sessionId).workflowProgressManager?.onWorkflowEnd(toolCallId, resultText);
       }
+    }
+    if (ctx.onToolEnd && toolCallId) {
+      ctx.onToolEnd(sessionId, toolCallId, isError, durationMs);
     }
   } else if (eventType === "extensions_ready") {
     // gsd-pi 2.44+: extensions finished loading — fetch definitive command and model lists.

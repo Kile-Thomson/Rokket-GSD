@@ -57,6 +57,10 @@
       "bytes": 2903,
       "imports": []
     },
+    "src/webview/styles/workflow.css": {
+      "bytes": 4645,
+      "imports": []
+    },
     "src/webview/styles/themes/phosphor.css": {
       "bytes": 7786,
       "imports": []
@@ -70,7 +74,7 @@
       "imports": []
     },
     "src/shared/constants.ts": {
-      "bytes": 2730,
+      "bytes": 3075,
       "imports": [],
       "format": "esm"
     },
@@ -332,8 +336,19 @@
       ],
       "format": "esm"
     },
+    "src/webview/workflow-progress.ts": {
+      "bytes": 6591,
+      "imports": [
+        {
+          "path": "src/webview/helpers.ts",
+          "kind": "import-statement",
+          "original": "./helpers"
+        }
+      ],
+      "format": "esm"
+    },
     "src/webview/render/streaming.ts": {
-      "bytes": 21433,
+      "bytes": 21529,
       "imports": [
         {
           "path": "marked",
@@ -369,6 +384,11 @@
           "path": "src/webview/render/html-builders.ts",
           "kind": "import-statement",
           "original": "./html-builders"
+        },
+        {
+          "path": "src/webview/workflow-progress.ts",
+          "kind": "import-statement",
+          "original": "../workflow-progress"
         }
       ],
       "format": "esm"
@@ -524,7 +544,7 @@
       "format": "esm"
     },
     "src/webview/message-handler.ts": {
-      "bytes": 73385,
+      "bytes": 73541,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -582,6 +602,11 @@
           "original": "./auto-progress"
         },
         {
+          "path": "src/webview/workflow-progress.ts",
+          "kind": "import-statement",
+          "original": "./workflow-progress"
+        },
+        {
           "path": "src/webview/visualizer.ts",
           "kind": "import-statement",
           "original": "./visualizer"
@@ -631,7 +656,7 @@
       "format": "esm"
     },
     "src/webview/index.ts": {
-      "bytes": 45504,
+      "bytes": 45537,
       "imports": [
         {
           "path": "src/webview/perf-utils.ts",
@@ -702,6 +727,11 @@
           "path": "src/webview/styles/parallel.css",
           "kind": "import-statement",
           "original": "./styles/parallel.css"
+        },
+        {
+          "path": "src/webview/styles/workflow.css",
+          "kind": "import-statement",
+          "original": "./styles/workflow.css"
         },
         {
           "path": "src/webview/styles/themes/phosphor.css",
@@ -822,7 +852,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 920771
+      "bytes": 931411
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -870,6 +900,9 @@
           "bytesInOutput": 0
         },
         "src/webview/styles/parallel.css": {
+          "bytesInOutput": 0
+        },
+        "src/webview/styles/workflow.css": {
           "bytesInOutput": 0
         },
         "src/webview/styles/themes/phosphor.css": {
@@ -932,6 +965,9 @@
         "src/webview/render/html-builders.ts": {
           "bytesInOutput": 12987
         },
+        "src/webview/workflow-progress.ts": {
+          "bytesInOutput": 2987
+        },
         "src/webview/render/streaming.ts": {
           "bytesInOutput": 151
         },
@@ -951,7 +987,7 @@
           "bytesInOutput": 6857
         },
         "src/webview/message-handler.ts": {
-          "bytesInOutput": 26440
+          "bytesInOutput": 26482
         },
         "src/webview/ui-updates.ts": {
           "bytesInOutput": 7371
@@ -960,13 +996,13 @@
           "bytesInOutput": 28685
         }
       },
-      "bytes": 240783
+      "bytes": 243812
     },
     "dist/webview/index.css.map": {
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 270036
+      "bytes": 277232
     },
     "dist/webview/index.css": {
       "imports": [],
@@ -1010,6 +1046,9 @@
         "src/webview/styles/parallel.css": {
           "bytesInOutput": 2258
         },
+        "src/webview/styles/workflow.css": {
+          "bytesInOutput": 3732
+        },
         "src/webview/styles/themes/phosphor.css": {
           "bytesInOutput": 5298
         },
@@ -1020,7 +1059,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 125057
+      "bytes": 128789
     }
   }
 }

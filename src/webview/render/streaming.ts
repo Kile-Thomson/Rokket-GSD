@@ -12,6 +12,7 @@ import { shouldCollapseWithPredecessor, collapseToolIntoGroup } from "../tool-gr
 import { SHORT_TEXT_THRESHOLD, TURN_COALESCE_WINDOW_MS } from "../../shared/constants";
 import { registerCleanup } from "../dispose";
 import { createEntryElement, buildToolCallHtml, patchToolBlockElement } from "./html-builders";
+import { reset as resetWorkflowPanels } from "../workflow-progress";
 
 let messagesContainer: HTMLElement;
 let welcomeScreen: HTMLElement;
@@ -73,6 +74,7 @@ export function clearMessages(): void {
   messagesContainer.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
   messagesContainer.querySelector(".gsd-pruned-indicator")?.remove();
   resetAutoScroll();
+  resetWorkflowPanels();
 }
 
 export function renderNewEntry(entry: ChatEntry): void {
