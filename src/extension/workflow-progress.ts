@@ -236,6 +236,63 @@ export function parseJournalLines(content: string): JournalParseResult {
   return { agents, logs, lineCount };
 }
 
+// --- Live status decision (quiet-journal → completed vs stalled) ---
+
+export type LiveWorkflowStatus = "running" | "stalled" | "completed";
+
+export interface LiveStatusInput {
+  /** True once the journal has grown at least once — we've seen real activity. */
+  sawActivity: boolean;
+  /** Milliseconds since the journal last grew. */
+  quietForMs: number;
+  /** Agents currently mid-flight (started, no result yet). */
+  runningAgentCount: number;
+  /** Agents that reached a terminal state (done or error). */
+  doneAgentCount: number;
+  /** Quiet-period threshold; beyond it a still-growing journal counts as quiet. */
+  staleThresholdMs: number;
+}
+
+export interface LiveStatusDecision {
+  status: LiveWorkflowStatus;
+  /** Drives the "may be hung" warning — true only for a genuine stall. */
+  stale: boolean;
+  /** The run has demonstrably finished; the caller may stop polling. */
+  settled: boolean;
+}
+
+/**
+ * Decide a running workflow's status from journal liveness — the fix for a
+ * finished run being mislabelled "hung".
+ *
+ * A workflow's journal naturally goes quiet the moment its last agent finishes,
+ * so "journal stopped growing" alone cannot mean "hung". We only cry stall when
+ * there is positive evidence an agent is still mid-flight while the journal has
+ * gone silent. A quiet journal with nothing in flight is a finished run, not a
+ * hung one. Before any activity is seen we hold at "running" rather than faking
+ * either completion or a hang.
+ */
+export function decideLiveWorkflowStatus(i: LiveStatusInput): LiveStatusDecision {
+  const quiet = i.quietForMs > i.staleThresholdMs;
+  if (!quiet) {
+    return { status: "running", stale: false, settled: false };
+  }
+  if (!i.sawActivity) {
+    // Journal hasn't started moving yet — the run is still spinning up. Don't
+    // declare it hung, and don't fake completion.
+    return { status: "running", stale: false, settled: false };
+  }
+  if (i.runningAgentCount > 0) {
+    // An agent is mid-flight but the journal has stopped — a genuine stall.
+    return { status: "stalled", stale: true, settled: false };
+  }
+  // Quiet, activity seen, nothing in flight → the run has settled. Mark it
+  // settled (stop polling) only with positive terminal evidence, so an
+  // unrecognized-schema journal we can't read agent states from keeps polling
+  // for the authoritative end-file rather than stopping early.
+  return { status: "completed", stale: false, settled: i.doneAgentCount > 0 };
+}
+
 // --- End-file (rich per-agent table at completion) ---
 
 export interface WorkflowEndFile {

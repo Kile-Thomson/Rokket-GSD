@@ -19,10 +19,20 @@ const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 const MAX_RETRIES = 25;
 const RETRY_DELAY_MS = 120;
+const HEARTBEAT_INTERVAL_MS = 1000;
+
+/** Self-healing re-attach timer — runs only while at least one workflow is live. */
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Live = still producing progress; terminal states don't need re-attaching. */
+function isLive(status: WorkflowProgressData["status"]): boolean {
+  return status === "running" || status === "launching" || status === "stalled";
+}
 
 export function update(data: WorkflowProgressData): void {
   latest.set(data.toolCallId, data);
   render(data.toolCallId, 0);
+  if (isLive(data.status)) startHeartbeat();
 }
 
 /** Clear all panels' cached state (new conversation / reset). DOM is cleared on re-render. */
@@ -30,6 +40,41 @@ export function reset(): void {
   latest.clear();
   for (const t of retryTimers.values()) clearTimeout(t);
   retryTimers.clear();
+  stopHeartbeat();
+}
+
+function startHeartbeat(): void {
+  if (heartbeatTimer) return;
+  heartbeatTimer = setInterval(heartbeatTick, HEARTBEAT_INTERVAL_MS);
+}
+
+function stopHeartbeat(): void {
+  if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+}
+
+/**
+ * Re-attach any live panel that has gone missing from the DOM.
+ *
+ * A workflow runs in the background and outlives the turn that launched it, but
+ * the surrounding turn DOM is rebuilt by streaming, finalization, and history
+ * refreshes. The panel is a sibling injected after the tool segment — it is not
+ * part of the reconstructable message history, so those rebuilds silently drop
+ * it. That is why progress could go unseen until the turn settled. Each tick
+ * re-renders any live run whose panel is absent (but whose segment exists),
+ * keeping it visible during the run without waiting on the next extension poll.
+ * Present panels are left untouched (no flicker). The timer stops itself once no
+ * run is live.
+ */
+function heartbeatTick(): void {
+  let anyLive = false;
+  for (const [id, data] of latest) {
+    if (!isLive(data.status)) continue;
+    anyLive = true;
+    if (!findExistingPanel(id) && findSegment(id)) {
+      render(id, 0);
+    }
+  }
+  if (!anyLive) stopHeartbeat();
 }
 
 function render(toolCallId: string, attempt: number): void {
@@ -62,10 +107,14 @@ function findSegment(toolCallId: string): HTMLElement | null {
   return found?.closest<HTMLElement>(".gsd-tool-segment") ?? found ?? null;
 }
 
-function ensurePanel(segment: HTMLElement, toolCallId: string): HTMLElement {
+function findExistingPanel(toolCallId: string): HTMLElement | null {
   const messages = document.getElementById("messages");
   const scope: ParentNode = messages ?? document;
-  let panel = scope.querySelector<HTMLElement>(`.gsd-workflow-panel[data-workflow-tool-id="${cssEscape(toolCallId)}"]`);
+  return scope.querySelector<HTMLElement>(`.gsd-workflow-panel[data-workflow-tool-id="${cssEscape(toolCallId)}"]`);
+}
+
+function ensurePanel(segment: HTMLElement, toolCallId: string): HTMLElement {
+  let panel = findExistingPanel(toolCallId);
   if (!panel) {
     panel = document.createElement("div");
     panel.className = "gsd-workflow-panel";
