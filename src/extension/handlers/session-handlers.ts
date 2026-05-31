@@ -21,6 +21,7 @@ export async function handleNewConversation(
 ): Promise<void> {
   ctx.cleanupTempFiles();
   ctx.getSession(sessionId).autoProgressPoller?.onNewConversation();
+  ctx.getSession(sessionId).workflowProgressManager?.onNewConversation();
   const client = ctx.getSession(sessionId).client;
   if (client?.isRunning) {
     try {

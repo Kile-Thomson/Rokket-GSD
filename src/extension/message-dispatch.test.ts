@@ -141,6 +141,7 @@ function createMockSession(overrides: Partial<SessionState> = {}): SessionState 
     isStreaming: false,
     isRestarting: false,
     autoProgressPoller: null,
+    workflowProgressManager: null,
     launchPromise: null,
     messageHandlerDisposable: null,
     lastStartOptions: null,

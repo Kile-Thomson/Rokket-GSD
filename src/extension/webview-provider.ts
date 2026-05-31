@@ -5,6 +5,7 @@ import * as os from "os";
 import { GsdRpcClient } from "./rpc-client";
 import { fetchReleaseNotes } from "./update-checker";
 import { AutoProgressPoller } from "./auto-progress-poller";
+import { WorkflowProgressManager } from "./workflow-progress-poller";
 import { createSessionState, cleanupSessionState, type SessionState } from "./session-state";
 import { toErrorMessage } from "../shared/errors";
 import type { ExtensionToWebviewMessage, RpcCommandsResult, RpcStateResult } from "../shared/types";
@@ -493,6 +494,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       existingClient.removeAllListeners("log");
       this.getSession(sessionId).webview = webviewView.webview;
       this.getSession(sessionId).autoProgressPoller?.rebindWebview(webviewView.webview);
+      this.getSession(sessionId).workflowProgressManager?.rebindWebview(webviewView.webview);
       this._bindClientListeners(existingClient, webviewView.webview, sessionId);
       this.output.appendLine(`[${sessionId}] Sidebar re-resolved — reusing existing session, all listeners rebound`);
     } else {
@@ -760,6 +762,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     stopAllPolling(this.pollingCtx, sessionId);
     this.bridge?.clearStreamingState(sessionId);
     this.getSession(sessionId).autoProgressPoller?.onProcessExit();
+    this.getSession(sessionId).workflowProgressManager?.onProcessExit();
     this.getSession(sessionId).autoModeState = null;
     stopActivityMonitor(this.watchdogCtx, sessionId);
     this.getSession(sessionId).isStreaming = false;
@@ -817,6 +820,10 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         },
       );
       this.getSession(sessionId).autoProgressPoller = autoPoller;
+
+      this.getSession(sessionId).workflowProgressManager = new WorkflowProgressManager(
+        sessionId, webview, this.output,
+      );
 
       try {
         const rpcState = await client.getState() as RpcStateResult;

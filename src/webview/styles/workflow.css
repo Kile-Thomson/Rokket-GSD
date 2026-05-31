@@ -1,0 +1,215 @@
+/* ============================================================
+   Workflow Progress Panel
+   Live Claude Code Workflow fan-out, rendered under its tool block.
+   ============================================================ */
+
+.gsd-workflow-panel {
+  margin: 2px 0 10px;
+  border: 1px solid var(--gsd-color-border-subtle);
+  border-left: 2px solid var(--gsd-color-text-muted);
+  border-radius: var(--gsd-radius-md);
+  background: var(--gsd-color-bg);
+  padding: 6px 8px;
+  font-size: var(--gsd-font-size-sm);
+  line-height: var(--gsd-line-height-tight);
+}
+
+.gsd-workflow-panel.status-running,
+.gsd-workflow-panel.status-launching {
+  border-left-color: var(--gsd-color-chart-green);
+}
+
+.gsd-workflow-panel.status-stalled {
+  border-left-color: var(--gsd-color-chart-orange);
+}
+
+.gsd-workflow-panel.status-error {
+  border-left-color: var(--gsd-color-chart-red);
+}
+
+/* --- Header --- */
+
+.gsd-wf-header {
+  display: flex;
+  align-items: center;
+  gap: var(--gsd-space-sm);
+  flex-wrap: wrap;
+}
+
+.gsd-wf-glyph {
+  color: var(--gsd-color-text-muted);
+  font-size: var(--gsd-font-size-sm);
+}
+
+.gsd-wf-name {
+  font-weight: var(--gsd-font-weight-semibold);
+  color: var(--gsd-color-text);
+}
+
+.gsd-wf-status {
+  font-size: var(--gsd-font-size-xs);
+  padding: 1px 6px;
+  border-radius: var(--gsd-radius-sm);
+  text-transform: uppercase;
+  font-weight: var(--gsd-font-weight-medium);
+}
+
+.gsd-wf-status-running,
+.gsd-wf-status-launching {
+  background: var(--gsd-color-chart-green);
+  color: var(--gsd-color-bg);
+}
+
+.gsd-wf-status-completed {
+  background: var(--gsd-color-text-muted);
+  color: var(--gsd-color-bg);
+}
+
+.gsd-wf-status-stalled {
+  background: var(--gsd-color-chart-orange);
+  color: var(--gsd-color-bg);
+}
+
+.gsd-wf-status-error {
+  background: var(--gsd-color-chart-red);
+  color: var(--gsd-color-bg);
+}
+
+.gsd-wf-counts {
+  color: var(--gsd-color-text-muted);
+  font-size: var(--gsd-font-size-xs);
+}
+
+.gsd-wf-elapsed {
+  margin-left: auto;
+  color: var(--gsd-color-text-muted);
+  font-size: var(--gsd-font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.gsd-wf-desc {
+  color: var(--gsd-color-text-muted);
+  font-size: var(--gsd-font-size-xs);
+  margin: 3px 0 1px;
+}
+
+.gsd-wf-phaserow {
+  margin: 4px 0 1px;
+}
+
+.gsd-wf-phases {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--gsd-space-xs);
+}
+
+.gsd-wf-phase-chip {
+  font-size: var(--gsd-font-size-xs);
+  color: var(--gsd-color-text-muted);
+  border: 1px solid var(--gsd-color-border-subtle);
+  border-radius: var(--gsd-radius-sm);
+  padding: 0 4px;
+}
+
+.gsd-wf-stalled {
+  margin: 4px 0;
+  font-size: var(--gsd-font-size-xs);
+  color: var(--gsd-color-chart-orange);
+  font-weight: var(--gsd-font-weight-medium);
+}
+
+/* --- Agent rows --- */
+
+.gsd-wf-agents {
+  margin-top: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gsd-wf-agent {
+  display: flex;
+  align-items: center;
+  gap: var(--gsd-space-sm);
+  padding: 1px 0;
+}
+
+.gsd-wf-agent-pending {
+  opacity: 0.55;
+}
+
+.gsd-wf-agent-label {
+  color: var(--gsd-color-text);
+  font-weight: var(--gsd-font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gsd-wf-agent-phase {
+  font-size: var(--gsd-font-size-xs);
+  color: var(--gsd-color-text-muted);
+  border: 1px solid var(--gsd-color-border-subtle);
+  border-radius: var(--gsd-radius-sm);
+  padding: 0 4px;
+}
+
+.gsd-wf-agent-stats {
+  margin-left: auto;
+  font-size: var(--gsd-font-size-xs);
+  color: var(--gsd-color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.gsd-wf-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  font-size: var(--gsd-font-size-xs);
+}
+
+.gsd-wf-dot-done { color: var(--gsd-color-chart-green); }
+.gsd-wf-dot-error { color: var(--gsd-color-chart-red); }
+.gsd-wf-dot-pending { color: var(--gsd-color-text-muted); }
+
+.gsd-wf-spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--gsd-color-border-subtle);
+  border-top-color: var(--gsd-color-chart-green);
+  border-radius: 50%;
+  display: inline-block;
+  animation: gsd-wf-spin 0.7s linear infinite;
+  flex: 0 0 auto;
+  margin: 0 2px;
+}
+
+@keyframes gsd-wf-spin {
+  to { transform: rotate(360deg); }
+}
+
+.gsd-wf-empty {
+  margin-top: 4px;
+  font-size: var(--gsd-font-size-xs);
+  color: var(--gsd-color-text-muted);
+  font-style: italic;
+}
+
+/* --- Narrator log feed --- */
+
+.gsd-wf-logs {
+  margin-top: 5px;
+  border-top: 1px solid var(--gsd-color-border-subtle);
+  padding-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.gsd-wf-log {
+  font-size: var(--gsd-font-size-xs);
+  color: var(--gsd-color-text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
