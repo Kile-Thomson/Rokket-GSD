@@ -58,7 +58,7 @@
       "imports": []
     },
     "src/webview/styles/workflow.css": {
-      "bytes": 4645,
+      "bytes": 4646,
       "imports": []
     },
     "src/webview/styles/themes/phosphor.css": {
@@ -1002,7 +1002,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 277232
+      "bytes": 277234
     },
     "dist/webview/index.css": {
       "imports": [],
@@ -1047,7 +1047,7 @@
           "bytesInOutput": 2258
         },
         "src/webview/styles/workflow.css": {
-          "bytesInOutput": 3732
+          "bytesInOutput": 3733
         },
         "src/webview/styles/themes/phosphor.css": {
           "bytesInOutput": 5298
@@ -1059,7 +1059,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 128789
+      "bytes": 128790
     }
   }
 }

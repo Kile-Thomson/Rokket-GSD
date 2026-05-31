@@ -31,19 +31,22 @@ function resolveGsd() {
       const first = r.stdout.trim().split(/\r?\n/)[0];
       if (first.toLowerCase().endsWith(".cmd")) {
         const loader = path.join(path.dirname(first), "node_modules", "@opengsd", "gsd-pi", "dist", "loader.js");
-        if (fs.existsSync(loader)) return { command: process.execPath, args: [loader] };
+        if (fs.existsSync(loader)) return { command: process.execPath, args: [loader], useShell: false };
+        // .cmd shim without a resolvable loader — Node can't exec a .cmd directly,
+        // so fall back to the shell on Windows.
+        return { command: first, args: [], useShell: isWin };
       }
-      return { command: first, args: [] };
+      return { command: first, args: [], useShell: false };
     }
   }
-  return { command: "gsd", args: [] };
+  return { command: "gsd", args: [], useShell: isWin };
 }
 
 const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-wf-probe-"));
-const { command, args: gsdArgs } = resolveGsd();
+const { command, args: gsdArgs, useShell } = resolveGsd();
 const child = spawn(command, [...gsdArgs, "--mode", "rpc"], {
   cwd, env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0", GSD_IDE: "1" },
-  stdio: ["pipe", "pipe", "pipe"], shell: false, windowsHide: true,
+  stdio: ["pipe", "pipe", "pipe"], shell: useShell, windowsHide: true,
 });
 
 let buffer = "", nextId = 1, stateFile = null, pollTimer = null;
@@ -89,7 +92,10 @@ function pollOnce() {
 function handle(msg) {
   if (msg.type === "response" && msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); return; }
   if (msg.type === "tool_execution_end" && msg.toolName === "Workflow") {
-    const text = (msg.result?.content || []).map((c) => c.text || "").join("\n");
+    const content = msg.result?.content;
+    const text = Array.isArray(content)
+      ? content.map((c) => (c && typeof c === "object" && typeof c.text === "string" ? c.text : "")).filter(Boolean).join("\n")
+      : "";
     stateFile = deriveStateFile(text);
     console.error(`[probe] state file: ${stateFile}`);
     if (stateFile) pollTimer = setInterval(pollOnce, 300);

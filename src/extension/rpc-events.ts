@@ -238,10 +238,11 @@ export function handleRpcEvent(
     const durationMs = event.durationMs as number | undefined;
     // Workflow returned ("launched in background") — extract the run dir and poll.
     if (toolCallId && toolName === "Workflow") {
+      // Always notify, even on an empty/unparseable result — onWorkflowEnd needs
+      // to run to settle the run out of its "launching" state. Withholding the
+      // call on empty text would leave the panel spinning forever.
       const resultText = extractToolResultText(event.result);
-      if (resultText) {
-        ctx.getSession(sessionId).workflowProgressManager?.onWorkflowEnd(toolCallId, resultText);
-      }
+      ctx.getSession(sessionId).workflowProgressManager?.onWorkflowEnd(toolCallId, resultText);
     }
     if (ctx.onToolEnd && toolCallId) {
       ctx.onToolEnd(sessionId, toolCallId, isError, durationMs);

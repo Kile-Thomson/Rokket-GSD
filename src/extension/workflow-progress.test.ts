@@ -195,6 +195,22 @@ describe("buildAgentRows", () => {
     expect(agents.find((a) => a.label === "first")?.state).toBe("pending");
   });
 
+  it("does not let a labeled journal entry clobber an already-matched row by dispatch order", () => {
+    // "second" matches a planned row by label; "ghost" has a label not in the
+    // plan — it must NOT fall back to dispatch-order binding (which would have
+    // overwritten the "first" row), since order-binding is for unlabeled entries.
+    const journal = parseJournalLines([
+      JSON.stringify({ started: true, agentId: "id-second", label: "second" }),
+      JSON.stringify({ result: "ok", agentId: "id-second", label: "second" }),
+      JSON.stringify({ started: true, agentId: "id-ghost", label: "ghost" }),
+    ].join("\n"));
+    const { agents } = buildAgentRows(plan, journal, null);
+    expect(agents.find((a) => a.label === "first")?.state).toBe("pending");
+    expect(agents.find((a) => a.label === "second")?.state).toBe("done");
+    // The unmatched labeled entry appears as its own appended row.
+    expect(agents.find((a) => a.label === "ghost")?.state).toBe("running");
+  });
+
   it("treats the end-file as authoritative", () => {
     const end = parseWorkflowEndFile(JSON.stringify({
       status: "completed",

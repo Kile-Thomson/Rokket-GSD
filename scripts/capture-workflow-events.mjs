@@ -45,6 +45,9 @@ function resolveGsd() {
         if (fs.existsSync(loader)) {
           return { command: process.execPath, args: [loader], useShell: false };
         }
+        // .cmd shim without a resolvable loader — Node can't exec a .cmd directly,
+        // so fall back to the shell on Windows.
+        return { command: first, args: [], useShell: isWin };
       }
       return { command: first, args: [], useShell: false };
     }

@@ -211,5 +211,5 @@
   font-size: var(--gsd-font-size-xs);
   color: var(--gsd-color-text-muted);
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
