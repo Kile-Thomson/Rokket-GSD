@@ -74,5 +74,8 @@ describe("WorkflowProgressManager live polling (real fs)", () => {
     expect(Math.max(...posts.map((p) => p.data.runningAgentCount))).toBeGreaterThan(0);
     // …and an agent finishing (a result event lands).
     expect(Math.max(...posts.map((p) => p.data.doneAgentCount))).toBeGreaterThan(0);
-  });
+    // Real timers + a 2s poll interval: the scenario drives ~7s of wall-clock
+    // sleeps to span multiple ticks, so it needs a timeout well above vitest's
+    // 5s default — otherwise it times out before the journal-growth frames land.
+  }, 20_000);
 });

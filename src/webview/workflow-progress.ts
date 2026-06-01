@@ -192,7 +192,7 @@ function ensurePanel(segment: HTMLElement, toolCallId: string): HTMLElement {
 
 // --- HTML ---
 
-function buildPanelHtml(data: WorkflowProgressData): string {
+export function buildPanelHtml(data: WorkflowProgressData): string {
   const elapsed = formatDuration(Math.max(0, data.updatedAt - data.startedAt));
   const total = Math.max(data.plannedAgentCount, data.agents.length);
   const counts = total > 0 ? `${data.doneAgentCount}/${total} agents` : `${data.doneAgentCount} agents`;

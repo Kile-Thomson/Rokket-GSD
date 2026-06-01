@@ -214,12 +214,56 @@
   overflow-wrap: anywhere;
 }
 
+/* --- Live workflow panel (turn-independent, fed by the disk watcher) --- */
+
+#gsd-wf-live {
+  position: fixed;
+  bottom: 8px;
+  right: 8px;
+  z-index: 9998;
+  width: 360px;
+  max-width: calc(100vw - 16px);
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--gsd-color-border-strong);
+  border-radius: 8px;
+  background: var(--gsd-color-surface-elevated);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.gsd-wf-live-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: var(--gsd-font-weight-semibold);
+  font-size: var(--gsd-font-size-xs);
+  color: var(--gsd-color-text);
+}
+
+.gsd-wf-live-glyph {
+  color: var(--gsd-color-text-muted);
+}
+
+.gsd-wf-live-count {
+  color: var(--gsd-color-text-muted);
+  font-weight: var(--gsd-font-weight-normal);
+}
+
+.gsd-wf-live-card {
+  margin: 0;
+}
+
 /* --- Diagnostics overlay (opt-in: gsd.workflowDiagnostics) --- */
 
 #gsd-wf-diag {
   position: fixed;
   bottom: 8px;
-  right: 8px;
+  left: 8px;
+  right: auto;
   z-index: 9999;
   max-width: 320px;
   padding: 6px 8px;

@@ -81,6 +81,7 @@ function createMockCtx(client: any = null): { ctx: MessageDispatchContext; webvi
     isRestarting: false,
     autoProgressPoller: null,
     workflowProgressManager: null,
+    workflowFsWatcher: null,
     launchPromise: null,
     messageHandlerDisposable: null,
     lastStartOptions: null,

@@ -2,7 +2,7 @@
 	"name": "rokket-gsd",
 	"displayName": "GSD Pi Premium GUI — RokketGSD",
 	"description": "The GSD Pi (OpenGSD) VS Code extension — AI coding agent with chat UI, multi-model support, 40+ tool visualizations, Telegram voice relay, parallel workers, and workflow automation. Also compatible with GSD V2.",
-	"version": "0.3.76",
+	"version": "0.3.78",
 	"publisher": "rokketek",
 	"license": "MIT",
 	"repository": {
@@ -84,6 +84,11 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Show an on-screen diagnostic overlay for Claude Code Workflow progress. When enabled, a small heads-up panel reports whether live workflow_progress updates are arriving and whether the panel can find its anchor in the conversation. Use it to diagnose why a live workflow panel isn't appearing; leave off for normal use."
+				},
+				"gsd.workflowLivePanel": {
+					"type": "boolean",
+					"default": true,
+					"description": "Show a live floating panel of Claude Code Workflow progress as it happens. The panel is fed by watching the workflow's on-disk journal directly, so it appears mid-turn — before the workflow tool block renders in the conversation. Turn off to suppress the panel entirely."
 				},
 				"gsd.autoUpdate": {
 					"type": "boolean",

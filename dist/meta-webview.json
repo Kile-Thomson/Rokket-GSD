@@ -58,7 +58,7 @@
       "imports": []
     },
     "src/webview/styles/workflow.css": {
-      "bytes": 5922,
+      "bytes": 6870,
       "imports": []
     },
     "src/webview/styles/themes/phosphor.css": {
@@ -74,7 +74,7 @@
       "imports": []
     },
     "src/shared/constants.ts": {
-      "bytes": 3613,
+      "bytes": 4733,
       "imports": [],
       "format": "esm"
     },
@@ -337,7 +337,7 @@
       "format": "esm"
     },
     "src/webview/workflow-progress.ts": {
-      "bytes": 13712,
+      "bytes": 13719,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -482,6 +482,17 @@
       ],
       "format": "esm"
     },
+    "src/webview/workflow-live.ts": {
+      "bytes": 2808,
+      "imports": [
+        {
+          "path": "src/webview/workflow-progress.ts",
+          "kind": "import-statement",
+          "original": "./workflow-progress"
+        }
+      ],
+      "format": "esm"
+    },
     "src/webview/keyboard.ts": {
       "bytes": 19264,
       "imports": [
@@ -544,7 +555,7 @@
       "format": "esm"
     },
     "src/webview/message-handler.ts": {
-      "bytes": 73671,
+      "bytes": 73967,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -605,6 +616,11 @@
           "path": "src/webview/workflow-progress.ts",
           "kind": "import-statement",
           "original": "./workflow-progress"
+        },
+        {
+          "path": "src/webview/workflow-live.ts",
+          "kind": "import-statement",
+          "original": "./workflow-live"
         },
         {
           "path": "src/webview/visualizer.ts",
@@ -852,7 +868,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 944072
+      "bytes": 948687
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -983,11 +999,14 @@
         "src/webview/visualizer.ts": {
           "bytesInOutput": 12320
         },
+        "src/webview/workflow-live.ts": {
+          "bytesInOutput": 927
+        },
         "src/webview/keyboard.ts": {
           "bytesInOutput": 6857
         },
         "src/webview/message-handler.ts": {
-          "bytesInOutput": 26540
+          "bytesInOutput": 26634
         },
         "src/webview/ui-updates.ts": {
           "bytesInOutput": 7371
@@ -996,13 +1015,13 @@
           "bytesInOutput": 28685
         }
       },
-      "bytes": 246326
+      "bytes": 247347
     },
     "dist/webview/index.css.map": {
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 280101
+      "bytes": 281589
     },
     "dist/webview/index.css": {
       "imports": [],
@@ -1047,7 +1066,7 @@
           "bytesInOutput": 2258
         },
         "src/webview/styles/workflow.css": {
-          "bytesInOutput": 4536
+          "bytesInOutput": 5215
         },
         "src/webview/styles/themes/phosphor.css": {
           "bytesInOutput": 5298
@@ -1059,7 +1078,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 129825
+      "bytes": 130504
     }
   }
 }

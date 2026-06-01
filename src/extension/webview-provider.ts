@@ -6,6 +6,7 @@ import { GsdRpcClient } from "./rpc-client";
 import { fetchReleaseNotes } from "./update-checker";
 import { AutoProgressPoller } from "./auto-progress-poller";
 import { WorkflowProgressManager } from "./workflow-progress-poller";
+import { WorkflowFsWatcher } from "./workflow-fs-watcher";
 import { createSessionState, cleanupSessionState, type SessionState } from "./session-state";
 import { toErrorMessage } from "../shared/errors";
 import type { ExtensionToWebviewMessage, RpcCommandsResult, RpcStateResult } from "../shared/types";
@@ -508,6 +509,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.getSession(sessionId).webview = webviewView.webview;
       this.getSession(sessionId).autoProgressPoller?.rebindWebview(webviewView.webview);
       this.getSession(sessionId).workflowProgressManager?.rebindWebview(webviewView.webview);
+      this.getSession(sessionId).workflowFsWatcher?.rebindWebview(webviewView.webview);
       this._bindClientListeners(existingClient, webviewView.webview, sessionId);
       this.output.appendLine(`[${sessionId}] Sidebar re-resolved — reusing existing session, all listeners rebound`);
     } else {
@@ -776,6 +778,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     this.bridge?.clearStreamingState(sessionId);
     this.getSession(sessionId).autoProgressPoller?.onProcessExit();
     this.getSession(sessionId).workflowProgressManager?.onProcessExit();
+    this.getSession(sessionId).workflowFsWatcher?.onProcessExit();
     this.getSession(sessionId).autoModeState = null;
     stopActivityMonitor(this.watchdogCtx, sessionId);
     this.getSession(sessionId).isStreaming = false;
@@ -837,6 +840,14 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.getSession(sessionId).workflowProgressManager = new WorkflowProgressManager(
         sessionId, webview, this.output,
       );
+
+      // Proactive disk watcher: renders live workflow fan-out mid-turn by tailing
+      // the on-disk journal directly, because the runtime only delivers the
+      // Workflow tool events in one batch at turn end (so the RPC-driven manager
+      // above can't show anything live). Independent of any RPC event.
+      const fsWatcher = new WorkflowFsWatcher(sessionId, webview, this.output, workingDir);
+      this.getSession(sessionId).workflowFsWatcher = fsWatcher;
+      fsWatcher.start();
 
       try {
         const rpcState = await client.getState() as RpcStateResult;
