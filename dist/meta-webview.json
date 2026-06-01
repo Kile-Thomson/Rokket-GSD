@@ -58,7 +58,7 @@
       "imports": []
     },
     "src/webview/styles/workflow.css": {
-      "bytes": 6870,
+      "bytes": 6549,
       "imports": []
     },
     "src/webview/styles/themes/phosphor.css": {
@@ -337,7 +337,7 @@
       "format": "esm"
     },
     "src/webview/workflow-progress.ts": {
-      "bytes": 13719,
+      "bytes": 8958,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -483,7 +483,7 @@
       "format": "esm"
     },
     "src/webview/workflow-live.ts": {
-      "bytes": 2808,
+      "bytes": 5430,
       "imports": [
         {
           "path": "src/webview/workflow-progress.ts",
@@ -868,7 +868,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 948687
+      "bytes": 944027
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -982,7 +982,7 @@
           "bytesInOutput": 13141
         },
         "src/webview/workflow-progress.ts": {
-          "bytesInOutput": 5240
+          "bytesInOutput": 3595
         },
         "src/webview/render/streaming.ts": {
           "bytesInOutput": 151
@@ -1000,7 +1000,7 @@
           "bytesInOutput": 12320
         },
         "src/webview/workflow-live.ts": {
-          "bytesInOutput": 927
+          "bytesInOutput": 1057
         },
         "src/webview/keyboard.ts": {
           "bytesInOutput": 6857
@@ -1015,13 +1015,13 @@
           "bytesInOutput": 28685
         }
       },
-      "bytes": 247347
+      "bytes": 245832
     },
     "dist/webview/index.css.map": {
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 281589
+      "bytes": 280905
     },
     "dist/webview/index.css": {
       "imports": [],
@@ -1066,7 +1066,7 @@
           "bytesInOutput": 2258
         },
         "src/webview/styles/workflow.css": {
-          "bytesInOutput": 5215
+          "bytesInOutput": 4730
         },
         "src/webview/styles/themes/phosphor.css": {
           "bytesInOutput": 5298
@@ -1078,7 +1078,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 130504
+      "bytes": 130019
     }
   }
 }
