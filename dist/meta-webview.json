@@ -337,7 +337,7 @@
       "format": "esm"
     },
     "src/webview/workflow-progress.ts": {
-      "bytes": 9607,
+      "bytes": 10319,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -868,7 +868,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 947163
+      "bytes": 948253
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -982,7 +982,7 @@
           "bytesInOutput": 13141
         },
         "src/webview/workflow-progress.ts": {
-          "bytesInOutput": 3724
+          "bytesInOutput": 3905
         },
         "src/webview/render/streaming.ts": {
           "bytesInOutput": 151
@@ -1015,7 +1015,7 @@
           "bytesInOutput": 28685
         }
       },
-      "bytes": 246332
+      "bytes": 246513
     },
     "dist/webview/index.css.map": {
       "imports": [],

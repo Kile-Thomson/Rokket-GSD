@@ -214,7 +214,7 @@
       "format": "esm"
     },
     "src/extension/workflow-progress.ts": {
-      "bytes": 19005,
+      "bytes": 19143,
       "imports": [
         {
           "path": "fs",
@@ -251,7 +251,7 @@
       "format": "esm"
     },
     "src/extension/workflow-fs-watcher.ts": {
-      "bytes": 11791,
+      "bytes": 12960,
       "imports": [
         {
           "path": "vscode",
@@ -1020,7 +1020,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 743864
+      "bytes": 745495
     },
     "dist/extension.js": {
       "imports": [
@@ -1423,7 +1423,7 @@
           "bytesInOutput": 4037
         },
         "src/extension/workflow-fs-watcher.ts": {
-          "bytesInOutput": 4342
+          "bytesInOutput": 4588
         },
         "src/extension/session-state.ts": {
           "bytesInOutput": 1643
@@ -1510,7 +1510,7 @@
           "bytesInOutput": 107
         }
       },
-      "bytes": 195436
+      "bytes": 195682
     }
   }
 }
