@@ -69,5 +69,25 @@ describe("html-generator", () => {
       const html = getWebviewHtml({} as any, webview, "session-with-special-chars");
       expect(html).toContain('window.GSD_SESSION_ID = "session-with-special-chars"');
     });
+
+    it("injects the workflow-diagnostics flag (default false)", () => {
+      const webview = {
+        asWebviewUri: (uri: any) => `uri:${uri}`,
+        cspSource: "test",
+      } as any;
+
+      const html = getWebviewHtml({} as any, webview, "s1");
+      expect(html).toContain("window.GSD_WORKFLOW_DIAGNOSTICS = false");
+    });
+
+    it("injects the workflow-diagnostics flag as true when enabled", () => {
+      const webview = {
+        asWebviewUri: (uri: any) => `uri:${uri}`,
+        cspSource: "test",
+      } as any;
+
+      const html = getWebviewHtml({} as any, webview, "s1", true);
+      expect(html).toContain("window.GSD_WORKFLOW_DIAGNOSTICS = true");
+    });
   });
 });

@@ -6,6 +6,7 @@ import { GsdRpcClient } from "./rpc-client";
 import { fetchReleaseNotes } from "./update-checker";
 import { AutoProgressPoller } from "./auto-progress-poller";
 import { WorkflowProgressManager } from "./workflow-progress-poller";
+import { WorkflowFsWatcher } from "./workflow-fs-watcher";
 import { createSessionState, cleanupSessionState, type SessionState } from "./session-state";
 import { toErrorMessage } from "../shared/errors";
 import type { ExtensionToWebviewMessage, RpcCommandsResult, RpcStateResult } from "../shared/types";
@@ -508,6 +509,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.getSession(sessionId).webview = webviewView.webview;
       this.getSession(sessionId).autoProgressPoller?.rebindWebview(webviewView.webview);
       this.getSession(sessionId).workflowProgressManager?.rebindWebview(webviewView.webview);
+      this.getSession(sessionId).workflowFsWatcher?.rebindWebview(webviewView.webview);
       this._bindClientListeners(existingClient, webviewView.webview, sessionId);
       this.output.appendLine(`[${sessionId}] Sidebar re-resolved — reusing existing session, all listeners rebound`);
     } else {
@@ -520,7 +522,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist")],
     };
-    webviewView.webview.html = getWebviewHtml(this.extensionUri, webviewView.webview, sessionId);
+    webviewView.webview.html = getWebviewHtml(this.extensionUri, webviewView.webview, sessionId, this.getWorkflowDiagnostics());
     this.setupWebviewMessageHandling(webviewView.webview, sessionId);
   }
 
@@ -535,7 +537,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       }
     );
     this.getSession(sessionId).panel = panel;
-    panel.webview.html = getWebviewHtml(this.extensionUri, panel.webview, sessionId);
+    panel.webview.html = getWebviewHtml(this.extensionUri, panel.webview, sessionId, this.getWorkflowDiagnostics());
     this.setupWebviewMessageHandling(panel.webview, sessionId);
     panel.onDidDispose(() => {
       this.getSession(sessionId).panel = null;
@@ -545,11 +547,11 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
   focus(): void {
     if (this.webviewView) this.webviewView.show(true);
-    this.broadcastToAll({ type: "config", useCtrlEnterToSend: this.getUseCtrlEnter(), theme: this.getTheme() } as ExtensionToWebviewMessage);
+    this.broadcastToAll({ type: "config", useCtrlEnterToSend: this.getUseCtrlEnter(), theme: this.getTheme(), workflowDiagnostics: this.getWorkflowDiagnostics() } as ExtensionToWebviewMessage);
   }
 
   onConfigChanged(): void {
-    this.broadcastToAll({ type: "config", useCtrlEnterToSend: this.getUseCtrlEnter(), theme: this.getTheme() } as ExtensionToWebviewMessage);
+    this.broadcastToAll({ type: "config", useCtrlEnterToSend: this.getUseCtrlEnter(), theme: this.getTheme(), workflowDiagnostics: this.getWorkflowDiagnostics() } as ExtensionToWebviewMessage);
   }
 
   async newConversation(): Promise<void> {
@@ -776,6 +778,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     this.bridge?.clearStreamingState(sessionId);
     this.getSession(sessionId).autoProgressPoller?.onProcessExit();
     this.getSession(sessionId).workflowProgressManager?.onProcessExit();
+    this.getSession(sessionId).workflowFsWatcher?.onProcessExit();
     this.getSession(sessionId).autoModeState = null;
     stopActivityMonitor(this.watchdogCtx, sessionId);
     this.getSession(sessionId).isStreaming = false;
@@ -837,6 +840,14 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       this.getSession(sessionId).workflowProgressManager = new WorkflowProgressManager(
         sessionId, webview, this.output,
       );
+
+      // Proactive disk watcher: renders live workflow fan-out mid-turn by tailing
+      // the on-disk journal directly, because the runtime only delivers the
+      // Workflow tool events in one batch at turn end (so the RPC-driven manager
+      // above can't show anything live). Independent of any RPC event.
+      const fsWatcher = new WorkflowFsWatcher(sessionId, webview, this.output, workingDir);
+      this.getSession(sessionId).workflowFsWatcher = fsWatcher;
+      fsWatcher.start();
 
       try {
         const rpcState = await client.getState() as RpcStateResult;
@@ -904,5 +915,9 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
   private getTheme(): string {
     return vscode.workspace.getConfiguration("gsd").get<string>("theme", "forge");
+  }
+
+  private getWorkflowDiagnostics(): boolean {
+    return vscode.workspace.getConfiguration("gsd").get<boolean>("workflowDiagnostics", false);
   }
 }

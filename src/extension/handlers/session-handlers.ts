@@ -22,6 +22,7 @@ export async function handleNewConversation(
   ctx.cleanupTempFiles();
   ctx.getSession(sessionId).autoProgressPoller?.onNewConversation();
   ctx.getSession(sessionId).workflowProgressManager?.onNewConversation();
+  ctx.getSession(sessionId).workflowFsWatcher?.onNewConversation();
   const client = ctx.getSession(sessionId).client;
   if (client?.isRunning) {
     try {

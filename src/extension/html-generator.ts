@@ -11,7 +11,12 @@ export function getNonce(): string {
 }
 
 /** Build the full HTML document for a GSD webview panel or sidebar */
-export function getWebviewHtml(extensionUri: vscode.Uri, webview: vscode.Webview, sessionId: string): string {
+export function getWebviewHtml(
+  extensionUri: vscode.Uri,
+  webview: vscode.Webview,
+  sessionId: string,
+  workflowDiagnostics = false,
+): string {
   const scriptUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extensionUri, "dist", "webview", "index.js")
   );
@@ -34,6 +39,7 @@ export function getWebviewHtml(extensionUri: vscode.Uri, webview: vscode.Webview
   <div id="root"></div>
   <script nonce="${nonce}">
     window.GSD_SESSION_ID = ${JSON.stringify(sessionId)};
+    window.GSD_WORKFLOW_DIAGNOSTICS = ${workflowDiagnostics ? "true" : "false"};
   </script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>

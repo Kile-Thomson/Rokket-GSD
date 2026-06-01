@@ -99,11 +99,27 @@ export interface WorkflowLaunchInfo {
 /**
  * Extract the run id + on-disk paths from the "launched in background" result text.
  * Returns null if the text isn't a recognizable workflow-launch result.
+ *
+ * The live runtime emits, e.g.:
+ *   Workflow launched in background. Task ID: wdqnq4w7q
+ *   Summary: ...
+ *   Transcript dir: <projectDir>\subagents\workflows\wf_<id>
+ *   Script file: ...
+ *
+ * Note it carries **no `Run ID:` line** — only `Task ID:` and a transcript dir
+ * whose last path segment IS the `wf_<id>` run id. We therefore derive the run id
+ * from the transcript dir's basename, preferring an explicit `Run ID:` line when a
+ * runtime does emit one. Requiring the `Run ID:` label (as this once did) made the
+ * parser return null on every real launch, so the journal poller never started and
+ * live progress never rendered — only the terminal completion snapshot did.
  */
 export function parseWorkflowLaunch(resultText: string): WorkflowLaunchInfo | null {
-  const runId = resultText.match(/Run ID:\s*(wf_[A-Za-z0-9_-]+)/)?.[1];
   const transcriptDir = resultText.match(/Transcript dir:\s*(.+?)\s*(?:\r?\n|$)/)?.[1]?.trim();
-  if (!runId || !transcriptDir) return null;
+  if (!transcriptDir) return null;
+  const explicitRunId = resultText.match(/Run ID:\s*(wf_[A-Za-z0-9_-]+)/)?.[1];
+  const dirBasename = transcriptDir.split(/[\\/]/).filter(Boolean).pop();
+  const runId = explicitRunId ?? (dirBasename && /^wf_[A-Za-z0-9_-]+$/.test(dirBasename) ? dirBasename : undefined);
+  if (!runId) return null;
   const scriptPath = resultText.match(/Script file:\s*(.+?)\s*(?:\r?\n|$)/)?.[1]?.trim();
   return { runId, transcriptDir, scriptPath };
 }
@@ -297,10 +313,17 @@ export function decideLiveWorkflowStatus(i: LiveStatusInput): LiveStatusDecision
 
 export interface WorkflowEndFile {
   status: string;
-  agents: Array<{ label: string; state: AgentRunState; tokens?: number; toolCalls?: number; durationMs?: number }>;
+  agents: Array<{ label: string; phase?: string; state: AgentRunState; tokens?: number; toolCalls?: number; durationMs?: number }>;
 }
 
-/** Parse the `<runId>.json` end-file. Returns null if absent/corrupt. */
+/**
+ * Parse the `<runId>.json` end-file. Returns null if absent/corrupt.
+ *
+ * The runtime writes the per-agent table under `workflowProgress` — verified
+ * against a real end-file: each entry carries label, phaseTitle, state, tokens,
+ * toolCalls, durationMs. The legacy `agents` key is accepted as a fallback so a
+ * future shape change doesn't silently blank the completion table.
+ */
 export function parseWorkflowEndFile(content: string): WorkflowEndFile | null {
   let obj: Record<string, unknown>;
   try {
@@ -308,17 +331,31 @@ export function parseWorkflowEndFile(content: string): WorkflowEndFile | null {
   } catch {
     return null;
   }
-  if (!obj || !Array.isArray(obj.agents)) return null;
+  const rawAgents = Array.isArray(obj?.workflowProgress)
+    ? (obj.workflowProgress as Array<Record<string, unknown>>)
+    : Array.isArray(obj?.agents)
+      ? (obj.agents as Array<Record<string, unknown>>)
+      : null;
+  if (!rawAgents) return null;
 
-  const agents = (obj.agents as Array<Record<string, unknown>>).map((raw) => {
+  // `workflowProgress` interleaves phase markers ({type:"workflow_phase"}) with
+  // agent rows ({type:"workflow_agent"}). Keep only agent rows; a row with no
+  // type discriminator (legacy `agents` shape) is treated as an agent.
+  const agents = rawAgents
+    .filter((raw) => {
+      const t = pickString(raw, "type");
+      return t === undefined || t === "workflow_agent";
+    })
+    .map((raw) => {
     const stateRaw = pickString(raw, "state", "status") ?? "done";
     const state: AgentRunState =
       stateRaw === "error" || stateRaw === "failed" ? "error"
       : stateRaw === "running" || stateRaw === "started" ? "running"
-      : stateRaw === "pending" ? "pending"
+      : stateRaw === "pending" || stateRaw === "queued" ? "pending"
       : "done";
     return {
       label: pickString(raw, "label", "agentId", "id") ?? "agent",
+      phase: pickString(raw, "phaseTitle", "phase"),
       state,
       tokens: pickNumber(raw, "tokens", "totalTokens"),
       toolCalls: pickNumber(raw, "toolCalls", "toolCallCount"),
@@ -390,10 +427,12 @@ export function buildAgentRows(
   endFile: WorkflowEndFile | null,
 ): { agents: WorkflowAgentProgress[]; doneAgentCount: number; runningAgentCount: number } {
   if (endFile) {
+    // End-file is authoritative for phase too — fall back to the plan's phase
+    // only when the end-file agent doesn't carry one.
     const phaseByLabel = new Map(plan.agents.map((a) => [a.label, a.phase]));
     const agents: WorkflowAgentProgress[] = endFile.agents.map((a) => ({
       label: a.label,
-      phase: phaseByLabel.get(a.label),
+      phase: a.phase ?? phaseByLabel.get(a.label),
       state: a.state,
       tokens: a.tokens,
       toolCalls: a.toolCalls,

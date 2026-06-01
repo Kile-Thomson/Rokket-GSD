@@ -213,3 +213,63 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* --- Live workflow card (inline in the conversation, fed by the disk watcher) --- */
+
+.gsd-wf-inline {
+  /* Set the live card apart from the surrounding turn, and give it a slightly
+     stronger accent than the base panel since it stands on its own in the flow. */
+  margin: 8px 0 12px;
+  border-left-width: 3px;
+  background: var(--gsd-color-surface-elevated, var(--gsd-color-bg));
+}
+
+/* Cap a large fan-out so a many-agent run doesn't dominate the transcript;
+   the agent list scrolls within the card instead. */
+.gsd-wf-inline .gsd-wf-agents {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* --- Diagnostics overlay (opt-in: gsd.workflowDiagnostics) --- */
+
+#gsd-wf-diag {
+  position: fixed;
+  bottom: 8px;
+  left: 8px;
+  right: auto;
+  z-index: 9999;
+  max-width: 320px;
+  padding: 6px 8px;
+  border: 1px solid var(--gsd-color-border-strong);
+  border-radius: 6px;
+  background: var(--gsd-color-surface-elevated);
+  color: var(--gsd-color-text-muted);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: var(--gsd-font-size-xs);
+  line-height: 1.45;
+  pointer-events: none;
+  opacity: 0.92;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.gsd-wf-diag-title {
+  font-weight: 600;
+  color: var(--gsd-color-text-primary, var(--vscode-foreground));
+  margin-bottom: 2px;
+}
+
+.gsd-wf-diag-row {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gsd-wf-diag-dim {
+  color: var(--gsd-color-text-muted);
+  opacity: 0.8;
+}
+
+.gsd-wf-diag-ok { color: var(--gsd-color-success); }
+.gsd-wf-diag-warn { color: var(--gsd-color-warning); }
+.gsd-wf-diag-bad { color: var(--gsd-color-error); }

@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { GsdRpcClient } from "./rpc-client";
 import { AutoProgressPoller } from "./auto-progress-poller";
 import { WorkflowProgressManager } from "./workflow-progress-poller";
+import { WorkflowFsWatcher } from "./workflow-fs-watcher";
 import type { ProcessHealthStatus } from "../shared/types";
 
 // ============================================================
@@ -57,6 +58,8 @@ export interface SessionState {
 
   // --- Workflow (Claude Code Workflow fan-out) progress ---
   workflowProgressManager: WorkflowProgressManager | null;
+  /** Proactive disk watcher that renders live workflow progress mid-turn. */
+  workflowFsWatcher: WorkflowFsWatcher | null;
 
   // --- Lifecycle ---
   launchPromise: Promise<void> | null;
@@ -95,6 +98,7 @@ export function createSessionState(): SessionState {
     accumulatedCost: 0,
     autoProgressPoller: null,
     workflowProgressManager: null,
+    workflowFsWatcher: null,
     launchPromise: null,
     messageHandlerDisposable: null,
     lastStartOptions: null,
@@ -144,6 +148,12 @@ export function cleanupSessionState(session: SessionState): void {
   if (session.workflowProgressManager) {
     session.workflowProgressManager.dispose();
     session.workflowProgressManager = null;
+  }
+
+  // Clean up the proactive workflow filesystem watcher
+  if (session.workflowFsWatcher) {
+    session.workflowFsWatcher.dispose();
+    session.workflowFsWatcher = null;
   }
 
   // Remove all event listeners before stopping to prevent stale handlers

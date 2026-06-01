@@ -1,132 +1,143 @@
 // ============================================================
-// Workflow Progress Panel (webview)
+// Workflow Progress — shared card HTML + diagnostics overlay
 //
-// Renders live Claude Code Workflow fan-out state inside the originating
-// `Workflow` tool block. The extension's workflow poller pushes
-// `workflow_progress` messages keyed by the tool call id; this module attaches a
-// panel as a sibling immediately after that tool segment so it survives the
-// segment's innerHTML rebuild on tool_execution_start/end and persists across
-// turns (the workflow runs in the background, outliving the launching turn).
+// Claude Code's `Workflow` tool fans out sub-agents in the background. Two facts
+// shape how we surface them:
+//
+//   • The RPC channel only carries the Workflow tool's start/end, batched at turn
+//     end — no live per-agent progress crosses the wire. So the `workflow_progress`
+//     message (this module's `update`) cannot drive a live in-conversation panel;
+//     it only ever arrives after the turn, and the tool segment it would anchor to
+//     doesn't exist until then. That approach is retired: `update` now feeds the
+//     diagnostics overlay only.
+//   • The live rendering flows through the disk watcher instead — see
+//     `workflow-live.ts`, which polls the run's journal on disk and renders an
+//     inline card the moment a run starts writing, independent of the turn.
+//
+// This module keeps the two pieces both paths share: `buildPanelHtml` (the card
+// body) and the opt-in diagnostics overlay (gsd.workflowDiagnostics).
 // ============================================================
 
 import type { WorkflowProgressData, WorkflowAgentProgress } from "../shared/types";
 import { escapeHtml, escapeAttr, formatTokens, formatDuration } from "./helpers";
 
-/** Latest snapshot per tool call, so a re-render (or late-arriving DOM) can replay it. */
-const latest = new Map<string, WorkflowProgressData>();
-/** Pending retry timers for snapshots whose tool segment isn't in the DOM yet. */
-const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+// --- Diagnostics overlay -----------------------------------------------------
+//
+// An opt-in heads-up panel (gsd.workflowDiagnostics) that answers the question
+// static analysis can't: are workflow progress messages actually reaching the
+// webview, and is the conversation root present to render into? It renders fixed
+// to document.body — deliberately independent of the messages DOM — so it stays
+// visible regardless of conversation rebuilds. Off by default; zero effect when
+// disabled. Fed by both the disk-watcher path (workflow-live) and the RPC path.
 
-const MAX_RETRIES = 25;
-const RETRY_DELAY_MS = 120;
-const HEARTBEAT_INTERVAL_MS = 1000;
+const DIAG_ID = "gsd-wf-diag";
 
-/** Self-healing re-attach timer — runs only while at least one workflow is live. */
-let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-
-/** Live = still producing progress; terminal states don't need re-attaching. */
-function isLive(status: WorkflowProgressData["status"]): boolean {
-  return status === "running" || status === "launching" || status === "stalled";
+interface DiagState {
+  enabled: boolean;
+  /** Count of progress messages received, by status. */
+  counts: Record<WorkflowProgressData["status"], number>;
+  total: number;
+  lastName?: string;
+  lastStatus?: WorkflowProgressData["status"];
+  lastDone?: number;
+  lastPlanned?: number;
+  /** Date.now() of the last received message — drives the "Ns ago" freshness line. */
+  lastMessageAt?: number;
 }
 
-export function update(data: WorkflowProgressData): void {
-  latest.set(data.toolCallId, data);
-  render(data.toolCallId, 0);
-  if (isLive(data.status)) startHeartbeat();
+function readDiagDefault(): boolean {
+  try {
+    return (window as unknown as { GSD_WORKFLOW_DIAGNOSTICS?: boolean }).GSD_WORKFLOW_DIAGNOSTICS === true;
+  } catch {
+    return false;
+  }
 }
 
-/** Clear all panels' cached state (new conversation / reset). DOM is cleared on re-render. */
-export function reset(): void {
-  latest.clear();
-  for (const t of retryTimers.values()) clearTimeout(t);
-  retryTimers.clear();
-  stopHeartbeat();
+const diag: DiagState = {
+  enabled: readDiagDefault(),
+  counts: { launching: 0, running: 0, completed: 0, error: 0, stalled: 0 },
+  total: 0,
+};
+
+/**
+ * Keeps the overlay's "updated Ns ago" line honest between messages — without it,
+ * the freshness counter would freeze at whatever it read on the last snapshot.
+ */
+let diagRefreshTimer: ReturnType<typeof setInterval> | null = null;
+
+function startDiagRefresh(): void {
+  if (diagRefreshTimer) return;
+  diagRefreshTimer = setInterval(() => {
+    if (!diag.enabled || !document.getElementById(DIAG_ID)) {
+      stopDiagRefresh();
+      return;
+    }
+    renderDiag();
+  }, 1000);
 }
 
-function startHeartbeat(): void {
-  if (heartbeatTimer) return;
-  heartbeatTimer = setInterval(heartbeatTick, HEARTBEAT_INTERVAL_MS);
+function stopDiagRefresh(): void {
+  if (diagRefreshTimer) {
+    clearInterval(diagRefreshTimer);
+    diagRefreshTimer = null;
+  }
 }
 
-function stopHeartbeat(): void {
-  if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+/** Toggle the diagnostics overlay (driven by the gsd.workflowDiagnostics setting). */
+export function setDiagnostics(enabled: boolean): void {
+  diag.enabled = enabled;
+  if (enabled) {
+    renderDiag();
+    startDiagRefresh();
+  } else {
+    stopDiagRefresh();
+    removeDiag();
+  }
 }
 
 /**
- * Re-attach any live panel that has gone missing from the DOM.
+ * Record a received progress snapshot for the diagnostics overlay.
  *
- * A workflow runs in the background and outlives the turn that launched it, but
- * the surrounding turn DOM is rebuilt by streaming, finalization, and history
- * refreshes. The panel is a sibling injected after the tool segment — it is not
- * part of the reconstructable message history, so those rebuilds silently drop
- * it. That is why progress could go unseen until the turn settled. Each tick
- * re-renders any live run whose panel is absent (but whose segment exists),
- * keeping it visible during the run without waiting on the next extension poll.
- * Present panels are left untouched (no flicker). The timer stops itself once no
- * run is live.
+ * Called by both progress sources: the disk watcher (workflow-live, the live
+ * in-conversation renderer) and the RPC `workflow_progress` path (turn-end only).
+ * Tracking both lets the overlay show whether either feed is delivering.
  */
-function heartbeatTick(): void {
-  let anyLive = false;
-  for (const [id, data] of latest) {
-    if (!isLive(data.status)) continue;
-    anyLive = true;
-    if (!findExistingPanel(id) && findSegment(id)) {
-      render(id, 0);
-    }
-  }
-  if (!anyLive) stopHeartbeat();
+export function noteMessage(data: WorkflowProgressData): void {
+  diag.counts[data.status] = (diag.counts[data.status] ?? 0) + 1;
+  diag.total++;
+  diag.lastName = data.name;
+  diag.lastStatus = data.status;
+  diag.lastDone = data.doneAgentCount;
+  diag.lastPlanned = Math.max(data.plannedAgentCount, data.agents.length);
+  diag.lastMessageAt = Date.now();
+  if (diag.enabled) renderDiag();
 }
 
-function render(toolCallId: string, attempt: number): void {
-  const data = latest.get(toolCallId);
-  if (!data) return;
-
-  const segment = findSegment(toolCallId);
-  if (!segment) {
-    // The Workflow tool segment may not be in the DOM yet (workflow_progress can
-    // arrive just before tool_execution_start). Retry a bounded number of times.
-    if (attempt < MAX_RETRIES) {
-      const existing = retryTimers.get(toolCallId);
-      if (existing) clearTimeout(existing);
-      retryTimers.set(toolCallId, setTimeout(() => render(toolCallId, attempt + 1), RETRY_DELAY_MS));
-    }
-    return;
-  }
-  const pending = retryTimers.get(toolCallId);
-  if (pending) { clearTimeout(pending); retryTimers.delete(toolCallId); }
-
-  const panel = ensurePanel(segment, toolCallId);
-  panel.className = `gsd-workflow-panel status-${data.status}`;
-  panel.innerHTML = buildPanelHtml(data);
+/**
+ * RPC `workflow_progress` entry point. The in-conversation rendering now flows
+ * through the disk watcher (workflow-live), so this only feeds diagnostics —
+ * kept so the overlay still reflects the RPC feed and so the message route in the
+ * handler stays stable.
+ */
+export function update(data: WorkflowProgressData): void {
+  noteMessage(data);
 }
 
-function findSegment(toolCallId: string): HTMLElement | null {
-  const messages = document.getElementById("messages");
-  const scope: ParentNode = messages ?? document;
-  const found = scope.querySelector<HTMLElement>(`[data-tool-id="${cssEscape(toolCallId)}"]`);
-  return found?.closest<HTMLElement>(".gsd-tool-segment") ?? found ?? null;
+/** Clear diagnostics state (new conversation / reset). */
+export function reset(): void {
+  diag.counts = { launching: 0, running: 0, completed: 0, error: 0, stalled: 0 };
+  diag.total = 0;
+  diag.lastName = undefined;
+  diag.lastStatus = undefined;
+  diag.lastDone = undefined;
+  diag.lastPlanned = undefined;
+  diag.lastMessageAt = undefined;
+  if (diag.enabled) renderDiag();
 }
 
-function findExistingPanel(toolCallId: string): HTMLElement | null {
-  const messages = document.getElementById("messages");
-  const scope: ParentNode = messages ?? document;
-  return scope.querySelector<HTMLElement>(`.gsd-workflow-panel[data-workflow-tool-id="${cssEscape(toolCallId)}"]`);
-}
+// --- Card HTML (shared with workflow-live) -----------------------------------
 
-function ensurePanel(segment: HTMLElement, toolCallId: string): HTMLElement {
-  let panel = findExistingPanel(toolCallId);
-  if (!panel) {
-    panel = document.createElement("div");
-    panel.className = "gsd-workflow-panel";
-    panel.dataset.workflowToolId = toolCallId;
-    segment.insertAdjacentElement("afterend", panel);
-  }
-  return panel;
-}
-
-// --- HTML ---
-
-function buildPanelHtml(data: WorkflowProgressData): string {
+export function buildPanelHtml(data: WorkflowProgressData): string {
   const elapsed = formatDuration(Math.max(0, data.updatedAt - data.startedAt));
   const total = Math.max(data.plannedAgentCount, data.agents.length);
   const counts = total > 0 ? `${data.doneAgentCount}/${total} agents` : `${data.doneAgentCount} agents`;
@@ -174,6 +185,19 @@ function buildPanelHtml(data: WorkflowProgressData): string {
   return header + desc + phaseRow + stalledNote + rows + logs;
 }
 
+/**
+ * Per-agent token display. Keeps one decimal through 100k (e.g. "14.6k") rather
+ * than the shared formatTokens' whole-k rounding above 10k (which collapses every
+ * ~14.6–14.7k agent to an identical, fake-looking "15k"). The underlying counts
+ * are real and genuinely near-identical for similar fan-out agents — the decimal
+ * just surfaces that they differ. Falls back to formatTokens at six figures+.
+ */
+function formatAgentTokens(n: number): string {
+  if (n < 1000) return n.toString();
+  if (n < 100_000) return `${(n / 1000).toFixed(1)}k`;
+  return formatTokens(n);
+}
+
 function buildAgentRow(a: WorkflowAgentProgress): string {
   const dot = a.state === "running"
     ? `<span class="gsd-wf-spinner"></span>`
@@ -182,7 +206,7 @@ function buildAgentRow(a: WorkflowAgentProgress): string {
   const meta: string[] = [];
   if (a.phase) meta.push(`<span class="gsd-wf-agent-phase">${escapeHtml(a.phase)}</span>`);
   const stats: string[] = [];
-  if (a.tokens !== undefined) stats.push(`${formatTokens(a.tokens)} tok`);
+  if (a.tokens !== undefined) stats.push(`${formatAgentTokens(a.tokens)} tok`);
   if (a.toolCalls !== undefined) stats.push(`${a.toolCalls} tool${a.toolCalls === 1 ? "" : "s"}`);
   if (a.durationMs !== undefined) stats.push(formatDuration(a.durationMs));
   const statsHtml = stats.length ? `<span class="gsd-wf-agent-stats">${escapeHtml(stats.join(" · "))}</span>` : "";
@@ -195,10 +219,47 @@ function buildAgentRow(a: WorkflowAgentProgress): string {
   </div>`;
 }
 
-/** Minimal CSS.escape fallback for attribute-selector safety. */
-function cssEscape(value: string): string {
-  if (typeof (window as unknown as { CSS?: { escape?: (s: string) => string } }).CSS?.escape === "function") {
-    return (window as unknown as { CSS: { escape: (s: string) => string } }).CSS.escape(value);
+// --- Diagnostics rendering ---
+
+function removeDiag(): void {
+  const el = document.getElementById(DIAG_ID);
+  if (el) el.remove();
+}
+
+/** Render (or refresh) the fixed diagnostics overlay. No-op when disabled. */
+function renderDiag(): void {
+  if (!diag.enabled) return;
+  const body = document.body;
+  if (!body) return;
+  let el = document.getElementById(DIAG_ID);
+  if (!el) {
+    el = document.createElement("div");
+    el.id = DIAG_ID;
+    el.setAttribute("aria-hidden", "true");
+    body.appendChild(el);
   }
-  return value.replace(/["\\\]]/g, "\\$&");
+  el.innerHTML = buildDiagHtml();
+  startDiagRefresh();
+}
+
+function buildDiagHtml(): string {
+  const c = diag.counts;
+  const messagesPresent =
+    !!document.getElementById("messagesContainer") || !!document.getElementById("messages");
+  const last = diag.lastName
+    ? `${escapeHtml(diag.lastName)} · ${escapeHtml(diag.lastStatus ?? "—")}`
+    : "none yet";
+  const agents = diag.lastDone !== undefined && diag.lastPlanned !== undefined
+    ? ` · ${diag.lastDone}/${diag.lastPlanned} agents`
+    : "";
+  const ago = diag.lastMessageAt !== undefined
+    ? `${Math.max(0, Math.round((Date.now() - diag.lastMessageAt) / 1000))}s ago`
+    : "—";
+
+  return [
+    `<div class="gsd-wf-diag-title">⋔ workflow diagnostics</div>`,
+    `<div class="gsd-wf-diag-row">messages: <b>${diag.total}</b> <span class="gsd-wf-diag-dim">(launch ${c.launching} · run ${c.running} · done ${c.completed} · stall ${c.stalled} · err ${c.error})</span></div>`,
+    `<div class="gsd-wf-diag-row">last: ${last}${agents}</div>`,
+    `<div class="gsd-wf-diag-row">conversation: ${messagesPresent ? "yes" : "no"} · updated ${ago}</div>`,
+  ].join("");
 }

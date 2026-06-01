@@ -32,6 +32,7 @@ import * as toasts from "./toasts";
 import * as dashboard from "./dashboard";
 import * as autoProgress from "./auto-progress";
 import * as workflowProgress from "./workflow-progress";
+import * as workflowLive from "./workflow-live";
 import * as visualizer from "./visualizer";
 import * as fileHandling from "./file-handling";
 import { announceToScreenReader, createFocusTrap, restoreFocus } from "./a11y";
@@ -252,6 +253,9 @@ function handleMessage(event: MessageEvent): void {
     case "config": {
       const data = msg;
       state.useCtrlEnterToSend = data.useCtrlEnterToSend ?? false;
+      if (data.workflowDiagnostics !== undefined) {
+        workflowProgress.setDiagnostics(data.workflowDiagnostics);
+      }
       if (data.theme) {
         state.theme = data.theme;
         try { applyTheme(data.theme); } catch (e) { console.warn("applyTheme error:", e); }
@@ -375,6 +379,16 @@ function handleMessage(event: MessageEvent): void {
 
     case "workflow_progress": {
       workflowProgress.update(msg.data);
+      break;
+    }
+
+    case "workflow_live": {
+      workflowLive.update(msg.data);
+      break;
+    }
+
+    case "workflow_live_remove": {
+      workflowLive.remove(msg.runId);
       break;
     }
 
@@ -1033,6 +1047,7 @@ function handleMessage(event: MessageEvent): void {
         renderer.finalizeCurrentTurn();
       }
       addSystemEntry("Session ended", "info");
+      workflowLive.reset();
       updateInputUI();
       updateOverlayIndicators();
       break;
@@ -1255,6 +1270,7 @@ function handleMessage(event: MessageEvent): void {
       state.currentTurn = null;
       renderer.resetStreamingState();
       renderer.clearMessages();
+      workflowLive.reset();
       state.sessionStats = {};
       state.loadedSkills.clear();
       updateSkillPills();

@@ -54,6 +54,8 @@ interface RunTracker {
 export class WorkflowProgressManager {
   private runs = new Map<string, RunTracker>();
   private disposed = false;
+  /** Monotonic count of posts attempted — drives the extension-side cadence trace. */
+  private postCount = 0;
 
   constructor(
     private readonly sessionId: string,
@@ -274,6 +276,17 @@ export class WorkflowProgressManager {
   }
 
   private post(data: WorkflowProgressData): void {
+    // Extension-side cadence trace. The webview overlay shows when messages are
+    // RECEIVED; this shows when they are SENT. An embedded ISO timestamp + offset
+    // makes the true send time readable even if the Output channel itself flushes
+    // in a batch (which is the very symptom we're diagnosing). Comparing the two
+    // sides settles whether a blank live panel is a producer or a delivery fault.
+    this.postCount++;
+    this.output.appendLine(
+      `[${this.sessionId}] wf-post #${this.postCount} ${data.toolCallId} ` +
+      `t=${new Date().toISOString()} +${Date.now() - data.startedAt}ms ` +
+      `status=${data.status} run=${data.runningAgentCount} done=${data.doneAgentCount}/${data.plannedAgentCount}`,
+    );
     try {
       this.webview.postMessage({ type: "workflow_progress", data } as ExtensionToWebviewMessage);
     } catch {
