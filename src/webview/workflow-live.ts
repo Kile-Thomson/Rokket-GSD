@@ -51,7 +51,22 @@ function findCard(runId: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`.${CARD_CLASS}[data-workflow-run-id="${cssEscape(runId)}"]`);
 }
 
-/** Find this run's card, creating and inserting it at the conversation frontier if absent. */
+/**
+ * Place a fresh card just *above* the most recent conversation entry — the
+ * assistant turn that launched the workflow — so it reads as a header for that
+ * turn rather than trailing underneath its text. Falls back to appending when no
+ * entry has rendered yet (defensive; the launching turn always exists by the time
+ * a run surfaces). Insertion happens once, at create time; an existing card is
+ * never moved, so later turns don't shuffle a settled record.
+ */
+function insertCardInto(container: HTMLElement, card: HTMLElement): void {
+  const entries = container.querySelectorAll<HTMLElement>(".gsd-entry");
+  const anchor = entries.length ? entries[entries.length - 1] : null;
+  if (anchor) container.insertBefore(card, anchor);
+  else container.appendChild(card);
+}
+
+/** Find this run's card, creating and inserting it above the launching turn if absent. */
 function ensureCard(runId: string): HTMLElement {
   let card = findCard(runId);
   if (!card) {
@@ -59,10 +74,7 @@ function ensureCard(runId: string): HTMLElement {
     card.className = `gsd-workflow-panel ${CARD_CLASS}`;
     card.dataset.workflowRunId = runId;
     card.setAttribute("aria-live", "polite");
-    // Append into the conversation so the card flows after the turn that
-    // launched the workflow. Fall back to body only if the conversation root
-    // isn't mounted yet (defensive — it always is by the time a run surfaces).
-    (messagesEl() ?? document.body).appendChild(card);
+    insertCardInto(messagesEl() ?? document.body, card);
   }
   return card;
 }

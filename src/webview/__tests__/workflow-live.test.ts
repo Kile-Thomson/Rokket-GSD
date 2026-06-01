@@ -55,6 +55,21 @@ describe("workflow-live inline conversation card", () => {
     expect(el!.className).toContain("status-running");
   });
 
+  it("inserts the card above the launching turn, not after it", () => {
+    // Two prior entries: the user's prompt and the assistant turn that launched
+    // the workflow. The card should land directly above the most recent entry.
+    const container = document.getElementById("messagesContainer")!;
+    container.innerHTML = `<div class="gsd-entry" data-entry-id="user"></div><div class="gsd-entry" data-entry-id="assistant"></div>`;
+    update(snapshot());
+    const kids = Array.from(container.children);
+    const cardIdx = kids.indexOf(card()!);
+    const assistantIdx = kids.indexOf(container.querySelector('[data-entry-id="assistant"]')!);
+    expect(cardIdx).toBe(assistantIdx - 1);
+    // And it sits after the earlier user entry — i.e. above only the last turn.
+    const userIdx = kids.indexOf(container.querySelector('[data-entry-id="user"]')!);
+    expect(cardIdx).toBeGreaterThan(userIdx);
+  });
+
   it("keeps one card per run id and updates it in place", () => {
     update(snapshot({ doneAgentCount: 0 }));
     update(
