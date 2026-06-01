@@ -324,6 +324,17 @@ describe("getToolKeyArg", () => {
   it("extracts secure_env_collect key names", () => {
     expect(getToolKeyArg("secure_env_collect", { keys: [{ key: "OPENAI_API_KEY" }, { key: "DATABASE_URL" }] })).toBe("OPENAI_API_KEY, DATABASE_URL");
   });
+  it("shows a workflow's meta name, never its raw script body", () => {
+    const script = "export const meta = {\n  name: 'render-demo',\n  description: 'x',\n}\nphase('Fan-out')";
+    expect(getToolKeyArg("Workflow", { script })).toBe("render-demo");
+  });
+  it("prefers an explicit workflow name arg over the script", () => {
+    expect(getToolKeyArg("Workflow", { name: "dep-upgrade", script: "export const meta = { name: 'ignored' }" })).toBe("dep-upgrade");
+  });
+  it("never surfaces a script body as a generic fallthrough key arg", () => {
+    // A script with no parseable meta name must not leak "export const meta = {".
+    expect(getToolKeyArg("Workflow", { script: "phase('x'); await agent('y')" })).toBe("");
+  });
 });
 
 // ============================================================

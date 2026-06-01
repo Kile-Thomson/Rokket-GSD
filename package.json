@@ -1,285 +1,295 @@
 {
-	"name": "rokket-gsd",
-	"displayName": "GSD Pi Premium GUI — RokketGSD",
-	"description": "The GSD Pi (OpenGSD) VS Code extension — AI coding agent with chat UI, multi-model support, 40+ tool visualizations, Telegram voice relay, parallel workers, and workflow automation. Also compatible with GSD V2.",
-	"version": "0.3.75",
-	"publisher": "rokketek",
-	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/Kile-Thomson/Rokket-GSD"
-	},
-	"icon": "resources/rokket-icon.png",
-	"engines": {
-		"vscode": "^1.94.0"
-	},
-	"categories": [
-		"AI",
-		"Chat",
-		"Machine Learning",
-		"Other"
-	],
-	"keywords": [
-		"ai",
-		"agent",
-		"coding agent",
-		"claude",
-		"openai",
-		"llm",
-		"chat",
-		"copilot",
-		"automation",
-		"workflow",
-		"multi-model",
-		"voice",
-		"telegram",
-		"gsd",
-		"gsd-pi",
-		"gsd v2",
-		"gsd pi"
-	],
-	"activationEvents": [
-		"onStartupFinished"
-	],
-	"main": "./dist/extension.js",
-	"extensionKind": [
-		"workspace",
-		"ui"
-	],
-	"contributes": {
-		"configuration": {
-			"title": "GSD",
-			"properties": {
-				"gsd.processWrapper": {
-					"type": "string",
-					"default": "",
-					"description": "Custom executable path to launch the GSD process. Leave empty to use the default 'gsd' command."
-				},
-				"gsd.environmentVariables": {
-					"type": "array",
-					"items": {
-						"type": "object",
-						"properties": {
-							"name": {
-								"type": "string"
-							},
-							"value": {
-								"type": "string"
-							}
-						},
-						"required": [
-							"name",
-							"value"
-						]
-					},
-					"default": [],
-					"description": "Environment variables to set when launching GSD."
-				},
-				"gsd.useCtrlEnterToSend": {
-					"type": "boolean",
-					"default": false,
-					"description": "Use Ctrl/Cmd+Enter to send prompts instead of Enter. Allows Enter for newlines."
-				},
-				"gsd.autoUpdate": {
-					"type": "boolean",
-					"default": true,
-					"description": "Automatically check for new versions on GitHub Releases."
-				},
-				"gsd.githubToken": {
-					"type": "string",
-					"default": "",
-					"description": "GitHub personal access token for update checks on private repos. Also reads from ROKKET_GSD_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN env vars."
-				},
-				"gsd.preferredLocation": {
-					"type": "string",
-					"enum": [
-						"sidebar",
-						"panel"
-					],
-					"enumDescriptions": [
-						"Sidebar (Right)",
-						"Panel (New Tab)"
-					],
-					"default": "panel",
-					"description": "Where GSD opens by default."
-				},
-				"gsd.theme": {
-					"type": "string",
-					"enum": [
-						"classic",
-						"phosphor",
-						"clarity",
-						"forge"
-					],
-					"enumDescriptions": [
-						"Classic — the stable default theme",
-						"Phosphor — matrix-inspired green phosphor on black",
-						"Clarity — ultra-clean modern flat design, maximum readability",
-						"Forge — dark industrial metallic with inset shadows"
-					],
-					"default": "forge",
-					"description": "UI theme for the GSD panel."
-				},
-				"gsd.telegramGroupId": {
-					"type": "number",
-					"default": 0,
-					"description": "Telegram group chat ID (set automatically by /telegram setup)."
-				},
-				"gsd.telegramChatTitle": {
-					"type": "string",
-					"default": "",
-					"description": "Telegram group chat title (set automatically by /telegram setup)."
-				},
-				"gsd.telegramBotUsername": {
-					"type": "string",
-					"default": "",
-					"description": "Telegram bot username (set automatically by /telegram setup)."
-				},
-				"gsd.telegramStreamingGranularity": {
-					"type": "string",
-					"default": "throttled",
-					"enum": [
-						"off",
-						"throttled",
-						"final-only"
-					],
-					"description": "Controls how GSD streams messages to Telegram (set automatically by /telegram setup)."
-				},
-				"gsd.telegramOwnerId": {
-					"type": "number",
-					"default": 0,
-					"description": "Your Telegram user ID. Only this user can trigger launch commands. Use /whoami in the group to find it."
-				},
-				"gsd.telegramProjectDirs": {
-					"type": "array",
-					"items": {
-						"type": "string"
-					},
-					"default": [],
-					"description": "Directories to search when launching projects from Telegram general chat. E.g. [\"G:/Dropbox/Rocket Social/Rokketek/Software\"]."
-				},
-				"gsd.voiceTranscriptionProvider": {
-					"type": "string",
-					"default": "openai",
-					"enum": [
-						"openai",
-						"azure",
-						"xai"
-					],
-					"enumDescriptions": [
-						"OpenAI Whisper (whisper-1)",
-						"Azure Speech Services",
-						"xAI / Grok (whisper-large-v3)"
-					],
-					"description": "Which provider to use for voice-to-text transcription."
-				},
-				"gsd.azureSpeechRegion": {
-					"type": "string",
-					"default": "eastus",
-					"description": "Azure region for Speech Services (e.g. eastus, westus2, westeurope)."
-				}
-			}
-		},
-		"commands": [
-			{
-				"command": "gsd.open",
-				"title": "Rokket GSD: Open",
-				"icon": {
-					"light": "resources/gsd-logo.svg",
-					"dark": "resources/gsd-logo.svg"
-				}
-			},
-			{
-				"command": "gsd.openInTab",
-				"title": "Rokket GSD: Open in New Tab"
-			},
-			{
-				"command": "gsd.openInSidebar",
-				"title": "Rokket GSD: Open in Side Bar"
-			},
-			{
-				"command": "gsd.newConversation",
-				"title": "Rokket GSD: New Conversation"
-			},
-			{
-				"command": "gsd.exportReport",
-				"title": "Rokket GSD: Export Milestone Report"
-			},
-			{
-				"command": "gsd.focus",
-				"title": "Rokket GSD: Focus Input"
-			},
-			{
-				"command": "gsd.telegramSetup",
-				"title": "Rokket GSD: Telegram Setup"
-			},
-			{
-				"command": "gsd.setOpenAiApiKey",
-				"title": "Rokket GSD: Set OpenAI API Key"
-			}
-		],
-		"viewsContainers": {
-			"activitybar": [
-				{
-					"id": "gsd-sidebar",
-					"title": "Rokket GSD",
-					"icon": "resources/gsd-logo.svg"
-				}
-			]
-		},
-		"views": {
-			"gsd-sidebar": [
-				{
-					"type": "webview",
-					"id": "gsd.sidebarView",
-					"name": "Rokket GSD"
-				}
-			]
-		},
-		"keybindings": [
-			{
-				"command": "gsd.focus",
-				"key": "ctrl+shift+g",
-				"mac": "cmd+shift+g"
-			},
-			{
-				"command": "gsd.newConversation",
-				"key": "ctrl+shift+n",
-				"mac": "cmd+shift+n",
-				"when": "gsd.focused"
-			}
-		]
-	},
-	"scripts": {
-		"vscode:prepublish": "npm run build",
-		"build": "npm run build:extension && npm run build:webview",
-		"build:extension": "esbuild src/extension/index.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --minify --tree-shaking=true --drop:console --metafile=dist/meta-extension.json",
-		"build:webview": "esbuild src/webview/index.ts --bundle --outfile=dist/webview/index.js --format=iife --platform=browser --sourcemap --loader:.css=css --define:process.env.NODE_ENV=\\\"production\\\" --minify --tree-shaking=true --drop:console --metafile=dist/meta-webview.json",
-		"watch": "concurrently \"npm run watch:extension\" \"npm run watch:webview\"",
-		"watch:extension": "esbuild src/extension/index.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
-		"watch:webview": "esbuild src/webview/index.ts --bundle --outfile=dist/webview/index.js --format=iife --platform=browser --sourcemap --loader:.css=css --define:process.env.NODE_ENV=\\\"production\\\" --watch",
-		"package": "vsce package",
-		"test": "vitest run",
-		"test:coverage": "vitest run --coverage",
-		"lint": "eslint src/"
-	},
-	"devDependencies": {
-		"@eslint/js": "^10.0.1",
-		"@types/dompurify": "^3.0.5",
-		"@types/node": "^20.11.0",
-		"@types/vscode": "^1.94.0",
-		"@vitest/coverage-v8": "^4.1.0",
-		"@vscode/vsce": "^3.0.0",
-		"concurrently": "^8.2.0",
-		"esbuild": "^0.27.0",
-		"eslint": "^10.0.3",
-		"jsdom": "^28.1.0",
-		"typescript": "^5.5.0",
-		"typescript-eslint": "^8.57.0",
-		"vitest": "^4.1.0"
-	},
-	"dependencies": {
-		"dompurify": "^3.4.5",
-		"marked": "^15.0.0"
-	}
+  "name": "rokket-gsd",
+  "displayName": "GSD Pi Premium GUI — RokketGSD",
+  "description": "The GSD Pi (OpenGSD) VS Code extension — AI coding agent with chat UI, multi-model support, 40+ tool visualizations, Telegram voice relay, parallel workers, and workflow automation. Also compatible with GSD V2.",
+  "version": "0.3.81",
+  "publisher": "rokketek",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kile-Thomson/Rokket-GSD"
+  },
+  "icon": "resources/rokket-icon.png",
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Machine Learning",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "agent",
+    "coding agent",
+    "claude",
+    "openai",
+    "llm",
+    "chat",
+    "copilot",
+    "automation",
+    "workflow",
+    "multi-model",
+    "voice",
+    "telegram",
+    "gsd",
+    "gsd-pi",
+    "gsd v2",
+    "gsd pi"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "extensionKind": [
+    "workspace",
+    "ui"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "GSD",
+      "properties": {
+        "gsd.processWrapper": {
+          "type": "string",
+          "default": "",
+          "description": "Custom executable path to launch the GSD process. Leave empty to use the default 'gsd' command."
+        },
+        "gsd.environmentVariables": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ]
+          },
+          "default": [],
+          "description": "Environment variables to set when launching GSD."
+        },
+        "gsd.useCtrlEnterToSend": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use Ctrl/Cmd+Enter to send prompts instead of Enter. Allows Enter for newlines."
+        },
+        "gsd.workflowDiagnostics": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show an on-screen diagnostic overlay for Claude Code Workflow progress. When enabled, a small heads-up panel reports whether live workflow_progress updates are arriving and whether the panel can find its anchor in the conversation. Use it to diagnose why a live workflow panel isn't appearing; leave off for normal use."
+        },
+        "gsd.workflowLivePanel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a live floating panel of Claude Code Workflow progress as it happens. The panel is fed by watching the workflow's on-disk journal directly, so it appears mid-turn — before the workflow tool block renders in the conversation. Turn off to suppress the panel entirely."
+        },
+        "gsd.autoUpdate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically check for new versions on GitHub Releases."
+        },
+        "gsd.githubToken": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub personal access token for update checks on private repos. Also reads from ROKKET_GSD_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN env vars."
+        },
+        "gsd.preferredLocation": {
+          "type": "string",
+          "enum": [
+            "sidebar",
+            "panel"
+          ],
+          "enumDescriptions": [
+            "Sidebar (Right)",
+            "Panel (New Tab)"
+          ],
+          "default": "panel",
+          "description": "Where GSD opens by default."
+        },
+        "gsd.theme": {
+          "type": "string",
+          "enum": [
+            "classic",
+            "phosphor",
+            "clarity",
+            "forge"
+          ],
+          "enumDescriptions": [
+            "Classic — the stable default theme",
+            "Phosphor — matrix-inspired green phosphor on black",
+            "Clarity — ultra-clean modern flat design, maximum readability",
+            "Forge — dark industrial metallic with inset shadows"
+          ],
+          "default": "forge",
+          "description": "UI theme for the GSD panel."
+        },
+        "gsd.telegramGroupId": {
+          "type": "number",
+          "default": 0,
+          "description": "Telegram group chat ID (set automatically by /telegram setup)."
+        },
+        "gsd.telegramChatTitle": {
+          "type": "string",
+          "default": "",
+          "description": "Telegram group chat title (set automatically by /telegram setup)."
+        },
+        "gsd.telegramBotUsername": {
+          "type": "string",
+          "default": "",
+          "description": "Telegram bot username (set automatically by /telegram setup)."
+        },
+        "gsd.telegramStreamingGranularity": {
+          "type": "string",
+          "default": "throttled",
+          "enum": [
+            "off",
+            "throttled",
+            "final-only"
+          ],
+          "description": "Controls how GSD streams messages to Telegram (set automatically by /telegram setup)."
+        },
+        "gsd.telegramOwnerId": {
+          "type": "number",
+          "default": 0,
+          "description": "Your Telegram user ID. Only this user can trigger launch commands. Use /whoami in the group to find it."
+        },
+        "gsd.telegramProjectDirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Directories to search when launching projects from Telegram general chat. E.g. [\"G:/Dropbox/Rocket Social/Rokketek/Software\"]."
+        },
+        "gsd.voiceTranscriptionProvider": {
+          "type": "string",
+          "default": "openai",
+          "enum": [
+            "openai",
+            "azure",
+            "xai"
+          ],
+          "enumDescriptions": [
+            "OpenAI Whisper (whisper-1)",
+            "Azure Speech Services",
+            "xAI / Grok (whisper-large-v3)"
+          ],
+          "description": "Which provider to use for voice-to-text transcription."
+        },
+        "gsd.azureSpeechRegion": {
+          "type": "string",
+          "default": "eastus",
+          "description": "Azure region for Speech Services (e.g. eastus, westus2, westeurope)."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "gsd.open",
+        "title": "Rokket GSD: Open",
+        "icon": {
+          "light": "resources/gsd-logo.svg",
+          "dark": "resources/gsd-logo.svg"
+        }
+      },
+      {
+        "command": "gsd.openInTab",
+        "title": "Rokket GSD: Open in New Tab"
+      },
+      {
+        "command": "gsd.openInSidebar",
+        "title": "Rokket GSD: Open in Side Bar"
+      },
+      {
+        "command": "gsd.newConversation",
+        "title": "Rokket GSD: New Conversation"
+      },
+      {
+        "command": "gsd.exportReport",
+        "title": "Rokket GSD: Export Milestone Report"
+      },
+      {
+        "command": "gsd.focus",
+        "title": "Rokket GSD: Focus Input"
+      },
+      {
+        "command": "gsd.telegramSetup",
+        "title": "Rokket GSD: Telegram Setup"
+      },
+      {
+        "command": "gsd.setOpenAiApiKey",
+        "title": "Rokket GSD: Set OpenAI API Key"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "gsd-sidebar",
+          "title": "Rokket GSD",
+          "icon": "resources/gsd-logo.svg"
+        }
+      ]
+    },
+    "views": {
+      "gsd-sidebar": [
+        {
+          "type": "webview",
+          "id": "gsd.sidebarView",
+          "name": "Rokket GSD"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "gsd.focus",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g"
+      },
+      {
+        "command": "gsd.newConversation",
+        "key": "ctrl+shift+n",
+        "mac": "cmd+shift+n",
+        "when": "gsd.focused"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "npm run build:extension && npm run build:webview",
+    "build:extension": "esbuild src/extension/index.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --minify --tree-shaking=true --drop:console --metafile=dist/meta-extension.json",
+    "build:webview": "esbuild src/webview/index.ts --bundle --outfile=dist/webview/index.js --format=iife --platform=browser --sourcemap --loader:.css=css --define:process.env.NODE_ENV=\\\"production\\\" --minify --tree-shaking=true --drop:console --metafile=dist/meta-webview.json",
+    "watch": "concurrently \"npm run watch:extension\" \"npm run watch:webview\"",
+    "watch:extension": "esbuild src/extension/index.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
+    "watch:webview": "esbuild src/webview/index.ts --bundle --outfile=dist/webview/index.js --format=iife --platform=browser --sourcemap --loader:.css=css --define:process.env.NODE_ENV=\\\"production\\\" --watch",
+    "package": "vsce package",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src/"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/dompurify": "^3.0.5",
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.94.0",
+    "@vitest/coverage-v8": "^4.1.0",
+    "@vscode/vsce": "^3.0.0",
+    "concurrently": "^8.2.0",
+    "esbuild": "^0.27.0",
+    "eslint": "^10.0.3",
+    "jsdom": "^28.1.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.57.0",
+    "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.5",
+    "marked": "^15.0.0"
+  }
 }

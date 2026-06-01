@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { update, reset } from "../workflow-progress";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { update, reset, setDiagnostics, buildPanelHtml } from "../workflow-progress";
 import type { WorkflowProgressData } from "../../shared/types";
 
 function snapshot(over: Partial<WorkflowProgressData> = {}): WorkflowProgressData {
@@ -20,76 +20,84 @@ function snapshot(over: Partial<WorkflowProgressData> = {}): WorkflowProgressDat
   };
 }
 
-/** Build the #messages → tool segment DOM the panel anchors against. */
-function mountSegment(toolCallId = "tc1"): HTMLElement {
-  document.body.innerHTML = `<div id="messages">
-    <div class="gsd-tool-segment">
-      <div class="gsd-tool-block" data-tool-id="${toolCallId}"></div>
-    </div>
-  </div>`;
-  return document.querySelector<HTMLElement>(".gsd-tool-segment")!;
+function diagEl(): HTMLElement | null {
+  return document.getElementById("gsd-wf-diag");
 }
 
-function panelEl(toolCallId = "tc1"): HTMLElement | null {
-  return document.querySelector<HTMLElement>(
-    `.gsd-workflow-panel[data-workflow-tool-id="${toolCallId}"]`,
-  );
-}
-
-describe("workflow-progress panel", () => {
+describe("workflow diagnostics overlay", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
     reset();
   });
   afterEach(() => {
+    setDiagnostics(false);
     reset();
-    vi.useRealTimers();
     document.body.innerHTML = "";
   });
 
-  it("attaches a panel as a sibling after the tool segment", () => {
-    mountSegment();
+  it("stays absent until explicitly enabled", () => {
     update(snapshot());
-    const panel = panelEl();
-    expect(panel).not.toBeNull();
-    expect(panel!.previousElementSibling?.classList.contains("gsd-tool-segment")).toBe(true);
-    expect(panel!.className).toContain("status-running");
+    expect(diagEl()).toBeNull();
   });
 
-  it("re-attaches a live panel after a turn DOM rebuild drops it", () => {
-    mountSegment();
+  it("appears when enabled and counts received messages with the conversation root present", () => {
+    document.body.innerHTML = `<main id="messagesContainer"></main>`;
+    setDiagnostics(true);
     update(snapshot({ status: "running" }));
-    expect(panelEl()).not.toBeNull();
-
-    // Simulate a streaming/finalize/history rebuild of the turn: the segment is
-    // re-created (fresh) and the injected sibling panel is gone.
-    mountSegment();
-    expect(panelEl()).toBeNull();
-
-    // The self-healing heartbeat re-attaches it without a new extension poll.
-    vi.advanceTimersByTime(1000);
-    expect(panelEl()).not.toBeNull();
-    expect(panelEl()!.className).toContain("status-running");
+    const el = diagEl();
+    expect(el).not.toBeNull();
+    expect(el!.textContent).toContain("messages: 1");
+    expect(el!.textContent).toContain("conversation: yes");
   });
 
-  it("stops re-attaching once the run reaches a terminal state", () => {
-    mountSegment();
+  it("stays visible and reports conversation: no when the conversation root is absent", () => {
+    document.body.innerHTML = "";
+    setDiagnostics(true);
+    update(snapshot({ status: "launching" }));
+    expect(diagEl()).not.toBeNull();
+    expect(diagEl()!.textContent).toContain("conversation: no");
+  });
+
+  it("accumulates per-status message counts and clears them on reset", () => {
+    setDiagnostics(true);
+    update(snapshot({ status: "launching" }));
     update(snapshot({ status: "running" }));
     update(snapshot({ status: "completed", runningAgentCount: 0, doneAgentCount: 1 }));
-
-    // After completion the heartbeat should no longer re-create a dropped panel.
-    mountSegment();
-    expect(panelEl()).toBeNull();
-    vi.advanceTimersByTime(3000);
-    expect(panelEl()).toBeNull();
+    expect(diagEl()!.textContent).toContain("messages: 3");
+    reset();
+    expect(diagEl()!.textContent).toContain("messages: 0");
   });
 
-  it("reset() clears cached panels and halts the heartbeat", () => {
-    mountSegment();
-    update(snapshot({ status: "running" }));
-    reset();
-    mountSegment();
-    vi.advanceTimersByTime(3000);
-    expect(panelEl()).toBeNull();
+  it("removes the overlay when disabled", () => {
+    setDiagnostics(true);
+    update(snapshot());
+    expect(diagEl()).not.toBeNull();
+    setDiagnostics(false);
+    expect(diagEl()).toBeNull();
+  });
+});
+
+describe("buildPanelHtml agent token formatting", () => {
+  it("keeps one decimal through 100k so near-identical agents read as distinct", () => {
+    // Real fan-out agents land at e.g. 14649 / 14724 — whole-k rounding would
+    // collapse both to a flat, fake-looking "15k". One decimal surfaces the diff.
+    const html = buildPanelHtml(
+      snapshot({
+        status: "completed",
+        agents: [
+          { label: "a", state: "done", tokens: 14649, toolCalls: 0 },
+          { label: "b", state: "done", tokens: 14724, toolCalls: 0 },
+        ],
+      }),
+    );
+    expect(html).toContain("14.6k tok");
+    expect(html).toContain("14.7k tok");
+    expect(html).not.toContain("15k tok");
+  });
+
+  it("renders a genuine zero tool count rather than hiding it", () => {
+    const html = buildPanelHtml(
+      snapshot({ status: "completed", agents: [{ label: "a", state: "done", tokens: 14650, toolCalls: 0 }] }),
+    );
+    expect(html).toContain("0 tools");
   });
 });

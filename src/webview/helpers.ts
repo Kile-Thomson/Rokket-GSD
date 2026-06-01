@@ -296,8 +296,19 @@ export function getToolKeyArg(name: string, args: Record<string, unknown>): stri
     return keys.map((k) => String(k.key || "")).filter(Boolean).join(", ");
   }
   if (n.startsWith("mac_") && args.app) return truncateArg(String(args.app), 40);
+  if (n === "workflow") {
+    // A predefined workflow passes `name`; an inline script carries its name in
+    // the `meta` block. Show that — never the raw `script` body, which the
+    // generic fallthrough below would otherwise surface as "export const meta = {".
+    if (args.name) return truncateArg(String(args.name), 60);
+    const script = args.script ? String(args.script) : "";
+    const metaName = script.match(/\bname\s*:\s*['"`]([^'"`]+)['"`]/);
+    if (metaName) return truncateArg(metaName[1], 60);
+    if (args.scriptPath) return shortenPath(String(args.scriptPath));
+    return "";
+  }
   for (const [k, v] of Object.entries(args)) {
-    if (typeof v === "string" && v.length > 0 && k !== "content" && k !== "oldText" && k !== "newText") {
+    if (typeof v === "string" && v.length > 0 && k !== "content" && k !== "oldText" && k !== "newText" && k !== "script") {
       return truncateArg(v, 60);
     }
   }
