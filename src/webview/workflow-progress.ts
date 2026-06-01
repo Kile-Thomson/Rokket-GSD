@@ -156,6 +156,19 @@ export function buildPanelHtml(data: WorkflowProgressData): string {
   return header + desc + phaseRow + stalledNote + rows + logs;
 }
 
+/**
+ * Per-agent token display. Keeps one decimal through 100k (e.g. "14.6k") rather
+ * than the shared formatTokens' whole-k rounding above 10k (which collapses every
+ * ~14.6–14.7k agent to an identical, fake-looking "15k"). The underlying counts
+ * are real and genuinely near-identical for similar fan-out agents — the decimal
+ * just surfaces that they differ. Falls back to formatTokens at six figures+.
+ */
+function formatAgentTokens(n: number): string {
+  if (n < 1000) return n.toString();
+  if (n < 100_000) return `${(n / 1000).toFixed(1)}k`;
+  return formatTokens(n);
+}
+
 function buildAgentRow(a: WorkflowAgentProgress): string {
   const dot = a.state === "running"
     ? `<span class="gsd-wf-spinner"></span>`
@@ -164,7 +177,7 @@ function buildAgentRow(a: WorkflowAgentProgress): string {
   const meta: string[] = [];
   if (a.phase) meta.push(`<span class="gsd-wf-agent-phase">${escapeHtml(a.phase)}</span>`);
   const stats: string[] = [];
-  if (a.tokens !== undefined) stats.push(`${formatTokens(a.tokens)} tok`);
+  if (a.tokens !== undefined) stats.push(`${formatAgentTokens(a.tokens)} tok`);
   if (a.toolCalls !== undefined) stats.push(`${a.toolCalls} tool${a.toolCalls === 1 ? "" : "s"}`);
   if (a.durationMs !== undefined) stats.push(formatDuration(a.durationMs));
   const statsHtml = stats.length ? `<span class="gsd-wf-agent-stats">${escapeHtml(stats.join(" · "))}</span>` : "";

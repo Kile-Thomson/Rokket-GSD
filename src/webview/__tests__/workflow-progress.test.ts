@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { update, reset, setDiagnostics } from "../workflow-progress";
+import { update, reset, setDiagnostics, buildPanelHtml } from "../workflow-progress";
 import type { WorkflowProgressData } from "../../shared/types";
 
 function snapshot(over: Partial<WorkflowProgressData> = {}): WorkflowProgressData {
@@ -73,5 +73,31 @@ describe("workflow diagnostics overlay", () => {
     expect(diagEl()).not.toBeNull();
     setDiagnostics(false);
     expect(diagEl()).toBeNull();
+  });
+});
+
+describe("buildPanelHtml agent token formatting", () => {
+  it("keeps one decimal through 100k so near-identical agents read as distinct", () => {
+    // Real fan-out agents land at e.g. 14649 / 14724 — whole-k rounding would
+    // collapse both to a flat, fake-looking "15k". One decimal surfaces the diff.
+    const html = buildPanelHtml(
+      snapshot({
+        status: "completed",
+        agents: [
+          { label: "a", state: "done", tokens: 14649, toolCalls: 0 },
+          { label: "b", state: "done", tokens: 14724, toolCalls: 0 },
+        ],
+      }),
+    );
+    expect(html).toContain("14.6k tok");
+    expect(html).toContain("14.7k tok");
+    expect(html).not.toContain("15k tok");
+  });
+
+  it("renders a genuine zero tool count rather than hiding it", () => {
+    const html = buildPanelHtml(
+      snapshot({ status: "completed", agents: [{ label: "a", state: "done", tokens: 14650, toolCalls: 0 }] }),
+    );
+    expect(html).toContain("0 tools");
   });
 });
