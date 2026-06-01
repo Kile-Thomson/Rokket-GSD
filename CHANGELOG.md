@@ -4,6 +4,35 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.81] — 2026-06-01
+
+### Added
+- **Live workflow visibility** — when the agent launches a Claude Code workflow that fans out parallel sub-agents, a live card now appears **inline in the conversation** the moment the run starts. It pins above the launching turn and ticks each sub-agent running → done in real time, so you can see what's running and what it's doing without leaving the editor — no `/workflows` command, no DevTools. The card stays in the transcript as a record once the run finishes, showing per-agent token usage, tool-call counts, and duration.
+
+### Fixed
+- **Progress appears during the run, not just at turn end** — workflow progress is read directly from the run's on-disk journal, so the card updates live throughout the background run instead of only when the turn settles.
+- **No more false "hung" labels** — a completed workflow whose activity naturally goes quiet now reads as **Done**; the "may be hung" warning is reserved for a run with a sub-agent still mid-flight and no further activity.
+- **Accurate per-agent token counts** — counts now show real variance (e.g. `14.6k` / `14.7k`) instead of collapsing to a flat figure.
+- **Workflow tool block title** — now reads the workflow's name (e.g. `render-demo`) instead of dumping the raw script source.
+- **Resilient across reloads** — live and completed cards survive hiding and re-showing the sidebar, are retracted cleanly when the GSD process exits, and no longer leak between conversations.
+
+## [0.3.75] — 2026-06-01
+
+### Fixed
+- **Workflow progress stays visible during the run** — a self-healing re-attach keeps the live workflow card in place if the conversation view is rebuilt mid-turn, instead of waiting for the turn to settle.
+- **False "hung" warning removed** — a quiet workflow journal with nothing in flight is now reported as Done rather than ageing into a "may be hung" state after the turn is over.
+
+## [0.3.74] — 2026-06-01
+
+### Added
+- **Sub-agent usage on completion** — completed sub-agent (`Agent`) cards now show tokens, tool-call count, and duration, fixing a parser gap that previously dropped the token count for single sub-agents.
+- **Long-running cue** — a sub-agent that runs past two minutes gets a subtle amber highlight and coloured elapsed timer to draw your eye, without overclaiming a stall it can't detect.
+
+## [0.3.73] — 2026-06-01
+
+### Added
+- **Live progress for background workflows** — Claude Code workflow runs surface their plan (name, phases, and the agent list) and live progress in the chat window, with a completion table summarising each agent's usage.
+
 ## [0.3.72] — 2026-05-31
 
 ### Added
