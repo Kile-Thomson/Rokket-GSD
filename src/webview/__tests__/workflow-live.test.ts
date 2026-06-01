@@ -31,7 +31,10 @@ describe("workflow-live inline conversation card", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     reset();
-    document.body.innerHTML = `<div id="messages"></div>`;
+    // Mirror the real webview markup: the conversation root is #messagesContainer
+    // (a <main>), not #messages. Targeting the wrong id is exactly the bug this
+    // suite exists to catch, so the fixture must match production.
+    document.body.innerHTML = `<main id="messagesContainer"></main>`;
   });
   afterEach(() => {
     reset();
@@ -39,12 +42,12 @@ describe("workflow-live inline conversation card", () => {
     document.body.innerHTML = "";
   });
 
-  it("renders a card inside #messages, not a floating overlay", () => {
+  it("renders a card inside the conversation container, not a floating overlay", () => {
     expect(card()).toBeNull();
     update(snapshot());
     const el = card();
     expect(el).not.toBeNull();
-    expect(el!.parentElement?.id).toBe("messages");
+    expect(el!.parentElement?.id).toBe("messagesContainer");
     // It renders the run's name and agent labels.
     expect(el!.textContent).toContain("demo");
     expect(el!.textContent).toContain("alpha");
@@ -81,7 +84,7 @@ describe("workflow-live inline conversation card", () => {
     expect(card()).not.toBeNull();
 
     // Simulate a streaming/finalize/history rebuild wiping the conversation.
-    document.getElementById("messages")!.innerHTML = "";
+    document.getElementById("messagesContainer")!.innerHTML = "";
     expect(card()).toBeNull();
 
     // The self-healing heartbeat re-attaches it without a new watcher poll.
@@ -110,14 +113,14 @@ describe("workflow-live inline conversation card", () => {
     expect(card()!.className).toContain("status-completed");
 
     // ...and is never resurrected once it's no longer live.
-    document.getElementById("messages")!.innerHTML = "";
+    document.getElementById("messagesContainer")!.innerHTML = "";
     vi.advanceTimersByTime(3000);
     expect(card()).toBeNull();
   });
 
   it("does not run a heartbeat when the only run is already terminal", () => {
     update(snapshot({ status: "completed", runningAgentCount: 0, doneAgentCount: 2 }));
-    document.getElementById("messages")!.innerHTML = "";
+    document.getElementById("messagesContainer")!.innerHTML = "";
     vi.advanceTimersByTime(3000);
     expect(card()).toBeNull();
   });

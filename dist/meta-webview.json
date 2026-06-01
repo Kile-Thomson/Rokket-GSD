@@ -337,7 +337,7 @@
       "format": "esm"
     },
     "src/webview/workflow-progress.ts": {
-      "bytes": 8958,
+      "bytes": 9015,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -483,7 +483,7 @@
       "format": "esm"
     },
     "src/webview/workflow-live.ts": {
-      "bytes": 5430,
+      "bytes": 5913,
       "imports": [
         {
           "path": "src/webview/workflow-progress.ts",
@@ -868,7 +868,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 944027
+      "bytes": 944637
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -982,7 +982,7 @@
           "bytesInOutput": 13141
         },
         "src/webview/workflow-progress.ts": {
-          "bytesInOutput": 3595
+          "bytesInOutput": 3646
         },
         "src/webview/render/streaming.ts": {
           "bytesInOutput": 151
@@ -1000,7 +1000,7 @@
           "bytesInOutput": 12320
         },
         "src/webview/workflow-live.ts": {
-          "bytesInOutput": 1057
+          "bytesInOutput": 1103
         },
         "src/webview/keyboard.ts": {
           "bytesInOutput": 6857
@@ -1015,7 +1015,7 @@
           "bytesInOutput": 28685
         }
       },
-      "bytes": 245832
+      "bytes": 245929
     },
     "dist/webview/index.css.map": {
       "imports": [],

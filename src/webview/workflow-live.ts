@@ -10,8 +10,9 @@
 // writing, well before the turn finalizes.
 //
 // Each run gets one card, keyed by its run id, appended into the conversation
-// (`#messages`). That container is appended to — not rebuilt — by streaming and
-// finalization, so an inline card placed there survives the turn ending. A 1s
+// (`#messagesContainer`). That container is appended to — not rebuilt — by
+// streaming and finalization, so an inline card placed there survives the turn
+// ending. A 1s
 // heartbeat re-attaches any live card that a rebuild nonetheless dropped, and
 // terminal cards persist as a permanent transcript record (the watcher's
 // post-completion "remove" only ends liveness tracking, it doesn't erase the
@@ -35,8 +36,15 @@ function isLive(status: WorkflowProgressData["status"]): boolean {
   return status === "running" || status === "launching" || status === "stalled";
 }
 
+/**
+ * The conversation scroll container the renderer appends turn entries into.
+ * Production markup mounts it as `#messagesContainer` (see index.ts) — there is
+ * no `#messages` element in the real webview, only in older test fixtures, so
+ * targeting `#messages` silently dropped the card onto <body> where it rendered
+ * nowhere visible. Prefer the real id; keep `#messages` as a last-ditch fallback.
+ */
 function messagesEl(): HTMLElement | null {
-  return document.getElementById("messages");
+  return document.getElementById("messagesContainer") ?? document.getElementById("messages");
 }
 
 function findCard(runId: string): HTMLElement | null {
@@ -104,8 +112,9 @@ function stopHeartbeat(): void {
 /**
  * Re-attach any live card that has gone missing from the conversation DOM.
  *
- * Cards live in `#messages`, which streaming/finalization append to rather than
- * rebuild, so a card placed there normally persists across the turn ending. The
+ * Cards live in `#messagesContainer`, which streaming/finalization append to
+ * rather than rebuild, so a card placed there normally persists across the turn
+ * ending. The
  * heartbeat is cheap insurance: if some rebuild does drop a still-live run's
  * card, it reappears within a second instead of waiting on the next watcher poll.
  * Present cards are left untouched (no flicker). Terminal cards are not tracked
