@@ -1,7 +1,7 @@
 {
   "inputs": {
     "src/shared/constants.ts": {
-      "bytes": 3613,
+      "bytes": 4733,
       "imports": [],
       "format": "esm"
     },
@@ -230,7 +230,7 @@
       "format": "esm"
     },
     "src/extension/workflow-progress-poller.ts": {
-      "bytes": 10232,
+      "bytes": 11095,
       "imports": [
         {
           "path": "vscode",
@@ -250,8 +250,44 @@
       ],
       "format": "esm"
     },
+    "src/extension/workflow-fs-watcher.ts": {
+      "bytes": 11791,
+      "imports": [
+        {
+          "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "os",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/shared/constants.ts",
+          "kind": "import-statement",
+          "original": "../shared/constants"
+        },
+        {
+          "path": "src/extension/workflow-progress.ts",
+          "kind": "import-statement",
+          "original": "./workflow-progress"
+        }
+      ],
+      "format": "esm"
+    },
     "src/extension/session-state.ts": {
-      "bytes": 5512,
+      "bytes": 5910,
       "imports": [
         {
           "path": "vscode",
@@ -272,12 +308,17 @@
           "path": "./workflow-progress-poller",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "./workflow-fs-watcher",
+          "kind": "import-statement",
+          "external": true
         }
       ],
       "format": "esm"
     },
     "src/shared/types.ts": {
-      "bytes": 27080,
+      "bytes": 27439,
       "imports": [],
       "format": "esm"
     },
@@ -730,7 +771,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 41940,
+      "bytes": 42661,
       "imports": [
         {
           "path": "vscode",
@@ -771,6 +812,11 @@
           "path": "src/extension/workflow-progress-poller.ts",
           "kind": "import-statement",
           "original": "./workflow-progress-poller"
+        },
+        {
+          "path": "src/extension/workflow-fs-watcher.ts",
+          "kind": "import-statement",
+          "original": "./workflow-fs-watcher"
         },
         {
           "path": "src/extension/session-state.ts",
@@ -974,7 +1020,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 723540
+      "bytes": 743864
     },
     "dist/extension.js": {
       "imports": [
@@ -1105,6 +1151,26 @@
         },
         {
           "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "vscode",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "os",
           "kind": "require-call",
           "external": true
         },
@@ -1321,7 +1387,7 @@
           "bytesInOutput": 3374
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 20048
+          "bytesInOutput": 20246
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 9944
@@ -1354,10 +1420,13 @@
           "bytesInOutput": 4466
         },
         "src/extension/workflow-progress-poller.ts": {
-          "bytesInOutput": 3766
+          "bytesInOutput": 4037
+        },
+        "src/extension/workflow-fs-watcher.ts": {
+          "bytesInOutput": 4342
         },
         "src/extension/session-state.ts": {
-          "bytesInOutput": 1542
+          "bytesInOutput": 1643
         },
         "src/shared/types.ts": {
           "bytesInOutput": 548
@@ -1381,7 +1450,7 @@
           "bytesInOutput": 2502
         },
         "src/extension/command-fallback.ts": {
-          "bytesInOutput": 25238
+          "bytesInOutput": 25246
         },
         "src/extension/file-ops.ts": {
           "bytesInOutput": 6104
@@ -1441,7 +1510,7 @@
           "bytesInOutput": 107
         }
       },
-      "bytes": 190516
+      "bytes": 195436
     }
   }
 }

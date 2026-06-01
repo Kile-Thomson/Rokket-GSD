@@ -128,6 +128,11 @@ export type ExtensionToWebviewMessage =
   | { type: "changelog"; entries: Array<{ version: string; notes: string; date: string }> }
   | { type: "auto_progress"; data: AutoProgressData | null }
   | { type: "workflow_progress"; data: WorkflowProgressData }
+  // Live workflow progress from the proactive filesystem watcher, rendered in a
+  // turn-independent floating panel (not attached to a tool block, which doesn't
+  // exist until turn end). `data.toolCallId` carries the run id (wf_<id>) here.
+  | { type: "workflow_live"; data: WorkflowProgressData }
+  | { type: "workflow_live_remove"; runId: string }
   | { type: "model_routed"; oldModel: { id: string; provider: string } | null; newModel: { id: string; provider: string } | null }
   | { type: "fallback_provider_switch"; from: string; to: string; reason: string }
   | { type: "fallback_provider_restored"; provider: string; reason: string; model?: { id: string; name?: string; provider: string; contextWindow?: number } }

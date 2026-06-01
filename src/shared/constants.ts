@@ -30,6 +30,26 @@ export const HEALTH_PING_TIMEOUT_MS = 10_000;
 export const WORKFLOW_POLL_INTERVAL_MS = 30_000;
 export const AUTO_PROGRESS_POLL_INTERVAL_MS = 3_000;
 export const WORKFLOW_PROGRESS_POLL_INTERVAL_MS = 2_000;
+/**
+ * How often the proactive workflow filesystem watcher scans for run dirs.
+ *
+ * The watcher exists because the runtime delivers `tool_execution_start/end` for
+ * a Workflow only in a single batch at turn end (verified: gsd-pi buffers tool
+ * events and serializes them after the turn resolves), so the RPC-driven poller
+ * can't render live. The watcher reads the on-disk journal directly — which IS
+ * written live — independent of any RPC event. A 1s cadence keeps the live panel
+ * responsive without hammering the disk.
+ */
+export const WORKFLOW_FS_WATCH_INTERVAL_MS = 1_000;
+/** Grace period a completed run's live card stays up before it auto-dismisses. */
+export const WORKFLOW_LIVE_DISMISS_MS = 6_000;
+/**
+ * A run is surfaced live only if its journal showed activity within this window
+ * of the watcher starting. Without this, every old completed run on disk (one
+ * per past workflow, across all prior conversations) would flood the panel at
+ * session start. Mid-flight runs at startup have a fresh journal mtime and pass.
+ */
+export const WORKFLOW_FS_STARTUP_GRACE_MS = 15_000;
 export const UPDATE_CHECK_INTERVAL_MS = 3_600_000;
 export const BUDGET_CEILING_TTL_MS = 30_000;
 
