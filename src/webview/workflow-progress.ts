@@ -59,11 +59,40 @@ const diag: DiagState = {
   total: 0,
 };
 
+/**
+ * Keeps the overlay's "updated Ns ago" line honest between messages — without it,
+ * the freshness counter would freeze at whatever it read on the last snapshot.
+ */
+let diagRefreshTimer: ReturnType<typeof setInterval> | null = null;
+
+function startDiagRefresh(): void {
+  if (diagRefreshTimer) return;
+  diagRefreshTimer = setInterval(() => {
+    if (!diag.enabled || !document.getElementById(DIAG_ID)) {
+      stopDiagRefresh();
+      return;
+    }
+    renderDiag();
+  }, 1000);
+}
+
+function stopDiagRefresh(): void {
+  if (diagRefreshTimer) {
+    clearInterval(diagRefreshTimer);
+    diagRefreshTimer = null;
+  }
+}
+
 /** Toggle the diagnostics overlay (driven by the gsd.workflowDiagnostics setting). */
 export function setDiagnostics(enabled: boolean): void {
   diag.enabled = enabled;
-  if (enabled) renderDiag();
-  else removeDiag();
+  if (enabled) {
+    renderDiag();
+    startDiagRefresh();
+  } else {
+    stopDiagRefresh();
+    removeDiag();
+  }
 }
 
 /**
@@ -210,6 +239,7 @@ function renderDiag(): void {
     body.appendChild(el);
   }
   el.innerHTML = buildDiagHtml();
+  startDiagRefresh();
 }
 
 function buildDiagHtml(): string {

@@ -427,10 +427,12 @@ export function buildAgentRows(
   endFile: WorkflowEndFile | null,
 ): { agents: WorkflowAgentProgress[]; doneAgentCount: number; runningAgentCount: number } {
   if (endFile) {
+    // End-file is authoritative for phase too — fall back to the plan's phase
+    // only when the end-file agent doesn't carry one.
     const phaseByLabel = new Map(plan.agents.map((a) => [a.label, a.phase]));
     const agents: WorkflowAgentProgress[] = endFile.agents.map((a) => ({
       label: a.label,
-      phase: phaseByLabel.get(a.label) ?? a.phase,
+      phase: a.phase ?? phaseByLabel.get(a.label),
       state: a.state,
       tokens: a.tokens,
       toolCalls: a.toolCalls,

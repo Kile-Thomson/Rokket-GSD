@@ -63,6 +63,8 @@ interface RunTracker {
   dismissAt?: number;
   /** The remove message has been sent — stop touching this run. */
   dismissed: boolean;
+  /** Most recent snapshot posted for this run — replayed on a webview rebind. */
+  lastSnapshot?: WorkflowProgressData;
 }
 
 interface DiscoveredRun {
@@ -110,9 +112,22 @@ export class WorkflowFsWatcher {
 
   rebindWebview(webview: vscode.Webview): void {
     this.webview = webview;
+    // The sidebar rebuilds its HTML from scratch on every re-resolve, wiping the
+    // rendered cards. Live runs recover on the next poll, but a run already marked
+    // finished is never posted again — so replay each tracked run's last snapshot
+    // to restore both in-flight and completed cards immediately.
+    for (const run of this.runs.values()) {
+      if (run.shown && !run.dismissed && run.lastSnapshot) this.post(run.lastSnapshot);
+    }
   }
 
   onProcessExit(): void {
+    // The process died/restarted — retract any still-visible live cards so a
+    // crashed run doesn't leave a stale "running" panel stuck in the conversation.
+    for (const run of this.runs.values()) {
+      if (run.shown && !run.dismissed) this.postRemove(run.runId);
+    }
+    this.runs.clear();
     this.stop();
   }
 
@@ -122,6 +137,9 @@ export class WorkflowFsWatcher {
       if (run.shown && !run.dismissed) this.postRemove(run.runId);
     }
     this.runs.clear();
+    // Advance the admission watermark so journals from the prior conversation —
+    // whose mtimes predate now — can't be re-admitted as if they were fresh runs.
+    this.startedAt = Date.now();
   }
 
   dispose(): void {
@@ -295,7 +313,7 @@ export class WorkflowFsWatcher {
       finished = decision.settled;
     }
 
-    this.post({
+    const snapshot: WorkflowProgressData = {
       toolCallId: run.runId,
       name: run.plan.name,
       description: run.plan.description,
@@ -309,7 +327,9 @@ export class WorkflowFsWatcher {
       startedAt: run.startedAt,
       updatedAt: now,
       stale,
-    });
+    };
+    run.lastSnapshot = snapshot;
+    this.post(snapshot);
 
     if (!run.shown) {
       run.shown = true;

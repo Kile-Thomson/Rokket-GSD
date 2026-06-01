@@ -106,7 +106,7 @@ describe("WorkflowFsWatcher.slugFor", () => {
     );
   });
 
-  it("collapses every non-alphanumeric run to single dashes", () => {
+  it("maps each non-alphanumeric character to its own dash", () => {
     expect(WorkflowFsWatcher.slugFor("/Users/me/proj.x")).toBe("-Users-me-proj-x");
   });
 });
@@ -188,5 +188,43 @@ describe("WorkflowFsWatcher live discovery", () => {
     await h.tick();
 
     expect(livePosts(h.posts)).toHaveLength(0);
+  });
+
+  it("replays the last snapshot to a rebound webview (sidebar hide/show)", async () => {
+    const h = makeHandle();
+    fs.writeFileSync(
+      h.endFilePath,
+      JSON.stringify({
+        status: "completed",
+        workflowProgress: [
+          { type: "workflow_agent", label: "alpha", state: "done", tokens: 1200, toolCalls: 3, durationMs: 4000 },
+        ],
+      }),
+    );
+    fs.writeFileSync(h.journalPath, JSON.stringify({ type: "started", agentId: "a1", label: "alpha" }) + "\n");
+    await h.tick();
+    expect(livePosts(h.posts).at(-1)!.status).toBe("completed");
+
+    // Sidebar re-resolves: a brand-new webview, nothing rendered yet.
+    const replayed: ExtensionToWebviewMessage[] = [];
+    h.watcher.rebindWebview({
+      postMessage: (m: ExtensionToWebviewMessage) => { replayed.push(m); return Promise.resolve(true); },
+    } as never);
+
+    const snap = livePosts(replayed).at(-1)!;
+    expect(snap.toolCallId).toBe(RUN_ID);
+    expect(snap.status).toBe("completed");
+    expect(snap.agents.find((a) => a.label === "alpha")?.tokens).toBe(1200);
+  });
+
+  it("retracts visible cards when the process exits", async () => {
+    const h = makeHandle();
+    fs.writeFileSync(h.journalPath, JSON.stringify({ type: "started", agentId: "a1", label: "alpha" }) + "\n");
+    await h.tick();
+    expect(livePosts(h.posts).length).toBeGreaterThan(0);
+
+    h.watcher.onProcessExit();
+    const removed = h.posts.filter((m) => m.type === "workflow_live_remove");
+    expect(removed).toEqual([{ type: "workflow_live_remove", runId: RUN_ID }]);
   });
 });

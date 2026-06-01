@@ -5,7 +5,7 @@ import * as path from "path";
 import { WorkflowProgressManager } from "./workflow-progress-poller";
 
 // Drives the REAL manager against a journal that grows on disk over time, with
-// real fs and (fake) timers, recording every webview post. This is the coverage
+// real fs and real timers, recording every webview post. This is the coverage
 // the suite was missing: the pure-function tests pass even when the live poll
 // loop never emits a running frame.
 
