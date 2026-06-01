@@ -84,7 +84,7 @@ describe("workflow live card — real streaming lifecycle", () => {
     vi.useFakeTimers();
     document.body.innerHTML = "";
     messagesContainer = document.createElement("div");
-    messagesContainer.id = "messages";
+    messagesContainer.id = "messagesContainer";
     welcomeScreen = document.createElement("div");
     welcomeScreen.id = "welcome";
     document.body.appendChild(messagesContainer);

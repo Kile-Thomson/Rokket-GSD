@@ -40,21 +40,21 @@ describe("workflow diagnostics overlay", () => {
   });
 
   it("appears when enabled and counts received messages with the conversation root present", () => {
-    document.body.innerHTML = `<div id="messages"></div>`;
+    document.body.innerHTML = `<main id="messagesContainer"></main>`;
     setDiagnostics(true);
     update(snapshot({ status: "running" }));
     const el = diagEl();
     expect(el).not.toBeNull();
     expect(el!.textContent).toContain("messages: 1");
-    expect(el!.textContent).toContain("#messages: yes");
+    expect(el!.textContent).toContain("conversation: yes");
   });
 
-  it("stays visible and reports #messages: no when the conversation root is absent", () => {
+  it("stays visible and reports conversation: no when the conversation root is absent", () => {
     document.body.innerHTML = "";
     setDiagnostics(true);
     update(snapshot({ status: "launching" }));
     expect(diagEl()).not.toBeNull();
-    expect(diagEl()!.textContent).toContain("#messages: no");
+    expect(diagEl()!.textContent).toContain("conversation: no");
   });
 
   it("accumulates per-status message counts and clears them on reset", () => {

@@ -201,7 +201,8 @@ function renderDiag(): void {
 
 function buildDiagHtml(): string {
   const c = diag.counts;
-  const messagesPresent = !!document.getElementById("messages");
+  const messagesPresent =
+    !!document.getElementById("messagesContainer") || !!document.getElementById("messages");
   const last = diag.lastName
     ? `${escapeHtml(diag.lastName)} · ${escapeHtml(diag.lastStatus ?? "—")}`
     : "none yet";
@@ -216,6 +217,6 @@ function buildDiagHtml(): string {
     `<div class="gsd-wf-diag-title">⋔ workflow diagnostics</div>`,
     `<div class="gsd-wf-diag-row">messages: <b>${diag.total}</b> <span class="gsd-wf-diag-dim">(launch ${c.launching} · run ${c.running} · done ${c.completed} · stall ${c.stalled} · err ${c.error})</span></div>`,
     `<div class="gsd-wf-diag-row">last: ${last}${agents}</div>`,
-    `<div class="gsd-wf-diag-row">#messages: ${messagesPresent ? "yes" : "no"} · updated ${ago}</div>`,
+    `<div class="gsd-wf-diag-row">conversation: ${messagesPresent ? "yes" : "no"} · updated ${ago}</div>`,
   ].join("");
 }
