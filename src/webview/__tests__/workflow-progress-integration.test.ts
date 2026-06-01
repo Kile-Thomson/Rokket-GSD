@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
-// Integration reproduction: drive the REAL streaming + finalize lifecycle with a
-// Workflow tool call and assert when the live panel is actually in the DOM.
+// Integration proof: drive the REAL streaming + finalize lifecycle with a
+// Workflow tool call and assert the live inline card is in the conversation DOM
+// DURING the turn and survives finalization. The card is fed by the disk-watcher
+// path (workflow-live), keyed by run id — deliberately independent of the
+// Workflow tool's call id, which is exactly why it can render before the tool
+// block exists.
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 import { init } from "../renderer";
 import { appendToolSegmentElement } from "../render/streaming";
 import { finalizeCurrentTurn, resetStreamingState } from "../render/batches";
-import { update as updateWorkflow, reset as resetWorkflow } from "../workflow-progress";
+import { update as updateLive, reset as resetLive } from "../workflow-live";
 import { state, nextId, type ToolCallState } from "../state";
 import type { WorkflowProgressData } from "../../shared/types";
 
@@ -41,11 +45,15 @@ vi.mock("../tool-grouping", () => ({
   collapseToolIntoGroup: vi.fn(),
 }));
 
-const TC = "wf-tool-1";
+// The Workflow tool's RPC call id, and the workflow's on-disk run id. They differ
+// on purpose — the live card keys on the run id, so it never depends on the tool
+// block existing in the DOM.
+const TOOL_CALL_ID = "wf-tool-1";
+const RUN_ID = "wf_abc123";
 
 function snap(over: Partial<WorkflowProgressData> = {}): WorkflowProgressData {
   return {
-    toolCallId: TC,
+    toolCallId: RUN_ID,
     name: "audit",
     phases: ["Review"],
     status: "running",
@@ -60,15 +68,15 @@ function snap(over: Partial<WorkflowProgressData> = {}): WorkflowProgressData {
   };
 }
 
-function panel(): HTMLElement | null {
-  return document.querySelector<HTMLElement>(`.gsd-workflow-panel[data-workflow-tool-id="${TC}"]`);
+function card(): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`.gsd-wf-inline[data-workflow-run-id="${RUN_ID}"]`);
 }
 
 function wfToolCall(): ToolCallState {
-  return { id: TC, name: "Workflow", args: { script: "x" }, resultText: "", isError: false, isRunning: true, startTime: Date.now() };
+  return { id: TOOL_CALL_ID, name: "Workflow", args: { script: "x" }, resultText: "", isError: false, isRunning: true, startTime: Date.now() };
 }
 
-describe("workflow panel — real streaming lifecycle", () => {
+describe("workflow live card — real streaming lifecycle", () => {
   let messagesContainer: HTMLElement;
   let welcomeScreen: HTMLElement;
 
@@ -85,46 +93,50 @@ describe("workflow panel — real streaming lifecycle", () => {
     state.entries = [];
     state.currentTurn = null;
     resetStreamingState();
-    resetWorkflow();
+    resetLive();
   });
   afterEach(() => {
     vi.useRealTimers();
-    resetWorkflow();
+    resetLive();
     resetStreamingState();
   });
 
-  it("panel is visible DURING the turn and survives finalize", () => {
-    // 1. Turn starts, Workflow tool segment rendered (as message-handler does on tool_execution_start).
+  it("inline card is visible DURING the turn and survives finalize + post-turn polls", () => {
+    // 1. Turn starts; the Workflow tool segment is rendered (as the message
+    //    handler does on tool_execution_start).
     state.currentTurn = { id: nextId(), segments: [], toolCalls: new Map(), isComplete: false, timestamp: Date.now() };
     const tc = wfToolCall();
-    state.currentTurn.toolCalls.set(TC, tc);
-    state.currentTurn.segments.push({ type: "tool", toolCallId: TC });
+    state.currentTurn.toolCalls.set(TOOL_CALL_ID, tc);
+    state.currentTurn.segments.push({ type: "tool", toolCallId: TOOL_CALL_ID });
     appendToolSegmentElement(tc, 0);
 
-    // 2. Extension posts "launching" mid-turn.
-    updateWorkflow(snap({ status: "launching" }));
-    vi.advanceTimersByTime(400); // let bounded retry run
-    const duringLaunch = !!panel();
+    // 2. The disk watcher surfaces the run mid-turn — "launching" then "running".
+    updateLive(snap({ status: "launching" }));
+    const duringLaunch = !!card();
 
-    // 3. Extension posts "running" snapshots mid-turn.
-    updateWorkflow(snap({ status: "running" }));
-    vi.advanceTimersByTime(50);
-    const duringRunning = !!panel();
+    updateLive(snap({ status: "running" }));
+    const duringRunning = !!card();
+    const insideConversation = card()?.parentElement === messagesContainer;
 
-    // 4. Turn finalizes (agent's text turn ends; workflow keeps running in background).
+    // 3. The agent's text turn ends; the workflow keeps running in the background.
     finalizeCurrentTurn();
-    const afterFinalize = !!panel();
+    const afterFinalize = !!card();
 
-    // 5. Post-turn poll keeps updating (workflow runs in the background after the turn).
-    updateWorkflow(snap({ status: "running" }));
-    vi.advanceTimersByTime(50);
-    const afterPostTurnPoll = !!panel();
+    // 4. Post-turn watcher polls keep updating the card after the turn is over.
+    updateLive(snap({ status: "running", doneAgentCount: 1 }));
+    const afterPostTurnPoll = !!card();
 
-    expect({ duringLaunch, duringRunning, afterFinalize, afterPostTurnPoll }).toEqual({
+    // 5. Completion swaps in the terminal snapshot, which persists as a record.
+    updateLive(snap({ status: "completed", runningAgentCount: 0, doneAgentCount: 1, agents: [{ label: "review:bugs", state: "done" }] }));
+    const atCompletion = card()?.className.includes("status-completed");
+
+    expect({ duringLaunch, duringRunning, insideConversation, afterFinalize, afterPostTurnPoll, atCompletion }).toEqual({
       duringLaunch: true,
       duringRunning: true,
+      insideConversation: true,
       afterFinalize: true,
       afterPostTurnPoll: true,
+      atCompletion: true,
     });
   });
 });

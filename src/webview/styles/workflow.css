@@ -214,47 +214,21 @@
   overflow-wrap: anywhere;
 }
 
-/* --- Live workflow panel (turn-independent, fed by the disk watcher) --- */
+/* --- Live workflow card (inline in the conversation, fed by the disk watcher) --- */
 
-#gsd-wf-live {
-  position: fixed;
-  bottom: 8px;
-  right: 8px;
-  z-index: 9998;
-  width: 360px;
-  max-width: calc(100vw - 16px);
-  max-height: 60vh;
+.gsd-wf-inline {
+  /* Set the live card apart from the surrounding turn, and give it a slightly
+     stronger accent than the base panel since it stands on its own in the flow. */
+  margin: 8px 0 12px;
+  border-left-width: 3px;
+  background: var(--gsd-color-surface-elevated, var(--gsd-color-bg));
+}
+
+/* Cap a large fan-out so a many-agent run doesn't dominate the transcript;
+   the agent list scrolls within the card instead. */
+.gsd-wf-inline .gsd-wf-agents {
+  max-height: 320px;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px;
-  border: 1px solid var(--gsd-color-border-strong);
-  border-radius: 8px;
-  background: var(--gsd-color-surface-elevated);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-}
-
-.gsd-wf-live-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: var(--gsd-font-weight-semibold);
-  font-size: var(--gsd-font-size-xs);
-  color: var(--gsd-color-text);
-}
-
-.gsd-wf-live-glyph {
-  color: var(--gsd-color-text-muted);
-}
-
-.gsd-wf-live-count {
-  color: var(--gsd-color-text-muted);
-  font-weight: var(--gsd-font-weight-normal);
-}
-
-.gsd-wf-live-card {
-  margin: 0;
 }
 
 /* --- Diagnostics overlay (opt-in: gsd.workflowDiagnostics) --- */
