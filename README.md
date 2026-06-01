@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.3.63-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-0.3.81-blue" alt="Version" />
   <img src="https://img.shields.io/badge/VS%20Code-1.94%2B-blue" alt="VS Code" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform" />
@@ -83,13 +83,16 @@ Warning toast when workers cross 80% of ceiling
 🛡️ **Process Resilience**<br>
 Built for multi-hour sessions with crash recovery
 
-📡 **Telegram Relay**<br>
-Stream conversations to Telegram with voice transcription
+📡 **Telegram Remote Control**<br>
+Drive your agent from your phone — voice, photos, and per-session threads
+
+🌀 **Live Workflow Visibility**<br>
+Watch fan-out workflows tick agent-by-agent, inline, as they run
 
 🎙️ **Voice Input**<br>
 Hold-to-record with waveform viz; OpenAI, Azure, or xAI transcription
 
-🧪 **1397+ Tests**<br>
+🧪 **1472+ Tests**<br>
 CI enforced on every push
 
 </td>
@@ -334,6 +337,17 @@ Type `/` to open the command palette with 59+ commands:
 - **Duration tracking** on every completed tool call
 - **Server-side tool indicators** — compact inline cards for Anthropic's native server-side tools (web search, code execution) showing tool name, search query, spinner while running, and result count on completion
 
+### 🌀 Live Workflow Visibility
+
+When the agent launches a Claude Code workflow that fans out parallel sub-agents, you no longer wait until the turn ends to find out what happened:
+
+- **Inline live card** — a workflow card appears in the conversation the moment the run starts writing, pinned above the launching turn — no `/workflows` command, no DevTools
+- **Agent-by-agent progress** — each sub-agent's label and phase tick from running → done in real time as the run proceeds, fed by watching the workflow's on-disk journal directly (so it updates mid-turn, not just at completion)
+- **Honest hang detection** — a run with a sub-agent still mid-flight and no further activity is flagged; a run that simply finished and went quiet reads as Done, not falsely "hung"
+- **Completion summary** — the card persists in the transcript as a record, showing real per-agent token usage, tool-call counts, and duration
+- **Robust** — survives sidebar hide/show, retracts cleanly on process exit, and never leaks between conversations
+- **Opt-in diagnostics** — `gsd.workflowDiagnostics` surfaces an on-screen panel for troubleshooting live-update delivery
+
 ### ⚡ Auto-Mode Progress
 
 - **Live progress widget** sticky above the input showing current task, phase, progress bars, elapsed time, cost, and active model
@@ -372,15 +386,19 @@ Type `/` to open the command palette with 59+ commands:
 - **Provider fallback alerts** via toast when GSD auto-switches models due to rate limits, and again when the original provider recovers
 - **Crash recovery** with restart button, exit code diagnostics, and full state cleanup
 
-### 📡 Telegram Relay
+### 📡 Telegram Remote Control
 
-- **Stream conversations to Telegram** — relay assistant messages to a Telegram group in real time
-- **Setup wizard** via `/telegram` or the command palette with guided Bot Token → Group ID → Chat Title flow
-- **Voice message transcription** — Telegram voice messages are transcribed via OpenAI Whisper and injected as user prompts
-- **Photo support** — images sent in Telegram are forwarded to the agent as attachments
-- **Topic-based threading** — each session creates a Telegram topic for organized conversations
-- **Streaming granularity control** — configure as `off`, `throttled`, or `final-only` in settings
-- **Secure credential storage** — Bot Token and OpenAI API key stored in VS Code's `SecretStorage`, never in source files
+**Run your agent from anywhere.** Connect a Telegram bot once and your editor session becomes a two-way remote: read what the agent is doing, reply with new instructions, and kick off whole projects — all from your phone, away from the desk. Long auto-mode runs no longer pin you to the keyboard.
+
+- **Two-way control, not just a feed** — assistant responses stream to your Telegram group in real time, and anything you send back is injected straight into the live session as a prompt. Steer, answer questions, or redirect the agent without touching the keyboard.
+- **Talk to it** — record a Telegram voice message and it's transcribed (OpenAI Whisper) and sent as a prompt, so you can brief the agent hands-free.
+- **Send pictures** — photos shared in the chat are forwarded to the agent as image attachments (screenshots, mockups, error dialogs).
+- **Launch projects by name** — message something like *"launch rokketdocs"* from the general chat and the bot finds the project across your configured directories, opens it in VS Code, and wires up the relay automatically. Numbered picker resolves multiple matches.
+- **A thread per session** — each conversation gets its own Telegram topic, so parallel projects stay cleanly separated instead of colliding in one feed.
+- **Owner-locked commands** — launch and control commands are restricted to your own Telegram user ID (auto-detected during setup), so a shared group can't drive your machine.
+- **Resilient by design** — automatically follows a group when it's upgraded to a supergroup (new chat ID), and gives clear, actionable guidance when forum Topics aren't enabled instead of failing silently.
+- **Tunable verbosity** — choose `off`, `throttled`, or `final-only` streaming so the chat stays useful without becoming noise.
+- **Guided, secure setup** — the `/telegram` wizard walks Bot Token → group detection → owner ID → done. The bot token and transcription API key live in VS Code's `SecretStorage`, never in config files or source.
 
 ### 🎨 VS Code Integration
 
@@ -435,10 +453,16 @@ Type `/` to open the command palette with 59+ commands:
 | `gsd.preferredLocation` | `"panel"` | Default open location: `"sidebar"` or `"panel"` |
 | `gsd.autoUpdate` | `true` | Check for new versions on GitHub Releases |
 | `gsd.githubToken` | `""` | GitHub token for update checks (also reads `GH_TOKEN` / `GITHUB_TOKEN` env vars) |
-| `gsd.telegramGroupId` | `0` | Telegram group ID for the relay |
-| `gsd.telegramChatTitle` | `""` | Telegram group chat title |
-| `gsd.telegramBotUsername` | `""` | Telegram bot username |
+| `gsd.workflowLivePanel` | `true` | Show live Claude Code workflow progress inline as it happens |
+| `gsd.workflowDiagnostics` | `false` | On-screen diagnostic overlay for workflow progress delivery (troubleshooting) |
+| `gsd.telegramGroupId` | `0` | Telegram group ID for the relay (set by setup) |
+| `gsd.telegramChatTitle` | `""` | Telegram group chat title (set by setup) |
+| `gsd.telegramBotUsername` | `""` | Telegram bot username (set by setup) |
+| `gsd.telegramOwnerId` | `0` | Your Telegram user ID — only this user can trigger launch commands (auto-detected at setup) |
+| `gsd.telegramProjectDirs` | `[]` | Directories searched when launching projects from Telegram general chat |
 | `gsd.telegramStreamingGranularity` | `"throttled"` | Streaming mode: `off`, `throttled`, or `final-only` |
+| `gsd.voiceTranscriptionProvider` | `"openai"` | Voice-to-text provider: `openai`, `azure`, or `xai` |
+| `gsd.azureSpeechRegion` | `"eastus"` | Azure region for Speech Services (when provider is `azure`) |
 
 ---
 
@@ -487,7 +511,7 @@ Built to handle real-world agent sessions that run for hours:
 - **GSD Process** — the full [GSD Pi](https://github.com/OpenGSD/gsd-pi) agent running via JSON-RPC over stdin/stdout. Each session gets its own process.
 - **Telegram Bridge** — poller, coordinator, IPC, topic manager, and message formatter. Voice messages transcribed via OpenAI Whisper; photos forwarded as image attachments.
 
-The extension ships as a `.vsix` with no runtime dependencies beyond VS Code and the `gsd` CLI ([GSD Pi](https://github.com/OpenGSD/gsd-pi) or GSD V2). 1397 tests across 66 files.
+The extension ships as a `.vsix` with no runtime dependencies beyond VS Code and the `gsd` CLI ([GSD Pi](https://github.com/OpenGSD/gsd-pi) or GSD V2). 1472 tests across 73 files.
 
 ---
 
