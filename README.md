@@ -92,7 +92,7 @@ Watch fan-out workflows tick agent-by-agent, inline, as they run
 🎙️ **Voice Input**<br>
 Hold-to-record with waveform viz; OpenAI, Azure, or xAI transcription
 
-🧪 **1472+ Tests**<br>
+🧪 **1473+ Tests**<br>
 CI enforced on every push
 
 </td>
@@ -511,7 +511,7 @@ Built to handle real-world agent sessions that run for hours:
 - **GSD Process** — the full [GSD Pi](https://github.com/OpenGSD/gsd-pi) agent running via JSON-RPC over stdin/stdout. Each session gets its own process.
 - **Telegram Bridge** — poller, coordinator, IPC, topic manager, and message formatter. Voice messages transcribed via OpenAI Whisper; photos forwarded as image attachments.
 
-The extension ships as a `.vsix` with no runtime dependencies beyond VS Code and the `gsd` CLI ([GSD Pi](https://github.com/OpenGSD/gsd-pi) or GSD V2). 1472 tests across 73 files.
+The extension ships as a `.vsix` with no runtime dependencies beyond VS Code and the `gsd` CLI ([GSD Pi](https://github.com/OpenGSD/gsd-pi) or GSD V2). 1473 tests across 73 files.
 
 ---
 
