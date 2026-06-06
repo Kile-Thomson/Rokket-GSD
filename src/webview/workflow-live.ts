@@ -52,21 +52,24 @@ function findCard(runId: string): HTMLElement | null {
 }
 
 /**
- * Place a fresh card just *above* the most recent conversation entry — the
- * assistant turn that launched the workflow — so it reads as a header for that
- * turn rather than trailing underneath its text. Falls back to appending when no
- * entry has rendered yet (defensive; the launching turn always exists by the time
- * a run surfaces). Insertion happens once, at create time; an existing card is
- * never moved, so later turns don't shuffle a settled record.
+ * Place a card just *above* the most recent conversation entry — the assistant
+ * turn that launched the workflow — so it reads as a header for that turn rather
+ * than trailing underneath its text. No-ops if the card is already in the correct
+ * position. Falls back to appending when no entry has rendered yet (the heartbeat
+ * will reposition it once entries exist).
  */
 function insertCardInto(container: HTMLElement, card: HTMLElement): void {
   const entries = container.querySelectorAll<HTMLElement>(".gsd-entry");
   const anchor = entries.length ? entries[entries.length - 1] : null;
-  if (anchor) container.insertBefore(card, anchor);
-  else container.appendChild(card);
+  if (anchor) {
+    if (card.parentElement === container && card.nextSibling === anchor) return; // already correct
+    container.insertBefore(card, anchor);
+  } else {
+    container.appendChild(card);
+  }
 }
 
-/** Find this run's card, creating and inserting it above the launching turn if absent. */
+/** Find this run's card, creating and inserting it if absent. */
 function ensureCard(runId: string): HTMLElement {
   let card = findCard(runId);
   if (!card) {
@@ -122,22 +125,31 @@ function stopHeartbeat(): void {
 }
 
 /**
- * Re-attach any live card that has gone missing from the conversation DOM.
+ * Re-attach or reposition any live card that was dropped or misplaced.
  *
  * Cards live in `#messagesContainer`, which streaming/finalization append to
  * rather than rebuild, so a card placed there normally persists across the turn
- * ending. The
- * heartbeat is cheap insurance: if some rebuild does drop a still-live run's
- * card, it reappears within a second instead of waiting on the next watcher poll.
- * Present cards are left untouched (no flicker). Terminal cards are not tracked
- * here, so they're never resurrected. The timer stops once nothing is live.
+ * ending. After a sidebar rebind the webview HTML is rebuilt before conversation
+ * history re-renders, so a replayed card can land before any `.gsd-entry` exists
+ * and end up stranded at the top of the container. The heartbeat corrects both
+ * cases: missing cards are re-created; mispositioned cards (nextSibling is not
+ * the last entry) are moved. Terminal cards are not tracked here.
  */
 function heartbeatTick(): void {
   let anyLive = false;
+  const container = messagesEl();
   for (const [runId, data] of latest) {
     if (!isLive(data.status)) continue;
     anyLive = true;
-    if (!findCard(runId)) paint(ensureCard(runId), data);
+    if (!container) continue;
+    const existing = findCard(runId);
+    if (!existing) {
+      const card = ensureCard(runId);
+      if (card) paint(card, data);
+    } else {
+      // Reposition if the card landed before entries rendered (rebind race).
+      insertCardInto(container, existing);
+    }
   }
   if (!anyLive) stopHeartbeat();
 }
