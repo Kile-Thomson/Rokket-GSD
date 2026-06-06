@@ -39,7 +39,7 @@ scripts/*-results.json
 .dropboxignore
 *conflicted copy*
 
-# ── GSD baseline (auto-generated) ──
+# ── GSD baseline – build output ──
 .gsd
 .gsd-id
 dist/
