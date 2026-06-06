@@ -45,7 +45,7 @@ scripts/*-results.json
 dist/
 *.tsbuildinfo
 
-# ── GSD baseline (auto-generated) ──
+# ── GSD baseline – DOS device names ──
 nul.*
 con
 con.*
