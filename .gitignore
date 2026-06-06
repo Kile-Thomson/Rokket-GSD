@@ -39,8 +39,21 @@ scripts/*-results.json
 .dropboxignore
 *conflicted copy*
 
-# ── GSD baseline (auto-generated) ──
+# ── GSD baseline – build output ──
 .gsd
 .gsd-id
 dist/
 *.tsbuildinfo
+
+# ── GSD baseline – DOS device names ──
+nul.*
+con
+con.*
+prn
+prn.*
+aux
+aux.*
+com[1-9]
+com[1-9].*
+lpt[1-9]
+lpt[1-9].*
