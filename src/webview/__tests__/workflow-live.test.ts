@@ -133,6 +133,35 @@ describe("workflow-live inline conversation card", () => {
     expect(card()).toBeNull();
   });
 
+  it("repositions a card that landed before entries rendered (rebind race)", () => {
+    // Simulate the rebind race: update() fires before history renders, so the card
+    // is appended to an empty container (no .gsd-entry yet). Then history renders.
+    update(snapshot({ status: "running" }));
+    const container = document.getElementById("messagesContainer")!;
+    expect(card()).not.toBeNull();
+    // Card is currently at position 0 (appended to empty container).
+    expect(container.children[0]).toBe(card());
+
+    // Now history renders — entries appear after the card.
+    const entry1 = document.createElement("div");
+    entry1.className = "gsd-entry";
+    entry1.dataset.entryId = "user";
+    container.appendChild(entry1);
+    const entry2 = document.createElement("div");
+    entry2.className = "gsd-entry";
+    entry2.dataset.entryId = "assistant";
+    container.appendChild(entry2);
+    // Card is still at position 0, before both entries — wrong.
+    expect(container.children[0]).toBe(card());
+
+    // The heartbeat repositions it above the last entry.
+    vi.advanceTimersByTime(1000);
+    const kids = Array.from(container.children);
+    const cardIdx = kids.indexOf(card()!);
+    const assistantIdx = kids.indexOf(entry2);
+    expect(cardIdx).toBe(assistantIdx - 1);
+  });
+
   it("does not run a heartbeat when the only run is already terminal", () => {
     update(snapshot({ status: "completed", runningAgentCount: 0, doneAgentCount: 2 }));
     document.getElementById("messagesContainer")!.innerHTML = "";

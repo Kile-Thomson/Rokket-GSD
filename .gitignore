@@ -44,3 +44,16 @@ scripts/*-results.json
 .gsd-id
 dist/
 *.tsbuildinfo
+
+# ── GSD baseline (auto-generated) ──
+nul.*
+con
+con.*
+prn
+prn.*
+aux
+aux.*
+com[1-9]
+com[1-9].*
+lpt[1-9]
+lpt[1-9].*
