@@ -41,15 +41,20 @@ vi.mock("child_process", () => ({
 const mockExistsSync = vi.fn();
 const mockReadFileSync = vi.fn();
 const mockReadFileAsync = vi.fn();
+const mockAccess = vi.fn();
+const mockReaddir = vi.fn();
 vi.mock("fs", () => ({
   existsSync: (...args: unknown[]) => mockExistsSync(...args),
   readFileSync: (...args: unknown[]) => mockReadFileSync(...args),
   promises: {
     readFile: (...args: unknown[]) => mockReadFileAsync(...args),
+    access: (...args: unknown[]) => mockAccess(...args),
+    readdir: (...args: unknown[]) => mockReaddir(...args),
   },
 }));
 
-import { runHealthCheck } from "./health-check";
+import * as path from "path";
+import { runHealthCheck, detectVersionSkew } from "./health-check";
 
 // ── Helpers ──
 function createMockOutput() {
@@ -112,6 +117,9 @@ function setupDefaultMocks() {
     }
     return Promise.resolve("{}");
   });
+  // Default: no install root resolvable → skew detection is skipped.
+  mockAccess.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+  mockReaddir.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
 }
 
 describe("health-check", () => {
@@ -326,6 +334,128 @@ describe("health-check", () => {
       await runHealthCheck(output);
 
       expect(mockShowWarningMessage).toHaveBeenCalled();
+    });
+
+    it("flags a half-applied (mixed-version) install with a blocking error issue", async () => {
+      mockWhichResult.mockReturnValue("C:\\npm\\node_modules\\@opengsd\\gsd-pi\\dist\\loader.js\n");
+      // Every access() succeeds, so the first install-root candidate wins.
+      mockAccess.mockResolvedValue(undefined);
+      mockReaddir.mockImplementation((dir: string) => {
+        if (dir.includes(path.join("node_modules", "@opengsd"))) {
+          return Promise.resolve(["rpc-client", "gsd-pi"]);
+        }
+        if (dir.includes(path.join("node_modules", "@gsd"))) {
+          return Promise.resolve(["agent-core"]);
+        }
+        return Promise.reject(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+      });
+      mockReadFileAsync.mockImplementation((filePath: string) => {
+        if (filePath.includes("auth.json")) {
+          return Promise.resolve(JSON.stringify({ anthropic: { type: "api_key", key: "sk-test" } }));
+        }
+        if (filePath.includes("settings.json")) return Promise.resolve("{}");
+        if (filePath.includes(path.join("@opengsd", "gsd-pi", "package.json"))) {
+          return Promise.resolve(JSON.stringify({ name: "@opengsd/gsd-pi", version: "1.2.0" }));
+        }
+        if (filePath.includes(path.join("@opengsd", "rpc-client"))) {
+          return Promise.resolve(JSON.stringify({ name: "@opengsd/rpc-client", version: "1.0.2" }));
+        }
+        if (filePath.includes(path.join("@gsd", "agent-core"))) {
+          return Promise.resolve(JSON.stringify({ name: "@gsd/agent-core", version: "1.2.0" }));
+        }
+        return Promise.resolve("{}");
+      });
+
+      const result = await runHealthCheck(output);
+
+      expect(result.gsdVersion).toBe("1.2.0");
+      expect(result.gsdVersionSkew).toEqual([{ name: "@opengsd/rpc-client", version: "1.0.2" }]);
+      expect(result.issues.some((i) => i.severity === "error" && i.message.includes("Mixed-version"))).toBe(true);
+    });
+
+    it("does not flag a uniform install (all packages match top version)", async () => {
+      mockWhichResult.mockReturnValue("C:\\npm\\node_modules\\@opengsd\\gsd-pi\\dist\\loader.js\n");
+      mockAccess.mockResolvedValue(undefined);
+      mockReaddir.mockImplementation((dir: string) => {
+        if (dir.includes(path.join("node_modules", "@opengsd"))) return Promise.resolve(["rpc-client", "gsd-browser"]);
+        if (dir.includes(path.join("node_modules", "@gsd"))) return Promise.resolve(["agent-core"]);
+        return Promise.reject(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+      });
+      mockReadFileAsync.mockImplementation((filePath: string) => {
+        if (filePath.includes("auth.json")) {
+          return Promise.resolve(JSON.stringify({ anthropic: { type: "api_key", key: "sk-test" } }));
+        }
+        if (filePath.includes("settings.json")) return Promise.resolve("{}");
+        if (filePath.includes(path.join("@opengsd", "gsd-pi", "package.json"))) {
+          return Promise.resolve(JSON.stringify({ name: "@opengsd/gsd-pi", version: "1.2.0" }));
+        }
+        if (filePath.includes(path.join("@opengsd", "rpc-client"))) {
+          return Promise.resolve(JSON.stringify({ name: "@opengsd/rpc-client", version: "1.2.0" }));
+        }
+        // gsd-browser ships on its own cadence — must be ignored despite mismatch.
+        if (filePath.includes(path.join("@opengsd", "gsd-browser"))) {
+          return Promise.resolve(JSON.stringify({ name: "@opengsd/gsd-browser", version: "0.1.27" }));
+        }
+        if (filePath.includes(path.join("@gsd", "agent-core"))) {
+          return Promise.resolve(JSON.stringify({ name: "@gsd/agent-core", version: "1.2.0" }));
+        }
+        return Promise.resolve("{}");
+      });
+
+      const result = await runHealthCheck(output);
+
+      expect(result.gsdVersionSkew).toEqual([]);
+      expect(result.issues.some((i) => i.message.includes("Mixed-version"))).toBe(false);
+    });
+  });
+
+  describe("detectVersionSkew", () => {
+    it("flags a GSD-family package on the wrong version", () => {
+      const map = new Map([
+        ["@gsd/agent-core", "1.2.0"],
+        ["@opengsd/rpc-client", "1.0.2"],
+      ]);
+      expect(detectVersionSkew(map, "1.2.0")).toEqual([{ name: "@opengsd/rpc-client", version: "1.0.2" }]);
+    });
+
+    it("returns empty for a uniform install, ignoring the gsd-browser denylist", () => {
+      const map = new Map([
+        ["@gsd/agent-core", "1.2.0"],
+        ["@gsd/agent-modes", "1.2.0"],
+        ["@gsd/pi-coding-agent", "1.2.0"],
+        ["@opengsd/rpc-client", "1.2.0"],
+        ["@opengsd/contracts", "1.2.0"],
+        ["@opengsd/gsd-browser", "0.1.27"],
+      ]);
+      expect(detectVersionSkew(map, "1.2.0")).toEqual([]);
+    });
+
+    it("ignores denylisted self-package (@opengsd/gsd-pi) even when it differs", () => {
+      const map = new Map([
+        ["@opengsd/gsd-pi", "1.0.2"],
+        ["gsd-pi", "1.0.2"],
+      ]);
+      expect(detectVersionSkew(map, "1.2.0")).toEqual([]);
+    });
+
+    it("ignores non-GSD-family packages", () => {
+      const map = new Map([
+        ["lodash", "4.17.21"],
+        ["@types/node", "20.0.0"],
+      ]);
+      expect(detectVersionSkew(map, "1.2.0")).toEqual([]);
+    });
+
+    it("flags every skewed GSD-family package across scopes", () => {
+      const map = new Map([
+        ["@gsd/agent-core", "1.2.0"],
+        ["@gsd/pi-tui", "1.0.2"],
+        ["@gsd-build/rpc-client", "1.0.2"],
+      ]);
+      expect(detectVersionSkew(map, "1.2.0").map((s) => s.name).sort()).toEqual([
+        "@gsd-build/rpc-client",
+        "@gsd/pi-tui",
+      ]);
     });
   });
 });
