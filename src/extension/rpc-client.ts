@@ -536,6 +536,59 @@ export class GsdRpcClient extends EventEmitter {
   }
 
   /**
+   * Synchronously force-kill the GSD process tree and block until the OS has
+   * issued the kill. Unlike forceKill(), this uses spawnSync so any files the
+   * child holds open (on Windows, the gsd-pi install directory) are released
+   * before this method returns. Used only on extension teardown/window-close:
+   * an async kill would not complete before VS Code reaps the extension host,
+   * and a surviving child then locks the install dir against the next
+   * `npm i -g` update — producing a half-applied, version-skewed install.
+   */
+  forceKillSync(): void {
+    const pid = this._pid;
+    if (!pid) return;
+
+    if (process.platform === "win32") {
+      // taskkill /F (force) /T (tree). spawnSync blocks until taskkill exits,
+      // so the file locks are gone by the time we return.
+      try {
+        const res = spawnSync("taskkill", ["/F", "/T", "/PID", String(pid)], {
+          stdio: "ignore",
+          windowsHide: true,
+          timeout: EXEC_TIMEOUT_MS,
+        });
+        // spawnSync reports non-zero exits via the result, not by throwing —
+        // surface them so a failed reap isn't swallowed silently.
+        if (res.error || res.status !== 0) {
+          const msg = res.error?.message ?? `exit status ${res.status}`;
+          this.emit("log", `[rpc-client] forceKillSync: taskkill failed for PID ${pid}: ${msg}`);
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.emit("log", `[rpc-client] forceKillSync: taskkill failed for PID ${pid}: ${msg}`);
+      }
+    } else {
+      // Unix: kill the process group (negative PID)
+      try {
+        process.kill(-pid, "SIGKILL");
+      } catch {
+        // Fallback: kill just the process
+        try {
+          process.kill(pid, "SIGKILL");
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.emit("log", `[rpc-client] forceKillSync: kill failed for PID ${pid}: ${msg}`);
+        }
+      }
+    }
+
+    // Also try via the ChildProcess handle
+    try {
+      this.process?.kill("SIGKILL");
+    } catch { /* process already dead — expected */ }
+  }
+
+  /**
    * Send a raw command to the GSD process.
    */
   send(command: Record<string, unknown>): void {

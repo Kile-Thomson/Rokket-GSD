@@ -22,7 +22,7 @@
       "format": "esm"
     },
     "src/extension/rpc-client.ts": {
-      "bytes": 30864,
+      "bytes": 33103,
       "imports": [
         {
           "path": "child_process",
@@ -251,7 +251,7 @@
       "format": "esm"
     },
     "src/extension/workflow-fs-watcher.ts": {
-      "bytes": 12960,
+      "bytes": 13335,
       "imports": [
         {
           "path": "vscode",
@@ -771,7 +771,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 42661,
+      "bytes": 43337,
       "imports": [
         {
           "path": "vscode",
@@ -907,7 +907,7 @@
       "format": "esm"
     },
     "src/extension/health-check.ts": {
-      "bytes": 11062,
+      "bytes": 16373,
       "imports": [
         {
           "path": "vscode",
@@ -1020,7 +1020,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 745495
+      "bytes": 758006
     },
     "dist/extension.js": {
       "imports": [
@@ -1387,10 +1387,10 @@
           "bytesInOutput": 3374
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 20246
+          "bytesInOutput": 20311
         },
         "src/extension/rpc-client.ts": {
-          "bytesInOutput": 9944
+          "bytesInOutput": 10666
         },
         "src/extension/shell-env.ts": {
           "bytesInOutput": 1393
@@ -1450,7 +1450,7 @@
           "bytesInOutput": 2502
         },
         "src/extension/command-fallback.ts": {
-          "bytesInOutput": 25246
+          "bytesInOutput": 25254
         },
         "src/extension/file-ops.ts": {
           "bytesInOutput": 6104
@@ -1501,7 +1501,7 @@
           "bytesInOutput": 941
         },
         "src/extension/health-check.ts": {
-          "bytesInOutput": 5109
+          "bytesInOutput": 6798
         },
         "src/extension/telegram/setup.ts": {
           "bytesInOutput": 6712
@@ -1510,7 +1510,7 @@
           "bytesInOutput": 107
         }
       },
-      "bytes": 195682
+      "bytes": 198166
     }
   }
 }
