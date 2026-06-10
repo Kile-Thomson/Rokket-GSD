@@ -610,6 +610,16 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
         this.output.appendLine(`[telegram-sync] dispose error: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
+    // Synchronously force-kill every live RPC child BEFORE the async cleanup
+    // loop. cleanupSessionState fire-and-forgets the graceful stop(), which
+    // does not complete before VS Code reaps the extension host on window
+    // close — a surviving child then locks the gsd-pi install directory
+    // against the next `npm i -g` update and corrupts it into a half-applied,
+    // version-skewed install. This hard synchronous reap is teardown-only; the
+    // per-session swap path (cleanupSession) keeps the graceful stop().
+    for (const [, session] of this.sessions) {
+      try { session.client?.forceKillSync(); } catch { /* already dead */ }
+    }
     for (const [, session] of this.sessions) {
       cleanupSessionState(session);
       if (session.panel) session.panel.dispose();

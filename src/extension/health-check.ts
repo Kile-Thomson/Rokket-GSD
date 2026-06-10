@@ -16,12 +16,19 @@ export interface HealthCheckResult {
   gsdFound: boolean;
   gsdPath: string | null;
   gsdVersion: string | null;
+  /** GSD-family packages whose version diverges from the top-level gsd-pi version. */
+  gsdVersionSkew: VersionSkew[];
   nodeFound: boolean;
   nodeVersion: string | null;
   authProviders: AuthProviderInfo[];
   defaultProvider: string | null;
   defaultModel: string | null;
   issues: HealthIssue[];
+}
+
+export interface VersionSkew {
+  name: string;
+  version: string;
 }
 
 export interface AuthProviderInfo {
@@ -51,6 +58,7 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
     gsdFound: false,
     gsdPath: null,
     gsdVersion: null,
+    gsdVersionSkew: [],
     nodeFound: false,
     nodeVersion: null,
     authProviders: [],
@@ -118,6 +126,29 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
 
     // Get version from the package.json next to the binary
     result.gsdVersion = await resolveGsdVersion(gsdPath);
+
+    // ---- Detect a mixed-version (half-applied) gsd-pi install ----
+    // A Windows `npm i -g` that runs while VS Code holds the RPC child open
+    // overwrites some bundled packages and silently skips the locked ones,
+    // leaving a version-skewed install (e.g. 1.2.0 agent driving a 1.0.2 RPC
+    // transport) that destabilizes sessions. Best-effort — never block startup.
+    if (result.gsdVersion) {
+      try {
+        const installRoot = await resolveGsdInstallRoot(gsdPath);
+        if (installRoot) {
+          const pkgVersions = await collectGsdPackageVersions(installRoot);
+          result.gsdVersionSkew = detectVersionSkew(pkgVersions, result.gsdVersion);
+          if (result.gsdVersionSkew.length > 0) {
+            const n = result.gsdVersionSkew.length;
+            result.issues.push({
+              severity: "error",
+              message: `Mixed-version gsd-pi install detected — ${n} package${n === 1 ? "" : "s"} do not match gsd-pi ${result.gsdVersion}. A half-applied update destabilizes sessions.`,
+              fix: "Quit ALL VS Code windows, then reinstall: npm i -g @opengsd/gsd-pi@latest (or run fix-gsd-pi.ps1). A file locked during 'npm i -g' leaves the RPC transport on the old version.",
+            });
+          }
+        }
+      } catch { /* skew detection is diagnostic only — ignore failures */ }
+    }
   } catch {
     // gsd-pi binary not found or version unreadable
     if (processWrapper) {
@@ -226,6 +257,9 @@ export async function runHealthCheck(output: vscode.OutputChannel): Promise<Heal
   output.appendLine(`Node.js: ${result.nodeFound ? result.nodeVersion : "NOT FOUND"}`);
   output.appendLine(`GSD CLI: ${result.gsdFound ? (result.gsdPath || "found") : "NOT FOUND"}`);
   if (result.gsdVersion) output.appendLine(`GSD version: ${result.gsdVersion}`);
+  if (result.gsdVersionSkew.length > 0) {
+    output.appendLine(`Version skew (expected ${result.gsdVersion}): ${result.gsdVersionSkew.map((p) => `${p.name}@${p.version}`).join(", ")}`);
+  }
 
   if (result.authProviders.length > 0) {
     output.appendLine("Providers:");
@@ -299,4 +333,98 @@ async function resolveGsdVersion(gsdPath: string): Promise<string | null> {
     }
   } catch { /* ignored */ }
   return null;
+}
+
+/** npm scopes whose packages ship in lockstep with the gsd-pi release train. */
+const GSD_FAMILY_SCOPES = ["@gsd", "@gsd-build", "@opengsd"];
+
+/**
+ * GSD-family packages that legitimately version independently of gsd-pi and so
+ * must NOT be treated as skew. `@opengsd/gsd-pi` is the reference version itself;
+ * `@opengsd/gsd-browser` ships on its own (0.x) cadence.
+ */
+const SKEW_DENYLIST = new Set(["@opengsd/gsd-pi", "gsd-pi", "@opengsd/gsd-browser"]);
+
+function isGsdFamilyPackage(name: string): boolean {
+  return GSD_FAMILY_SCOPES.some((scope) => name.startsWith(`${scope}/`));
+}
+
+/**
+ * Locate the gsd-pi package directory (the one containing its package.json) by
+ * walking up from the resolved binary, mirroring resolveGsdVersion's search.
+ * Returns the package dir, or null if not found.
+ */
+async function resolveGsdInstallRoot(gsdPath: string): Promise<string | null> {
+  const packageNames = ["@opengsd/gsd-pi", "gsd-pi"];
+  let dir = path.dirname(gsdPath);
+  for (let i = 0; i < 4; i++) {
+    for (const pkg of packageNames) {
+      const pkgDir = path.join(dir, "node_modules", ...pkg.split("/"));
+      try {
+        await fs.promises.access(path.join(pkgDir, "package.json"));
+        return pkgDir;
+      } catch { /* not here — keep walking */ }
+    }
+    dir = path.dirname(dir);
+  }
+  return null;
+}
+
+/**
+ * Collect name→version for every GSD-family package bundled under the gsd-pi
+ * install. Scans both layouts that gsd-pi has shipped: scoped dirs under
+ * `<root>/node_modules/{@gsd,@gsd-build,@opengsd}/*` and a flat `<root>/packages/*`.
+ * Best-effort: unreadable or missing dirs are skipped.
+ */
+async function collectGsdPackageVersions(pkgRoot: string): Promise<Map<string, string>> {
+  const versions = new Map<string, string>();
+
+  const readPkg = async (pkgJsonPath: string): Promise<void> => {
+    try {
+      const parsed = JSON.parse(await fs.promises.readFile(pkgJsonPath, "utf8"));
+      if (parsed.name && parsed.version) versions.set(parsed.name, parsed.version);
+    } catch { /* missing/unreadable — skip */ }
+  };
+
+  // Layout 1: scoped packages under the install's node_modules
+  const nodeModules = path.join(pkgRoot, "node_modules");
+  for (const scope of GSD_FAMILY_SCOPES) {
+    const scopeDir = path.join(nodeModules, scope);
+    let entries: string[];
+    try {
+      entries = await fs.promises.readdir(scopeDir);
+    } catch { continue; }
+    for (const name of entries) {
+      await readPkg(path.join(scopeDir, name, "package.json"));
+    }
+  }
+
+  // Layout 2: monorepo-style bundled packages/<name>
+  let pkgEntries: string[] = [];
+  try {
+    pkgEntries = await fs.promises.readdir(path.join(pkgRoot, "packages"));
+  } catch { /* no packages dir — fine */ }
+  for (const name of pkgEntries) {
+    await readPkg(path.join(pkgRoot, "packages", name, "package.json"));
+  }
+
+  return versions;
+}
+
+/**
+ * Pure skew check: return every GSD-family package whose version differs from
+ * the top-level gsd-pi version, ignoring the denylist. An empty result means a
+ * uniform (healthy) install.
+ */
+export function detectVersionSkew(
+  pkgVersions: Map<string, string>,
+  topVersion: string,
+): VersionSkew[] {
+  const skew: VersionSkew[] = [];
+  for (const [name, version] of pkgVersions) {
+    if (SKEW_DENYLIST.has(name)) continue;
+    if (!isGsdFamilyPackage(name)) continue;
+    if (version !== topVersion) skew.push({ name, version });
+  }
+  return skew;
 }
