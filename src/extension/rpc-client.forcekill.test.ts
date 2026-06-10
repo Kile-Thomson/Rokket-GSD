@@ -35,6 +35,7 @@ describe("GsdRpcClient.forceKillSync", () => {
 
   it("issues a blocking taskkill /F /T for the pid on win32", () => {
     Object.defineProperty(process, "platform", { value: "win32", configurable: true });
+    spawnSyncMock.mockReturnValue({ status: 0, error: undefined });
     const client = new GsdRpcClient();
     setPid(client, 4242);
 
@@ -44,8 +45,20 @@ describe("GsdRpcClient.forceKillSync", () => {
     expect(spawnSyncMock).toHaveBeenCalledWith(
       "taskkill",
       ["/F", "/T", "/PID", "4242"],
-      expect.objectContaining({ windowsHide: true, stdio: "ignore" }),
+      expect.objectContaining({ windowsHide: true, stdio: "ignore", timeout: expect.any(Number) }),
     );
+  });
+
+  it("logs when taskkill exits non-zero on win32 (spawnSync does not throw)", () => {
+    Object.defineProperty(process, "platform", { value: "win32", configurable: true });
+    spawnSyncMock.mockReturnValue({ status: 128, error: undefined });
+    const client = new GsdRpcClient();
+    const logs: string[] = [];
+    client.on("log", (msg: string) => logs.push(msg));
+    setPid(client, 4242);
+
+    expect(() => client.forceKillSync()).not.toThrow();
+    expect(logs.some((m) => m.includes("taskkill failed") && m.includes("128"))).toBe(true);
   });
 
   it("does not use taskkill on non-win32 platforms", () => {

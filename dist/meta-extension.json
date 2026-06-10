@@ -22,7 +22,7 @@
       "format": "esm"
     },
     "src/extension/rpc-client.ts": {
-      "bytes": 32675,
+      "bytes": 33103,
       "imports": [
         {
           "path": "child_process",
@@ -1020,7 +1020,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 757387
+      "bytes": 758006
     },
     "dist/extension.js": {
       "imports": [
@@ -1390,7 +1390,7 @@
           "bytesInOutput": 20311
         },
         "src/extension/rpc-client.ts": {
-          "bytesInOutput": 10489
+          "bytesInOutput": 10666
         },
         "src/extension/shell-env.ts": {
           "bytesInOutput": 1393
@@ -1510,7 +1510,7 @@
           "bytesInOutput": 107
         }
       },
-      "bytes": 197989
+      "bytes": 198166
     }
   }
 }
