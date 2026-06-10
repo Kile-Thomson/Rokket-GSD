@@ -552,10 +552,17 @@ export class GsdRpcClient extends EventEmitter {
       // taskkill /F (force) /T (tree). spawnSync blocks until taskkill exits,
       // so the file locks are gone by the time we return.
       try {
-        spawnSync("taskkill", ["/F", "/T", "/PID", String(pid)], {
+        const res = spawnSync("taskkill", ["/F", "/T", "/PID", String(pid)], {
           stdio: "ignore",
           windowsHide: true,
+          timeout: EXEC_TIMEOUT_MS,
         });
+        // spawnSync reports non-zero exits via the result, not by throwing —
+        // surface them so a failed reap isn't swallowed silently.
+        if (res.error || res.status !== 0) {
+          const msg = res.error?.message ?? `exit status ${res.status}`;
+          this.emit("log", `[rpc-client] forceKillSync: taskkill failed for PID ${pid}: ${msg}`);
+        }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         this.emit("log", `[rpc-client] forceKillSync: taskkill failed for PID ${pid}: ${msg}`);
