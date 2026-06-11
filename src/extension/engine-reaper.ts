@@ -47,6 +47,7 @@ const RPC_MARKER = /--mode\s+rpc/i;
 const PACKAGE_MARKER = /gsd-pi/i;
 const LOADER_MARKER = /loader\.js/i;
 
+/** True if a command line is a gsd-pi RPC engine (gsd-pi + loader.js + --mode rpc). */
 function isGsdRpcEngine(cmd: string): boolean {
   return RPC_MARKER.test(cmd) && PACKAGE_MARKER.test(cmd) && LOADER_MARKER.test(cmd);
 }
@@ -96,6 +97,7 @@ export function defaultKillTree(pid: number): boolean {
   }
 }
 
+/** Enumerate all node.exe processes on Windows (pid, ppid, command line) via Win32_Process. */
 function listWindowsNodeProcesses(): EngineProc[] {
   const res = spawnSync(
     "powershell",
@@ -127,6 +129,7 @@ function listWindowsNodeProcesses(): EngineProc[] {
     .filter((p) => Number.isInteger(p.pid) && p.pid > 0);
 }
 
+/** Enumerate all processes on POSIX (pid, ppid, command line) via `ps`. */
 function listPosixNodeProcesses(): EngineProc[] {
   // pid=, ppid=, args= with empty headers gives a stable, header-less table.
   const res = spawnSync("ps", ["-eo", "pid=,ppid=,args="], {
