@@ -979,7 +979,7 @@
       "format": "esm"
     },
     "src/extension/engine-reaper.ts": {
-      "bytes": 7090,
+      "bytes": 9011,
       "imports": [
         {
           "path": "child_process",
@@ -1036,7 +1036,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 769080
+      "bytes": 771386
     },
     "dist/extension.js": {
       "imports": [
@@ -1531,10 +1531,10 @@
           "bytesInOutput": 107
         },
         "src/extension/engine-reaper.ts": {
-          "bytesInOutput": 2251
+          "bytesInOutput": 2534
         }
       },
-      "bytes": 200440
+      "bytes": 200723
     }
   }
 }

@@ -12,6 +12,7 @@ function makeDeps(
     isAlive: (pid) => alivePids.includes(pid),
     killTree: (pid) => {
       killed.push(pid);
+      return true;
     },
   };
   return { deps, killed };
@@ -46,6 +47,7 @@ describe("reapOrphanEngines", () => {
       [
         { pid: 300, ppid: 9999, cmd: "node some-other-app.js --mode rpc" }, // not gsd-pi
         { pid: 301, ppid: 9999, cmd: "node ...gsd-pi/dist/loader.js" }, // gsd-pi but not --mode rpc
+        { pid: 302, ppid: 9999, cmd: "node /opt/other/loader.js --mode rpc" }, // loader.js + rpc but not gsd-pi
       ],
       [],
     );
@@ -74,7 +76,7 @@ describe("reapOrphanEngines", () => {
         throw new Error("powershell unavailable");
       },
       isAlive: () => false,
-      killTree: vi.fn(),
+      killTree: vi.fn(() => true),
     };
     expect(reapOrphanEngines(deps)).toEqual([]);
     expect(deps.killTree).not.toHaveBeenCalled();
@@ -91,10 +93,24 @@ describe("reapOrphanEngines", () => {
       killTree: (pid) => {
         if (pid === 100) throw new Error("access denied");
         killed.push(pid);
+        return true;
       },
     };
     const reaped = reapOrphanEngines(deps);
     expect(reaped).toEqual([300]);
     expect(killed).toEqual([300]);
+  });
+
+  it("does not report a pid as reaped when the kill fails (returns false)", () => {
+    const deps: ReaperDeps = {
+      list: () => [
+        { pid: 100, ppid: 9999, cmd: GSD_CMD }, // kill fails
+        { pid: 300, ppid: 8888, cmd: GSD_CMD }, // kill succeeds
+      ],
+      isAlive: () => false,
+      killTree: (pid) => pid !== 100,
+    };
+    const reaped = reapOrphanEngines(deps);
+    expect(reaped).toEqual([300]);
   });
 });
