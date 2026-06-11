@@ -978,8 +978,19 @@
       "imports": [],
       "format": "esm"
     },
+    "src/extension/engine-reaper.ts": {
+      "bytes": 7090,
+      "imports": [
+        {
+          "path": "child_process",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
     "src/extension/index.ts": {
-      "bytes": 6474,
+      "bytes": 7063,
       "imports": [
         {
           "path": "vscode",
@@ -1010,6 +1021,11 @@
           "path": "src/extension/openai/config.ts",
           "kind": "import-statement",
           "original": "./openai/config"
+        },
+        {
+          "path": "src/extension/engine-reaper.ts",
+          "kind": "import-statement",
+          "original": "./engine-reaper"
         }
       ],
       "format": "esm"
@@ -1020,7 +1036,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 758006
+      "bytes": 769080
     },
     "dist/extension.js": {
       "imports": [
@@ -1378,13 +1394,18 @@
           "path": "vscode",
           "kind": "require-call",
           "external": true
+        },
+        {
+          "path": "child_process",
+          "kind": "require-call",
+          "external": true
         }
       ],
       "exports": [],
       "entryPoint": "src/extension/index.ts",
       "inputs": {
         "src/extension/index.ts": {
-          "bytesInOutput": 3374
+          "bytesInOutput": 3397
         },
         "src/extension/webview-provider.ts": {
           "bytesInOutput": 20311
@@ -1508,9 +1529,12 @@
         },
         "src/extension/openai/config.ts": {
           "bytesInOutput": 107
+        },
+        "src/extension/engine-reaper.ts": {
+          "bytesInOutput": 2251
         }
       },
-      "bytes": 198166
+      "bytes": 200440
     }
   }
 }

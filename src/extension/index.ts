@@ -4,6 +4,7 @@ import { startUpdateChecker } from "./update-checker";
 import { runHealthCheck } from "./health-check";
 import { runTelegramSetup, updateTelegramStatusBar } from "./telegram/setup";
 import { getOpenAiApiKey, setOpenAiApiKey } from "./openai/config";
+import { reapOrphanEnginesOnStartup } from "./engine-reaper";
 
 // ============================================================
 // Extension Entry Point
@@ -17,6 +18,14 @@ export function activate(context: vscode.ExtensionContext): void {
   outputChannel = vscode.window.createOutputChannel("GSD");
   const output = outputChannel;
   output.appendLine("GSD extension activating...");
+
+  // Reap any gsd-pi engine orphaned by a previous host (e.g. Reload Window,
+  // which kills the host without running deactivate). Without this, the new
+  // host reconnects to the stale engine and keeps running its old provider
+  // code — the cause of "patched the engine / rebuilt the VSIX / restarted but
+  // nothing changed" loops. Runs off-thread; the fresh engine spawned by the
+  // webview is parented to this live host and is never reaped.
+  reapOrphanEnginesOnStartup((msg) => output.appendLine(msg));
 
   provider = new GsdWebviewProvider(context.extensionUri, context);
 
