@@ -4,6 +4,11 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.84] — 2026-06-11
+
+### Fixed
+- **Stale engine after Reload Window** — reloading the window (rather than fully quitting VS Code) could leave the previous gsd-pi engine running as an orphan, and the new window would reconnect to it. The session then kept running the old engine's code, so an updated extension or engine appeared to "do nothing" until the whole app was quit. The extension now detects and kills these orphaned engines on startup, so a reload always lands on a freshly spawned engine. Engines belonging to other open windows are left untouched.
+
 ## [0.3.81] — 2026-06-01
 
 ### Added
