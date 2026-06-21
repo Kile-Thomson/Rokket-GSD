@@ -233,7 +233,7 @@ root.innerHTML = `
 ╚██████╔╝███████║██████╔╝
  ╚═════╝ ╚══════╝╚═════╝</pre>
         </div>
-        <div class="gsd-welcome-title">Get Shit Done</div>
+        <div class="gsd-welcome-title">Git Ship Done</div>
         <div class="gsd-welcome-sub" id="welcomeProcess">Initializing...</div>
         <div class="gsd-welcome-model" id="welcomeModel"></div>
         <div class="gsd-welcome-hints gsd-hidden" id="welcomeHints"></div>
