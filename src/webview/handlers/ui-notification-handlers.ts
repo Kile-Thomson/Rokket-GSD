@@ -12,7 +12,6 @@ import {
 import {
   TOAST_MEDIUM_DURATION_MS,
   TOAST_LONG_DURATION_MS,
-  NOTE_AUTO_DISMISS_MS,
   CSS_ANIMATION_SETTLE_MS,
 } from "../../shared/constants";
 import { state } from "../state";
@@ -27,7 +26,6 @@ import { setChangelogHandlers, getChangelogTriggerEl, dismissChangelog } from ".
 import {
   getDeps,
   addSystemEntry,
-  removeSteerNotes,
   resetDerivedSessionTracking,
   getGsdApp,
   getSettingsDropdown,
@@ -128,7 +126,6 @@ export function handleSessionShutdown(): void {
   if (state.currentTurn) {
     renderer.finalizeCurrentTurn();
   }
-  removeSteerNotes();
   addSystemEntry("Session ended", "info");
   deps.updateInputUI();
   deps.updateOverlayIndicators();
@@ -138,14 +135,6 @@ export function handleExtensionError(msg: Msg<'extension_error'>): void {
   const extError = msg.error || "unknown error";
   addSystemEntry(`Command error: ${extError}`, "error");
   announceToScreenReader(`Error: ${extError}`);
-}
-
-export function handleSteerPersisted(): void {
-  const note = document.querySelector(".gsd-steer-note");
-  if (note) {
-    note.textContent = "⚡ Override saved — applies to current and future tasks";
-    setTimeout(() => note.isConnected && note.remove(), NOTE_AUTO_DISMISS_MS);
-  }
 }
 
 export function handleExtensionUiRequest(msg: Msg<'extension_ui_request'>): void {
@@ -177,7 +166,6 @@ export function handleBashResult(msg: Msg<'bash_result'>): void {
 }
 
 export function handleError(msg: Msg<'error'>): void {
-  removeSteerNotes();
   addSystemEntry(msg.message, "error");
   announceToScreenReader(`Error: ${msg.message}`);
 }
@@ -190,7 +178,6 @@ export function handleProcessExit(msg: Msg<'process_exit'>): void {
   state.isRetrying = false;
   state.processHealth = "responsive";
   state.currentTurn = null;
-  removeSteerNotes();
   autoProgress.update(null);
   if (uiDialogs.hasPending()) {
     uiDialogs.expireAllPending("Process exited");

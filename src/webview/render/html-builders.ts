@@ -56,7 +56,6 @@ export function createEntryElement(entry: ChatEntry): HTMLElement {
 
   if (entry.type === "user") {
     el.innerHTML = buildUserHtml(entry);
-    if (entry.isSteer) el.dataset.steer = "true";
   } else if (entry.type === "assistant" && entry.turn) {
     if (entry.turn.isStaleEcho) {
       el.classList.add("gsd-stale-echo");

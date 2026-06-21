@@ -56,8 +56,8 @@ Full GSD workflow from a single `/` keystroke
 🧠 **Model Picker**<br>
 Grouped by provider with context size and reasoning tags
 
-🎯 **Steer While Streaming**<br>
-Redirect the agent mid-task without waiting
+💬 **Queue Follow-Ups While Streaming**<br>
+Type while the agent works — your message runs after the current turn
 
 🎨 **Four UI Themes**<br>
 Classic, Phosphor, Clarity, and Forge
@@ -242,7 +242,6 @@ Type `/` to open the command palette with 59+ commands:
 | `/gsd help` | Categorized command reference |
 | `/gsd changelog` | Show categorized release notes |
 | `/gsd capture` | Capture a thought during auto-mode |
-| `/gsd steer` | Redirect auto-mode priorities |
 | `/gsd triage` | Manually trigger triage of pending captures |
 | `/gsd knowledge` | View or add to project knowledge base |
 | `/gsd queue` | Queue and reorder future milestones |
@@ -318,8 +317,7 @@ Type `/` to open the command palette with 59+ commands:
 - **File attachments** via button, drag-and-drop, or paste with type-specific icons and removable chips
 - **Message timestamps** with relative times that update live and absolute times on hover
 - **Thinking blocks** collapsed by default with line count indicator, expanded during streaming
-- **Steer while streaming** to redirect the agent mid-task without stopping it
-- **Steer persistence** — messages sent during auto-mode are saved to `OVERRIDES.md` and apply to all future tasks, not just the current turn
+- **Queue follow-ups while streaming** — type while the agent is working and your message runs after the current turn completes
 - **Drag-to-resize input area** for longer messages
 - **`!command` shortcut** to run bash commands directly without the agent
 
@@ -390,7 +388,7 @@ When the agent launches a Claude Code workflow that fans out parallel sub-agents
 
 **Run your agent from anywhere.** Connect a Telegram bot once and your editor session becomes a two-way remote: read what the agent is doing, reply with new instructions, and kick off whole projects — all from your phone, away from the desk. Long auto-mode runs no longer pin you to the keyboard.
 
-- **Two-way control, not just a feed** — assistant responses stream to your Telegram group in real time, and anything you send back is injected straight into the live session as a prompt. Steer, answer questions, or redirect the agent without touching the keyboard.
+- **Two-way control, not just a feed** — assistant responses stream to your Telegram group in real time, and anything you send back is injected straight into the live session as a prompt. Redirect work, answer questions, or queue follow-ups without touching the keyboard.
 - **Talk to it** — record a Telegram voice message and it's transcribed (OpenAI Whisper) and sent as a prompt, so you can brief the agent hands-free.
 - **Send pictures** — photos shared in the chat are forwarded to the agent as image attachments (screenshots, mockups, error dialogs).
 - **Launch projects by name** — message something like *"launch rokketdocs"* from the general chat and the bot finds the project across your configured directories, opens it in VS Code, and wires up the relay automatically. Numbered picker resolves multiple matches.
@@ -419,7 +417,7 @@ When the agent launches a Claude Code workflow that fans out parallel sub-agents
 
 | Shortcut | Action |
 |----------|--------|
-| `Enter` | Send message (or steer while agent is working) |
+| `Enter` | Send message (or queue a follow-up while agent is working) |
 | `Esc` | Stop the agent |
 | `Ctrl+Shift+G` | Focus the GSD input from anywhere in VS Code |
 | `Ctrl+Shift+N` | New conversation (when GSD is focused) |

@@ -213,7 +213,7 @@ export function updateInputUI(): void {
     sendIcon.textContent = "■";
     sendBtn.classList.add("gsd-stop-btn");
     sendBtn.title = "Stop (Esc)";
-    promptInput.placeholder = "Interrupt or steer GSD...";
+    promptInput.placeholder = "Queue a follow-up or Esc to stop...";
   } else {
     (sendBtn as HTMLButtonElement).disabled = false;
     promptInput.disabled = false;
@@ -226,7 +226,7 @@ export function updateInputUI(): void {
   const sendKey = state.useCtrlEnterToSend ? "Ctrl+Enter" : "Enter";
   if (!state.isCompacting) {
     if (state.isStreaming) {
-      inputHint.textContent = `${sendKey} to steer • Esc to stop`;
+      inputHint.textContent = `${sendKey} to queue follow-up • Esc to stop`;
     } else {
       inputHint.textContent = `${sendKey} to send • !cmd for bash • / for commands`;
     }

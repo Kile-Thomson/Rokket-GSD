@@ -724,7 +724,7 @@ function sendMessage(): void {
   slashMenu.hide();
   modelPicker.hide();
 
-  // Debounce rapid double-clicks (skip guard during streaming — steer path must stay responsive)
+  // Debounce rapid double-clicks (skip guard during streaming — follow-up path must stay responsive)
   if (!state.isStreaming && shouldDebounce()) return;
 
   // Block sending during compaction
@@ -791,8 +791,9 @@ function sendMessage(): void {
     return;
   }
 
-  // If streaming — steer (but slash commands always go as prompt so
-  // the extension host can abort-and-resend reliably)
+  // If streaming — queue as a follow-up that runs after the current turn
+  // (slash commands always go as prompt so the extension host can
+  // abort-and-resend reliably).
   const isSlashCommand = text.startsWith("/");
   if (state.isStreaming && !isSlashCommand) {
     state.entries.push({
@@ -800,7 +801,6 @@ function sendMessage(): void {
       type: "user",
       text,
       images: state.images.length > 0 ? [...state.images] : undefined,
-      isSteer: true,
       timestamp: Date.now(),
     });
     pruneOldEntries(messagesContainer);
@@ -809,18 +809,8 @@ function sendMessage(): void {
     renderer.splitTurnForUserMessage();
     scrollToBottom(messagesContainer, true);
 
-    // Show steer note (only one at a time)
-    const existingNote = messagesContainer.querySelector(".gsd-steer-note");
-    if (!existingNote) {
-      const steerNote = document.createElement("div");
-      steerNote.className = "gsd-steer-note";
-      steerNote.textContent = "⚡ Redirecting agent...";
-      messagesContainer.appendChild(steerNote);
-    }
-    scrollToBottom(messagesContainer, true);
-
     vscode.postMessage({
-      type: "steer",
+      type: "follow_up",
       message: text,
       images: state.images.length > 0 ? [...state.images] : undefined,
     } as WebviewToExtensionMessage);
