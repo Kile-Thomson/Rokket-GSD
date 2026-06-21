@@ -801,6 +801,7 @@ function sendMessage(): void {
       type: "user",
       text,
       images: state.images.length > 0 ? [...state.images] : undefined,
+      files: state.files.length > 0 ? [...state.files] : undefined,
       timestamp: Date.now(),
     });
     pruneOldEntries(messagesContainer);
@@ -809,16 +810,20 @@ function sendMessage(): void {
     renderer.splitTurnForUserMessage();
     scrollToBottom(messagesContainer, true);
 
+    // Attached files travel in the message text via filePrefix (the follow_up
+    // wire shape has no files field), mirroring the normal-send path.
     vscode.postMessage({
       type: "follow_up",
-      message: text,
+      message: filePrefix + text,
       images: state.images.length > 0 ? [...state.images] : undefined,
     } as WebviewToExtensionMessage);
 
     promptInput.value = "";
     state.images = [];
+    state.files = [];
     persistAttachments();
     fileHandling.renderImagePreviews();
+    fileHandling.renderFileChips();
     autoResize();
     return;
   }

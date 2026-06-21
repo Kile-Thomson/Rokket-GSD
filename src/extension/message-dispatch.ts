@@ -285,7 +285,8 @@ export async function handleWebviewMessage(
                     await c.followUp(msg.message, imgs);
                   }
                 } catch (followUpErr: any) {
-                  ctx.postToWebview(webview, { type: "error", message: followUpErr.message });
+                  const followUpMsg = followUpErr instanceof Error ? followUpErr.message : String(followUpErr);
+                  ctx.postToWebview(webview, { type: "error", message: followUpMsg });
                 }
               } else if (err.message?.includes("process exited")) {
                 ctx.postToWebview(webview, {

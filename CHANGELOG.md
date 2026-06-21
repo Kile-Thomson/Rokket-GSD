@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Fixed
 - **Welcome splash wording** — the welcome screen's title now reads "Git Ship Done" instead of the legacy "Get Shit Done", matching the current GSD branding.
 
+### Changed
+- **Mid-stream input is now a follow-up** — removed the non-functional "steer" feature (it silently dropped messages when no agent turn was active to consume them). Typing while the agent is busy now queues your message as a standard follow-up that runs after the current turn completes.
+
 ## [0.3.84] — 2026-06-11
 
 ### Fixed
