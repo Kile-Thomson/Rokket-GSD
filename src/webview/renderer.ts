@@ -117,8 +117,6 @@ function stopElapsedTimer(): void {
 export function clearMessages(): void {
   const els = messagesContainer.querySelectorAll(".gsd-entry");
   els.forEach((el) => el.remove());
-  // Also clean up steer notes that live outside entries
-  messagesContainer.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
   // Remove pruned-entries indicator
   messagesContainer.querySelector(".gsd-pruned-indicator")?.remove();
   resetAutoScroll();
@@ -166,7 +164,7 @@ function removePendingDotsFromContainer(container: HTMLElement): void {
 
 /**
  * Split the current streaming turn at the user message boundary.
- * Called when the user sends a steer while the LLM is streaming —
+ * Called when the user queues a follow-up while the LLM is streaming —
  * preserves existing content in place and creates a fresh continuation
  * element so subsequent streamed content appears after the user message.
  */

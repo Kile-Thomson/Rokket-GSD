@@ -92,7 +92,7 @@ User sees streaming response
 
 **Webview → Extension (WebviewToExtensionMessage):**
 - `prompt` — user sends a message
-- `steer` / `follow_up` — mid-stream steering or follow-up
+- `follow_up` — queue a message that runs after the current turn
 - `interrupt` / `cancel_request` — abort current generation
 - `new_conversation` / `switch_session` / `fork_conversation` — session management
 - `set_model` / `set_thinking_level` — model configuration
@@ -315,8 +315,7 @@ The extension host writes requests to the child process's stdin and reads respon
 | Method | Parameters | Description |
 |---|---|---|
 | `prompt` | `{ message, images?, streamingBehavior? }` | Send a user prompt; triggers streaming response |
-| `steer` | `{ message, images? }` | Steer the agent mid-stream (interrupts current generation) |
-| `followUp` | `{ message, images? }` | Send a follow-up without interrupting |
+| `followUp` | `{ message, images? }` | Queue a message that runs after the current turn |
 | `abort` | `{}` | Abort the current streaming response |
 | `getState` | `{}` | Get current agent state (model, streaming status, session info) |
 | `getMessages` | `{}` | Get all messages in the current session |
@@ -332,7 +331,6 @@ The extension host writes requests to the child process's stdin and reads respon
 | `setAutoCompaction` | `{ enabled }` | Toggle auto-compaction |
 | `setAutoRetry` | `{ enabled }` | Toggle auto-retry on errors |
 | `abortRetry` | `{}` | Cancel pending auto-retry |
-| `setSteeringMode` | `{ mode }` | Set steering mode (`all` \| `one-at-a-time`) |
 | `setFollowUpMode` | `{ mode }` | Set follow-up mode (`all` \| `one-at-a-time`) |
 | `getCommands` | `{}` | Get available slash commands |
 | `getAvailableModels` | `{}` | Get available models from all providers |
@@ -400,7 +398,7 @@ ui-updates.ts  ──  updates header, footer, input area based on GsdState fiel
 - `sessionFile` / `sessionId` / `sessionName` — session identity
 - `messageCount` / `pendingMessageCount` — message counters
 - `autoCompactionEnabled` — auto-compaction toggle
-- `steeringMode` / `followUpMode` — interaction modes
+- `followUpMode` — follow-up delivery mode
 
 ### Streaming Message Flow: Events → TurnSegments → DOM
 

@@ -9,7 +9,6 @@ import {
   getDeps,
   setLastMessageUsage,
   getHasCostUpdateSource,
-  removeSteerNotes,
   resolveContextWindow,
   addSystemEntry,
   confirmBackendActive,
@@ -24,7 +23,6 @@ export function handleAgentStart(msg: Msg<'agent_start'>): void {
   }
   confirmBackendActive();
   state.isStreaming = true;
-  removeSteerNotes();
   const { updateInputUI } = getDeps();
   const isContinuation = !!msg.isContinuation && state.currentTurn === null;
   const lastEntry = state.entries[state.entries.length - 1];
@@ -59,7 +57,6 @@ export function handleAgentEnd(_msg: Msg<'agent_end'>): void {
   if (uiDialogs.hasPending()) {
     uiDialogs.expireAllPending("Agent finished");
   }
-  removeSteerNotes();
   renderer.finalizeCurrentTurn();
   const { updateInputUI, updateOverlayIndicators, vscode } = getDeps();
   updateInputUI();
@@ -85,7 +82,6 @@ export function handleTurnEnd(_msg: Msg<'turn_end'>): void {
 }
 
 export function handleMessageStart(_msg: Msg<'message_start'>): void {
-  removeSteerNotes();
   setLastMessageUsage(null);
 }
 
@@ -99,8 +95,6 @@ export function handleMessageUpdate(msg: Msg<'message_update'>): void {
 
   if (delta.type === "text_delta" && delta.delta) {
     const text = delta.delta as string;
-
-    removeSteerNotes();
     renderer.appendToTextSegment("text", text);
   } else if (delta.type === "thinking_delta" && delta.delta) {
     if (!state.thinkingLevel) {
