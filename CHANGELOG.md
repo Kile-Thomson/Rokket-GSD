@@ -4,6 +4,11 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.85] — 2026-06-21
+
+### Fixed
+- **Welcome splash wording** — the welcome screen's title now reads "Git Ship Done" instead of the legacy "Get Shit Done", matching the current GSD branding.
+
 ## [0.3.84] — 2026-06-11
 
 ### Fixed
