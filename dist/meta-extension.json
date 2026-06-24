@@ -1,7 +1,7 @@
 {
   "inputs": {
     "src/shared/constants.ts": {
-      "bytes": 4733,
+      "bytes": 4689,
       "imports": [],
       "format": "esm"
     },
@@ -22,7 +22,7 @@
       "format": "esm"
     },
     "src/extension/rpc-client.ts": {
-      "bytes": 33103,
+      "bytes": 32332,
       "imports": [
         {
           "path": "child_process",
@@ -318,7 +318,7 @@
       "format": "esm"
     },
     "src/shared/types.ts": {
-      "bytes": 27439,
+      "bytes": 27152,
       "imports": [],
       "format": "esm"
     },
@@ -490,7 +490,7 @@
       "format": "esm"
     },
     "src/extension/message-dispatch.ts": {
-      "bytes": 50172,
+      "bytes": 45735,
       "imports": [
         {
           "path": "vscode",
@@ -536,16 +536,6 @@
           "path": "src/extension/file-ops.ts",
           "kind": "import-statement",
           "original": "./file-ops"
-        },
-        {
-          "path": "node:fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:path",
-          "kind": "import-statement",
-          "external": true
         }
       ],
       "format": "esm"
@@ -979,7 +969,7 @@
       "format": "esm"
     },
     "src/extension/engine-reaper.ts": {
-      "bytes": 9271,
+      "bytes": 9508,
       "imports": [
         {
           "path": "child_process",
@@ -1036,7 +1026,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 771649
+      "bytes": 764228
     },
     "dist/extension.js": {
       "imports": [
@@ -1281,16 +1271,6 @@
           "external": true
         },
         {
-          "path": "node:fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "node:path",
-          "kind": "require-call",
-          "external": true
-        },
-        {
           "path": "net",
           "kind": "require-call",
           "external": true
@@ -1411,7 +1391,7 @@
           "bytesInOutput": 20311
         },
         "src/extension/rpc-client.ts": {
-          "bytesInOutput": 10666
+          "bytesInOutput": 10469
         },
         "src/extension/shell-env.ts": {
           "bytesInOutput": 1393
@@ -1450,7 +1430,7 @@
           "bytesInOutput": 1643
         },
         "src/shared/types.ts": {
-          "bytesInOutput": 548
+          "bytesInOutput": 520
         },
         "src/extension/watchdogs.ts": {
           "bytesInOutput": 3213
@@ -1462,7 +1442,7 @@
           "bytesInOutput": 1051
         },
         "src/extension/message-dispatch.ts": {
-          "bytesInOutput": 20498
+          "bytesInOutput": 18681
         },
         "src/extension/session-list-service.ts": {
           "bytesInOutput": 2191
@@ -1534,7 +1514,7 @@
           "bytesInOutput": 2534
         }
       },
-      "bytes": 200723
+      "bytes": 198681
     }
   }
 }

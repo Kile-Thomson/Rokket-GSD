@@ -437,7 +437,6 @@ function handleMessage(event: MessageEvent): void {
         renderer.ensureCurrentTurnElement();
         announceToScreenReader("Assistant is responding...");
       }
-      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
       break;
     }
 
@@ -453,7 +452,6 @@ function handleMessage(event: MessageEvent): void {
       if (uiDialogs.hasPending()) {
         uiDialogs.expireAllPending("Agent finished");
       }
-      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
       renderer.finalizeCurrentTurn();
       updateInputUI();
       updateOverlayIndicators();
@@ -480,10 +478,6 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "message_start": {
-      // Clear steer note — new LLM response means the steer was consumed
-      // or is queued for the next tool boundary. Either way, "Redirecting
-      // agent..." is no longer accurate once new content is flowing.
-      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
       _lastMessageUsage = null;
 
       // gsd-pi 1.0+ sends custom display messages (e.g. gsd-command-block)
@@ -505,13 +499,6 @@ function handleMessage(event: MessageEvent): void {
       if (delta) {
         if (delta.type === "text_delta" && delta.delta) {
           const text = delta.delta as string;
-
-          // Clear steer note on first text output — the agent is producing
-          // content, so the steer has been consumed (or will be at the next
-          // tool boundary). This catches cases where message_start fired
-          // before the steer was sent, and no new message_start follows.
-          const steerNote = messagesContainer.querySelector(".gsd-steer-note");
-          if (steerNote) steerNote.remove();
           renderer.appendToTextSegment("text", text);
         } else if (delta.type === "thinking_delta" && delta.delta) {
           // Detect thinking blocks — if we see one, thinking is active.
@@ -1060,18 +1047,6 @@ function handleMessage(event: MessageEvent): void {
       break;
     }
 
-    case "steer_persisted": {
-      // Update the steer note to reflect durability, then auto-remove after 4s.
-      // During auto-mode, no agent_start/agent_end fires between tasks, so
-      // the note has no natural removal signal. The timeout ensures it clears.
-      const note = document.querySelector(".gsd-steer-note");
-      if (note) {
-        note.textContent = "⚡ Override saved — applies to current and future tasks";
-        setTimeout(() => note.remove(), 4000);
-      }
-      break;
-    }
-
     case "extension_ui_request": {
       const data = msg;
       if (data.method === "notify" && data.message) {
@@ -1159,9 +1134,6 @@ function handleMessage(event: MessageEvent): void {
 
     case "error": {
       const data = msg;
-      // Clear steer note — if the steer RPC failed, the "Redirecting agent..."
-      // indicator would otherwise stay forever since no agent_start will follow.
-      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
       addSystemEntry(data.message, "error");
       break;
     }
@@ -1173,8 +1145,6 @@ function handleMessage(event: MessageEvent): void {
       state.isRetrying = false;
       state.processHealth = "responsive";
       state.currentTurn = null;
-      // Clear steer note — process is gone, the steer won't be delivered
-      document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
       // Clear auto-progress — process is gone
       autoProgress.update(null);
       // Expire any pending dialogs — the process is gone

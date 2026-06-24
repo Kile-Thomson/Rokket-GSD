@@ -1,6 +1,4 @@
 import * as vscode from "vscode";
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { toErrorMessage } from "../../shared/errors";
 import {
   startPromptWatchdog,
@@ -36,43 +34,6 @@ export function sanitizeImages(
     .filter((img) => typeof img.data === "string" && img.data.length > 0 && ALLOWED_IMAGE_MIME.has(img.mimeType))
     .map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
   return valid.length > 0 ? valid : undefined;
-}
-
-// ── Override file persistence ────────────────────────────────────────────
-
-async function appendOverrideFile(cwd: string, change: string): Promise<void> {
-  const gsdDir = path.join(cwd, ".gsd");
-  const overridesPath = path.join(gsdDir, "OVERRIDES.md");
-  const timestamp = new Date().toISOString();
-  const entry = [
-    "",
-    `## Override: ${timestamp}`,
-    "",
-    `**Change:** ${change}`,
-    `**Scope:** active`,
-    `**Applied-at:** auto-mode/steer`,
-    "",
-    "---",
-    "",
-  ].join("\n");
-
-  await fs.promises.mkdir(gsdDir, { recursive: true });
-
-  const header = [
-    "# GSD Overrides",
-    "",
-    "User-issued overrides that supersede plan document content.",
-    "",
-    "---",
-  ].join("\n");
-
-  try {
-    await fs.promises.writeFile(overridesPath, header, { encoding: "utf-8", flag: "wx" });
-  } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
-  }
-
-  await fs.promises.appendFile(overridesPath, entry, "utf-8");
 }
 
 // ── Watchdog cleanup ────────────────────────────────────────────────────
@@ -178,8 +139,8 @@ export async function handlePrompt(
           } else {
             await c.followUp(msg.message, imgs);
           }
-        } catch (steerErr: unknown) {
-          ctx.postToWebview(webview, { type: "error", message: toErrorMessage(steerErr) });
+        } catch (followUpErr: unknown) {
+          ctx.postToWebview(webview, { type: "error", message: toErrorMessage(followUpErr) });
         }
       } else if (err instanceof Error && err.message.includes("process exited")) {
         clearSessionWatchdogs(ctx, sessionId);
@@ -200,52 +161,6 @@ export async function handlePrompt(
   }
 }
 
-export async function handleSteer(
-  ctx: MessageDispatchContext,
-  webview: vscode.Webview,
-  sessionId: string,
-  msg: Msg<"steer">,
-): Promise<void> {
-  const client = ctx.getSession(sessionId).client;
-  if (client) {
-    ctx.getSession(sessionId).lastUserActionTime = Date.now();
-    try {
-      if (msg.message.startsWith("/")) {
-        await abortAndPrompt(ctx.watchdogCtx, client, webview, msg.message, sanitizeImages(msg.images));
-      } else {
-        const session = ctx.getSession(sessionId);
-        const isAutoMode = !!session.autoModeState;
-        let overridePersisted = false;
-        if (isAutoMode && session.lastStartOptions?.cwd) {
-          try {
-            await appendOverrideFile(session.lastStartOptions.cwd, msg.message);
-            overridePersisted = true;
-            ctx.output.appendLine(`[${sessionId}] Auto-mode steer persisted to OVERRIDES.md`);
-            ctx.postToWebview(webview, { type: "steer_persisted" } as ExtensionToWebviewMessage);
-          } catch (overrideErr: unknown) {
-            ctx.output.appendLine(`[${sessionId}] Failed to persist override: ${toErrorMessage(overrideErr)}`);
-          }
-        }
-
-        const steerMessage = overridePersisted
-          ? [
-              "USER OVERRIDE — This instruction has been saved to `.gsd/OVERRIDES.md` and applies to all future tasks.",
-              "",
-              `**Override:** ${msg.message}`,
-              "",
-              "Acknowledge this override and continue your current work respecting it.",
-            ].join("\n")
-          : msg.message;
-
-        await client.steer(steerMessage, sanitizeImages(msg.images));
-      }
-    } catch (err: unknown) {
-      ctx.postToWebview(webview, { type: "error", message: `Steer failed: ${toErrorMessage(err)}` });
-    }
-  } else {
-    ctx.postToWebview(webview, { type: "error", message: "Could not deliver message — no active GSD session. Send it again to start a new session." });
-  }
-}
 
 export async function handleFollowUp(
   ctx: MessageDispatchContext,

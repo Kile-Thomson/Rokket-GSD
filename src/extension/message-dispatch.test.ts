@@ -81,7 +81,6 @@ function createMockClient(overrides: Record<string, unknown> = {}) {
     isRunning: true,
     pid: 12345,
     prompt: vi.fn().mockResolvedValue(undefined),
-    steer: vi.fn().mockResolvedValue(undefined),
     followUp: vi.fn().mockResolvedValue(undefined),
     abort: vi.fn().mockResolvedValue(undefined),
     restart: vi.fn().mockResolvedValue(true),
@@ -107,7 +106,6 @@ function createMockClient(overrides: Record<string, unknown> = {}) {
     setAutoRetry: vi.fn().mockResolvedValue(undefined),
     abortRetry: vi.fn().mockResolvedValue(undefined),
     setAutoCompaction: vi.fn().mockResolvedValue(undefined),
-    setSteeringMode: vi.fn().mockResolvedValue(undefined),
     setFollowUpMode: vi.fn().mockResolvedValue(undefined),
     setSessionName: vi.fn().mockResolvedValue(undefined),
     cycleThinkingLevel: vi.fn().mockResolvedValue({ level: "medium" }),
@@ -575,10 +573,10 @@ describe("message-dispatch: handleWebviewMessage", () => {
       expect(ctx.launchGsd).toHaveBeenCalledWith(webview, SESSION_ID);
     });
 
-    it("posts error when prompt throws streaming error and falls back to steer", async () => {
+    it("queues a follow-up when prompt throws a streaming error", async () => {
       const client = createMockClient({
         prompt: vi.fn().mockRejectedValue(new Error("streaming in progress")),
-        steer: vi.fn().mockResolvedValue(undefined),
+        followUp: vi.fn().mockResolvedValue(undefined),
       });
       const session = createMockSession({ client: client as any });
       const { ctx, webview } = createMockDispatchContext(session);
@@ -588,171 +586,8 @@ describe("message-dispatch: handleWebviewMessage", () => {
         message: "hello",
       } as WebviewToExtensionMessage);
 
-      // Non-slash message with streaming error → falls back to steer
-      expect(client.steer).toHaveBeenCalled();
-    });
-  });
-
-  // ── steer ───────────────────────────────────────────────────────────
-
-  describe("steer", () => {
-    it("calls client.steer for non-slash messages", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "change direction",
-      } as WebviewToExtensionMessage);
-
-      expect(client.steer).toHaveBeenCalled();
-    });
-
-    it("calls abortAndPrompt for slash command steers", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-      const { abortAndPrompt } = await import("./watchdogs");
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "/gsd auto",
-      } as WebviewToExtensionMessage);
-
-      expect(abortAndPrompt).toHaveBeenCalled();
-    });
-
-    it("posts error when no client is available", async () => {
-      const session = createMockSession({ client: null as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "change direction",
-      } as WebviewToExtensionMessage);
-
-      expect(ctx.postToWebview).toHaveBeenCalledWith(webview, {
-        type: "error",
-        message: expect.stringContaining("no active GSD session"),
-      });
-    });
-
-    it("posts error with 'Steer failed' prefix when client.steer throws", async () => {
-      const client = createMockClient();
-      client.steer = vi.fn().mockRejectedValue(new Error("connection lost"));
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "change direction",
-      } as WebviewToExtensionMessage);
-
-      expect(ctx.postToWebview).toHaveBeenCalledWith(webview, {
-        type: "error",
-        message: "Steer failed: connection lost",
-      });
-    });
-
-    it("persists override to OVERRIDES.md during auto-mode and sends enhanced steer", async () => {
-      const client = createMockClient();
-      const session = createMockSession({
-        client: client as any,
-        autoModeState: "auto",
-        lastStartOptions: { cwd: "/mock/project" },
-      });
-      const { ctx, webview } = createMockDispatchContext(session);
-      mockReadFile.mockRejectedValue({ code: "ENOENT" });
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "Use Postgres instead of SQLite",
-      } as WebviewToExtensionMessage);
-
-      // Should write OVERRIDES.md
-      expect(mockMkdir).toHaveBeenCalled();
-      expect(mockWriteFile).toHaveBeenCalledWith(
-        expect.stringContaining("OVERRIDES.md"),
-        expect.stringContaining("Use Postgres instead of SQLite"),
-        "utf-8",
-      );
-      // Should notify webview of persistence
-      expect(ctx.postToWebview).toHaveBeenCalledWith(webview, { type: "steer_persisted" });
-      // Should send enhanced steer with override context
-      expect(client.steer).toHaveBeenCalledWith(
-        expect.stringContaining("USER OVERRIDE"),
-        undefined,
-      );
-    });
-
-    it("sends plain steer when not in auto-mode", async () => {
-      const client = createMockClient();
-      const session = createMockSession({
-        client: client as any,
-        autoModeState: null,
-      });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "change direction",
-      } as WebviewToExtensionMessage);
-
-      // Should NOT write OVERRIDES.md
-      expect(mockWriteFile).not.toHaveBeenCalled();
-      // Should NOT notify of persistence
-      expect(ctx.postToWebview).not.toHaveBeenCalledWith(webview, { type: "steer_persisted" });
-      // Should send plain steer
-      expect(client.steer).toHaveBeenCalledWith("change direction", undefined);
-    });
-
-    it("appends to existing OVERRIDES.md during auto-mode", async () => {
-      const client = createMockClient();
-      const session = createMockSession({
-        client: client as any,
-        autoModeState: "auto",
-        lastStartOptions: { cwd: "/mock/project" },
-      });
-      const { ctx, webview } = createMockDispatchContext(session);
-      mockReadFile.mockResolvedValue("# GSD Overrides\n\n---\n\n## Override: 2026-01-01\n\n**Change:** old\n");
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "No in-app messaging",
-      } as WebviewToExtensionMessage);
-
-      // Should append, not create fresh
-      expect(mockMkdir).not.toHaveBeenCalled();
-      expect(mockWriteFile).toHaveBeenCalledWith(
-        expect.stringContaining("OVERRIDES.md"),
-        expect.stringContaining("old"),
-        "utf-8",
-      );
-      expect(mockWriteFile).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.stringContaining("No in-app messaging"),
-        "utf-8",
-      );
-    });
-
-    it("still sends RPC steer even if OVERRIDES.md write fails", async () => {
-      const client = createMockClient();
-      const session = createMockSession({
-        client: client as any,
-        autoModeState: "auto",
-        lastStartOptions: { cwd: "/mock/project" },
-      });
-      const { ctx, webview } = createMockDispatchContext(session);
-      mockReadFile.mockRejectedValue(new Error("disk full"));
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "steer",
-        message: "change direction",
-      } as WebviewToExtensionMessage);
-
-      // Override write failed, but steer should still go through
-      expect(client.steer).toHaveBeenCalled();
+      // Non-slash message with streaming error → queues as a follow-up
+      expect(client.followUp).toHaveBeenCalled();
     });
   });
 
@@ -1027,22 +862,7 @@ describe("message-dispatch: handleWebviewMessage", () => {
     });
   });
 
-  // ── set_steering_mode / set_follow_up_mode ──────────────────────────
-
-  describe("set_steering_mode", () => {
-    it("calls client.setSteeringMode", async () => {
-      const client = createMockClient();
-      const session = createMockSession({ client: client as any });
-      const { ctx, webview } = createMockDispatchContext(session);
-
-      await handleWebviewMessage(ctx, webview, SESSION_ID, {
-        type: "set_steering_mode",
-        mode: "one-at-a-time",
-      } as WebviewToExtensionMessage);
-
-      expect(client.setSteeringMode).toHaveBeenCalledWith("one-at-a-time");
-    });
-  });
+  // ── set_follow_up_mode ──────────────────────────────────────────────
 
   describe("set_follow_up_mode", () => {
     it("calls client.setFollowUpMode", async () => {

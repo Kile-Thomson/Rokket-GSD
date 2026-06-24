@@ -137,9 +137,8 @@ export function buildItems(): SlashMenuItem[] {
     { name: "gsd help", desc: "Categorized command reference", sendOnSelect: true },
     { name: "gsd changelog", desc: "Show categorized release notes", sendOnSelect: true },
 
-    // ── Steering & capture ────────────────────────────────────────────
+    // ── Capture ───────────────────────────────────────────────────────
     { name: "gsd capture", desc: "Capture a thought during auto-mode" },
-    { name: "gsd steer", desc: "Redirect auto-mode priorities" },
     { name: "gsd triage", desc: "Manually trigger triage of pending captures", sendOnSelect: true },
     { name: "gsd knowledge", desc: "View or add to project knowledge base", sendOnSelect: true },
 

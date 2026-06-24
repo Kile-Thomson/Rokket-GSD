@@ -604,7 +604,7 @@ export class GsdRpcClient extends EventEmitter {
    * Send a command and wait for its response.
    * 
    * Timeout handling:
-   * - "prompt", "steer", "follow_up" use no timeout (agent turns can run indefinitely)
+   * - "prompt", "follow_up" use no timeout (agent turns can run indefinitely)
    * - All other commands use a 60-second timeout
    */
   async request(command: Record<string, unknown>, timeoutMs?: number): Promise<unknown> {
@@ -612,7 +612,7 @@ export class GsdRpcClient extends EventEmitter {
     const commandWithId = { ...command, id };
 
     // User-interactive commands get no timeout (watchdog-covered); others get defaults
-    const noTimeoutCommands = ["prompt", "steer", "follow_up"];
+    const noTimeoutCommands = ["prompt", "follow_up"];
     const longTimeoutCommands: Record<string, number> = { compact: RPC_COMPACT_TIMEOUT_MS, get_messages: RPC_DEFAULT_TIMEOUT_MS };
     const effectiveTimeout = timeoutMs
       ?? (noTimeoutCommands.includes(command.type as string) ? 0
@@ -662,20 +662,12 @@ export class GsdRpcClient extends EventEmitter {
    * Send a user prompt to the agent and wait for the response.
    * @param message - The user's text message
    * @param images - Optional image attachments (base64-encoded)
-   * @param streamingBehavior - Optional override: `"steer"` to interrupt, `"followUp"` to queue after current turn
+   * @param streamingBehavior - Optional override: `"followUp"` to queue after the current turn
    */
-  async prompt(message: string, images?: Array<{ type: "image"; data: string; mimeType: string }>, streamingBehavior?: "steer" | "followUp"): Promise<string | undefined> {
+  async prompt(message: string, images?: Array<{ type: "image"; data: string; mimeType: string }>, streamingBehavior?: "followUp"): Promise<string | undefined> {
     const cmd: Record<string, unknown> = { type: "prompt", message };
     if (images?.length) cmd.images = images;
     if (streamingBehavior) cmd.streamingBehavior = streamingBehavior;
-    const result = await this.request(cmd) as Record<string, unknown> | undefined;
-    return result?.runId as string | undefined;
-  }
-
-  /** Send a steering message that interrupts the current agent turn with new instructions. */
-  async steer(message: string, images?: Array<{ type: "image"; data: string; mimeType: string }>): Promise<string | undefined> {
-    const cmd: Record<string, unknown> = { type: "steer", message };
-    if (images?.length) cmd.images = images;
     const result = await this.request(cmd) as Record<string, unknown> | undefined;
     return result?.runId as string | undefined;
   }
@@ -773,11 +765,6 @@ export class GsdRpcClient extends EventEmitter {
   /** Cancel a pending auto-retry. */
   async abortRetry(): Promise<void> {
     await this.request({ type: "abort_retry" });
-  }
-
-  /** Set steering message delivery mode: `"all"` sends immediately, `"one-at-a-time"` queues. */
-  async setSteeringMode(mode: "all" | "one-at-a-time"): Promise<void> {
-    await this.request({ type: "set_steering_mode", mode });
   }
 
   /** Set follow-up message delivery mode: `"all"` sends immediately, `"one-at-a-time"` queues. */

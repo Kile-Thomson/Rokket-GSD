@@ -101,5 +101,4 @@ export const TOAST_LONG_DURATION_MS = 5_000;
 export const COPY_BUTTON_RESET_MS = 1_500;
 export const DELAYED_STATE_REFRESH_MS = 500;
 export const SEND_DEBOUNCE_MS = 300;
-export const NOTE_AUTO_DISMISS_MS = 4_000;
 export const STALE_ECHO_DEBOUNCE_MS = 1_000;

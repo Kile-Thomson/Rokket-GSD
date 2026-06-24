@@ -9,7 +9,7 @@
  *
  * Each variant is discriminated by the `type` field. The extension's `message-dispatch.ts`
  * routes incoming messages to handlers based on this type. Key message types include:
- * - `"prompt"` / `"steer"` / `"follow_up"` — user text input to the agent
+ * - `"prompt"` / `"follow_up"` — user text input to the agent
  * - `"get_state"` / `"get_session_stats"` — state polling requests
  * - `"switch_session"` / `"new_conversation"` — session lifecycle
  * - `"set_model"` / `"set_thinking_level"` — configuration changes
@@ -17,7 +17,6 @@
 export type WebviewToExtensionMessage =
   | { type: "launch_gsd"; cwd?: string }
   | { type: "prompt"; message: string; images?: ImageAttachment[] }
-  | { type: "steer"; message: string; images?: ImageAttachment[] }
   | { type: "follow_up"; message: string; images?: ImageAttachment[] }
   | { type: "interrupt" }
   | { type: "cancel_request" }
@@ -49,7 +48,6 @@ export type WebviewToExtensionMessage =
   | { type: "set_auto_compaction"; enabled: boolean }
   | { type: "set_auto_retry"; enabled: boolean }
   | { type: "abort_retry" }
-  | { type: "set_steering_mode"; mode: "all" | "one-at-a-time" }
   | { type: "set_follow_up_mode"; mode: "all" | "one-at-a-time" }
   | { type: "force_kill" }
   | { type: "force_restart" }
@@ -139,7 +137,6 @@ export type ExtensionToWebviewMessage =
   | { type: "fallback_chain_exhausted"; reason: string; lastError?: string }
   | { type: "session_shutdown" }
   | { type: "extension_error"; extensionPath: string; event: string; error: string }
-  | { type: "steer_persisted" }
 
   | { type: "cost_update"; runId: string; turnCost: number; cumulativeCost: number; tokens: { input: number; output: number; cacheRead: number; cacheWrite: number } }
   | { type: "execution_complete"; runId: string; status: string; stats?: unknown }
@@ -218,7 +215,6 @@ export interface GsdState {
   messageCount: number;
   pendingMessageCount?: number;
   autoCompactionEnabled: boolean;
-  steeringMode?: "all" | "one-at-a-time";
   followUpMode?: "all" | "one-at-a-time";
   cwd?: string;
   /** Whether extension loading has completed (gsd-pi 2.44+). */
@@ -412,7 +408,6 @@ export function toGsdState(rpc: RpcStateResult): GsdState {
     messageCount: (rpc.messageCount as number) || 0,
     pendingMessageCount: rpc.pendingMessageCount as number | undefined,
     autoCompactionEnabled: rpc.autoCompactionEnabled || false,
-    steeringMode: rpc.steeringMode as GsdState["steeringMode"],
     followUpMode: rpc.followUpMode as GsdState["followUpMode"],
     cwd: rpc.cwd,
     extensionsReady: rpc.extensionsReady as boolean | undefined,

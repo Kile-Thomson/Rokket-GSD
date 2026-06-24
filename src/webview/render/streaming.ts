@@ -71,7 +71,6 @@ export function stopElapsedTimer(): void {
 export function clearMessages(): void {
   const els = messagesContainer.querySelectorAll(".gsd-entry");
   els.forEach((el) => el.remove());
-  messagesContainer.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
   messagesContainer.querySelector(".gsd-pruned-indicator")?.remove();
   resetAutoScroll();
   resetWorkflowPanels();

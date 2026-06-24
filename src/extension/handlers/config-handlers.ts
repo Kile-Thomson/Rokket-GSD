@@ -143,22 +143,6 @@ export async function handleAbortRetry(
   }
 }
 
-export async function handleSetSteeringMode(
-  ctx: MessageDispatchContext,
-  webview: vscode.Webview,
-  sessionId: string,
-  msg: Msg<"set_steering_mode">,
-): Promise<void> {
-  const client = ctx.getSession(sessionId).client;
-  if (client?.isRunning) {
-    try {
-      await client.setSteeringMode(msg.mode);
-    } catch (err: unknown) {
-      ctx.postToWebview(webview, { type: "error", message: toErrorMessage(err) });
-    }
-  }
-}
-
 export async function handleSetFollowUpMode(
   ctx: MessageDispatchContext,
   webview: vscode.Webview,
