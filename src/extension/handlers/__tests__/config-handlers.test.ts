@@ -25,7 +25,6 @@ import {
   handleSetAutoCompaction,
   handleSetAutoRetry,
   handleAbortRetry,
-  handleSetSteeringMode,
   handleSetFollowUpMode,
 } from "../config-handlers";
 import type { MessageDispatchContext } from "../../message-dispatch";
@@ -52,7 +51,6 @@ function createMockClient(overrides: Record<string, unknown> = {}) {
     setAutoCompaction: vi.fn().mockResolvedValue(undefined),
     setAutoRetry: vi.fn().mockResolvedValue(undefined),
     abortRetry: vi.fn().mockResolvedValue(undefined),
-    setSteeringMode: vi.fn().mockResolvedValue(undefined),
     setFollowUpMode: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -276,17 +274,6 @@ describe("config-handlers", () => {
       await handleAbortRetry(ctx, webview, SID, { type: "abort_retry" });
 
       expect(client.abortRetry).toHaveBeenCalled();
-    });
-  });
-
-  describe("handleSetSteeringMode", () => {
-    it("calls client.setSteeringMode", async () => {
-      const client = createMockClient();
-      const { ctx, webview } = createMockCtx(client);
-
-      await handleSetSteeringMode(ctx, webview, SID, { type: "set_steering_mode", mode: "one-at-a-time" });
-
-      expect(client.setSteeringMode).toHaveBeenCalledWith("one-at-a-time");
     });
   });
 

@@ -169,14 +169,6 @@ export function getSettingsDropdown(): HTMLElement | null {
 }
 
 // ============================================================
-// Steer-note removal
-// ============================================================
-
-export function removeSteerNotes(): void {
-  document.querySelectorAll(".gsd-steer-note").forEach((el) => el.remove());
-}
-
-// ============================================================
 // Skill pill tracker
 // ============================================================
 

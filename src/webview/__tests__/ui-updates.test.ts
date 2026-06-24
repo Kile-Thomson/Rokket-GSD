@@ -197,7 +197,7 @@ describe("ui-updates", () => {
       updateInputUI();
       expect(deps.sendIcon.textContent).toBe("■");
       expect(deps.sendBtn.classList.contains("gsd-stop-btn")).toBe(true);
-      expect(deps.promptInput.placeholder).toContain("Interrupt");
+      expect(deps.promptInput.placeholder).toContain("follow-up");
     });
 
     it("shows send icon when not streaming", () => {

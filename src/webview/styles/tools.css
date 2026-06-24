@@ -14,16 +14,6 @@
 .gsd-skipped-label { font-style: italic; }
 
 /* ============================================================
-   Steer Note
-   ============================================================ */
-.gsd-steer-note {
-  font-size: var(--gsd-font-size-md);
-  color: var(--gsd-color-text-muted);
-  padding: 4px 16px;
-  opacity: 0.8;
-}
-
-/* ============================================================
    Tool Group (collapsed consecutive read-only tools)
    ============================================================ */
 
