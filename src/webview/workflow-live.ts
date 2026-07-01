@@ -52,18 +52,21 @@ function findCard(runId: string): HTMLElement | null {
 }
 
 /**
- * Place a card just *above* the most recent conversation entry — the assistant
- * turn that launched the workflow — so it reads as a header for that turn rather
- * than trailing underneath its text. No-ops if the card is already in the correct
- * position. Falls back to appending when no entry has rendered yet (the heartbeat
- * will reposition it once entries exist).
+ * Place a card just *below* the most recent conversation entry — the assistant
+ * turn that launched the workflow. The entire assistant turn (every streamed
+ * reply and tool call) is a single `.gsd-entry`, and the `Workflow` tool call is
+ * the last thing in it, so trailing the turn reads as "inline where the work was
+ * started". Inserting *above* the entry instead stranded the card over the turn's
+ * very first reply, far from the launch point, whenever the turn had many replies.
+ * No-ops if the card is already in the correct position. Falls back to appending
+ * when no entry has rendered yet (the heartbeat repositions it once entries exist).
  */
 function insertCardInto(container: HTMLElement, card: HTMLElement): void {
   const entries = container.querySelectorAll<HTMLElement>(".gsd-entry");
   const anchor = entries.length ? entries[entries.length - 1] : null;
   if (anchor) {
-    if (card.parentElement === container && card.nextSibling === anchor) return; // already correct
-    container.insertBefore(card, anchor);
+    if (card.parentElement === container && card.previousElementSibling === anchor) return; // already correct
+    anchor.after(card);
   } else {
     container.appendChild(card);
   }
@@ -132,8 +135,8 @@ function stopHeartbeat(): void {
  * ending. After a sidebar rebind the webview HTML is rebuilt before conversation
  * history re-renders, so a replayed card can land before any `.gsd-entry` exists
  * and end up stranded at the top of the container. The heartbeat corrects both
- * cases: missing cards are re-created; mispositioned cards (nextSibling is not
- * the last entry) are moved. Terminal cards are not tracked here.
+ * cases: missing cards are re-created; mispositioned cards (not sitting directly
+ * after the last entry) are moved. Terminal cards are not tracked here.
  */
 function heartbeatTick(): void {
   let anyLive = false;

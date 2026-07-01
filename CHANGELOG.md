@@ -4,6 +4,11 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **Live workflow card now sits at the launch point, not the top of the turn** — when the agent launched a workflow after several replies in the same turn, the live card was stranded above the turn's first reply. It now renders directly below the launching turn, where the work actually started, and stays there if the sidebar is rebuilt mid-run.
+
 ## [0.3.85] — 2026-06-21
 
 ### Fixed
