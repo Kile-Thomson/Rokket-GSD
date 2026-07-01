@@ -262,6 +262,96 @@ Execute T03 for S02
     expect(result!.progress.milestones).toEqual({ done: 1, total: 2 });
   });
 
+  // ── gsd-pi 1.4.0 flat-phase layout ────────────────────────────
+
+  it("finds roadmap in flat-phase phases/{MID}-{slug}/ layout", async () => {
+    const gsdDir = path.join(tmpDir, ".gsd");
+    const phaseDir = path.join(gsdDir, "phases", "M001-my-feature");
+    fs.mkdirSync(phaseDir, { recursive: true });
+    fs.writeFileSync(path.join(gsdDir, "STATE.md"), "");
+    fs.writeFileSync(
+      path.join(phaseDir, "M001-ROADMAP.md"),
+      `- [x] **S01: Done slice** \`risk:low\`
+- [ ] **S02: Active slice** \`risk:high\`
+`
+    );
+
+    mockParseWorkflow.mockResolvedValue({
+      milestone: { id: "M001", title: "my feature" },
+      slice: { id: "S02", title: "Active slice" },
+      task: null,
+      phase: "build",
+      autoMode: null,
+    });
+
+    const result = await buildDashboardData(tmpDir);
+
+    expect(result!.hasMilestone).toBe(true);
+    expect(result!.slices).toHaveLength(2);
+    expect(result!.slices[0]).toMatchObject({ id: "S01", done: true });
+    expect(result!.slices[1]).toMatchObject({ id: "S02", done: false, active: true });
+  });
+
+  it("finds slice plan in flat-phase layout (plan in phase dir, not slices/ subdir)", async () => {
+    const gsdDir = path.join(tmpDir, ".gsd");
+    const phaseDir = path.join(gsdDir, "phases", "M001-my-feature");
+    fs.mkdirSync(phaseDir, { recursive: true });
+    fs.writeFileSync(path.join(gsdDir, "STATE.md"), "");
+    fs.writeFileSync(
+      path.join(phaseDir, "M001-ROADMAP.md"),
+      `- [ ] **S01: Do things** \`risk:low\`\n`
+    );
+    fs.writeFileSync(
+      path.join(phaseDir, "S01-PLAN.md"),
+      `# Plan
+
+- [x] **T01: First** \`est:30m\`
+- [ ] **T02: Second** \`est:1h\`
+`
+    );
+
+    mockParseWorkflow.mockResolvedValue({
+      milestone: { id: "M001", title: "my feature" },
+      slice: { id: "S01", title: "Do things" },
+      task: { id: "T01", title: "First" },
+      phase: "build",
+      autoMode: null,
+    });
+
+    const result = await buildDashboardData(tmpDir);
+
+    const activeSlice = result!.slices.find(s => s.active);
+    expect(activeSlice).toBeDefined();
+    expect(activeSlice!.tasks).toHaveLength(2);
+    expect(activeSlice!.tasks[0]).toMatchObject({ id: "T01", done: true, estimate: "30m" });
+    expect(activeSlice!.tasks[1]).toMatchObject({ id: "T02", done: false, estimate: "1h" });
+    expect(activeSlice!.taskProgress).toEqual({ done: 1, total: 2 });
+  });
+
+  it("falls back to legacy milestones/ layout when phases/ absent", async () => {
+    const gsdDir = path.join(tmpDir, ".gsd");
+    const milestoneDir = path.join(gsdDir, "milestones", "M001");
+    fs.mkdirSync(milestoneDir, { recursive: true });
+    fs.writeFileSync(path.join(gsdDir, "STATE.md"), "");
+    fs.writeFileSync(
+      path.join(milestoneDir, "M001-ROADMAP.md"),
+      `- [ ] **S01: Legacy slice** \`risk:low\`\n`
+    );
+
+    mockParseWorkflow.mockResolvedValue({
+      milestone: { id: "M001", title: "Legacy" },
+      slice: { id: "S01", title: "Legacy slice" },
+      task: null,
+      phase: "build",
+      autoMode: null,
+    });
+
+    const result = await buildDashboardData(tmpDir);
+
+    expect(result!.slices).toHaveLength(1);
+    expect(result!.slices[0]).toMatchObject({ id: "S01", active: true });
+  });
+
   // ── gsd-pi 2.44 compatibility ──────────────────────────────────
 
   it("parses 2.44 milestone registry with all four glyphs", async () => {
