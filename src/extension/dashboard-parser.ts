@@ -138,6 +138,42 @@ async function findFile(dir: string, suffix: string): Promise<string | null> {
 }
 
 /**
+ * Resolve the milestone directory, supporting both layouts:
+ *   flat-phase (v1.4.0+): .gsd/phases/{MID}-{slug}/
+ *   legacy (v1.3.x):      .gsd/milestones/{MID}/
+ */
+async function resolveMilestoneDir(gsdDir: string, mid: string): Promise<string> {
+  const phasesDir = path.join(gsdDir, "phases");
+  try {
+    const entries = await fs.promises.readdir(phasesDir);
+    // Exact match takes priority; among prefix matches sort for determinism
+    const exact = entries.find(e => e === mid);
+    if (exact) return path.join(phasesDir, exact);
+    const prefixed = entries.filter(e => e.startsWith(mid + "-")).sort();
+    if (prefixed.length > 0) return path.join(phasesDir, prefixed[0]);
+  } catch {
+    // phases/ doesn't exist — fall through to legacy layout
+  }
+  return path.join(gsdDir, "milestones", mid);
+}
+
+/**
+ * Resolve the slice directory, supporting both layouts:
+ *   flat-phase (v1.4.0+): slice plan lives directly in milestoneDir
+ *   legacy (v1.3.x):      milestoneDir/slices/{SID}/
+ */
+async function resolveSliceDir(milestoneDir: string, sliceId: string): Promise<string> {
+  // In flat-phase the PLAN.md lives directly in the milestone/phase dir
+  try {
+    await fs.promises.access(path.join(milestoneDir, `${sliceId}-PLAN.md`));
+    return milestoneDir;
+  } catch {
+    // Not found flat — use legacy nested layout
+    return path.join(milestoneDir, "slices", sliceId);
+  }
+}
+
+/**
  * Build the full dashboard data from .gsd/ project files.
  */
 export async function buildDashboardData(cwd: string): Promise<DashboardData | null> {
@@ -195,7 +231,7 @@ export async function buildDashboardData(cwd: string): Promise<DashboardData | n
   }
 
   const mid = wfState.milestone.id;
-  const milestoneDir = path.join(gsdDir, "milestones", mid);
+  const milestoneDir = await resolveMilestoneDir(gsdDir, mid);
 
   // Parse roadmap
   const roadmapFile = await findFile(milestoneDir, "-ROADMAP.md");
@@ -215,7 +251,7 @@ export async function buildDashboardData(cwd: string): Promise<DashboardData | n
 
       // If this is the active slice, parse its plan for tasks
       if (isActive) {
-        const sliceDir = path.join(milestoneDir, "slices", rs.id);
+        const sliceDir = await resolveSliceDir(milestoneDir, rs.id);
         const planFile = await findFile(sliceDir, "-PLAN.md");
         if (planFile) {
           const planContent = await fs.promises.readFile(planFile, "utf-8");
