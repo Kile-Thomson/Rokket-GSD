@@ -146,10 +146,11 @@ async function resolveMilestoneDir(gsdDir: string, mid: string): Promise<string>
   const phasesDir = path.join(gsdDir, "phases");
   try {
     const entries = await fs.promises.readdir(phasesDir);
-    const match = entries.find(e => e === mid || e.startsWith(mid + "-"));
-    if (match) {
-      return path.join(phasesDir, match);
-    }
+    // Exact match takes priority; among prefix matches sort for determinism
+    const exact = entries.find(e => e === mid);
+    if (exact) return path.join(phasesDir, exact);
+    const prefixed = entries.filter(e => e.startsWith(mid + "-")).sort();
+    if (prefixed.length > 0) return path.join(phasesDir, prefixed[0]);
   } catch {
     // phases/ doesn't exist — fall through to legacy layout
   }

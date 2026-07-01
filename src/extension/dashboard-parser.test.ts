@@ -352,6 +352,69 @@ Execute T03 for S02
     expect(result!.slices[0]).toMatchObject({ id: "S01", active: true });
   });
 
+  it("prefers phases/ over milestones/ when both exist (mixed-layout)", async () => {
+    const gsdDir = path.join(tmpDir, ".gsd");
+    const phaseDir = path.join(gsdDir, "phases", "M001-new-feature");
+    const legacyDir = path.join(gsdDir, "milestones", "M001");
+    fs.mkdirSync(phaseDir, { recursive: true });
+    fs.mkdirSync(legacyDir, { recursive: true });
+    fs.writeFileSync(path.join(gsdDir, "STATE.md"), "");
+    // Both dirs have a roadmap but with different slice IDs so we can tell which was used
+    fs.writeFileSync(
+      path.join(phaseDir, "M001-ROADMAP.md"),
+      `- [ ] **S01: Flat-phase slice** \`risk:low\`\n`
+    );
+    fs.writeFileSync(
+      path.join(legacyDir, "M001-ROADMAP.md"),
+      `- [ ] **S01: Legacy slice** \`risk:low\`\n`
+    );
+
+    mockParseWorkflow.mockResolvedValue({
+      milestone: { id: "M001", title: "new feature" },
+      slice: { id: "S01", title: "Flat-phase slice" },
+      task: null,
+      phase: "build",
+      autoMode: null,
+    });
+
+    const result = await buildDashboardData(tmpDir);
+
+    expect(result!.slices).toHaveLength(1);
+    expect(result!.slices[0]).toMatchObject({ id: "S01", title: "Flat-phase slice" });
+  });
+
+  it("picks the alphabetically first match when multiple phase dirs share the same prefix", async () => {
+    const gsdDir = path.join(tmpDir, ".gsd");
+    // Simulate leftover migration dir alongside the real one
+    const phaseDir1 = path.join(gsdDir, "phases", "M001-alpha");
+    const phaseDir2 = path.join(gsdDir, "phases", "M001-zeta");
+    fs.mkdirSync(phaseDir1, { recursive: true });
+    fs.mkdirSync(phaseDir2, { recursive: true });
+    fs.writeFileSync(path.join(gsdDir, "STATE.md"), "");
+    fs.writeFileSync(
+      path.join(phaseDir1, "M001-ROADMAP.md"),
+      `- [ ] **S01: Alpha slice** \`risk:low\`\n`
+    );
+    fs.writeFileSync(
+      path.join(phaseDir2, "M001-ROADMAP.md"),
+      `- [ ] **S01: Zeta slice** \`risk:low\`\n`
+    );
+
+    mockParseWorkflow.mockResolvedValue({
+      milestone: { id: "M001", title: "alpha" },
+      slice: { id: "S01", title: "Alpha slice" },
+      task: null,
+      phase: "build",
+      autoMode: null,
+    });
+
+    const result = await buildDashboardData(tmpDir);
+
+    // Should deterministically pick M001-alpha (sorted first)
+    expect(result!.slices).toHaveLength(1);
+    expect(result!.slices[0]).toMatchObject({ id: "S01", title: "Alpha slice" });
+  });
+
   // ── gsd-pi 2.44 compatibility ──────────────────────────────────
 
   it("parses 2.44 milestone registry with all four glyphs", async () => {
