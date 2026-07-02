@@ -269,9 +269,9 @@
 		"watch:extension": "esbuild src/extension/index.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
 		"watch:webview": "esbuild src/webview/index.ts --bundle --outfile=dist/webview/index.js --format=iife --platform=browser --sourcemap --loader:.css=css --define:process.env.NODE_ENV=\\\"production\\\" --watch",
 		"package": "vsce package",
-		"pretest": "node scripts/warm-test-cache.mjs",
+		"pretest": "node scripts/prewarm-vitest-modules.mjs",
 		"test": "vitest run",
-		"pretest:coverage": "node scripts/warm-test-cache.mjs",
+		"pretest:coverage": "node scripts/prewarm-vitest-modules.mjs",
 		"test:coverage": "vitest run --coverage",
 		"lint": "eslint src/"
 	},
