@@ -55,19 +55,19 @@ describe("workflow-live inline conversation card", () => {
     expect(el!.className).toContain("status-running");
   });
 
-  it("inserts the card above the launching turn, not after it", () => {
+  it("inserts the card below the launching turn, not above it", () => {
     // Two prior entries: the user's prompt and the assistant turn that launched
-    // the workflow. The card should land directly above the most recent entry.
+    // the workflow. The whole assistant turn is one entry and the Workflow call is
+    // the last thing in it, so the card should trail that entry, not head it.
     const container = document.getElementById("messagesContainer")!;
     container.innerHTML = `<div class="gsd-entry" data-entry-id="user"></div><div class="gsd-entry" data-entry-id="assistant"></div>`;
     update(snapshot());
     const kids = Array.from(container.children);
     const cardIdx = kids.indexOf(card()!);
     const assistantIdx = kids.indexOf(container.querySelector('[data-entry-id="assistant"]')!);
-    expect(cardIdx).toBe(assistantIdx - 1);
-    // And it sits after the earlier user entry — i.e. above only the last turn.
-    const userIdx = kids.indexOf(container.querySelector('[data-entry-id="user"]')!);
-    expect(cardIdx).toBeGreaterThan(userIdx);
+    // Directly after the launching turn — the last position in the container.
+    expect(cardIdx).toBe(assistantIdx + 1);
+    expect(cardIdx).toBe(kids.length - 1);
   });
 
   it("keeps one card per run id and updates it in place", () => {
@@ -154,12 +154,13 @@ describe("workflow-live inline conversation card", () => {
     // Card is still at position 0, before both entries — wrong.
     expect(container.children[0]).toBe(card());
 
-    // The heartbeat repositions it above the last entry.
+    // The heartbeat repositions it directly below the last entry.
     vi.advanceTimersByTime(1000);
     const kids = Array.from(container.children);
     const cardIdx = kids.indexOf(card()!);
     const assistantIdx = kids.indexOf(entry2);
-    expect(cardIdx).toBe(assistantIdx - 1);
+    expect(cardIdx).toBe(assistantIdx + 1);
+    expect(cardIdx).toBe(kids.length - 1);
   });
 
   it("does not run a heartbeat when the only run is already terminal", () => {
