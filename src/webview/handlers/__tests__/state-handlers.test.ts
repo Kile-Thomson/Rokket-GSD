@@ -235,6 +235,28 @@ describe("state-handlers", () => {
       sendMessage({ type: "session_stats", data: { cost: 0.05 } });
       expect(state.sessionStats.cost).toBe(0.10);
     });
+
+    it("adopts pi's authoritative contextUsage (gsd-pi >=1.9.0)", () => {
+      sendMessage({
+        type: "session_stats",
+        data: { contextUsage: { tokens: 84000, contextWindow: 200000, percent: 42 } },
+      } as any);
+      expect(state.sessionStats.contextWindow).toBe(200000);
+      expect(state.sessionStats.contextTokens).toBe(84000);
+      expect(state.sessionStats.contextPercent).toBe(42);
+    });
+
+    it("preserves last context percent when contextUsage is null post-compaction", () => {
+      state.sessionStats.contextPercent = 60;
+      state.sessionStats.contextTokens = 120000;
+      sendMessage({
+        type: "session_stats",
+        data: { contextUsage: { tokens: null, contextWindow: 200000, percent: null } },
+      } as any);
+      expect(state.sessionStats.contextWindow).toBe(200000);
+      expect(state.sessionStats.contextPercent).toBe(60);
+      expect(state.sessionStats.contextTokens).toBe(120000);
+    });
   });
 
   describe("cost_update message", () => {

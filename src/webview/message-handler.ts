@@ -63,9 +63,28 @@ let _lastMessageUsage: { input?: number; output?: number; cacheRead?: number; ca
 // Whether we've received cost_update events this session. When true, message_end
 // token accumulation is skipped to avoid double-counting (cost_update is authoritative).
 let hasCostUpdateSource = false;
+// Whether message_end has computed a context figure from assistant usage this
+// session. Once true, session_stats.contextUsage (pi's getContextUsage()) must
+// NOT override it. pi's estimate is UNRELIABLE for the claude-code provider:
+// its mapUsage() sets totalTokens = input + output + cacheWrite (cacheRead is
+// excluded), so calculateContextTokens() = totalTokens - output = input +
+// cacheWrite — dropping cacheRead, which on a warm-cache turn is the entire
+// conversation context. pi's percent then tracks per-turn cache-creation and
+// swings (5.4 → 6.5 → 5.0). We compute the real prompt size (input + cacheRead
+// + cacheWrite) from message_end instead, and use pi's value only before the
+// first assistant turn produces usage.
+let hasMessageEndContext = false;
+// Whether a Claude Code Workflow / sub-agent fan-out surfaced during the current
+// turn. Sub-agents run in isolated contexts, but the claude-code provider folds
+// their token usage into the parent turn's message_end usage — a workflow turn
+// reported cacheRead=89k against a steady ~22k, spiking the context gauge to 15%
+// before it snapped back to 7% the next turn. Those tokens are NOT in the ongoing
+// conversation, so we hold the context gauge steady on any turn a workflow ran
+// (session cost totals still count them — that spend was real). Set on
+// workflow_live, reset at turn start (agent_start) and on session reset.
+let workflowRanThisTurn = false;
 // Previous cumulative totals from cost_update — used to compute per-turn deltas.
 let prevCostTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
-let prevMessageEndUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 // Fallback context window sizes for well-known models when the backend doesn't
 // report contextWindow via model selection. Keyed by model ID substring match.
 // Order matters — first match wins, so put more specific patterns first.
@@ -174,8 +193,9 @@ export interface MessageHandlerDeps {
 /** Reset per-session derived tracking state. Called on init, session switch, and process exit. */
 function resetDerivedSessionTracking(): void {
   hasCostUpdateSource = false;
+  hasMessageEndContext = false;
+  workflowRanThisTurn = false;
   prevCostTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
-  prevMessageEndUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   _lastMessageUsage = null;
 }
 
@@ -317,16 +337,31 @@ function handleMessage(event: MessageEvent): void {
     case "session_stats": {
       const data = msg.data;
       if (data) {
-        // Only take autoCompactionEnabled from session_stats.
-        // GSD PI's getSessionStats() returns tokens/cost/message counts but NOT
-        // contextWindow — that comes from model selection and resolveContextWindow().
-        // When cost_update is the authoritative source, it handles tokens and cost;
-        // session_stats would overwrite with stale/wrong values.
         if (data.autoCompactionEnabled != null) {
           state.sessionStats.autoCompactionEnabled = data.autoCompactionEnabled;
         }
-        // Accept contextWindow if present (future-proofing — GSD PI may add it)
-        if (data.contextWindow) {
+        // gsd-pi nests context usage under `contextUsage` (getContextUsage()).
+        // Its contextWindow is authoritative and we always adopt it. Its
+        // tokens/percent are NOT reliable for the claude-code provider (pi's
+        // calculateContextTokens drops cacheRead — see hasMessageEndContext),
+        // so we only adopt them before message_end has produced a figure this
+        // session, i.e. on a restored session before the first assistant turn.
+        const ctx = data.contextUsage;
+        if (ctx) {
+          if (ctx.contextWindow > 0) {
+            state.sessionStats.contextWindow = ctx.contextWindow;
+          }
+          if (
+            !hasMessageEndContext &&
+            typeof ctx.tokens === "number" &&
+            typeof ctx.percent === "number"
+          ) {
+            // Bootstrap value only — message_end takes over once it fires.
+            state.sessionStats.contextTokens = ctx.tokens;
+            state.sessionStats.contextPercent = ctx.percent;
+          }
+        } else if (data.contextWindow) {
+          // Older pi that reports only a flat contextWindow.
           state.sessionStats.contextWindow = data.contextWindow;
         }
         updateHeaderUI();
@@ -383,6 +418,10 @@ function handleMessage(event: MessageEvent): void {
     }
 
     case "workflow_live": {
+      // A workflow fan-out is running this turn. Its sub-agents' tokens get
+      // folded into the parent turn's message_end usage, so latch this to hold
+      // the context gauge steady when that inflated figure arrives.
+      workflowRanThisTurn = true;
       workflowLive.update(msg.data);
       break;
     }
@@ -414,6 +453,9 @@ function handleMessage(event: MessageEvent): void {
       if (uiDialogs.hasPending()) {
         uiDialogs.expireAllPending("New turn started");
       }
+      // New turn — clear the workflow latch so the context gauge tracks this
+      // turn's real usage unless a workflow fan-out surfaces during it.
+      workflowRanThisTurn = false;
       state.isStreaming = true;
       const isContinuation = !!(msg as any).isContinuation && state.currentTurn === null;
       const lastEntry = state.entries[state.entries.length - 1];
@@ -704,18 +746,8 @@ function handleMessage(event: MessageEvent): void {
         }
 
         if ((endMsg as any).usage) {
-          const u = (endMsg as any).usage as { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } };
+          const u = (endMsg as any).usage as { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; totalTokens?: number; cost?: { total?: number } };
           _lastMessageUsage = u;
-
-          // pi's claude-code-cli adapter exposes a `perCallUsage` field on the
-          // assistant message carrying the *last* API call's usage snapshot
-          // (input, output, cacheRead, cacheWrite, totalTokens). That is the
-          // authoritative signal for context window pressure — `usage` is a
-          // session-wide running aggregate and is NOT per-call.
-          // See: gsd-pi partial-builder.js ZERO_USAGE + captureMessageStartUsage.
-          const perCall = (endMsg as any).perCallUsage as
-            | { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; totalTokens?: number }
-            | undefined;
 
           if (!hasCostUpdateSource) {
             // cost_update is the authoritative session-total source in v2.
@@ -743,48 +775,31 @@ function handleMessage(event: MessageEvent): void {
             }
           }
 
-          // Context %: use perCallUsage.totalTokens when provided by pi
-          // (preferred — exact match of pi's own calculateContextTokens()).
-          // Fall back to perCall input+output+cacheRead+cacheWrite. Never
-          // delta-compute from `usage` — it's a session-cumulative aggregate,
-          // not a turn-local snapshot, so deltas across message_end events
-          // yield nonsense context sizes.
+          // Context window %: the running context is the size of the prompt the
+          // model just processed = every input-side token of this turn =
+          // input + cacheRead + cacheWrite. This is the single correct figure
+          // across all providers, and it's what pi SHOULD report but doesn't for
+          // claude-code (its totalTokens omits cacheRead — see
+          // hasMessageEndContext). We deliberately do NOT use `totalTokens -
+          // output`: for claude-code that drops cacheRead and makes the gauge
+          // track per-turn cache-creation instead of cumulative context.
+          // output is excluded — it's the model's generation, not prompt context
+          // (it becomes context next turn, counted there as input/cacheRead).
+          // The sum can never exceed the window (the model can't accept more),
+          // so no 900% spikes; and it grows as the conversation builds.
           {
             const contextWindow = resolveContextWindow();
             if (contextWindow > 0) {
               state.sessionStats.contextWindow = contextWindow;
             }
-            let contextTokens = 0;
-            let source = "none";
-            if (perCall && typeof perCall.totalTokens === "number" && perCall.totalTokens > 0) {
-              contextTokens = perCall.totalTokens;
-              source = "perCall.totalTokens";
-            } else if (perCall) {
-              const pIn = perCall.input || 0;
-              const pOut = perCall.output || 0;
-              const pCR = perCall.cacheRead || 0;
-              const pCW = perCall.cacheWrite || 0;
-              contextTokens = pIn + pOut + pCR + pCW;
-              if (contextTokens > 0) source = "perCall.sum";
-            }
-            if (contextTokens === 0) {
-              // Fallback: usage is session-cumulative, so compute per-call
-              // tokens via delta from previous message_end.
-              const dIn = (u.input || 0) - prevMessageEndUsage.input;
-              const dOut = (u.output || 0) - prevMessageEndUsage.output;
-              const dCR = (u.cacheRead || 0) - prevMessageEndUsage.cacheRead;
-              const dCW = (u.cacheWrite || 0) - prevMessageEndUsage.cacheWrite;
-              contextTokens = dIn + dOut + dCR + dCW;
-              if (contextTokens > 0) source = "usage.delta";
-            }
-            prevMessageEndUsage = {
-              input: u.input || 0,
-              output: u.output || 0,
-              cacheRead: u.cacheRead || 0,
-              cacheWrite: u.cacheWrite || 0,
-            };
-            console.debug(`[gsd:context] ctx=${contextTokens}/${contextWindow} src=${source} perCall=${perCall ? JSON.stringify(perCall) : "n/a"} usage=${JSON.stringify({ input: u.input, output: u.output, cacheRead: u.cacheRead, cacheWrite: u.cacheWrite })}`);
-            if (contextWindow > 0 && contextTokens > 0) {
+            const contextTokens = (u.input || 0) + (u.cacheRead || 0) + (u.cacheWrite || 0);
+            // Skip the gauge update on workflow/sub-agent turns: their usage is
+            // inflated by sub-agent tokens folded into this turn's message_end,
+            // which aren't part of the ongoing conversation. Holding the prior
+            // value avoids the 7% → 15% → 7% flicker; the next normal turn
+            // resumes tracking real context growth.
+            if (!workflowRanThisTurn && contextWindow > 0 && contextTokens > 0) {
+              hasMessageEndContext = true;
               state.sessionStats.contextTokens = contextTokens;
               state.sessionStats.contextPercent = (contextTokens / contextWindow) * 100;
             }

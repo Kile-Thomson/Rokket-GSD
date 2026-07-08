@@ -256,6 +256,15 @@ export interface SessionStats {
   contextTokens?: number | null;
   contextWindow?: number;
   contextPercent?: number | null;
+  // gsd-pi >=1.9.0 nests the authoritative context usage under `contextUsage`
+  // in the getSessionStats() response (see pi agent-session-navigation
+  // getContextUsage()). `percent`/`tokens` are null immediately after a
+  // compaction, until the next assistant reply produces fresh usage.
+  contextUsage?: {
+    tokens: number | null;
+    contextWindow: number;
+    percent: number | null;
+  };
   autoCompactionEnabled?: boolean;
   autoRetryEnabled?: boolean;
 

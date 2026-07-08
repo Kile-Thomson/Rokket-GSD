@@ -30,6 +30,7 @@ import {
   updateSkillPills,
   setLastMessageUsage,
   setHasCostUpdateSource,
+  getHasMessageEndContext,
   getPrevCostTotals,
   setPrevCostTotals,
   confirmBackendActive,
@@ -90,9 +91,30 @@ export function handleSessionStats(msg: Msg<'session_stats'>): void {
   const deps = getDeps();
   const data = msg.data;
   if (data) {
-    // Merge config fields but preserve cost/tokens — those are managed by cost_update
-    const { cost: _c, tokens: _t, ...configFields } = data as Record<string, unknown>;
+    // Merge config fields but preserve cost/tokens/contextUsage — cost/tokens
+    // are managed by cost_update, and contextUsage is expanded below into the
+    // flat context* fields the UI reads (never spread the nested object).
+    const { cost: _c, tokens: _t, contextUsage: _cu, ...configFields } = data as Record<string, unknown>;
     Object.assign(state.sessionStats, configFields);
+    // gsd-pi nests context usage under `contextUsage` (getContextUsage()). Its
+    // contextWindow is authoritative; its tokens/percent are NOT reliable for
+    // the claude-code provider (pi drops cacheRead — see getHasMessageEndContext)
+    // so adopt them only as a bootstrap before message_end has fired this
+    // session. tokens/percent are also null right after a compaction.
+    const ctx = data.contextUsage;
+    if (ctx) {
+      if (ctx.contextWindow > 0) {
+        state.sessionStats.contextWindow = ctx.contextWindow;
+      }
+      if (
+        !getHasMessageEndContext() &&
+        typeof ctx.tokens === "number" &&
+        typeof ctx.percent === "number"
+      ) {
+        state.sessionStats.contextTokens = ctx.tokens;
+        state.sessionStats.contextPercent = ctx.percent;
+      }
+    }
     deps.updateHeaderUI();
     deps.updateFooterUI();
   }

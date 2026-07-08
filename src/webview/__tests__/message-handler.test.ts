@@ -475,6 +475,78 @@ describe("message-handler", () => {
   });
 
   // ============================================================
+  // context gauge — workflow / sub-agent turn gating
+  // ============================================================
+
+  describe("context gauge workflow gating", () => {
+    const opus = { id: "claude-opus-4-8", name: "Opus", provider: "claude-code", contextWindow: 1_000_000 };
+    // Steady chat turn: cacheRead is the constant cached prefix (~22120).
+    const usage = (over: Record<string, number> = {}) => ({
+      input: 6871,
+      output: 24,
+      cacheRead: 22120,
+      cacheWrite: 44447,
+      ...over,
+    });
+    function wfSnapshot(): Record<string, unknown> {
+      return {
+        toolCallId: "wf_run1",
+        name: "demo",
+        phases: ["A"],
+        status: "running",
+        agents: [{ label: "alpha", phase: "A", state: "running" }],
+        plannedAgentCount: 1,
+        doneAgentCount: 0,
+        runningAgentCount: 1,
+        startedAt: 1000,
+        updatedAt: 3000,
+        stale: false,
+      };
+    }
+
+    it("computes contextTokens from input+cacheRead+cacheWrite on a normal turn", () => {
+      state.model = opus;
+      sendMessage({ type: "agent_start" });
+      sendMessage({ type: "message_end", message: { role: "assistant", usage: usage() } });
+      // 6871 + 22120 + 44447 = 73438
+      expect(state.sessionStats.contextTokens).toBe(73438);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(7.3438, 3);
+    });
+
+    it("holds the gauge steady on a workflow turn (inflated sub-agent usage ignored)", () => {
+      state.model = opus;
+      // Baseline from a normal turn.
+      sendMessage({ type: "agent_start" });
+      sendMessage({ type: "message_end", message: { role: "assistant", usage: usage() } });
+      const baseTokens = state.sessionStats.contextTokens;
+      const basePercent = state.sessionStats.contextPercent;
+
+      // Next turn spawns a workflow; message_end folds in sub-agent cacheRead
+      // (89314 vs the steady 22120), which would spike the gauge to ~15%.
+      sendMessage({ type: "agent_start" });
+      sendMessage({ type: "workflow_live", data: wfSnapshot() });
+      sendMessage({ type: "message_end", message: { role: "assistant", usage: usage({ cacheRead: 89314, cacheWrite: 54494 }) } });
+
+      // Gauge unchanged — the transient spike is suppressed.
+      expect(state.sessionStats.contextTokens).toBe(baseTokens);
+      expect(state.sessionStats.contextPercent).toBe(basePercent);
+    });
+
+    it("resumes tracking real context on the next normal turn after a workflow", () => {
+      state.model = opus;
+      sendMessage({ type: "agent_start" });
+      sendMessage({ type: "workflow_live", data: wfSnapshot() });
+      sendMessage({ type: "message_end", message: { role: "assistant", usage: usage({ cacheRead: 89314, cacheWrite: 54494 }) } });
+
+      // Following normal turn: agent_start clears the latch, gauge updates again.
+      sendMessage({ type: "agent_start" });
+      sendMessage({ type: "message_end", message: { role: "assistant", usage: usage({ cacheWrite: 45051 }) } });
+      // 6871 + 22120 + 45051 = 74042
+      expect(state.sessionStats.contextTokens).toBe(74042);
+    });
+  });
+
+  // ============================================================
   // tool_execution lifecycle
   // ============================================================
 
@@ -1270,24 +1342,27 @@ describe("message-handler", () => {
       expect(state.sessionStats.cost).toBe(0.005);
     });
 
-    it("computes contextPercent from perCallUsage.totalTokens when present", () => {
-      // pi's claude-code-cli adapter attaches `perCallUsage` — the last API
-      // call's snapshot. `totalTokens` matches pi's calculateContextTokens().
+    it("computes contextTokens as input+cacheRead+cacheWrite, ignoring totalTokens", () => {
+      // Context = the prompt the model processed = all input-side tokens. We do
+      // NOT use `totalTokens - output`: for the claude-code provider totalTokens
+      // omits cacheRead, so that formula drops the cached context. totalTokens
+      // here is deliberately wrong (1) to prove it's ignored.
       state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
       sendMessage({
         type: "message_end",
         message: {
           role: "assistant",
-          usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0 },
-          perCallUsage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0, totalTokens: 55000 },
+          usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0, totalTokens: 1 },
         } as any,
       });
-      expect(state.sessionStats.contextPercent).toBeCloseTo(55, 5);
-      expect(state.sessionStats.contextTokens).toBe(55000);
+      // 40000 + 10000 + 0 = 50000 (output excluded, totalTokens ignored)
+      expect(state.sessionStats.contextTokens).toBe(50000);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(50, 5);
     });
 
-    it("falls back to perCallUsage field sum when totalTokens is missing", () => {
+    it("falls back to input+cacheRead+cacheWrite when totalTokens is missing", () => {
+      // pi's fallback branch excludes output (it's not part of prompt context).
       state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
       sendMessage({
@@ -1295,17 +1370,17 @@ describe("message-handler", () => {
         message: {
           role: "assistant",
           usage: { input: 50, output: 500, cacheRead: 40000, cacheWrite: 5000 },
-          perCallUsage: { input: 50, output: 500, cacheRead: 40000, cacheWrite: 5000 },
         } as any,
       });
-      expect(state.sessionStats.contextTokens).toBe(45550);
-      expect(state.sessionStats.contextPercent).toBeCloseTo(45.55, 5);
+      // 50 + 40000 + 5000 = 45050 (output excluded)
+      expect(state.sessionStats.contextTokens).toBe(45050);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(45.05, 5);
     });
 
-    it("reflects only the LAST call's perCallUsage across multiple message_end events", () => {
-      // Regression guard for the 91.7% bug: we MUST NOT delta-compute
-      // context from session-cumulative `usage`. Each message_end carries
-      // its own API call's snapshot; the latest one wins.
+    it("reflects only the LAST message_end usage snapshot (never deltas)", () => {
+      // Regression guard for the 900%/0.1% jumping bug: usage is a per-call
+      // snapshot, not a session aggregate. We must read it directly, never
+      // delta across message_end events.
       state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
 
@@ -1313,25 +1388,110 @@ describe("message-handler", () => {
         type: "message_end",
         message: {
           role: "assistant",
-          usage: { input: 10000, output: 2000, cacheRead: 0, cacheWrite: 0 },
-          perCallUsage: { input: 10000, output: 2000, cacheRead: 0, cacheWrite: 0, totalTokens: 12000 },
+          usage: { input: 10000, output: 2000, cacheRead: 0, cacheWrite: 0, totalTokens: 12000 },
         } as any,
       });
-      expect(state.sessionStats.contextPercent).toBe(12);
+      expect(state.sessionStats.contextPercent).toBe(10); // 10000 + 0 + 0
 
       sendMessage({
         type: "message_end",
         message: {
           role: "assistant",
-          usage: { input: 30000, output: 4000, cacheRead: 0, cacheWrite: 0 },
-          perCallUsage: { input: 20000, output: 2000, cacheRead: 0, cacheWrite: 0, totalTokens: 22000 },
+          usage: { input: 30000, output: 4000, cacheRead: 0, cacheWrite: 0, totalTokens: 22000 },
         } as any,
       });
-      expect(state.sessionStats.contextPercent).toBe(22);
-      expect(state.sessionStats.contextTokens).toBe(22000);
+      // Reads the last snapshot directly (30000), not a delta from the first.
+      expect(state.sessionStats.contextTokens).toBe(30000);
+      expect(state.sessionStats.contextPercent).toBe(30);
     });
 
-    it("computes contextPercent from usage delta when perCallUsage is absent", () => {
+    it("does not exceed 100% when cacheRead is large", () => {
+      // A warm-cache turn puts the whole context in cacheRead. input + cacheRead
+      // + cacheWrite is the real prompt size and can never exceed the window,
+      // so no 900% spikes.
+      state.sessionStats.contextWindow = 200_000;
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 5000, output: 1000, cacheRead: 0, cacheWrite: 0, totalTokens: 6000 },
+        } as any,
+      });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 5000, output: 1000, cacheRead: 150000, cacheWrite: 0, totalTokens: 156000 },
+        } as any,
+      });
+      // 5000 + 150000 + 0 = 155000 => 77.5%, not 900%
+      expect(state.sessionStats.contextPercent).toBeLessThanOrEqual(100);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(77.5, 5);
+    });
+
+    it("bootstraps context from session_stats.contextUsage before the first message_end", () => {
+      // On a restored session, pi's getContextUsage() seeds the gauge until the
+      // first assistant turn produces usage we can compute from directly.
+      sendMessage({
+        type: "session_stats",
+        data: {
+          contextUsage: { tokens: 84000, contextWindow: 200_000, percent: 42 },
+        },
+      } as any);
+      expect(state.sessionStats.contextWindow).toBe(200_000);
+      expect(state.sessionStats.contextTokens).toBe(84000);
+      expect(state.sessionStats.contextPercent).toBe(42);
+    });
+
+    it("lets message_end take over context% from the session_stats bootstrap", () => {
+      // pi's contextUsage.percent is wrong for the claude-code provider (drops
+      // cacheRead). Once a real assistant turn arrives, message_end computes the
+      // true prompt size (input + cacheRead + cacheWrite) and owns the gauge —
+      // this is what makes it climb across turns instead of tracking pi's
+      // jittery cache-creation figure.
+      sendMessage({
+        type: "session_stats",
+        data: { contextUsage: { tokens: 84000, contextWindow: 200_000, percent: 42 } },
+      } as any);
+      expect(state.sessionStats.contextPercent).toBe(42); // bootstrap
+
+      sendMessage({ type: "agent_start" });
+      sendMessage({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          usage: { input: 5000, output: 1000, cacheRead: 150000, cacheWrite: 0, totalTokens: 156000 },
+        } as any,
+      });
+      // message_end wins: 5000 + 150000 + 0 = 155000 => 77.5%
+      expect(state.sessionStats.contextTokens).toBe(155000);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(77.5, 5);
+
+      // A later session_stats poll carrying pi's stale 42% must NOT clobber it.
+      sendMessage({
+        type: "session_stats",
+        data: { contextUsage: { tokens: 84000, contextWindow: 200_000, percent: 42 } },
+      } as any);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(77.5, 5);
+    });
+
+    it("keeps last context percent when session_stats.contextUsage is null post-compaction", () => {
+      state.sessionStats.contextPercent = 60;
+      state.sessionStats.contextTokens = 120000;
+      sendMessage({
+        type: "session_stats",
+        data: {
+          contextUsage: { tokens: null, contextWindow: 200_000, percent: null },
+        },
+      } as any);
+      // Window still adopted, but the previous percent is preserved (no flicker).
+      expect(state.sessionStats.contextWindow).toBe(200_000);
+      expect(state.sessionStats.contextPercent).toBe(60);
+      expect(state.sessionStats.contextTokens).toBe(120000);
+    });
+
+    it("computes context from usage when totalTokens absent", () => {
       state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
       sendMessage({
@@ -1341,11 +1501,12 @@ describe("message-handler", () => {
           usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0 },
         },
       });
-      expect(state.sessionStats.contextTokens).toBe(55000);
-      expect(state.sessionStats.contextPercent).toBeCloseTo(55, 5);
+      // 40000 + 10000 + 0 = 50000 (output excluded in fallback)
+      expect(state.sessionStats.contextTokens).toBe(50000);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(50, 5);
     });
 
-    it("updates contextWindow even when perCallUsage is absent", () => {
+    it("updates contextWindow even when usage lacks totalTokens", () => {
       state.model = { id: "claude-sonnet-4-6", name: "Sonnet", provider: "anthropic", contextWindow: 180_000 };
       sendMessage({ type: "agent_start" });
       sendMessage({
