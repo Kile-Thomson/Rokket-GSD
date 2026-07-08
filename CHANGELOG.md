@@ -4,7 +4,7 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.96] — 2026-07-08
 
 ### Fixed
 - **Context window usage now shows the real percentage** — the header's context gauge was jumping to arbitrary values (14%, 0.1%, 900%) because it read a `perCallUsage` field that gsd-pi never sends, then fell back to subtracting one turn's token counts from the previous turn's. Those counts are per-call snapshots, not a running total, so the subtraction produced nonsense and a swing in cache-read tokens alone could push the reading past 100%. The gauge now measures the actual prompt size the model processed each turn (input + cached + newly-cached tokens), which grows steadily as the conversation builds and can never exceed the window. Context cap detection (1M, 200K, etc.) was already correct and is unchanged.
