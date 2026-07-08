@@ -433,19 +433,19 @@ describe("streaming-handlers", () => {
       expect(state.sessionStats.cost).toBe(0.005);
     });
 
-    it("computes contextTokens from usage.totalTokens (pi calculateContextTokens)", () => {
-      // gsd-pi assistant usage is the latest API call's snapshot. pi's
-      // calculateContextTokens() is `totalTokens - output` when totalTokens>0.
+    it("computes contextTokens as input+cacheRead+cacheWrite, ignoring totalTokens", () => {
+      // Context is the prompt the model processed. totalTokens is deliberately
+      // wrong (1) to prove it is ignored.
       state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
       sendMessage({
         type: "message_end",
         message: {
           role: "assistant",
-          usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0, totalTokens: 55000 },
+          usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0, totalTokens: 1 },
         },
       });
-      // 55000 - 5000 output = 50000
+      // 40000 + 10000 + 0 = 50000 (output excluded, totalTokens ignored)
       expect(state.sessionStats.contextTokens).toBe(50000);
       expect(state.sessionStats.contextPercent).toBeCloseTo(50, 5);
     });
