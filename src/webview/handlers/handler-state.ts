@@ -49,8 +49,13 @@ export type MessageUsage = {
 
 let lastMessageUsage: MessageUsage = null;
 let hasCostUpdateSource = false;
+// Once message_end computes context% from assistant usage, session_stats must
+// stop overriding it. pi's contextUsage is unreliable for the claude-code
+// provider (its totalTokens omits cacheRead, so pi's percent tracks per-turn
+// cache-creation and jitters); message_end computes the real prompt size
+// (input + cacheRead + cacheWrite) and owns context% once it fires.
+let hasMessageEndContext = false;
 let prevCostTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
-let prevMessageEndUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 
 export function getLastMessageUsage(): MessageUsage { return lastMessageUsage; }
 export function setLastMessageUsage(v: MessageUsage): void { lastMessageUsage = v; }
@@ -58,11 +63,11 @@ export function setLastMessageUsage(v: MessageUsage): void { lastMessageUsage = 
 export function getHasCostUpdateSource(): boolean { return hasCostUpdateSource; }
 export function setHasCostUpdateSource(v: boolean): void { hasCostUpdateSource = v; }
 
+export function getHasMessageEndContext(): boolean { return hasMessageEndContext; }
+export function setHasMessageEndContext(v: boolean): void { hasMessageEndContext = v; }
+
 export function getPrevCostTotals() { return prevCostTotals; }
 export function setPrevCostTotals(v: typeof prevCostTotals): void { prevCostTotals = v; }
-
-export function getPrevMessageEndUsage() { return prevMessageEndUsage; }
-export function setPrevMessageEndUsage(v: typeof prevMessageEndUsage): void { prevMessageEndUsage = v; }
 
 // ============================================================
 // Pending → Streaming transition
@@ -82,8 +87,8 @@ export function confirmBackendActive(): void {
 
 export function resetDerivedSessionTracking(): void {
   hasCostUpdateSource = false;
+  hasMessageEndContext = false;
   prevCostTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
-  prevMessageEndUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   lastMessageUsage = null;
 }
 

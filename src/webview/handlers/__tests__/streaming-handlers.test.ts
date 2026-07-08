@@ -433,25 +433,24 @@ describe("streaming-handlers", () => {
       expect(state.sessionStats.cost).toBe(0.005);
     });
 
-    it("computes contextPercent from perCallUsage.totalTokens when present", () => {
-      // pi's claude-code-cli adapter attaches `perCallUsage` — the last API
-      // call's snapshot. `totalTokens` is the authoritative value (matches
-      // pi's calculateContextTokens exactly).
+    it("computes contextTokens from usage.totalTokens (pi calculateContextTokens)", () => {
+      // gsd-pi assistant usage is the latest API call's snapshot. pi's
+      // calculateContextTokens() is `totalTokens - output` when totalTokens>0.
       state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
       sendMessage({
         type: "message_end",
         message: {
           role: "assistant",
-          usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0 },
-          perCallUsage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0, totalTokens: 55000 },
+          usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0, totalTokens: 55000 },
         },
       });
-      expect(state.sessionStats.contextPercent).toBeCloseTo(55, 5);
-      expect(state.sessionStats.contextTokens).toBe(55000);
+      // 55000 - 5000 output = 50000
+      expect(state.sessionStats.contextTokens).toBe(50000);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(50, 5);
     });
 
-    it("falls back to perCallUsage field sum when totalTokens is missing", () => {
+    it("falls back to input+cacheRead+cacheWrite when totalTokens is missing", () => {
       state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
       sendMessage({
@@ -459,49 +458,41 @@ describe("streaming-handlers", () => {
         message: {
           role: "assistant",
           usage: { input: 50, output: 500, cacheRead: 40000, cacheWrite: 5000 },
-          // No totalTokens — handler sums input+output+cacheRead+cacheWrite = 45550.
-          perCallUsage: { input: 50, output: 500, cacheRead: 40000, cacheWrite: 5000 },
         },
       });
-      expect(state.sessionStats.contextTokens).toBe(45550);
-      expect(state.sessionStats.contextPercent).toBeCloseTo(45.55, 5);
+      // 50 + 40000 + 5000 = 45050 (output excluded)
+      expect(state.sessionStats.contextTokens).toBe(45050);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(45.05, 5);
     });
 
-    it("reflects only the LAST call's perCallUsage across multiple message_end events", () => {
-      // The 91.7% regression was caused by delta-computing from `usage`
-      // (session-cumulative). With perCallUsage each message_end carries the
-      // exact pressure of its own API call — so multi-message turns do not
-      // balloon the displayed percentage.
+    it("reflects only the LAST message_end usage snapshot (never deltas)", () => {
+      // Regression guard for the 900%/0.1% jumping bug: usage is a per-call
+      // snapshot, not a session aggregate — read it directly, never delta.
       state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
 
-      // Internal call 1: 10000 → 10%
       sendMessage({
         type: "message_end",
         message: {
           role: "assistant",
-          usage: { input: 10000, output: 2000, cacheRead: 0, cacheWrite: 0 },
-          perCallUsage: { input: 10000, output: 2000, cacheRead: 0, cacheWrite: 0, totalTokens: 12000 },
+          usage: { input: 10000, output: 2000, cacheRead: 0, cacheWrite: 0, totalTokens: 12000 },
         },
       });
-      expect(state.sessionStats.contextPercent).toBe(12);
+      expect(state.sessionStats.contextPercent).toBe(10); // 10000 + 0 + 0
 
-      // Internal call 2: 20000 → 20% (NOT 32% — per-call replaces, not sums)
       sendMessage({
         type: "message_end",
         message: {
           role: "assistant",
-          usage: { input: 30000, output: 4000, cacheRead: 0, cacheWrite: 0 },
-          perCallUsage: { input: 20000, output: 2000, cacheRead: 0, cacheWrite: 0, totalTokens: 22000 },
+          usage: { input: 30000, output: 4000, cacheRead: 0, cacheWrite: 0, totalTokens: 22000 },
         },
       });
-      expect(state.sessionStats.contextPercent).toBe(22);
-      expect(state.sessionStats.contextTokens).toBe(22000);
+      // Reads the last snapshot directly (30000), not a delta from the first.
+      expect(state.sessionStats.contextPercent).toBe(30);
+      expect(state.sessionStats.contextTokens).toBe(30000);
     });
 
-    it("computes contextPercent via delta fallback when perCallUsage is absent", () => {
-      // When perCallUsage is missing (legacy upstream), the handler falls back
-      // to computing a delta from the previous message_end's cumulative usage.
+    it("computes context from usage when totalTokens absent", () => {
       state.sessionStats.contextWindow = 100_000;
       sendMessage({ type: "agent_start" });
       sendMessage({
@@ -511,11 +502,12 @@ describe("streaming-handlers", () => {
           usage: { input: 40000, output: 5000, cacheRead: 10000, cacheWrite: 0 },
         },
       });
-      expect(state.sessionStats.contextTokens).toBe(55000);
-      expect(state.sessionStats.contextPercent).toBeCloseTo(55, 5);
+      // 40000 + 10000 + 0 = 50000 (output excluded in fallback)
+      expect(state.sessionStats.contextTokens).toBe(50000);
+      expect(state.sessionStats.contextPercent).toBeCloseTo(50, 5);
     });
 
-    it("updates contextWindow even when perCallUsage is absent", () => {
+    it("updates contextWindow even when usage lacks totalTokens", () => {
       // Context window resolution is independent of per-call data — we still
       // want header chrome to know the model's capacity.
       state.model = { id: "claude-sonnet-4-6", name: "Sonnet", provider: "anthropic", contextWindow: 180_000 };

@@ -90,6 +90,7 @@ const client = {
   sendExtensionUiResponse: vi.fn(),
   abort: vi.fn(),
   sendPrompt: vi.fn(),
+  getSessionStats: vi.fn().mockResolvedValue({ contextUsage: { tokens: 84000, contextWindow: 200_000, percent: 42 } }),
 } as any;
 
 // ── Tests ────────────────────────────────────────────────────────────────
@@ -137,6 +138,19 @@ describe("rpc-events", () => {
       const { ctx, session } = createCtx(createMockSession({ gsdFallbackTimer: timer as any }));
       handleRpcEvent(ctx, webview, sid, { type: "agent_end" }, client);
       expect(session.gsdFallbackTimer).toBeNull();
+    });
+
+    it("agent_end: pushes a fresh session_stats so the context gauge is authoritative", async () => {
+      const { ctx } = createCtx(createMockSession({ isStreaming: true }));
+      handleRpcEvent(ctx, webview, sid, { type: "agent_end" }, client);
+      expect(client.getSessionStats).toHaveBeenCalled();
+      // Let the resolved getSessionStats promise flush.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(ctx.postToWebview).toHaveBeenCalledWith(webview, expect.objectContaining({
+        type: "session_stats",
+        data: expect.objectContaining({ contextUsage: expect.objectContaining({ percent: 42 }) }),
+      }));
     });
 
     it("message_end: accumulates cost from assistant usage", () => {

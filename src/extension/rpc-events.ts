@@ -136,6 +136,19 @@ export function handleRpcEvent(
     }
     // Refresh workflow state after each agent turn
     ctx.refreshWorkflowState(webview, sessionId);
+    // Push one authoritative session_stats now that the turn is done. Stats
+    // polling only runs mid-stream (and stops here), so without this the context
+    // gauge would settle on a mid-stream poll up to 5s stale. getSessionStats()
+    // carries pi's contextUsage — the exact value pi's own footer shows.
+    client.getSessionStats?.()
+      ?.then((stats) => {
+        if (stats) {
+          ctx.postToWebview(webview, { type: "session_stats", data: stats } as unknown as ExtensionToWebviewMessage);
+        }
+      })
+      .catch((err: unknown) => {
+        ctx.output.appendLine(`[${sessionId}] agent_end session_stats refresh failed: ${err instanceof Error ? err.message : String(err)}`);
+      });
     ctx.onAgentEnd?.(sessionId);
   } else if (eventType === "message_update") {
     const evt = event.assistantMessageEvent as Record<string, unknown> | undefined;

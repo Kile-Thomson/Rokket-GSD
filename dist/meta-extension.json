@@ -125,7 +125,7 @@
       "format": "esm"
     },
     "src/extension/dashboard-parser.ts": {
-      "bytes": 8300,
+      "bytes": 9745,
       "imports": [
         {
           "path": "fs",
@@ -318,7 +318,7 @@
       "format": "esm"
     },
     "src/shared/types.ts": {
-      "bytes": 27152,
+      "bytes": 27561,
       "imports": [],
       "format": "esm"
     },
@@ -365,7 +365,7 @@
       "format": "esm"
     },
     "src/extension/rpc-events.ts": {
-      "bytes": 20823,
+      "bytes": 21551,
       "imports": [
         {
           "path": "vscode",
@@ -1026,7 +1026,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 764228
+      "bytes": 767813
     },
     "dist/extension.js": {
       "imports": [
@@ -1406,7 +1406,7 @@
           "bytesInOutput": 4217
         },
         "src/extension/dashboard-parser.ts": {
-          "bytesInOutput": 2984
+          "bytesInOutput": 3325
         },
         "src/extension/state-parser.ts": {
           "bytesInOutput": 805
@@ -1418,7 +1418,7 @@
           "bytesInOutput": 1256
         },
         "src/extension/workflow-progress.ts": {
-          "bytesInOutput": 4466
+          "bytesInOutput": 4472
         },
         "src/extension/workflow-progress-poller.ts": {
           "bytesInOutput": 4037
@@ -1436,7 +1436,7 @@
           "bytesInOutput": 3213
         },
         "src/extension/rpc-events.ts": {
-          "bytesInOutput": 7031
+          "bytesInOutput": 7241
         },
         "src/extension/workflow-event-capture.ts": {
           "bytesInOutput": 1051
@@ -1445,7 +1445,7 @@
           "bytesInOutput": 18681
         },
         "src/extension/session-list-service.ts": {
-          "bytesInOutput": 2191
+          "bytesInOutput": 2197
         },
         "src/extension/metrics-parser.ts": {
           "bytesInOutput": 2502
@@ -1514,7 +1514,7 @@
           "bytesInOutput": 2534
         }
       },
-      "bytes": 198681
+      "bytes": 199244
     }
   }
 }

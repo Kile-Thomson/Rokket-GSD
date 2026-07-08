@@ -9,11 +9,10 @@ import {
   getDeps,
   setLastMessageUsage,
   getHasCostUpdateSource,
+  setHasMessageEndContext,
   resolveContextWindow,
   addSystemEntry,
   confirmBackendActive,
-  getPrevMessageEndUsage,
-  setPrevMessageEndUsage,
 } from "./handler-state";
 import { flushToolEndQueue } from "./tool-execution-handlers";
 
@@ -260,15 +259,6 @@ export function handleMessageEnd(msg: Msg<'message_end'>): void {
       const u = endMsg.usage;
       setLastMessageUsage(u);
 
-      // pi's claude-code-cli adapter exposes a `perCallUsage` field on the
-      // assistant message carrying the *last* API call's usage snapshot
-      // (input, output, cacheRead, cacheWrite, totalTokens). That is the
-      // authoritative signal for context window pressure — `usage` is a
-      // session-wide running aggregate, not per-call.
-      const perCall = (endMsg as Record<string, unknown>).perCallUsage as
-        | { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; totalTokens?: number }
-        | undefined;
-
       if (!getHasCostUpdateSource()) {
         // cost_update is the authoritative session-total source in v2.
         // When absent (older providers), mirror pi's session-stat behaviour:
@@ -293,42 +283,22 @@ export function handleMessageEnd(msg: Msg<'message_end'>): void {
       }
 
       {
-        // Context %: prefer perCallUsage.totalTokens (matches pi's own
-        // calculateContextTokens exactly), fall back to the field sum.
-        // Never delta-compute from `usage` — it's a session aggregate.
+        // Running context = the prompt the model just processed = every
+        // input-side token this turn (input + cacheRead + cacheWrite). This is
+        // correct across providers and is what pi SHOULD report but doesn't for
+        // claude-code (its totalTokens omits cacheRead, so `totalTokens - output`
+        // drops the cached context and makes the gauge track cache-creation).
+        // output is excluded — it's generation, not prompt context. The sum can
+        // never exceed the window, so no runaway percentages. message_end owns
+        // context% once it fires; session_stats only bootstraps before then.
         const contextWindow = resolveContextWindow();
         if (contextWindow > 0) {
           state.sessionStats.contextWindow = contextWindow;
         }
-        let contextTokens = 0;
-        let source = "none";
-        if (perCall && typeof perCall.totalTokens === "number" && perCall.totalTokens > 0) {
-          contextTokens = perCall.totalTokens;
-          source = "perCall.totalTokens";
-        } else if (perCall) {
-          contextTokens = (perCall.input || 0) + (perCall.output || 0) + (perCall.cacheRead || 0) + (perCall.cacheWrite || 0);
-          if (contextTokens > 0) source = "perCall.sum";
-        }
-        if (contextTokens === 0) {
-          // Fallback: usage is a session-cumulative aggregate, so compute
-          // per-call tokens via delta from the previous message_end.
-          const prev = getPrevMessageEndUsage();
-          const dIn = (u.input || 0) - prev.input;
-          const dOut = (u.output || 0) - prev.output;
-          const dCR = (u.cacheRead || 0) - prev.cacheRead;
-          const dCW = (u.cacheWrite || 0) - prev.cacheWrite;
-          contextTokens = dIn + dOut + dCR + dCW;
-          if (contextTokens > 0) source = "usage.delta";
-        }
-        // Always track cumulative usage for delta computation
-        setPrevMessageEndUsage({
-          input: u.input || 0,
-          output: u.output || 0,
-          cacheRead: u.cacheRead || 0,
-          cacheWrite: u.cacheWrite || 0,
-        });
-        console.debug(`[gsd:context] ctx=${contextTokens}/${contextWindow} src=${source} perCall=${perCall ? JSON.stringify(perCall) : "n/a"}`);
+        const uu = u as { input?: number; cacheRead?: number; cacheWrite?: number };
+        const contextTokens = (uu.input || 0) + (uu.cacheRead || 0) + (uu.cacheWrite || 0);
         if (contextWindow > 0 && contextTokens > 0) {
+          setHasMessageEndContext(true);
           state.sessionStats.contextTokens = contextTokens;
           state.sessionStats.contextPercent = (contextTokens / contextWindow) * 100;
         }
