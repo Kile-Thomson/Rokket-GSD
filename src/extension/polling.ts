@@ -1,4 +1,6 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
+import * as path from "path";
 import type {
   ExtensionToWebviewMessage,
   SessionStats,
@@ -18,6 +20,7 @@ export interface PollingContext {
   readonly output: vscode.OutputChannel;
   emitStatus(update: Partial<StatusBarUpdate>): void;
   applySessionCostFloor(sessionId: string, stats: { cost?: number } | null | undefined): void;
+  isWebviewVisible(sessionId: string): boolean;
 }
 
 /** Poll session stats every 5 seconds */
@@ -103,16 +106,71 @@ export async function refreshWorkflowState(ctx: PollingContext, webview: vscode.
   ctx.postToWebview(webview, { type: "workflow_state", state } as ExtensionToWebviewMessage);
 }
 
-/** Poll workflow state every 30 seconds */
+/**
+ * One gated workflow-state poll. Skips the STATE.md re-parse and re-post when
+ * either the webview is hidden (nothing renders the badge) or the file's mtime
+ * is unchanged since the last post (nothing to show). Cuts the idle cost of the
+ * 30s loop — relevant because `.gsd` is often Dropbox-synced.
+ */
+async function pollWorkflowStateGated(ctx: PollingContext, webview: vscode.Webview, sessionId: string): Promise<void> {
+  // No point re-posting to a hidden webview — the badge isn't visible and the
+  // next resolve/rebind primes state from scratch.
+  if (!ctx.isWebviewVisible(sessionId)) return;
+
+  const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+  const statePath = path.join(cwd, ".gsd", "STATE.md");
+
+  let mtimeMs: number;
+  try {
+    mtimeMs = (await fs.promises.stat(statePath)).mtimeMs;
+  } catch (err) {
+    // ENOENT is the expected "no STATE.md yet" case — the initial unconditional
+    // refresh already reported the empty/absent state, so nothing to do. Any
+    // other stat error (permissions, transient I/O) is worth surfacing and must
+    // not be silently cached as "unchanged".
+    if ((err as NodeJS.ErrnoException)?.code !== "ENOENT") {
+      ctx.output.appendLine(`[${sessionId}] workflow poll stat failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    return;
+  }
+
+  const session = ctx.getSession(sessionId);
+  if (mtimeMs === session.workflowStateMtimeMs) return; // unchanged since last post
+
+  // Update the cache only after a successful refresh, so a failed refresh
+  // retries on the next poll instead of being skipped by a prematurely-stored
+  // mtime. A refresh failure is logged, not thrown — the poll runs detached
+  // (`void pollWorkflowStateGated(...)`), so an uncaught rejection would surface
+  // as an unhandled promise rejection.
+  try {
+    await refreshWorkflowState(ctx, webview, sessionId);
+    session.workflowStateMtimeMs = mtimeMs;
+  } catch (err) {
+    ctx.output.appendLine(`[${sessionId}] workflow poll refresh failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+/** Poll workflow state every 30 seconds (gated on visibility + STATE.md mtime) */
 export function startWorkflowPolling(ctx: PollingContext, webview: vscode.Webview, sessionId: string): void {
   const existing = ctx.getSession(sessionId).workflowTimer;
   if (existing) clearInterval(existing);
 
-  // Initial refresh
+  // Force a fresh post on (re)start — the gated poll compares against this.
+  ctx.getSession(sessionId).workflowStateMtimeMs = 0;
+
+  // Initial refresh is unconditional: prime the badge even if hidden at launch.
   refreshWorkflowState(ctx, webview, sessionId);
+  // Seed the mtime cache so the first gated tick doesn't re-post the same state.
+  try {
+    const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+    ctx.getSession(sessionId).workflowStateMtimeMs =
+      fs.statSync(path.join(cwd, ".gsd", "STATE.md")).mtimeMs;
+  } catch {
+    // STATE.md not present yet — leave cache at 0 so the first change posts.
+  }
 
   // Poll every 30 seconds
-  const timer = setInterval(() => refreshWorkflowState(ctx, webview, sessionId), WORKFLOW_POLL_INTERVAL_MS);
+  const timer = setInterval(() => void pollWorkflowStateGated(ctx, webview, sessionId), WORKFLOW_POLL_INTERVAL_MS);
   ctx.getSession(sessionId).workflowTimer = timer;
 }
 

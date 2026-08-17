@@ -4,6 +4,15 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.97] — 2026-08-17
+
+### Fixed
+- **Context gauge now works for the newest models** — the fallback that estimates a model's context window when the backend doesn't report one had no entry for the latest Claude, GPT, and Grok models, so the gauge could read 0% for them. Added Claude Opus/Sonnet/Haiku 5, GPT-5, Grok, and Kimi to the fallback table. This only ever mattered when the backend didn't send a window size; normal sessions were already correct.
+- **Screen readers now announce errors and model switches** — errors surfaced in chat and automatic model fallbacks were shown visually but never announced to assistive tech. Both are now announced, matching the existing announcements for turn start/continue/complete.
+
+### Changed
+- **Idle background polling is lighter** — the 30-second workflow-state refresh no longer re-reads and re-parses the project state file when nothing has changed or when the panel isn't visible. Reduces idle disk activity, which matters most when the project's `.gsd` directory is on a synced drive.
+
 ## [0.3.96] — 2026-07-08
 
 ### Fixed

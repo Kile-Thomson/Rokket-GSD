@@ -207,20 +207,11 @@ describe("ARIA semantics", () => {
     expect(a11yTs).toMatch(/export\s+function\s+announceToScreenReader/);
   });
 
-  it("message-handler + handler sub-modules call announceToScreenReader at least 4 times", () => {
-    const files = [
-      path.join(srcDir, "message-handler.ts"),
-      ...fs.readdirSync(path.join(srcDir, "handlers")).map(f => path.join(srcDir, "handlers", f)),
-    ];
-    let totalCalls = 0;
-    for (const file of files) {
-      if (!file.endsWith(".ts")) continue;
-      const content = fs.readFileSync(file, "utf-8");
-      const calls = content.match(/announceToScreenReader\(/g) || [];
-      const importCount = content.match(/import.*announceToScreenReader/g)?.length || 0;
-      totalCalls += calls.length - importCount;
-    }
-    expect(totalCalls).toBeGreaterThanOrEqual(4);
+  it("message-handler calls announceToScreenReader at least 4 times", () => {
+    const content = fs.readFileSync(path.join(srcDir, "message-handler.ts"), "utf-8");
+    // Only call sites carry a "(" — the import line does not, so it isn't counted.
+    const calls = content.match(/announceToScreenReader\(/g) || [];
+    expect(calls.length).toBeGreaterThanOrEqual(4);
   });
 });
 

@@ -90,6 +90,9 @@ let prevCostTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0
 // Order matters — first match wins, so put more specific patterns first.
 const KNOWN_CONTEXT_WINDOWS: Array<[pattern: string, tokens: number]> = [
   // Anthropic Claude
+  ["opus-5", 200_000],
+  ["sonnet-5", 200_000],
+  ["haiku-5", 200_000],
   ["opus-4", 200_000],
   ["sonnet-4", 200_000],
   ["haiku-4", 200_000],
@@ -98,6 +101,7 @@ const KNOWN_CONTEXT_WINDOWS: Array<[pattern: string, tokens: number]> = [
   ["claude-3-sonnet", 200_000],
   ["claude-3-haiku", 200_000],
   // OpenAI
+  ["gpt-5", 400_000],
   ["gpt-4o", 128_000],
   ["gpt-4-turbo", 128_000],
   ["gpt-4.1", 1_000_000],
@@ -108,6 +112,14 @@ const KNOWN_CONTEXT_WINDOWS: Array<[pattern: string, tokens: number]> = [
   // Google Gemini
   ["gemini-2", 1_000_000],
   ["gemini-1.5", 1_000_000],
+  // xAI Grok — model-specific first (includes() matching means the generic
+  // "grok" catch-all must stay last so it only handles unknown future variants).
+  ["grok-4.3", 1_000_000],
+  ["grok-4.5", 500_000],
+  ["grok-build", 256_000],
+  ["grok", 256_000],
+  // Moonshot Kimi
+  ["kimi", 256_000],
   // Codex
   ["codex", 200_000],
   // DeepSeek
@@ -130,9 +142,21 @@ function resolveContextWindow(): number {
   }
   // 4. Fallback: match model ID against known windows
   if (modelId) {
-    for (const [pattern, tokens] of KNOWN_CONTEXT_WINDOWS) {
-      if (modelId.includes(pattern)) return tokens;
-    }
+    const known = knownContextWindow(modelId);
+    if (known) return known;
+  }
+  return 0;
+}
+
+/**
+ * Fallback context-window lookup by model-ID substring. Returns 0 when no
+ * pattern matches. Order in KNOWN_CONTEXT_WINDOWS matters — first substring
+ * match wins, so model-specific patterns must precede generic catch-alls.
+ * Exported for direct unit testing of the fallback table.
+ */
+export function knownContextWindow(modelId: string): number {
+  for (const [pattern, tokens] of KNOWN_CONTEXT_WINDOWS) {
+    if (modelId.includes(pattern)) return tokens;
   }
   return 0;
 }
@@ -743,6 +767,7 @@ function handleMessage(event: MessageEvent): void {
         const errorMessage = (endMsg as any).errorMessage as string | undefined;
         if (stopReason === "error" && errorMessage) {
           addSystemEntry(errorMessage, "error");
+          announceToScreenReader(`Error: ${errorMessage}`);
         }
 
         if ((endMsg as any).usage) {
@@ -998,6 +1023,7 @@ function handleMessage(event: MessageEvent): void {
       const to = data.to || "unknown";
       const reason = data.reason || "rate limit";
       toasts.show(`⚠ Model switched: ${from} → ${to} (${reason})`, 5000);
+      announceToScreenReader(`Model switched to ${to}`);
       // Update model display if we can parse provider/id from the "to" field
       const parts = to.split("/");
       if (parts.length >= 2) {
@@ -1150,6 +1176,7 @@ function handleMessage(event: MessageEvent): void {
     case "error": {
       const data = msg;
       addSystemEntry(data.message, "error");
+      announceToScreenReader(`Error: ${data.message}`);
       break;
     }
 

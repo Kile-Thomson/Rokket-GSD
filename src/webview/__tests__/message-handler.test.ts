@@ -92,7 +92,7 @@ vi.mock("../a11y", () => ({
   announceToScreenReader: vi.fn(),
 }));
 
-import { init, addSystemEntry } from "../message-handler";
+import { init, addSystemEntry, knownContextWindow } from "../message-handler";
 import * as renderer from "../renderer";
 import * as uiDialogs from "../ui-dialogs";
 import * as a11y from "../a11y";
@@ -543,6 +543,39 @@ describe("message-handler", () => {
       sendMessage({ type: "message_end", message: { role: "assistant", usage: usage({ cacheWrite: 45051 }) } });
       // 6871 + 22120 + 45051 = 74042
       expect(state.sessionStats.contextTokens).toBe(74042);
+    });
+  });
+
+  // ============================================================
+  // context-window fallback table
+  // ============================================================
+
+  describe("knownContextWindow fallback", () => {
+    it("resolves each Grok model to its own window (not a shared 256k)", () => {
+      expect(knownContextWindow("grok-4.3")).toBe(1_000_000);
+      expect(knownContextWindow("grok-4.5")).toBe(500_000);
+      expect(knownContextWindow("grok-build-0.1")).toBe(256_000);
+    });
+
+    it("provider-prefixed Grok IDs still resolve by substring", () => {
+      expect(knownContextWindow("xai/grok-4.3")).toBe(1_000_000);
+      expect(knownContextWindow("xai/grok-4.5")).toBe(500_000);
+    });
+
+    it("an unknown Grok variant falls back to the generic 256k catch-all", () => {
+      expect(knownContextWindow("grok-9-future")).toBe(256_000);
+    });
+
+    it("resolves the newest Claude/GPT/Kimi models", () => {
+      expect(knownContextWindow("claude-opus-5")).toBe(200_000);
+      expect(knownContextWindow("claude-sonnet-5")).toBe(200_000);
+      expect(knownContextWindow("claude-haiku-5")).toBe(200_000);
+      expect(knownContextWindow("gpt-5.6")).toBe(400_000);
+      expect(knownContextWindow("kimi-code")).toBe(256_000);
+    });
+
+    it("returns 0 for a completely unknown model", () => {
+      expect(knownContextWindow("some-unknown-model")).toBe(0);
     });
   });
 

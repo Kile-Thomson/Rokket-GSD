@@ -14,6 +14,25 @@ vi.mock("./state-parser", () => ({
   parseGsdWorkflowState: vi.fn().mockResolvedValue(null),
 }));
 
+// ── Mock fs (STATE.md mtime for gated workflow polling) ─────────────────
+// The workflow poll stats .gsd/STATE.md to decide whether anything changed.
+// A module-level mtime lets each test drive the gate deterministically.
+
+let mockStateMtimeMs = 1_000;
+let mockStatError: NodeJS.ErrnoException | null = null;
+vi.mock("fs", () => ({
+  promises: {
+    stat: vi.fn(async () => {
+      if (mockStatError) throw mockStatError;
+      return { mtimeMs: mockStateMtimeMs };
+    }),
+  },
+  statSync: vi.fn(() => {
+    if (mockStatError) throw mockStatError;
+    return { mtimeMs: mockStateMtimeMs };
+  }),
+}));
+
 import {
   startStatsPolling,
   startHealthMonitoring,
@@ -35,6 +54,7 @@ function createMockSession(overrides: Partial<SessionState> = {}): SessionState 
     statsTimer: null,
     healthTimer: null,
     workflowTimer: null,
+    workflowStateMtimeMs: 0,
     activityTimer: null,
     promptWatchdog: null,
     slashWatchdog: null,
@@ -75,6 +95,7 @@ function createMockPollingContext(session: SessionState): PollingContext {
     output: { appendLine: vi.fn() } as any,
     emitStatus: vi.fn(),
     applySessionCostFloor: vi.fn(),
+    isWebviewVisible: vi.fn(() => true),
   };
 }
 
@@ -86,6 +107,8 @@ describe("polling", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    mockStateMtimeMs = 1_000;
+    mockStatError = null;
   });
 
   afterEach(() => {
@@ -265,7 +288,7 @@ describe("polling", () => {
       expect(session.workflowTimer).not.toBeNull();
     });
 
-    it("performs initial refresh and then polls every 30s", async () => {
+    it("performs initial refresh, then re-polls only when STATE.md mtime changes", async () => {
       const session = createMockSession({ autoModeState: "auto" });
       const ctx = createMockPollingContext(session);
 
@@ -279,7 +302,7 @@ describe("polling", () => {
 
       startWorkflowPolling(ctx, FAKE_WEBVIEW, "s1");
 
-      // Initial refresh is called immediately (async)
+      // Initial refresh is called immediately (async), unconditionally.
       await vi.advanceTimersByTimeAsync(0);
       expect(parseGsdWorkflowState).toHaveBeenCalledTimes(1);
       expect(ctx.postToWebview).toHaveBeenCalledWith(
@@ -287,9 +310,93 @@ describe("polling", () => {
         expect.objectContaining({ type: "workflow_state" }),
       );
 
-      // Poll at 30s
+      // Tick with STATE.md mtime unchanged — gated poll skips the re-parse.
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(parseGsdWorkflowState).toHaveBeenCalledTimes(1);
+
+      // STATE.md changes — next tick re-parses and re-posts.
+      mockStateMtimeMs = 2_000;
       await vi.advanceTimersByTimeAsync(30_000);
       expect(parseGsdWorkflowState).toHaveBeenCalledTimes(2);
+    });
+
+    it("skips the gated poll when the webview is hidden", async () => {
+      const session = createMockSession({ autoModeState: "auto" });
+      const ctx = createMockPollingContext(session);
+      vi.mocked(ctx.isWebviewVisible).mockReturnValue(false);
+
+      startWorkflowPolling(ctx, FAKE_WEBVIEW, "s1");
+
+      // Initial refresh still fires (unconditional), priming the badge.
+      await vi.advanceTimersByTimeAsync(0);
+      expect(parseGsdWorkflowState).toHaveBeenCalledTimes(1);
+
+      // Even with a changed mtime, a hidden webview gets no re-post.
+      mockStateMtimeMs = 5_000;
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(parseGsdWorkflowState).toHaveBeenCalledTimes(1);
+    });
+
+    it("retries on the next tick when a refresh fails (mtime not cached prematurely)", async () => {
+      const session = createMockSession({ autoModeState: "auto" });
+      const ctx = createMockPollingContext(session);
+
+      startWorkflowPolling(ctx, FAKE_WEBVIEW, "s1");
+      await vi.advanceTimersByTimeAsync(0); // initial unconditional refresh
+      vi.mocked(parseGsdWorkflowState).mockClear();
+
+      // STATE.md changed and the refresh throws — cache must NOT advance.
+      mockStateMtimeMs = 2_000;
+      vi.mocked(parseGsdWorkflowState).mockRejectedValueOnce(new Error("read failed"));
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(parseGsdWorkflowState).toHaveBeenCalledTimes(1);
+      expect(session.workflowStateMtimeMs).not.toBe(2_000); // not cached on failure
+
+      // Same mtime, refresh now succeeds — the retry goes through.
+      vi.mocked(parseGsdWorkflowState).mockResolvedValueOnce({
+        milestone: null, slice: null, task: null, phase: "executing", autoMode: null,
+      });
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(parseGsdWorkflowState).toHaveBeenCalledTimes(2);
+      expect(session.workflowStateMtimeMs).toBe(2_000); // cached after success
+    });
+
+    it("logs a non-ENOENT stat error and does not cache it as unchanged", async () => {
+      const session = createMockSession({ autoModeState: "auto" });
+      const ctx = createMockPollingContext(session);
+
+      startWorkflowPolling(ctx, FAKE_WEBVIEW, "s1");
+      await vi.advanceTimersByTimeAsync(0);
+      vi.mocked(parseGsdWorkflowState).mockClear();
+
+      const err: NodeJS.ErrnoException = new Error("permission denied");
+      err.code = "EACCES";
+      mockStatError = err;
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      // No refresh (stat failed), but the error is surfaced to the output channel.
+      expect(parseGsdWorkflowState).not.toHaveBeenCalled();
+      expect(ctx.output.appendLine).toHaveBeenCalledWith(
+        expect.stringContaining("permission denied"),
+      );
+    });
+
+    it("silently ignores ENOENT (STATE.md not present yet)", async () => {
+      const session = createMockSession({ autoModeState: "auto" });
+      const ctx = createMockPollingContext(session);
+
+      startWorkflowPolling(ctx, FAKE_WEBVIEW, "s1");
+      await vi.advanceTimersByTimeAsync(0);
+      vi.mocked(parseGsdWorkflowState).mockClear();
+      vi.mocked(ctx.output.appendLine).mockClear();
+
+      const err: NodeJS.ErrnoException = new Error("no such file");
+      err.code = "ENOENT";
+      mockStatError = err;
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      expect(parseGsdWorkflowState).not.toHaveBeenCalled();
+      expect(ctx.output.appendLine).not.toHaveBeenCalled();
     });
 
     it("clears existing timer when called again", () => {

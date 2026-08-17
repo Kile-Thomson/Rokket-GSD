@@ -449,6 +449,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       output: this.output,
       emitStatus: (update) => this.emitStatus(update),
       applySessionCostFloor: (sid, stats) => this.applySessionCostFloor(sid, stats),
+      isWebviewVisible: (sid) => this.isSessionVisible(sid),
     };
   }
 
@@ -917,6 +918,21 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     if (this.webviewView?.visible) return true;
     const panel = this.getSession(sessionId).panel;
     return panel?.visible ?? false;
+  }
+
+  /**
+   * Visibility of one specific session's surface — unlike isWebviewVisible,
+   * this does NOT report a session visible merely because the sidebar is open
+   * for a different session. A tab-panel session is visible only when its own
+   * panel is; the sidebar session is visible only when the sidebar view is.
+   * Used to gate per-session background polling so hidden tabs stop working.
+   */
+  private isSessionVisible(sessionId: string): boolean {
+    const panel = this.getSession(sessionId).panel;
+    if (panel) return panel.visible; // tab session — its own panel decides
+    // No panel means this is (or was) the sidebar session.
+    if (sessionId === this.sidebarSessionId) return this.webviewView?.visible ?? false;
+    return false;
   }
 
   private getUseCtrlEnter(): boolean {
