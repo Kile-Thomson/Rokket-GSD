@@ -112,7 +112,11 @@ const KNOWN_CONTEXT_WINDOWS: Array<[pattern: string, tokens: number]> = [
   // Google Gemini
   ["gemini-2", 1_000_000],
   ["gemini-1.5", 1_000_000],
-  // xAI Grok
+  // xAI Grok — model-specific first (includes() matching means the generic
+  // "grok" catch-all must stay last so it only handles unknown future variants).
+  ["grok-4.3", 1_000_000],
+  ["grok-4.5", 500_000],
+  ["grok-build", 256_000],
   ["grok", 256_000],
   // Moonshot Kimi
   ["kimi", 256_000],
@@ -138,9 +142,21 @@ function resolveContextWindow(): number {
   }
   // 4. Fallback: match model ID against known windows
   if (modelId) {
-    for (const [pattern, tokens] of KNOWN_CONTEXT_WINDOWS) {
-      if (modelId.includes(pattern)) return tokens;
-    }
+    const known = knownContextWindow(modelId);
+    if (known) return known;
+  }
+  return 0;
+}
+
+/**
+ * Fallback context-window lookup by model-ID substring. Returns 0 when no
+ * pattern matches. Order in KNOWN_CONTEXT_WINDOWS matters — first substring
+ * match wins, so model-specific patterns must precede generic catch-alls.
+ * Exported for direct unit testing of the fallback table.
+ */
+export function knownContextWindow(modelId: string): number {
+  for (const [pattern, tokens] of KNOWN_CONTEXT_WINDOWS) {
+    if (modelId.includes(pattern)) return tokens;
   }
   return 0;
 }

@@ -120,20 +120,34 @@ async function pollWorkflowStateGated(ctx: PollingContext, webview: vscode.Webvi
   const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
   const statePath = path.join(cwd, ".gsd", "STATE.md");
 
-  let mtimeMs = 0;
+  let mtimeMs: number;
   try {
     mtimeMs = (await fs.promises.stat(statePath)).mtimeMs;
-  } catch {
-    // STATE.md missing — treat as "no change" (mtime 0). The initial
-    // unconditional refresh already reported the empty/absent state.
+  } catch (err) {
+    // ENOENT is the expected "no STATE.md yet" case — the initial unconditional
+    // refresh already reported the empty/absent state, so nothing to do. Any
+    // other stat error (permissions, transient I/O) is worth surfacing and must
+    // not be silently cached as "unchanged".
+    if ((err as NodeJS.ErrnoException)?.code !== "ENOENT") {
+      ctx.output.appendLine(`[${sessionId}] workflow poll stat failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
     return;
   }
 
   const session = ctx.getSession(sessionId);
   if (mtimeMs === session.workflowStateMtimeMs) return; // unchanged since last post
-  session.workflowStateMtimeMs = mtimeMs;
 
-  await refreshWorkflowState(ctx, webview, sessionId);
+  // Update the cache only after a successful refresh, so a failed refresh
+  // retries on the next poll instead of being skipped by a prematurely-stored
+  // mtime. A refresh failure is logged, not thrown — the poll runs detached
+  // (`void pollWorkflowStateGated(...)`), so an uncaught rejection would surface
+  // as an unhandled promise rejection.
+  try {
+    await refreshWorkflowState(ctx, webview, sessionId);
+    session.workflowStateMtimeMs = mtimeMs;
+  } catch (err) {
+    ctx.output.appendLine(`[${sessionId}] workflow poll refresh failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 /** Poll workflow state every 30 seconds (gated on visibility + STATE.md mtime) */

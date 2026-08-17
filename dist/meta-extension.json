@@ -724,7 +724,7 @@
       "format": "esm"
     },
     "src/extension/polling.ts": {
-      "bytes": 7651,
+      "bytes": 8530,
       "imports": [
         {
           "path": "vscode",
@@ -771,7 +771,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 43399,
+      "bytes": 44176,
       "imports": [
         {
           "path": "vscode",
@@ -1036,7 +1036,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 770890
+      "bytes": 772982
     },
     "dist/extension.js": {
       "imports": [
@@ -1408,7 +1408,7 @@
           "bytesInOutput": 3397
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 20356
+          "bytesInOutput": 20485
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 10469
@@ -1516,7 +1516,7 @@
           "bytesInOutput": 4725
         },
         "src/extension/polling.ts": {
-          "bytesInOutput": 2327
+          "bytesInOutput": 2563
         },
         "src/extension/html-generator.ts": {
           "bytesInOutput": 941
@@ -1534,7 +1534,7 @@
           "bytesInOutput": 2534
         }
       },
-      "bytes": 199870
+      "bytes": 200235
     }
   }
 }
