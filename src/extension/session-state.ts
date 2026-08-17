@@ -33,6 +33,8 @@ export interface SessionState {
   healthTimer: ReturnType<typeof setInterval> | null;
   workflowTimer: ReturnType<typeof setInterval> | null;
   activityTimer: ReturnType<typeof setInterval> | null;
+  /** Last STATE.md mtime the workflow poll observed — skips re-parse+re-post when unchanged. */
+  workflowStateMtimeMs: number;
 
   // --- Watchdogs ---
   promptWatchdog: PromptWatchdog | null;
@@ -84,6 +86,7 @@ export function createSessionState(): SessionState {
     healthTimer: null,
     workflowTimer: null,
     activityTimer: null,
+    workflowStateMtimeMs: 0,
     promptWatchdog: null,
     slashWatchdog: null,
     gsdFallbackTimer: null,

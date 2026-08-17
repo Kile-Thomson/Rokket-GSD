@@ -287,7 +287,7 @@
       "format": "esm"
     },
     "src/extension/session-state.ts": {
-      "bytes": 5910,
+      "bytes": 6073,
       "imports": [
         {
           "path": "vscode",
@@ -724,10 +724,20 @@
       "format": "esm"
     },
     "src/extension/polling.ts": {
-      "bytes": 5633,
+      "bytes": 7651,
       "imports": [
         {
           "path": "vscode",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
           "kind": "import-statement",
           "external": true
         },
@@ -761,7 +771,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 43337,
+      "bytes": 43399,
       "imports": [
         {
           "path": "vscode",
@@ -1026,7 +1036,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 767813
+      "bytes": 770890
     },
     "dist/extension.js": {
       "imports": [
@@ -1331,6 +1341,16 @@
           "external": true
         },
         {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
           "path": "vscode",
           "kind": "require-call",
           "external": true
@@ -1388,7 +1408,7 @@
           "bytesInOutput": 3397
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 20311
+          "bytesInOutput": 20356
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 10469
@@ -1427,7 +1447,7 @@
           "bytesInOutput": 4588
         },
         "src/extension/session-state.ts": {
-          "bytesInOutput": 1643
+          "bytesInOutput": 1666
         },
         "src/shared/types.ts": {
           "bytesInOutput": 520
@@ -1496,7 +1516,7 @@
           "bytesInOutput": 4725
         },
         "src/extension/polling.ts": {
-          "bytesInOutput": 1769
+          "bytesInOutput": 2327
         },
         "src/extension/html-generator.ts": {
           "bytesInOutput": 941
@@ -1514,7 +1534,7 @@
           "bytesInOutput": 2534
         }
       },
-      "bytes": 199244
+      "bytes": 199870
     }
   }
 }

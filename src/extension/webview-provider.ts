@@ -449,6 +449,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       output: this.output,
       emitStatus: (update) => this.emitStatus(update),
       applySessionCostFloor: (sid, stats) => this.applySessionCostFloor(sid, stats),
+      isWebviewVisible: (sid) => this.isWebviewVisible(sid),
     };
   }
 

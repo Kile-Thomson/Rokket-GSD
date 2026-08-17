@@ -14,6 +14,18 @@ vi.mock("./state-parser", () => ({
   parseGsdWorkflowState: vi.fn().mockResolvedValue(null),
 }));
 
+// ── Mock fs (STATE.md mtime for gated workflow polling) ─────────────────
+// The workflow poll stats .gsd/STATE.md to decide whether anything changed.
+// A module-level mtime lets each test drive the gate deterministically.
+
+let mockStateMtimeMs = 1_000;
+vi.mock("fs", () => ({
+  promises: {
+    stat: vi.fn(async () => ({ mtimeMs: mockStateMtimeMs })),
+  },
+  statSync: vi.fn(() => ({ mtimeMs: mockStateMtimeMs })),
+}));
+
 import {
   startStatsPolling,
   startHealthMonitoring,
@@ -35,6 +47,7 @@ function createMockSession(overrides: Partial<SessionState> = {}): SessionState 
     statsTimer: null,
     healthTimer: null,
     workflowTimer: null,
+    workflowStateMtimeMs: 0,
     activityTimer: null,
     promptWatchdog: null,
     slashWatchdog: null,
@@ -75,6 +88,7 @@ function createMockPollingContext(session: SessionState): PollingContext {
     output: { appendLine: vi.fn() } as any,
     emitStatus: vi.fn(),
     applySessionCostFloor: vi.fn(),
+    isWebviewVisible: vi.fn(() => true),
   };
 }
 
@@ -86,6 +100,7 @@ describe("polling", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    mockStateMtimeMs = 1_000;
   });
 
   afterEach(() => {
@@ -265,7 +280,7 @@ describe("polling", () => {
       expect(session.workflowTimer).not.toBeNull();
     });
 
-    it("performs initial refresh and then polls every 30s", async () => {
+    it("performs initial refresh, then re-polls only when STATE.md mtime changes", async () => {
       const session = createMockSession({ autoModeState: "auto" });
       const ctx = createMockPollingContext(session);
 
@@ -279,7 +294,7 @@ describe("polling", () => {
 
       startWorkflowPolling(ctx, FAKE_WEBVIEW, "s1");
 
-      // Initial refresh is called immediately (async)
+      // Initial refresh is called immediately (async), unconditionally.
       await vi.advanceTimersByTimeAsync(0);
       expect(parseGsdWorkflowState).toHaveBeenCalledTimes(1);
       expect(ctx.postToWebview).toHaveBeenCalledWith(
@@ -287,9 +302,31 @@ describe("polling", () => {
         expect.objectContaining({ type: "workflow_state" }),
       );
 
-      // Poll at 30s
+      // Tick with STATE.md mtime unchanged — gated poll skips the re-parse.
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(parseGsdWorkflowState).toHaveBeenCalledTimes(1);
+
+      // STATE.md changes — next tick re-parses and re-posts.
+      mockStateMtimeMs = 2_000;
       await vi.advanceTimersByTimeAsync(30_000);
       expect(parseGsdWorkflowState).toHaveBeenCalledTimes(2);
+    });
+
+    it("skips the gated poll when the webview is hidden", async () => {
+      const session = createMockSession({ autoModeState: "auto" });
+      const ctx = createMockPollingContext(session);
+      vi.mocked(ctx.isWebviewVisible).mockReturnValue(false);
+
+      startWorkflowPolling(ctx, FAKE_WEBVIEW, "s1");
+
+      // Initial refresh still fires (unconditional), priming the badge.
+      await vi.advanceTimersByTimeAsync(0);
+      expect(parseGsdWorkflowState).toHaveBeenCalledTimes(1);
+
+      // Even with a changed mtime, a hidden webview gets no re-post.
+      mockStateMtimeMs = 5_000;
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(parseGsdWorkflowState).toHaveBeenCalledTimes(1);
     });
 
     it("clears existing timer when called again", () => {

@@ -24,6 +24,7 @@ function createMockSession(overrides: Partial<SessionState> = {}): SessionState 
     statsTimer: null,
     healthTimer: null,
     workflowTimer: null,
+    workflowStateMtimeMs: 0,
     activityTimer: null,
     promptWatchdog: null,
     slashWatchdog: null,

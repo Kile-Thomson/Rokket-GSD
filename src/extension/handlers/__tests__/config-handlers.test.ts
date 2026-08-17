@@ -64,6 +64,7 @@ function createMockCtx(client: any = null): { ctx: MessageDispatchContext; webvi
     statsTimer: null,
     healthTimer: null,
     workflowTimer: null,
+    workflowStateMtimeMs: 0,
     activityTimer: null,
     promptWatchdog: null,
     slashWatchdog: null,
