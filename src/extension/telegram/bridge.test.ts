@@ -177,6 +177,30 @@ describe("TelegramBridge", () => {
       expect(client.prompt).not.toHaveBeenCalled();
     });
 
+    it("times out a hung followUp during auto-mode and continues the drain", async () => {
+      const client = createMockClient();
+      (client.followUp as ReturnType<typeof vi.fn>).mockImplementation(() => new Promise(() => {}));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: "auto" }]]));
+      const injection = bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "this call hangs",
+          message_thread_id: 200,
+        },
+      }]);
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(120_000);
+      await injection;
+      expect(api.sendMessage).toHaveBeenCalledWith(
+        CHAT_ID,
+        expect.stringContaining("not responding"),
+        expect.anything(),
+      );
+    });
+
     it("still prompts for slash commands while auto-mode is active", async () => {
       const client = createMockClient();
       setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: "auto" }]]));

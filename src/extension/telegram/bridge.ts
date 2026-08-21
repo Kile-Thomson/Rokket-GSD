@@ -618,7 +618,14 @@ export class TelegramBridge {
       if (autoActive && !msg.text.trimStart().startsWith("/")) {
         this.onInboundMessage?.(sessionId, msg.text, msg.images, { isGeneralTopic: msg.isGeneralTopic });
         this.logger.info(`[telegram-bridge] Auto-mode active (${current.autoModeState}) — queuing ${msg.routeLabel} as follow-up for ${sessionId}`);
-        await current.client.followUp(msg.text, msg.images);
+        const followUpPromise = current.client.followUp(msg.text, msg.images);
+        const followUpTimeout = new Promise<"timeout">((r) => setTimeout(() => r("timeout"), this.PROMPT_TIMEOUT_MS));
+        const followUpResult = await Promise.race([followUpPromise, followUpTimeout]);
+        if (followUpResult === "timeout") {
+          this.logger.info(`[telegram-bridge] followUp timed out for ${sessionId} — continuing drain`);
+          notifyUnavailable("the process stopped responding", responseThread);
+          return;
+        }
         if (responseThread !== undefined) {
           const sendOpts: Record<string, unknown> = {};
           if (responseThread != null) sendOpts.message_thread_id = responseThread;
