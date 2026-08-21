@@ -287,6 +287,80 @@ describe("prompt-handlers", () => {
       expect(startSlashCommandWatchdog).toHaveBeenCalled();
     });
 
+    it("queues non-slash messages as follow-ups while auto-mode is active", async () => {
+      const client = createMockClient();
+      const session = createMockSession({ client: client as any, autoModeState: "auto" });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handlePrompt(ctx, webview, SESSION_ID, {
+        type: "prompt",
+        message: "please also update the readme",
+      } as any);
+
+      expect(client.followUp).toHaveBeenCalledWith("please also update the readme", undefined);
+      expect(client.prompt).not.toHaveBeenCalled();
+    });
+
+    it("queues non-slash messages as follow-ups in next mode", async () => {
+      const client = createMockClient();
+      const session = createMockSession({ client: client as any, autoModeState: "next" });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handlePrompt(ctx, webview, SESSION_ID, {
+        type: "prompt",
+        message: "a note for the agent",
+      } as any);
+
+      expect(client.followUp).toHaveBeenCalledWith("a note for the agent", undefined);
+      expect(client.prompt).not.toHaveBeenCalled();
+    });
+
+    it("still sends slash commands as prompts while auto-mode is active", async () => {
+      const client = createMockClient();
+      const session = createMockSession({ client: client as any, autoModeState: "auto" });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handlePrompt(ctx, webview, SESSION_ID, {
+        type: "prompt",
+        message: "/gsd stop",
+      } as any);
+
+      expect(client.prompt).toHaveBeenCalledWith("/gsd stop", undefined);
+      expect(client.followUp).not.toHaveBeenCalled();
+    });
+
+    it("sends prompts normally when auto-mode is paused", async () => {
+      const client = createMockClient();
+      const session = createMockSession({ client: client as any, autoModeState: "paused" });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handlePrompt(ctx, webview, SESSION_ID, {
+        type: "prompt",
+        message: "let's discuss the blocker",
+      } as any);
+
+      expect(client.prompt).toHaveBeenCalledWith("let's discuss the blocker", undefined);
+      expect(client.followUp).not.toHaveBeenCalled();
+    });
+
+    it("reports follow-up errors during auto-mode queuing to the webview", async () => {
+      const client = createMockClient({
+        followUp: vi.fn().mockRejectedValue(new Error("queue failed")),
+      });
+      const session = createMockSession({ client: client as any, autoModeState: "auto" });
+      const { ctx, webview } = createMockDispatchContext(session);
+
+      await handlePrompt(ctx, webview, SESSION_ID, {
+        type: "prompt",
+        message: "hello",
+      } as any);
+
+      expect(ctx.postToWebview).toHaveBeenCalledWith(webview, {
+        type: "error",
+        message: "queue failed",
+      });
+    });
+
     it("updates lastUserActionTime on prompt", async () => {
       const client = createMockClient();
       const session = createMockSession({ client: client as any, lastUserActionTime: 0 });

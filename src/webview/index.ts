@@ -791,11 +791,20 @@ function sendMessage(): void {
     return;
   }
 
-  // If streaming — queue as a follow-up that runs after the current turn
-  // (slash commands always go as prompt so the extension host can
-  // abort-and-resend reliably).
+  // If streaming or auto-mode is running — queue as a follow-up instead of
+  // sending a prompt. Auto-mode runs as discrete agent turns, so isStreaming
+  // is false between iterations; a prompt sent in one of those gaps would
+  // start a new interactive turn on top of the auto engine's session and
+  // derail it. Discussion-pause (paused + needs-discussion) is excluded —
+  // that's exactly when the user is meant to talk to the agent directly.
+  // (Slash commands always go as prompt so the extension host can
+  // abort-and-resend reliably.)
   const isSlashCommand = text.startsWith("/");
-  if (state.isStreaming && !isSlashCommand) {
+  const auto = state.autoProgress;
+  const autoModeActive = !!auto &&
+    (auto.autoState === "auto" || auto.autoState === "next") &&
+    auto.phase !== "needs-discussion";
+  if ((state.isStreaming || autoModeActive) && !isSlashCommand) {
     state.entries.push({
       id: nextId(),
       type: "user",
