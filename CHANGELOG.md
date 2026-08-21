@@ -4,6 +4,11 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **Messages typed during auto-mode now queue instead of hijacking the run** — auto-mode executes as a series of discrete agent turns, and the input box only queued messages while a turn was actively streaming. A message sent in the gap between iterations went out as a fresh prompt, which interrupted the auto engine, forced an immediate reply, dropped the session out of auto-mode, and could corrupt the workflow state database. The webview now queues any non-slash message while auto-mode is running (streaming or not), and the extension host applies the same guard as a backstop so other entry points (e.g. Telegram) can't interrupt a run either. Queued messages are delivered to the agent between iterations. Slash commands still send immediately, and messages during a discussion pause still reach the agent directly.
+
 ## [0.3.97] — 2026-08-17
 
 ### Fixed
