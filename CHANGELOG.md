@@ -4,6 +4,11 @@ All notable changes to Rokket GSD will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **Tool calls now stream inline as they run** — with the Claude Code backend, tool calls didn't appear in the transcript until the whole turn finished, then all landed at once. The backend's tool-start streaming event carries only a content index (no tool block), so the webview couldn't create the segment and silently skipped it; everything then rendered from the batched end-of-turn events. The webview now reads the tool block from the partial message attached to the event, and creates the segment on the tool-completion event as a further fallback, so each tool shows up with a live spinner the moment it starts. (#75)
+
 ## [0.3.97] — 2026-08-17
 
 ### Fixed
