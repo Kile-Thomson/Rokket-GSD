@@ -621,7 +621,10 @@ export class TelegramBridge {
         const followUpPromise = current.client.followUp(msg.text, msg.images);
         // Consume late rejections — if the timeout wins the race below, a
         // rejection landing afterwards would otherwise be unhandled.
-        followUpPromise.catch((err: unknown) => this.logger.info(`[telegram-bridge] followUp rejected for ${sessionId}: ${err instanceof Error ? err.message : String(err)}`));
+        followUpPromise.catch((err: unknown) => {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          this.logger.info(`[telegram-bridge] followUp rejected for ${sessionId}: ${redactToken(errMsg, this.botToken)}`);
+        });
         const followUpTimeout = new Promise<"timeout">((r) => setTimeout(() => r("timeout"), this.PROMPT_TIMEOUT_MS));
         const followUpResult = await Promise.race([followUpPromise, followUpTimeout]);
         if (followUpResult === "timeout") {

@@ -215,7 +215,8 @@ describe("TelegramBridge", () => {
       );
       // The drain continued past the hung call and delivered the next message
       expect(client.followUp).toHaveBeenCalledTimes(2);
-      expect(client.followUp).toHaveBeenLastCalledWith("second message", undefined);
+      expect(client.followUp).toHaveBeenNthCalledWith(1, "this call hangs", undefined);
+      expect(client.followUp).toHaveBeenNthCalledWith(2, "second message", undefined);
     });
 
     it("still prompts for slash commands while auto-mode is active", async () => {
