@@ -619,6 +619,9 @@ export class TelegramBridge {
         this.onInboundMessage?.(sessionId, msg.text, msg.images, { isGeneralTopic: msg.isGeneralTopic });
         this.logger.info(`[telegram-bridge] Auto-mode active (${current.autoModeState}) — queuing ${msg.routeLabel} as follow-up for ${sessionId}`);
         const followUpPromise = current.client.followUp(msg.text, msg.images);
+        // Consume late rejections — if the timeout wins the race below, a
+        // rejection landing afterwards would otherwise be unhandled.
+        followUpPromise.catch((err: unknown) => this.logger.info(`[telegram-bridge] followUp rejected for ${sessionId}: ${err instanceof Error ? err.message : String(err)}`));
         const followUpTimeout = new Promise<"timeout">((r) => setTimeout(() => r("timeout"), this.PROMPT_TIMEOUT_MS));
         const followUpResult = await Promise.race([followUpPromise, followUpTimeout]);
         if (followUpResult === "timeout") {

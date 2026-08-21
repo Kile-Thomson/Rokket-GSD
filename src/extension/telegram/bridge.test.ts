@@ -179,18 +179,32 @@ describe("TelegramBridge", () => {
 
     it("times out a hung followUp during auto-mode and continues the drain", async () => {
       const client = createMockClient();
-      (client.followUp as ReturnType<typeof vi.fn>).mockImplementation(() => new Promise(() => {}));
+      (client.followUp as ReturnType<typeof vi.fn>)
+        .mockImplementationOnce(() => new Promise(() => {}))
+        .mockResolvedValue(undefined);
       setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: "auto" }]]));
-      const injection = bridge._testInjectUpdates([{
-        update_id: 1,
-        message: {
-          message_id: 1,
-          from: { id: 99, is_bot: false, first_name: "User" },
-          chat: { id: CHAT_ID, type: "supergroup" },
-          text: "this call hangs",
-          message_thread_id: 200,
+      const injection = bridge._testInjectUpdates([
+        {
+          update_id: 1,
+          message: {
+            message_id: 1,
+            from: { id: 99, is_bot: false, first_name: "User" },
+            chat: { id: CHAT_ID, type: "supergroup" },
+            text: "this call hangs",
+            message_thread_id: 200,
+          },
         },
-      }]);
+        {
+          update_id: 2,
+          message: {
+            message_id: 2,
+            from: { id: 99, is_bot: false, first_name: "User" },
+            chat: { id: CHAT_ID, type: "supergroup" },
+            text: "second message",
+            message_thread_id: 200,
+          },
+        },
+      ]);
       await vi.advanceTimersByTimeAsync(0);
       await vi.advanceTimersByTimeAsync(120_000);
       await injection;
@@ -199,6 +213,9 @@ describe("TelegramBridge", () => {
         expect.stringContaining("not responding"),
         expect.anything(),
       );
+      // The drain continued past the hung call and delivered the next message
+      expect(client.followUp).toHaveBeenCalledTimes(2);
+      expect(client.followUp).toHaveBeenLastCalledWith("second message", undefined);
     });
 
     it("still prompts for slash commands while auto-mode is active", async () => {
