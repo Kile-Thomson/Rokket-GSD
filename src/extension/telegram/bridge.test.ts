@@ -48,6 +48,7 @@ function createMockClient(): BridgeClient {
   return {
     abort: vi.fn().mockResolvedValue(undefined),
     prompt: vi.fn().mockResolvedValue(undefined),
+    followUp: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -127,7 +128,7 @@ describe("TelegramBridge", () => {
   describe("inbound routing", () => {
     it("routes text message to correct session", async () => {
       const client = createMockClient();
-      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: null }]]));
       await bridge._testInjectUpdates([{
         update_id: 1,
         message: {
@@ -141,9 +142,78 @@ describe("TelegramBridge", () => {
       expect(client.prompt).toHaveBeenCalledWith("hello", undefined);
     });
 
+    it("queues non-slash messages as follow-ups while auto-mode is active", async () => {
+      const client = createMockClient();
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: "auto" }]]));
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "also fix the readme",
+          message_thread_id: 200,
+        },
+      }]);
+      expect(client.followUp).toHaveBeenCalledWith("also fix the readme", undefined);
+      expect(client.prompt).not.toHaveBeenCalled();
+      expect(client.abort).not.toHaveBeenCalled();
+    });
+
+    it("queues non-slash messages as follow-ups in next mode", async () => {
+      const client = createMockClient();
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: "next" }]]));
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "a note",
+          message_thread_id: 200,
+        },
+      }]);
+      expect(client.followUp).toHaveBeenCalledWith("a note", undefined);
+      expect(client.prompt).not.toHaveBeenCalled();
+    });
+
+    it("still prompts for slash commands while auto-mode is active", async () => {
+      const client = createMockClient();
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: "auto" }]]));
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "/gsd stop",
+          message_thread_id: 200,
+        },
+      }]);
+      expect(client.prompt).toHaveBeenCalledWith("/gsd stop", undefined);
+      expect(client.followUp).not.toHaveBeenCalled();
+    });
+
+    it("prompts normally when auto-mode is paused", async () => {
+      const client = createMockClient();
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: "paused" }]]));
+      await bridge._testInjectUpdates([{
+        update_id: 1,
+        message: {
+          message_id: 1,
+          from: { id: 99, is_bot: false, first_name: "User" },
+          chat: { id: CHAT_ID, type: "supergroup" },
+          text: "let's discuss",
+          message_thread_id: 200,
+        },
+      }]);
+      expect(client.prompt).toHaveBeenCalledWith("let's discuss", undefined);
+      expect(client.followUp).not.toHaveBeenCalled();
+    });
+
     it("routes slash command to session", async () => {
       const client = createMockClient();
-      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: null }]]));
       await bridge._testInjectUpdates([{
         update_id: 1,
         message: {
@@ -159,7 +229,7 @@ describe("TelegramBridge", () => {
 
     it("aborts before prompting when session is streaming", async () => {
       const client = createMockClient();
-      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: true }]]));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: true, autoModeState: null }]]));
       const injectPromise = bridge._testInjectUpdates([{
         update_id: 1,
         message: {
@@ -179,7 +249,7 @@ describe("TelegramBridge", () => {
 
     it("skips bot messages", async () => {
       const client = createMockClient();
-      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: null }]]));
       await bridge._testInjectUpdates([{
         update_id: 1,
         message: {
@@ -195,7 +265,7 @@ describe("TelegramBridge", () => {
 
     it("skips /telegram commands", async () => {
       const client = createMockClient();
-      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: null }]]));
       await bridge._testInjectUpdates([{
         update_id: 1,
         message: {
@@ -268,7 +338,7 @@ describe("TelegramBridge", () => {
     });
 
     it("skips when session has no client", async () => {
-      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client: null, isStreaming: false }]]));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client: null, isStreaming: false, autoModeState: null }]]));
       const injectPromise = bridge._testInjectUpdates([{
         update_id: 1,
         message: {
@@ -490,7 +560,7 @@ describe("TelegramBridge", () => {
     it("continues polling after prompt error", async () => {
       const client = createMockClient();
       (client.prompt as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("prompt fail"));
-      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: null }]]));
       await bridge._testInjectUpdates([{
         update_id: 1,
         message: {
@@ -674,7 +744,7 @@ describe("TelegramBridge", () => {
 
     it("routes photo-only message with image", async () => {
       const client = createMockClient();
-      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: null }]]));
       await bridge._testInjectUpdates([{
         update_id: 1,
         message: {
@@ -694,7 +764,7 @@ describe("TelegramBridge", () => {
 
     it("routes photo+caption with caption as text and image", async () => {
       const client = createMockClient();
-      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: null }]]));
       await bridge._testInjectUpdates([{
         update_id: 1,
         message: {
@@ -713,7 +783,7 @@ describe("TelegramBridge", () => {
 
     it("download failure with caption falls back to text-only prompt", async () => {
       const client = createMockClient();
-      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: null }]]));
       (api.downloadFile as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("network"));
       await bridge._testInjectUpdates([{
         update_id: 1,
@@ -734,7 +804,7 @@ describe("TelegramBridge", () => {
 
     it("download failure without caption skips message", async () => {
       const client = createMockClient();
-      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: null }]]));
       (api.downloadFile as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("timeout"));
       await bridge._testInjectUpdates([{
         update_id: 1,
@@ -754,7 +824,7 @@ describe("TelegramBridge", () => {
 
     it("getFile returns no file_path — falls back gracefully", async () => {
       const client = createMockClient();
-      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: null }]]));
       (api.getFile as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         file_id: "large", file_unique_id: "l",
       });
@@ -774,7 +844,7 @@ describe("TelegramBridge", () => {
 
     it("text message still routes normally (regression guard)", async () => {
       const client = createMockClient();
-      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: null }]]));
       await bridge._testInjectUpdates([{
         update_id: 1,
         message: {
@@ -791,7 +861,7 @@ describe("TelegramBridge", () => {
 
     it("empty photo array treated as text-only", async () => {
       const client = createMockClient();
-      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      setup([], new Map([[200, "s1"]]), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: null }]]));
       await bridge._testInjectUpdates([{
         update_id: 1,
         message: {
@@ -811,7 +881,7 @@ describe("TelegramBridge", () => {
   describe("General topic routing", () => {
     it("routes General topic messages to the general session's GSD process", async () => {
       const client = createMockClient();
-      setup([], new Map(), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      setup([], new Map(), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: null }]]));
       bridge.setGeneralSession("s1");
       bridge.setOwnerId(99);
       await bridge._testInjectUpdates([{
@@ -1167,7 +1237,7 @@ describe("TelegramBridge", () => {
 
     it("routes to session when project search finds nothing but session exists", async () => {
       const client = createMockClient();
-      setup([], new Map(), new Map(), new Map([["s1", { client, isStreaming: false }]]));
+      setup([], new Map(), new Map(), new Map([["s1", { client, isStreaming: false, autoModeState: null }]]));
       bridge.setGeneralSession("s1");
       bridge.setProjectSearchDirs(["/projects"]);
       vi.mocked(fs.existsSync).mockReturnValue(true);

@@ -123,6 +123,7 @@ function createMockClient(): BridgeClient {
   return {
     abort: vi.fn().mockResolvedValue(undefined),
     prompt: vi.fn().mockResolvedValue(undefined),
+    followUp: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -152,7 +153,7 @@ describe("Telegram Integration (composed system)", () => {
 
     client = createMockClient();
     sessions = new Map<string, BridgeSessionState>();
-    sessions.set(SESSION_ID, { client, isStreaming: false });
+    sessions.set(SESSION_ID, { client, isStreaming: false, autoModeState: null });
 
     bridge = new TelegramBridge(
       api,

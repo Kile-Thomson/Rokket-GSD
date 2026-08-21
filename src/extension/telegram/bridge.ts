@@ -14,6 +14,8 @@ export interface SessionResolver {
 export interface BridgeSessionState {
   client: BridgeClient | null;
   isStreaming: boolean;
+  /** Auto-mode state ("auto" | "next" | "paused") or null when auto-mode is off */
+  autoModeState: string | null;
 }
 
 export interface BridgeImage {
@@ -25,6 +27,7 @@ export interface BridgeImage {
 export interface BridgeClient {
   abort(): Promise<void>;
   prompt(message: string, images?: BridgeImage[]): Promise<unknown>;
+  followUp(message: string, images?: BridgeImage[]): Promise<unknown>;
 }
 
 interface StreamingState {
@@ -604,6 +607,27 @@ export class TelegramBridge {
       let current = await waitForClient();
       if (!current?.client) {
         notifyUnavailable("the session is not running", responseThread);
+        return;
+      }
+
+      // While auto-mode is running, non-slash messages must queue as
+      // follow-ups — aborting or prompting would interrupt the auto engine
+      // mid-run and corrupt its state. Same guard as the webview/handlePrompt
+      // paths. Slash commands still go through the normal prompt flow.
+      const autoActive = current.autoModeState === "auto" || current.autoModeState === "next";
+      if (autoActive && !msg.text.trimStart().startsWith("/")) {
+        this.onInboundMessage?.(sessionId, msg.text, msg.images, { isGeneralTopic: msg.isGeneralTopic });
+        this.logger.info(`[telegram-bridge] Auto-mode active (${current.autoModeState}) — queuing ${msg.routeLabel} as follow-up for ${sessionId}`);
+        await current.client.followUp(msg.text, msg.images);
+        if (responseThread !== undefined) {
+          const sendOpts: Record<string, unknown> = {};
+          if (responseThread != null) sendOpts.message_thread_id = responseThread;
+          this.api.sendMessage(
+            this.chatId,
+            "📥 Auto-mode is running — your message is queued and will reach the agent at the next iteration.",
+            sendOpts,
+          ).catch((err: unknown) => this.logger.info(`[telegram-bridge] failed to send queued notice: ${err instanceof Error ? err.message : String(err)}`));
+        }
         return;
       }
 
