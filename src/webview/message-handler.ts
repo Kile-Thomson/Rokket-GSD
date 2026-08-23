@@ -614,6 +614,15 @@ function handleMessage(event: MessageEvent): void {
           if (!block && delta.toolCall) {
             block = delta.toolCall;
           }
+          if (!block) {
+            // claude-code provider: toolcall_start carries only contentIndex.
+            // The agent core attaches the partial message to the message_update
+            // event itself, so read the tool block from there.
+            const msgContent = data.message?.content;
+            if (Array.isArray(msgContent) && typeof idx === "number" && idx >= 0 && idx < msgContent.length) {
+              block = msgContent[idx];
+            }
+          }
           if (block) {
             const isToolBlock = block.type === "toolCall" || block.type === "tool_use" || block.type === "tool-use";
             if (isToolBlock && block.id && block.name) {
@@ -661,6 +670,40 @@ function handleMessage(event: MessageEvent): void {
           // Tool call complete — may carry externalResult with the tool's output.
           // Render the result immediately so users see it while the model continues.
           const tc2 = delta.toolCall;
+          // If streaming never created this segment (e.g. the toolcall_start
+          // event carried no tool block), create it now so the tool appears
+          // inline while it executes rather than batched at turn end.
+          if (tc2?.id && tc2.name && state.currentTurn && !state.currentTurn.toolCalls.has(tc2.id)) {
+            const turn = state.currentTurn;
+            const tc: ToolCallState = {
+              id: tc2.id,
+              name: tc2.name,
+              args: (tc2.arguments && typeof tc2.arguments === "object") ? tc2.arguments : {},
+              resultText: "",
+              isError: false,
+              isRunning: true,
+              startTime: Date.now(),
+              isParallel: false,
+            };
+            const runningOthers: ToolCallState[] = [];
+            for (const other of turn.toolCalls.values()) {
+              if (other.isRunning && other.id !== tc.id) runningOthers.push(other);
+            }
+            if (runningOthers.length > 0) {
+              tc.isParallel = true;
+              for (const rt of runningOthers) {
+                if (!rt.isParallel) {
+                  rt.isParallel = true;
+                  renderer.updateToolSegmentElement(rt.id);
+                }
+              }
+            }
+            turn.toolCalls.set(tc2.id, tc);
+            const segIdx = turn.segments.length;
+            turn.segments.push({ type: "tool", toolCallId: tc2.id });
+            renderer.appendToolSegmentElement(tc, segIdx);
+            scrollToBottom(messagesContainer);
+          }
           if (tc2?.id && tc2.externalResult && state.currentTurn) {
             const existing = state.currentTurn.toolCalls.get(tc2.id);
             if (existing) {

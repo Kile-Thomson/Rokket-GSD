@@ -680,6 +680,70 @@ describe("message-handler", () => {
       expect(tc.isRunning).toBe(false);
       expect(tc.endTime).toBeDefined();
     });
+
+    it("creates tool segment from bare toolcall_start via message content (claude-code shape)", () => {
+      sendMessage({ type: "agent_start" });
+
+      // claude-code provider: assistantMessageEvent has only contentIndex;
+      // the tool block lives in the partial message attached to the event.
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: { type: "toolcall_start", contentIndex: 1 },
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "Let me check." },
+            { type: "toolCall", id: "cc1", name: "Bash", arguments: {} },
+          ],
+        },
+      });
+      const tc = state.currentTurn!.toolCalls.get("cc1")!;
+      expect(tc).toBeDefined();
+      expect(tc.isRunning).toBe(true);
+      expect(tc.name).toBe("Bash");
+      expect(renderer.appendToolSegmentElement).toHaveBeenCalled();
+    });
+
+    it("creates missing tool segment on toolcall_end so tools render inline, not batched at turn end", () => {
+      sendMessage({ type: "agent_start" });
+
+      // No toolcall_start was renderable — toolcall_end arrives with the full
+      // tool call (argument-completion event, no result yet).
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_end",
+          contentIndex: 0,
+          toolCall: { id: "cc2", name: "Read", arguments: { path: "a.ts" } },
+        },
+      });
+      const tc = state.currentTurn!.toolCalls.get("cc2")!;
+      expect(tc).toBeDefined();
+      expect(tc.isRunning).toBe(true);
+      expect(tc.args).toEqual({ path: "a.ts" });
+      expect(renderer.appendToolSegmentElement).toHaveBeenCalled();
+
+      // Second toolcall_end carries the external result — completes the segment.
+      sendMessage({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "toolcall_end",
+          contentIndex: 0,
+          toolCall: {
+            id: "cc2",
+            name: "Read",
+            arguments: { path: "a.ts" },
+            externalResult: { content: [{ text: "contents" }] },
+          },
+        },
+      });
+      expect(tc.isRunning).toBe(false);
+      expect(tc.resultText).toBe("contents");
+
+      // Late batched tool_execution_start must not resurrect the spinner.
+      sendMessage({ type: "tool_execution_start", toolCallId: "cc2", toolName: "Read", args: { path: "a.ts" } });
+      expect(tc.isRunning).toBe(false);
+    });
   });
 
   // ============================================================
