@@ -96,6 +96,23 @@ export async function handlePrompt(
       return;
     }
 
+    // Defense in depth: while auto-mode is running, non-slash messages must
+    // queue as follow-ups, never start a new interactive turn. The pi session
+    // is idle between auto iterations, so a raw prompt() would succeed and
+    // hijack the session the auto engine is driving (corrupting its state).
+    // This also covers entry points that bypass the webview guard (Telegram).
+    const autoMode = ctx.getSession(sessionId).autoModeState;
+    if ((autoMode === "auto" || autoMode === "next") && !msg.message.trimStart().startsWith("/")) {
+      ctx.output.appendLine(`[${sessionId}] Auto-mode active (${autoMode}) — queuing message as follow-up: "${msg.message.slice(0, 80)}"`);
+      ctx.getSession(sessionId).lastUserActionTime = Date.now();
+      try {
+        await c.followUp(msg.message, sanitizeImages(msg.images));
+      } catch (err: unknown) {
+        ctx.postToWebview(webview, { type: "error", message: toErrorMessage(err) });
+      }
+      return;
+    }
+
     try {
       const images = sanitizeImages(msg.images);
 

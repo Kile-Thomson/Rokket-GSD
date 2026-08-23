@@ -100,7 +100,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       (sessionId: string) => {
         const s = this.sessions.get(sessionId);
         if (!s) return undefined;
-        return { client: s.client, isStreaming: s.isStreaming };
+        return { client: s.client, isStreaming: s.isStreaming, autoModeState: s.autoModeState };
       },
       bridgeLogger,
       telegramConfig.botToken,
