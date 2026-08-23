@@ -112,24 +112,35 @@ jobs:
           if not notes:
               # No CHANGELOG.md entry - generate from commits since the last tag
               try:
-                  last_tag = subprocess.run(
-                      ["git", "describe", "--tags", "--abbrev=0"],
-                      capture_output=True, text=True, timeout=10
+                  tag_list = subprocess.run(
+                      ["git", "tag", "--list"],
+                      capture_output=True, text=True, timeout=10, check=True
                   ).stdout.strip()
-                  rev_range = f"{last_tag}..HEAD" if last_tag else "HEAD"
+                  if tag_list:
+                      last_tag = subprocess.run(
+                          ["git", "describe", "--tags", "--abbrev=0"],
+                          capture_output=True, text=True, timeout=10, check=True
+                      ).stdout.strip()
+                      rev_range = f"{last_tag}..HEAD"
+                  else:
+                      # Repo genuinely has no tags yet - first release
+                      rev_range = "HEAD"
                   result = subprocess.run(
                       ["git", "log", "--no-merges", "--format=- %s", rev_range],
-                      capture_output=True, text=True, timeout=10
+                      capture_output=True, text=True, timeout=10, check=True
                   )
                   lines = result.stdout.strip().splitlines()
-              except Exception:
+              except Exception as exc:
+                  print(f"WARNING: git log fallback failed: {exc}", file=sys.stderr)
                   lines = []
 
               # Drop housekeeping commits that mean nothing to users
+              prefix = r"(?:\w+(\(.*\))?:\s*)?"
               skip = re.compile(
                   r"^- (chore(\(.*\))?:|ci(\(.*\))?:|docs(\(.*\))?:"
-                  r"|release \d|address coderabbit|use .* commit identity"
-                  r"|consolidate contributor identity|bump version)",
+                  rf"|{prefix}(release \d|address coderabbit"
+                  r"|use .* commit identity|consolidate contributor identity"
+                  r"|bump version))",
                   re.IGNORECASE,
               )
               commits = "\n".join(l for l in lines if l.strip() and not skip.match(l))
