@@ -113,7 +113,7 @@ jobs:
               # No CHANGELOG.md entry - generate from commits since the last tag
               try:
                   tag_list = subprocess.run(
-                      ["git", "tag", "--list"],
+                      ["git", "tag", "--list", "--merged", "HEAD"],
                       capture_output=True, text=True, timeout=10, check=True
                   ).stdout.strip()
                   if tag_list:
