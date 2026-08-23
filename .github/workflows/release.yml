@@ -131,8 +131,8 @@ jobs:
                   )
                   lines = result.stdout.strip().splitlines()
               except Exception as exc:
-                  print(f"WARNING: git log fallback failed: {exc}", file=sys.stderr)
-                  lines = []
+                  print(f"ERROR: git history fallback failed: {exc}", file=sys.stderr)
+                  raise
 
               # Drop housekeeping commits that mean nothing to users
               prefix = r"(?:\w+(\(.*\))?:\s*)?"
