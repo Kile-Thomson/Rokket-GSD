@@ -51,6 +51,18 @@ export function resetStreamingInternals(): void {
   _activeSegmentIndex = -1;
 }
 
+/**
+ * Join a segment's chunks and compact them into a single chunk, so the next
+ * join only pays for deltas that arrived since — keeps per-frame cost O(new
+ * text) instead of O(total text) on long streaming turns.
+ */
+function segmentText(seg: { chunks: string[] }): string {
+  if (seg.chunks.length === 1) return seg.chunks[0];
+  const full = seg.chunks.join("");
+  seg.chunks = [full];
+  return full;
+}
+
 function startElapsedTimer(): void {
   if (elapsedTimerHandle) return;
   elapsedTimerHandle = setInterval(() => {
@@ -151,7 +163,7 @@ export function appendToTextSegment(segType: "text" | "thinking", delta: string)
       if (seg.type === "text") {
         const incState = incrementalState.get(segIdx);
         const base = incState?.textLengthAtLastRaf ?? 0;
-        const fullText = seg.chunks.join("");
+        const fullText = segmentText(seg);
         liveNode.data = fullText.slice(base);
       }
     } else if (!segmentElements.has(segIdx)) {
@@ -174,7 +186,7 @@ export function appendToTextSegment(segType: "text" | "thinking", delta: string)
       const content = el.querySelector(".gsd-thinking-content");
       if (content) {
         const seg = turn.segments[segIdx];
-        if (seg.type === "thinking") content.textContent = seg.chunks.join("");
+        if (seg.type === "thinking") content.textContent = segmentText(seg);
       }
     } else if (!segmentElements.has(segIdx)) {
       const container = ensureCurrentTurnElement();
@@ -388,7 +400,7 @@ function renderTextSegment(segIdx: number): void {
   const container = ensureCurrentTurnElement();
   removePendingDotsFromContainer(container);
   let el = segmentElements.get(segIdx);
-  const fullText = seg.chunks.join("");
+  const fullText = segmentText(seg);
 
   if (seg.type === "thinking") {
     if (!el) {

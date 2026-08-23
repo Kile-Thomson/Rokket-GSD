@@ -1431,7 +1431,7 @@ function handleMessage(event: MessageEvent): void {
         toast.className = "gsd-toast gsd-toast-error";
         toast.textContent = ve.message || "Voice transcription failed";
         toastContainer.appendChild(toast);
-        setTimeout(() => toast.remove(), 5000);
+        registerTimeout("voice-error-toast", setTimeout(() => toast.remove(), 5000));
       }
       break;
     }

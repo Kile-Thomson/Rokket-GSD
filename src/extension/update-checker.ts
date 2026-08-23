@@ -3,7 +3,7 @@ import * as https from "https";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { execSync } from "child_process";
+import { execFile } from "child_process";
 import { toErrorMessage } from "../shared/errors";
 import type { GsdWebviewProvider } from "./webview-provider";
 import { UPDATE_CHECK_INTERVAL_MS } from "../shared/constants";
@@ -34,11 +34,35 @@ let cachedProvider: GsdWebviewProvider | null = null;
 // ─── Token resolution ─────────────────────────────────────────────────────────
 
 /**
+ * Run a command asynchronously, optionally feeding stdin, and return trimmed
+ * stdout. Rejects on spawn failure, non-zero exit, or timeout.
+ */
+function runCommand(cmd: string, args: string[], input?: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      cmd,
+      args,
+      { encoding: "utf8", timeout: 5000, windowsHide: true },
+      (err, stdout) => {
+        if (err) reject(err);
+        else resolve(stdout.trim());
+      }
+    );
+    if (input !== undefined && child.stdin) {
+      child.stdin.on("error", () => { /* child exited early — exec callback reports it */ });
+      child.stdin.write(input);
+      child.stdin.end();
+    }
+  });
+}
+
+/**
  * Resolve a GitHub token for private repo API access.
  * Tries multiple sources so the user doesn't need to configure anything
  * if they already have gh or git set up.
+ * Async so the gh/git subprocess spawns never block the extension host.
  */
-function getGitHubToken(): string | undefined {
+async function getGitHubToken(): Promise<string | undefined> {
   // Return cached result (even if null = "no token found")
   if (cachedToken !== undefined) return cachedToken || undefined;
 
@@ -66,12 +90,7 @@ function getGitHubToken(): string | undefined {
 
   // 3. GitHub CLI (gh auth token)
   try {
-    const ghToken = execSync("gh auth token", {
-      encoding: "utf8",
-      timeout: 5000,
-      stdio: ["pipe", "pipe", "pipe"],
-      windowsHide: true,
-    }).trim();
+    const ghToken = await runCommand("gh", ["auth", "token"]);
     if (ghToken) {
       cachedToken = ghToken;
       return ghToken;
@@ -82,16 +101,11 @@ function getGitHubToken(): string | undefined {
 
   // 4. Git credential manager
   try {
-    const credOutput = execSync(
-      "git credential-manager get",
-      {
-        encoding: "utf8",
-        timeout: 5000,
-        stdio: ["pipe", "pipe", "pipe"],
-        windowsHide: true,
-        input: "protocol=https\nhost=github.com\n\n",
-      }
-    ).trim();
+    const credOutput = await runCommand(
+      "git",
+      ["credential-manager", "get"],
+      "protocol=https\nhost=github.com\n\n"
+    );
     const passwordMatch = credOutput.match(/^password=(.+)$/m);
     if (passwordMatch?.[1]?.trim()) {
       cachedToken = passwordMatch[1].trim();
@@ -108,12 +122,12 @@ function getGitHubToken(): string | undefined {
 /**
  * Build HTTP request headers, adding auth if a token is available.
  */
-function githubHeaders(): Record<string, string> {
+async function githubHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = {
     "User-Agent": "Rokket-GSD-VSCode",
     Accept: "application/vnd.github.v3+json",
   };
-  const token = getGitHubToken();
+  const token = await getGitHubToken();
   if (token) {
     headers["Authorization"] = `token ${token}`;
   }
@@ -214,8 +228,8 @@ export async function fetchReleaseNotes(version: string): Promise<string | null>
   const tag = version.startsWith("v") ? version : `v${version}`;
   const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/tags/${tag}`;
 
+  const headers = await githubHeaders();
   return new Promise((resolve) => {
-    const headers = githubHeaders();
     const req = https.get(url, { headers, timeout: API_TIMEOUT_MS }, (res) => {
       if (res.statusCode !== 200) {
         res.resume();
@@ -245,8 +259,8 @@ export async function fetchReleaseNotes(version: string): Promise<string | null>
 export async function fetchRecentReleases(count = 10): Promise<Array<{ version: string; notes: string; date: string }>> {
   const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases?per_page=${count}`;
 
+  const headers = await githubHeaders();
   return new Promise((resolve) => {
-    const headers = githubHeaders();
     const req = https.get(url, { headers, timeout: API_TIMEOUT_MS }, (res) => {
       if (res.statusCode !== 200) {
         res.resume();
@@ -409,10 +423,9 @@ function isGitHubHost(url: string): boolean {
 /** Timeout for API calls: 30 seconds */
 const API_TIMEOUT_MS = 30_000;
 
-function fetchLatestRelease(): Promise<ReleaseInfo | null> {
+async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
+  const headers = await githubHeaders();
   return new Promise((resolve) => {
-    const headers = githubHeaders();
-
     const req = https
       .get(RELEASES_API, { headers, timeout: API_TIMEOUT_MS }, (res) => {
         if (res.statusCode === 404 || res.statusCode === 403) {
@@ -496,7 +509,9 @@ const DOWNLOAD_TIMEOUT_MS = 120_000;
  * Download a file, following redirects.
  * Adds GitHub auth for github.com URLs, strips it for CDN redirects.
  */
-function downloadFile(url: string, dest: string): Promise<void> {
+async function downloadFile(url: string, dest: string): Promise<void> {
+  // Resolve auth once up front — request() below runs in callback context
+  const token = await getGitHubToken();
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(dest);
     let settled = false;
@@ -543,7 +558,6 @@ function downloadFile(url: string, dest: string): Promise<void> {
 
       // Auth for GitHub-hosted URLs only — CDN redirects don't need it
       if (isGitHubHost(downloadUrl)) {
-        const token = getGitHubToken();
         if (token) headers["Authorization"] = `token ${token}`;
         headers["Accept"] = "application/octet-stream";
       }
