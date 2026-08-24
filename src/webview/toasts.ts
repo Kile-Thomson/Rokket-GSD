@@ -3,7 +3,7 @@
 // ============================================================
 
 import { TOAST_DEFAULT_DURATION_MS, CSS_ANIMATION_SETTLE_MS } from "../shared/constants";
-import { registerTimeout } from "./dispose";
+import { registerTimeout, unregisterTimeout } from "./dispose";
 
 let container: HTMLElement;
 let toastSeq = 0;
@@ -25,14 +25,17 @@ export function show(message: string, duration = TOAST_DEFAULT_DURATION_MS): voi
     toast.classList.add("visible");
   });
 
-  // Rotate over a small id pool so the dispose registry doesn't grow unboundedly;
-  // 8 slots comfortably exceeds the number of simultaneously visible toasts.
-  const id = `toast-${toastSeq}`;
-  toastSeq = (toastSeq + 1) % 8;
+  // Unique id per toast so one toast's timers can never cancel another's; each
+  // entry unregisters itself on fire so the registry doesn't grow unboundedly.
+  const id = `toast-${toastSeq++}`;
   registerTimeout(`${id}-dismiss`, setTimeout(() => {
+    unregisterTimeout(`${id}-dismiss`);
     toast.classList.remove("visible");
     toast.addEventListener("transitionend", () => toast.remove(), { once: true });
     // Fallback removal if transitionend doesn't fire
-    registerTimeout(`${id}-remove`, setTimeout(() => toast.remove(), CSS_ANIMATION_SETTLE_MS));
+    registerTimeout(`${id}-remove`, setTimeout(() => {
+      unregisterTimeout(`${id}-remove`);
+      toast.remove();
+    }, CSS_ANIMATION_SETTLE_MS));
   }, duration));
 }

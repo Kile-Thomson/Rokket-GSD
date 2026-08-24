@@ -14,6 +14,11 @@ export function registerTimeout(id: string, handle: ReturnType<typeof setTimeout
   timeouts.set(id, handle);
 }
 
+/** Drop a timeout's registry entry once it has fired, so unique ids don't accumulate. */
+export function unregisterTimeout(id: string): void {
+  timeouts.delete(id);
+}
+
 export function registerCleanup(id: string, fn: () => void): void {
   cleanups.set(id, fn);
 }
