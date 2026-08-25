@@ -47,9 +47,9 @@ vi.mock("https", () => ({
 }));
 
 // ── Mock child_process ──
-const mockExecSync = vi.fn();
+const mockExecFile = vi.fn();
 vi.mock("child_process", () => ({
-  execSync: (...args: unknown[]) => mockExecSync(...args),
+  execFile: (...args: unknown[]) => mockExecFile(...args),
 }));
 
 // ── Mock fs ──
@@ -113,8 +113,12 @@ describe("update-checker", () => {
     mockGetExtension.mockReturnValue({
       packageJSON: { version: "1.0.0" },
     });
-    mockExecSync.mockImplementation(() => {
-      throw new Error("not found");
+    // execFile(cmd, args, opts, cb) — report "not found" via the callback and
+    // return a child whose stdin absorbs writes without throwing
+    mockExecFile.mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1] as (err: Error | null, stdout: string) => void;
+      process.nextTick(() => cb(new Error("not found"), ""));
+      return { stdin: { on: vi.fn(), write: vi.fn(), end: vi.fn() } };
     });
   });
 

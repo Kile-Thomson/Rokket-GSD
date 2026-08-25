@@ -158,7 +158,7 @@ export class TelegramBridge {
     this.projectSearchDirs = dirs;
   }
 
-  findProjects(query: string): string[] {
+  async findProjects(query: string): Promise<string[]> {
     const stopWords = new Set([
       "hey", "hi", "hello", "please", "can", "you", "the", "a", "an",
       "my", "in", "it", "its", "is", "at", "to", "for", "of", "on",
@@ -178,10 +178,11 @@ export class TelegramBridge {
     const matches: { dir: string; score: number }[] = [];
 
     for (const baseDir of this.projectSearchDirs) {
-      if (!fs.existsSync(baseDir)) continue;
       let entries: fs.Dirent[];
       try {
-        entries = fs.readdirSync(baseDir, { withFileTypes: true });
+        // Async so a slow (e.g. Dropbox-synced) directory never blocks the
+        // extension host; a missing dir rejects and is skipped like before.
+        entries = await fs.promises.readdir(baseDir, { withFileTypes: true });
       } catch {
         continue;
       }
@@ -441,7 +442,7 @@ export class TelegramBridge {
 
   private async tryProjectSearch(text: string): Promise<boolean> {
     if (this.projectSearchDirs.length === 0) return false;
-    const matches = this.findProjects(text);
+    const matches = await this.findProjects(text);
     if (matches.length === 0) return false;
     if (matches.length === 1) {
       await this.handleLaunchCommand(matches[0]);

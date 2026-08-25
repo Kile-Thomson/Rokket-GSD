@@ -534,17 +534,25 @@ async function handleOllamaStatus(): Promise<string> {
 
   const lines: string[] = ["## \u{1F7E2} Ollama Running\n"];
 
+  // The three endpoints are independent — fetch them concurrently
+  const [versionResult, psResult, tagsResult] = await Promise.allSettled([
+    ollamaGet("/api/version"),
+    ollamaGet("/api/ps"),
+    ollamaGet("/api/tags"),
+  ]);
+
   try {
-    const versionRaw = await ollamaGet("/api/version");
-    const version = JSON.parse(versionRaw) as { version?: string };
-    if (version.version) lines.push(`**Version:** \`${version.version}\`\n`);
+    if (versionResult.status === "fulfilled") {
+      const version = JSON.parse(versionResult.value) as { version?: string };
+      if (version.version) lines.push(`**Version:** \`${version.version}\`\n`);
+    }
   } catch { /* version endpoint optional */ }
 
   // Loaded models (in VRAM)
   let loadedNames: Set<string> | undefined;
   try {
-    const psRaw = await ollamaGet("/api/ps");
-    const ps = JSON.parse(psRaw) as { models?: OllamaModelInfo[] };
+    if (psResult.status !== "fulfilled") throw new Error("ps unavailable");
+    const ps = JSON.parse(psResult.value) as { models?: OllamaModelInfo[] };
     if (ps.models?.length) {
       loadedNames = new Set(ps.models.map(m => m.name));
       lines.push("### Loaded in Memory\n");
@@ -563,8 +571,8 @@ async function handleOllamaStatus(): Promise<string> {
 
   // Available models (installed on disk)
   try {
-    const tagsRaw = await ollamaGet("/api/tags");
-    const tags = JSON.parse(tagsRaw) as { models?: OllamaModelInfo[] };
+    if (tagsResult.status !== "fulfilled") throw new Error("tags unavailable");
+    const tags = JSON.parse(tagsResult.value) as { models?: OllamaModelInfo[] };
     if (tags.models?.length) {
       const unloaded = loadedNames ? tags.models.filter(m => !loadedNames!.has(m.name)) : tags.models;
       if (unloaded.length) {

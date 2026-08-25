@@ -36,7 +36,10 @@ import * as workflowLive from "./workflow-live";
 import * as visualizer from "./visualizer";
 import * as fileHandling from "./file-handling";
 import { announceToScreenReader, createFocusTrap, restoreFocus } from "./a11y";
-import { registerTimeout } from "./dispose";
+import { registerTimeout, unregisterTimeout } from "./dispose";
+
+// Unique id per voice-error toast so overlapping toasts keep independent removal timers.
+let voiceErrorToastSeq = 0;
 import { setChangelogHandlers, getChangelogTriggerEl, dismissChangelog } from "./keyboard";
 
 // ============================================================
@@ -1431,7 +1434,11 @@ function handleMessage(event: MessageEvent): void {
         toast.className = "gsd-toast gsd-toast-error";
         toast.textContent = ve.message || "Voice transcription failed";
         toastContainer.appendChild(toast);
-        setTimeout(() => toast.remove(), 5000);
+        const toastId = `voice-error-toast-${voiceErrorToastSeq++}`;
+        registerTimeout(toastId, setTimeout(() => {
+          unregisterTimeout(toastId);
+          toast.remove();
+        }, 5000));
       }
       break;
     }

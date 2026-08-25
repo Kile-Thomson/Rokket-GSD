@@ -26,7 +26,6 @@ const incrementalState = new Map<number, {
   frozenBlockCount: number;
   lastLexedText: string;
   lastTokens: TokensList;
-  textLengthAtLastRaf: number;
 }>();
 const liveTextNodes = new Map<number, Text>();
 let elapsedTimerHandle: ReturnType<typeof setInterval> | null = null;
@@ -49,6 +48,21 @@ export function resetStreamingInternals(): void {
   incrementalState.clear();
   liveTextNodes.clear();
   _activeSegmentIndex = -1;
+}
+
+/**
+ * Join a segment's chunks and compact them into a single chunk, so the next
+ * join only pays for deltas that arrived since — keeps per-frame cost O(new
+ * text) instead of O(total text) on long streaming turns.
+ */
+function segmentText(seg: { chunks: string[] }): string {
+  if (seg.chunks.length === 1) return seg.chunks[0];
+  // Append onto the compacted prefix instead of join() — engines back string
+  // concatenation with ropes, so each += costs O(delta), not O(total).
+  let full = seg.chunks[0] ?? "";
+  for (let i = 1; i < seg.chunks.length; i++) full += seg.chunks[i];
+  seg.chunks = [full];
+  return full;
 }
 
 function startElapsedTimer(): void {
@@ -147,13 +161,10 @@ export function appendToTextSegment(segType: "text" | "thinking", delta: string)
   if (segType === "text") {
     const liveNode = liveTextNodes.get(segIdx);
     if (liveNode) {
-      const seg = turn.segments[segIdx];
-      if (seg.type === "text") {
-        const incState = incrementalState.get(segIdx);
-        const base = incState?.textLengthAtLastRaf ?? 0;
-        const fullText = seg.chunks.join("");
-        liveNode.data = fullText.slice(base);
-      }
+      // The RAF render resets the live node to "" and re-anchors it after the
+      // trailing block, so appending just the delta keeps the node equal to
+      // "text since last frame" without ever touching the full prefix.
+      liveNode.data += delta;
     } else if (!segmentElements.has(segIdx)) {
       const container = ensureCurrentTurnElement();
       removePendingDotsFromContainer(container);
@@ -174,7 +185,7 @@ export function appendToTextSegment(segType: "text" | "thinking", delta: string)
       const content = el.querySelector(".gsd-thinking-content");
       if (content) {
         const seg = turn.segments[segIdx];
-        if (seg.type === "thinking") content.textContent = seg.chunks.join("");
+        if (seg.type === "thinking") content.textContent = segmentText(seg);
       }
     } else if (!segmentElements.has(segIdx)) {
       const container = ensureCurrentTurnElement();
@@ -388,7 +399,7 @@ function renderTextSegment(segIdx: number): void {
   const container = ensureCurrentTurnElement();
   removePendingDotsFromContainer(container);
   let el = segmentElements.get(segIdx);
-  const fullText = seg.chunks.join("");
+  const fullText = segmentText(seg);
 
   if (seg.type === "thinking") {
     if (!el) {
@@ -424,7 +435,7 @@ function renderTextSegment(segIdx: number): void {
     }
     let incState = incrementalState.get(segIdx);
     if (!incState) {
-      incState = { frozenBlockCount: 0, lastLexedText: "", lastTokens: Object.assign([] as Token[], { links: {} }) as TokensList, textLengthAtLastRaf: 0 };
+      incState = { frozenBlockCount: 0, lastLexedText: "", lastTokens: Object.assign([] as Token[], { links: {} }) as TokensList };
       incrementalState.set(segIdx, incState);
     }
     let tokens: TokensList;
@@ -461,7 +472,6 @@ function renderTextSegment(segIdx: number): void {
     const links = tokens.links || {};
     const trailingArr = Object.assign([trailingToken], { links });
     trailingEl.innerHTML = sanitizeAndPostProcess(parseTokens(trailingArr));
-    incState.textLengthAtLastRaf = fullText.length;
     const liveSpan = document.createElement("span");
     liveSpan.dataset.liveText = "";
     const liveNode = document.createTextNode("");
