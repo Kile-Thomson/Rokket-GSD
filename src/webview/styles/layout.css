@@ -24,6 +24,7 @@
   background: var(--gsd-header-bg);
   min-height: 46px;
   flex-wrap: wrap;
+  position: relative;
 }
 
 .gsd-header-brand {
@@ -111,6 +112,94 @@
 .gsd-workflow-badge.complete {
   background: var(--gsd-badge-auto-bg);
   color: var(--gsd-badge-auto-fg);
+}
+
+/* Rich workflow-state popover shown on badge hover/focus */
+.gsd-workflow-popover {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 12px;
+  right: 12px;
+  max-width: 420px;
+  z-index: 60;
+  padding: 10px 12px;
+  border-radius: var(--gsd-radius-md);
+  background: var(--gsd-color-bg-secondary, var(--gsd-header-bg));
+  border: var(--gsd-border-width) solid var(--gsd-header-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  font-size: var(--gsd-font-size-base);
+  line-height: 1.45;
+}
+
+.gsd-wf-pop-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.gsd-wf-pop-label {
+  flex-shrink: 0;
+  width: 72px;
+  font-weight: var(--gsd-font-weight-medium);
+  color: var(--gsd-color-text-muted, inherit);
+  opacity: 0.75;
+}
+
+.gsd-wf-pop-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.gsd-wf-pop-meta {
+  margin-left: 6px;
+  font-size: var(--gsd-font-size-sm, 11px);
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.gsd-wf-pop-tasks {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 6px 0 0;
+  border-top: var(--gsd-border-width) solid var(--gsd-header-border);
+}
+
+.gsd-wf-pop-task {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 1px 0;
+}
+
+.gsd-wf-pop-task.done {
+  opacity: 0.6;
+}
+
+.gsd-wf-pop-task.active .gsd-wf-pop-task-title {
+  font-weight: var(--gsd-font-weight-medium);
+}
+
+.gsd-wf-pop-task.more {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.gsd-wf-pop-task-mark {
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.gsd-wf-pop-task-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gsd-wf-pop-empty {
+  opacity: 0.7;
 }
 
 .gsd-header-info {

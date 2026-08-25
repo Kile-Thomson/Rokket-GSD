@@ -2,6 +2,7 @@ import { ChildProcess, spawn, spawnSync } from "child_process";
 import { EventEmitter } from "events";
 import * as path from "path";
 import * as fs from "fs";
+import * as os from "os";
 import { resolveShellEnv, mergeShellEnv } from "./shell-env";
 import {
   MAX_STDOUT_BUFFER_BYTES,
@@ -259,6 +260,72 @@ function resolveGsdUnix(): { command: string; args: string[]; useShell: boolean 
   return { command: "gsd", args: [], useShell: false };
 }
 
+/**
+ * System-prompt addendum that makes terminal-tuned models (Codex) emit
+ * markdown instead of a single unformatted block. Kept short — it rides in
+ * every session's system prompt.
+ */
+const FORMATTING_ADDENDUM =
+  "Format chat responses in GitHub-flavored markdown: separate ideas into " +
+  "paragraphs with blank lines, and use lists, headers, and fenced code " +
+  "blocks where they aid readability. Never reply as one unbroken block of text.";
+
+// Cache: engine entry path -> whether its cli.js supports --append-system-prompt
+const addendumSupportCache = new Map<string, boolean>();
+let addendumFilePath: string | null = null;
+
+/**
+ * Return the path of a temp file holding FORMATTING_ADDENDUM, or null when it
+ * can't be safely passed: shell spawns re-split the command line (a path can
+ * contain spaces), and engine builds that predate --append-system-prompt
+ * exit(1) on the unknown flag. Support is detected by scanning the engine's
+ * cli.js (sibling of the resolved entry script) for the flag string.
+ */
+export function resolveFormattingAddendum(resolved: { command: string; args: string[]; useShell: boolean }): string | null {
+  if (resolved.useShell) return null;
+
+  // Windows: args[0] is the parsed .js entry. Unix: command is the gsd
+  // symlink — realpath it to land in the package's dist directory.
+  let entry = resolved.args[0];
+  if (!entry) {
+    try {
+      if (!path.isAbsolute(resolved.command)) return null; // bare "gsd" on PATH — can't locate cli.js
+      entry = fs.realpathSync(resolved.command);
+    } catch {
+      return null;
+    }
+  }
+
+  let supported = addendumSupportCache.get(entry);
+  if (supported === undefined) {
+    try {
+      const cliJs = path.join(path.dirname(entry), "cli.js");
+      supported = fs.existsSync(cliJs) && fs.readFileSync(cliJs, "utf-8").includes("--append-system-prompt");
+    } catch {
+      supported = false;
+    }
+    addendumSupportCache.set(entry, supported);
+  }
+  if (!supported) return null;
+
+  try {
+    if (!addendumFilePath || !fs.existsSync(addendumFilePath)) {
+      const p = path.join(os.tmpdir(), "gsd-vscode-format-prompt.md");
+      fs.writeFileSync(p, FORMATTING_ADDENDUM, "utf-8");
+      addendumFilePath = p;
+    }
+    return addendumFilePath;
+  } catch {
+    return null; // temp dir not writable — skip the addendum rather than fail spawn
+  }
+}
+
+/** Test-only: reset addendum caches. */
+export function _resetAddendumCacheForTest(): void {
+  addendumSupportCache.clear();
+  addendumFilePath = null;
+}
+
 export interface RpcEvent {
   type: string;
   [key: string]: unknown;
@@ -346,6 +413,18 @@ export class GsdRpcClient extends EventEmitter {
 
     if (options.sessionDir) {
       args.push("--session-dir", options.sessionDir);
+    }
+
+    // Response-formatting addendum for the engine's system prompt. Some models
+    // (GPT-5 Codex variants in particular) are tuned for terminal output and
+    // stream replies as one unformatted block unless the harness asks for
+    // markdown; models that already format treat this as a no-op. Passed as a
+    // file path because a literal sentence would be word-split when the spawn
+    // falls back to shell: true. Skipped when the engine build predates the
+    // flag — an unknown flag makes gsd-pi exit(1) before the RPC loop starts.
+    const addendumPath = resolveFormattingAddendum(resolved);
+    if (addendumPath) {
+      args.push("--append-system-prompt", addendumPath);
     }
 
     const env = mergeShellEnv(

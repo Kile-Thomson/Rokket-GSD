@@ -24,6 +24,7 @@ import {
 } from "./state";
 import * as renderer from "./renderer";
 import * as sessionHistory from "./session-history";
+import * as workflowHover from "./workflow-hover";
 import * as slashMenu from "./slash-menu";
 import * as modelPicker from "./model-picker";
 import * as thinkingPicker from "./thinking-picker";
@@ -421,10 +422,12 @@ function handleMessage(event: MessageEvent): void {
 
     case "workflow_state": {
       updateWorkflowBadge(msg.state);
+      workflowHover.setWorkflowState(msg.state);
       break;
     }
 
     case "dashboard_data": {
+      workflowHover.setDashboardData(msg.data);
       // If visualizer is open, only feed it — don't render inline dashboard
       if (visualizer.isVisible()) {
         visualizer.updateData(msg.data);
