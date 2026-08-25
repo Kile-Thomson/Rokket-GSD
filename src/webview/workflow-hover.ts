@@ -74,11 +74,15 @@ function scheduleShow(): void {
 
 function scheduleHide(): void {
   if (showTimer) { clearTimeout(showTimer); showTimer = null; }
+  // Keyboard focus keeps the popover open; blur/Escape close it instead
+  if (badgeEl && document.activeElement === badgeEl) return;
   if (!popoverEl || hideTimer) return;
   hideTimer = setTimeout(() => { hideTimer = null; hide(); }, HIDE_DELAY_MS);
 }
 
 function show(): void {
+  // Cancel a pending hide so focus during the hide delay keeps the popover
+  if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
   if (!badgeEl || popoverEl) return;
   // Nothing meaningful to show before any state has arrived
   if (!hasState && !currentDashboard) return;

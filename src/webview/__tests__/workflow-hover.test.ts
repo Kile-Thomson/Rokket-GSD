@@ -182,6 +182,28 @@ describe("workflow-hover", () => {
     expect(popover()).toBeNull();
   });
 
+  it("stays open while the badge keeps keyboard focus after the pointer leaves", () => {
+    workflowHover.setWorkflowState(makeState());
+    badge.focus();
+    badge.dispatchEvent(new Event("focus"));
+    expect(popover()).not.toBeNull();
+    badge.dispatchEvent(new Event("mouseenter"));
+    badge.dispatchEvent(new Event("mouseleave"));
+    vi.advanceTimersByTime(500);
+    expect(popover()).not.toBeNull();
+  });
+
+  it("focus during a pending hide delay cancels the hide", () => {
+    workflowHover.setWorkflowState(makeState());
+    hover();
+    badge.dispatchEvent(new Event("mouseleave"));
+    vi.advanceTimersByTime(50); // hide timer pending (150ms)
+    badge.focus();
+    badge.dispatchEvent(new Event("focus"));
+    vi.advanceTimersByTime(500);
+    expect(popover()).not.toBeNull();
+  });
+
   it("re-renders an open popover when new state arrives", () => {
     workflowHover.setWorkflowState(makeState());
     hover();

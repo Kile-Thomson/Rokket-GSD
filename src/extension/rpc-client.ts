@@ -310,8 +310,12 @@ export function resolveFormattingAddendum(resolved: { command: string; args: str
 
   try {
     if (!addendumFilePath || !fs.existsSync(addendumFilePath)) {
-      const p = path.join(os.tmpdir(), "gsd-vscode-format-prompt.md");
-      fs.writeFileSync(p, FORMATTING_ADDENDUM, "utf-8");
+      // Private per-process temp dir + exclusive create with owner-only perms,
+      // so another local process can't pre-plant a symlink or swap the content
+      // before the engine reads it as its system prompt.
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-vscode-"));
+      const p = path.join(dir, "format-prompt.md");
+      fs.writeFileSync(p, FORMATTING_ADDENDUM, { encoding: "utf-8", flag: "wx", mode: 0o600 });
       addendumFilePath = p;
     }
     return addendumFilePath;
