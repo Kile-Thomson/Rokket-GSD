@@ -212,6 +212,20 @@ describe("workflow-hover", () => {
     expect(popover()!.textContent).toContain("T04 — Error handling");
   });
 
+  it("falls back to the dashboard milestone title when state and registry lack one", () => {
+    workflowHover.setWorkflowState(makeState({ milestone: { id: "M004", title: "" } }));
+    workflowHover.setDashboardData(makeDashboard({ milestoneRegistry: [] }));
+    hover();
+    expect(popover()!.textContent).toContain("M004 — Telegram Sync");
+  });
+
+  it("falls back to the dashboard task title when state and slice tasks lack one", () => {
+    workflowHover.setWorkflowState(makeState({ task: { id: "T03", title: "" } }));
+    workflowHover.setDashboardData(makeDashboard({ slices: [] }));
+    hover();
+    expect(popover()!.textContent).toContain("T03 — Wire polling loop");
+  });
+
   it("renders titles as text, not HTML", () => {
     workflowHover.setWorkflowState(makeState({
       milestone: { id: "M001", title: "<img src=x onerror=alert(1)>" },

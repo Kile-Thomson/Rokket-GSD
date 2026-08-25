@@ -164,7 +164,9 @@ function renderInto(pop: HTMLElement): void {
     const registry = d?.milestoneRegistry ?? [];
     const idx = registry.findIndex((m) => m.id === wf.milestone!.id);
     if (idx >= 0) extras.push(meta(`${idx + 1} of ${registry.length} milestones`));
-    const title = wf.milestone.title || registry[idx]?.title || "";
+    const dashMilestoneTitle =
+      d?.milestone?.id === wf.milestone.id ? d.milestone.title : "";
+    const title = wf.milestone.title || registry[idx]?.title || dashMilestoneTitle || "";
     pop.appendChild(row("Milestone", refText(wf.milestone.id, title), ...extras));
   }
 
@@ -185,7 +187,8 @@ function renderInto(pop: HTMLElement): void {
     const extras: HTMLElement[] = [];
     const dashTask = dashSlice?.tasks.find((t) => t.id === wf.task!.id);
     if (dashTask?.estimate) extras.push(meta(`est: ${dashTask.estimate}`));
-    const title = wf.task.title || dashTask?.title || "";
+    const dashTaskTitle = d?.task?.id === wf.task.id ? d.task.title : "";
+    const title = wf.task.title || dashTask?.title || dashTaskTitle || "";
     pop.appendChild(row("Task", refText(wf.task.id, title), ...extras));
   }
 
