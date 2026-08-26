@@ -257,7 +257,13 @@ export async function fetchReleaseNotes(version: string): Promise<string | null>
  * Fetch release notes for the N most recent releases.
  */
 export async function fetchRecentReleases(count = 10): Promise<Array<{ version: string; notes: string; date: string }>> {
-  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases?per_page=${count}`;
+  // Authenticated requests also return draft releases, and GitHub lists those
+  // first regardless of age. Deleting a tag (e.g. a history rewrite) turns its
+  // release into a draft, so a repo can accumulate dozens of stale drafts that
+  // would otherwise fill the whole page. Over-fetch so there is still room for
+  // `count` published releases after filtering.
+  const perPage = Math.min(100, count * 4);
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases?per_page=${perPage}`;
 
   const headers = await githubHeaders();
   return new Promise((resolve) => {
@@ -274,7 +280,8 @@ export async function fetchRecentReleases(count = 10): Promise<Array<{ version: 
           const releases: GitHubRelease[] = JSON.parse(data);
           resolve(
             releases
-              .filter((r) => r.body?.trim())
+              .filter((r) => !r.draft && !r.prerelease && r.body?.trim())
+              .slice(0, count)
               .map((r) => ({
                 version: (r.tag_name || "").replace(/^v/, ""),
                 notes: r.body || "",
@@ -375,6 +382,8 @@ interface GitHubRelease {
   tag_name?: string;
   html_url?: string;
   body?: string;
+  draft?: boolean;
+  prerelease?: boolean;
   published_at?: string;
   created_at?: string;
   assets?: GitHubAsset[];

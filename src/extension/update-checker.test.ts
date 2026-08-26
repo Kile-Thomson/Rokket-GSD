@@ -284,6 +284,44 @@ describe("update-checker", () => {
       expect(releases).toEqual([]);
     });
 
+    it("skips draft and prerelease entries and over-fetches to leave room for them", async () => {
+      // Authenticated /releases responses list drafts first. Simulate a repo
+      // whose old tags were deleted (turning their releases into drafts).
+      const body = JSON.stringify([
+        { tag_name: "v0.2.49", body: "Old draft", draft: true, published_at: "2026-03-18T16:23:20Z" },
+        { tag_name: "v0.2.46", body: "Old draft", draft: true, published_at: "2026-03-18T13:23:21Z" },
+        { tag_name: "v0.4.0-beta.1", body: "Beta", prerelease: true, published_at: "2026-08-27T00:00:00Z" },
+        { tag_name: "v0.3.104", body: "Current", published_at: "2026-08-26T05:22:17Z" },
+        { tag_name: "v0.3.103", body: "Previous", published_at: "2026-08-25T05:57:14Z" },
+        { tag_name: "v0.3.102", body: "Older", published_at: "2026-08-23T07:13:10Z" },
+      ]);
+
+      let requestedUrl = "";
+      mockHttpsGet.mockImplementation((url: string, _opts: unknown, cb: (res: IncomingMessage) => void) => {
+        requestedUrl = url;
+        const res = createMockResponse(200, body);
+        cb(res);
+        return { on: vi.fn(), destroy: vi.fn() };
+      });
+
+      const releases = await fetchRecentReleases(2);
+      expect(requestedUrl).toContain("per_page=8");
+      expect(releases.map((r) => r.version)).toEqual(["0.3.104", "0.3.103"]);
+    });
+
+    it("caps per_page at GitHub's maximum of 100", async () => {
+      let requestedUrl = "";
+      mockHttpsGet.mockImplementation((url: string, _opts: unknown, cb: (res: IncomingMessage) => void) => {
+        requestedUrl = url;
+        const res = createMockResponse(200, "[]");
+        cb(res);
+        return { on: vi.fn(), destroy: vi.fn() };
+      });
+
+      await fetchRecentReleases(50);
+      expect(requestedUrl).toContain("per_page=100");
+    });
+
     it("strips v prefix from version tags", async () => {
       const body = JSON.stringify([
         { tag_name: "v3.1.0", body: "Some notes", published_at: "2025-03-01" },
