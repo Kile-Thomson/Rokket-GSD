@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+- **Rich workflow-state popover** — hovering (or keyboard-focusing) the GSD workflow badge in the header now opens a detail panel instead of a bare tooltip: milestone, slice, and task titles with the milestone's position in the registry, slice risk and task progress, the active task's estimate, phase and auto-mode status, and a checklist of the current slice's tasks.
+
+### Fixed
+- **Codex models no longer reply as one unformatted block** — GPT-5 Codex variants are tuned for terminal output and skip markdown unless asked, so their replies rendered as a single wall of text. The extension now passes a short formatting instruction into the engine's system prompt (skipped automatically on engine builds that don't support it). Models that already format, like Claude, are unaffected.
+
 ### Changed
 - **Update checks no longer briefly freeze the editor** — resolving a GitHub token via `gh auth token` or `git credential-manager` ran synchronously on the extension host thread, so every extension in the window could stall for the duration of the subprocess (noticeably longer on Windows). Both lookups now run asynchronously.
 - **Faster `/ollama` status** — the version, loaded-models, and installed-models endpoints are fetched concurrently instead of one after another.

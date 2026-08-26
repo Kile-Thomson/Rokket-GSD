@@ -49,6 +49,7 @@ import * as thinkingPicker from "./thinking-picker";
 import * as sessionHistory from "./session-history";
 import * as uiDialogs from "./ui-dialogs";
 import * as toasts from "./toasts";
+import * as workflowHover from "./workflow-hover";
 import * as renderer from "./renderer";
 import * as dashboard from "./dashboard";
 import * as autoProgressWidget from "./auto-progress";
@@ -82,7 +83,7 @@ root.innerHTML = `
         <span class="gsd-title">Rokket GSD</span>
         <span class="gsd-header-version" id="headerVersion" title="View changelog" role="button" tabindex="0" aria-label="View changelog"></span>
       </div>
-      <span class="gsd-workflow-badge gsd-hidden" id="workflowBadge" title="GSD workflow state" role="status" aria-label="Workflow state"></span>
+      <span class="gsd-workflow-badge gsd-hidden" id="workflowBadge" role="status" tabindex="0" aria-label="Workflow state"></span>
       <div class="gsd-header-info" role="status" aria-label="Session info">
         <span class="gsd-model-badge gsd-hidden" id="modelBadge" title="Model" aria-label="Current model"></span>
         <span class="gsd-thinking-badge gsd-hidden" id="thinkingBadge" title="Thinking level" aria-label="Thinking level"></span>
@@ -1053,6 +1054,7 @@ uiDialogs.init({
 });
 
 toasts.init(document.getElementById("toastContainer")!);
+workflowHover.init(document.getElementById("workflowBadge")!);
 
 renderer.init({
   messagesContainer,
