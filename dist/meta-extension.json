@@ -22,7 +22,7 @@
       "format": "esm"
     },
     "src/extension/rpc-client.ts": {
-      "bytes": 32332,
+      "bytes": 35962,
       "imports": [
         {
           "path": "child_process",
@@ -45,6 +45,11 @@
           "external": true
         },
         {
+          "path": "os",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
           "path": "src/extension/shell-env.ts",
           "kind": "import-statement",
           "original": "./shell-env"
@@ -63,7 +68,7 @@
       "format": "esm"
     },
     "src/extension/update-checker.ts": {
-      "bytes": 18669,
+      "bytes": 19893,
       "imports": [
         {
           "path": "vscode",
@@ -391,7 +396,7 @@
       "format": "esm"
     },
     "src/extension/session-list-service.ts": {
-      "bytes": 7989,
+      "bytes": 9638,
       "imports": [
         {
           "path": "fs",
@@ -405,6 +410,11 @@
         },
         {
           "path": "os",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "readline",
           "kind": "import-statement",
           "external": true
         }
@@ -428,7 +438,7 @@
       "format": "esm"
     },
     "src/extension/command-fallback.ts": {
-      "bytes": 42932,
+      "bytes": 43265,
       "imports": [
         {
           "path": "vscode",
@@ -641,7 +651,7 @@
       "format": "esm"
     },
     "src/extension/telegram/bridge.ts": {
-      "bytes": 46937,
+      "bytes": 49538,
       "imports": [
         {
           "path": "src/extension/telegram/api.ts",
@@ -771,7 +781,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 44176,
+      "bytes": 44208,
       "imports": [
         {
           "path": "vscode",
@@ -1036,7 +1046,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 772982
+      "bytes": 786087
     },
     "dist/extension.js": {
       "imports": [
@@ -1082,6 +1092,11 @@
         },
         {
           "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "os",
           "kind": "require-call",
           "external": true
         },
@@ -1232,6 +1247,11 @@
         },
         {
           "path": "os",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "readline",
           "kind": "require-call",
           "external": true
         },
@@ -1408,16 +1428,16 @@
           "bytesInOutput": 3397
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 20485
+          "bytesInOutput": 20515
         },
         "src/extension/rpc-client.ts": {
-          "bytesInOutput": 10469
+          "bytesInOutput": 11338
         },
         "src/extension/shell-env.ts": {
           "bytesInOutput": 1393
         },
         "src/extension/update-checker.ts": {
-          "bytesInOutput": 6217
+          "bytesInOutput": 6391
         },
         "src/shared/errors.ts": {
           "bytesInOutput": 60
@@ -1426,7 +1446,7 @@
           "bytesInOutput": 4217
         },
         "src/extension/dashboard-parser.ts": {
-          "bytesInOutput": 3325
+          "bytesInOutput": 3333
         },
         "src/extension/state-parser.ts": {
           "bytesInOutput": 805
@@ -1465,13 +1485,13 @@
           "bytesInOutput": 18681
         },
         "src/extension/session-list-service.ts": {
-          "bytesInOutput": 2197
+          "bytesInOutput": 2418
         },
         "src/extension/metrics-parser.ts": {
           "bytesInOutput": 2502
         },
         "src/extension/command-fallback.ts": {
-          "bytesInOutput": 25254
+          "bytesInOutput": 25434
         },
         "src/extension/file-ops.ts": {
           "bytesInOutput": 6104
@@ -1504,7 +1524,7 @@
           "bytesInOutput": 2005
         },
         "src/extension/telegram/bridge.ts": {
-          "bytesInOutput": 23284
+          "bytesInOutput": 24347
         },
         "src/extension/transcription/providers.ts": {
           "bytesInOutput": 2579
@@ -1534,7 +1554,7 @@
           "bytesInOutput": 2534
         }
       },
-      "bytes": 200235
+      "bytes": 202780
     }
   }
 }
