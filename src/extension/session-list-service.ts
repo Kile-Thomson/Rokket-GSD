@@ -143,7 +143,11 @@ export async function buildSessionInfo(filePath: string): Promise<SessionInfo | 
       if (!line.trim()) continue;
       let parsed: SessionEntry;
       try {
-        parsed = JSON.parse(line) as SessionEntry;
+        const candidate: unknown = JSON.parse(line);
+        // Skip valid-JSON-but-non-object lines (e.g. `null`, `42`, `"str"`);
+        // otherwise the later `parsed.type` access throws and aborts the whole file.
+        if (candidate === null || typeof candidate !== "object") continue;
+        parsed = candidate as SessionEntry;
       } catch {
         // Skip malformed lines
         continue;

@@ -396,7 +396,7 @@
       "format": "esm"
     },
     "src/extension/session-list-service.ts": {
-      "bytes": 9638,
+      "bytes": 9927,
       "imports": [
         {
           "path": "fs",
@@ -1046,7 +1046,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 786087
+      "bytes": 786458
     },
     "dist/extension.js": {
       "imports": [
@@ -1485,7 +1485,7 @@
           "bytesInOutput": 18681
         },
         "src/extension/session-list-service.ts": {
-          "bytesInOutput": 2418
+          "bytesInOutput": 2467
         },
         "src/extension/metrics-parser.ts": {
           "bytesInOutput": 2502
@@ -1554,7 +1554,7 @@
           "bytesInOutput": 2534
         }
       },
-      "bytes": 202780
+      "bytes": 202829
     }
   }
 }

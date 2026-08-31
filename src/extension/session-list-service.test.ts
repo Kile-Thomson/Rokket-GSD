@@ -119,6 +119,35 @@ describe("session-list-service", () => {
       expect(result).toBeNull();
     });
 
+    it("skips valid-JSON-but-non-object lines without aborting the session", async () => {
+      const sessionFile = path.join(tmpDir, "null-line.jsonl");
+      const lines = [
+        JSON.stringify({
+          type: "session",
+          id: "null-line-123",
+          timestamp: "2026-03-17T00:00:00Z",
+          cwd: "/test",
+        }),
+        "null", // valid JSON, non-object — must be skipped, not throw
+        "42",
+        JSON.stringify("a bare string"),
+        JSON.stringify({
+          type: "message",
+          id: "msg-1",
+          parentId: null,
+          timestamp: "2026-03-17T00:01:00Z",
+          message: { role: "user", content: "Survived the null line" },
+        }),
+      ];
+      fs.writeFileSync(sessionFile, lines.join("\n"));
+
+      const result = await buildSessionInfo(sessionFile);
+      expect(result).not.toBeNull();
+      expect(result!.id).toBe("null-line-123");
+      expect(result!.firstMessage).toBe("Survived the null line");
+      expect(result!.messageCount).toBe(1);
+    });
+
     it("extracts session name from session_info entries", async () => {
       const sessionFile = path.join(tmpDir, "named-session.jsonl");
       const lines = [
