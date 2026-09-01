@@ -518,12 +518,16 @@ function handleMessage(event: MessageEvent): void {
       state.processHealth = "responsive";
       // Flush any pending staggered tool-end renders before finalizing the turn
       flushToolEndQueue();
-      // Expire any pending UI dialogs — the backend's abort signal fires
-      // on agent_end, auto-resolving all pending dialogs to defaults.
-      // Mark them so the user sees they're no longer interactive.
-      if (uiDialogs.hasPending()) {
-        uiDialogs.expireAllPending("Agent finished");
-      }
+      // Do NOT expire pending UI dialogs here. gsd-pi (verified against 1.17
+      // with scripts/capture-117-compat.mjs) BLOCKS the turn on a pending
+      // elicitation — it never ends the turn or auto-cancels while a question
+      // is open. So if a dialog is still pending, this agent_end is either a
+      // stale/duplicate or belongs to a different (e.g. auto-mode wave / sub-
+      // agent) turn; force-cancelling it here posts cancelled:true for a
+      // question the user never touched. Leave genuinely-pending elicitations
+      // alone — they get expired on agent_start (new turn) or process exit,
+      // which ARE real terminations. See vault note "GSD PI Question Spurious
+      // Cancel on agent_end".
       renderer.finalizeCurrentTurn();
       updateInputUI();
       updateOverlayIndicators();

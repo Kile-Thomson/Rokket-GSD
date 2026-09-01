@@ -1735,11 +1735,16 @@ describe("message-handler", () => {
       expect(mockVscode.postMessage).toHaveBeenCalledWith({ type: "get_session_stats" });
     });
 
-    it("expires pending dialogs on agent_end", () => {
+    it("does NOT cancel a still-pending dialog on agent_end", () => {
+      // gsd-pi blocks the turn on a pending elicitation and never ends it while
+      // a question is open (verified via scripts/capture-117-compat.mjs). So an
+      // agent_end seen with a dialog still pending is stale/misattributed —
+      // force-cancelling it would post cancelled:true for a question the user
+      // never touched. Leave it alone. See vault "GSD PI Question Spurious
+      // Cancel on agent_end".
       (uiDialogs.hasPending as any).mockReturnValue(true);
-      sendMessage({ type: "agent_start" });
       sendMessage({ type: "agent_end" });
-      expect(uiDialogs.expireAllPending).toHaveBeenCalledWith("Agent finished");
+      expect(uiDialogs.expireAllPending).not.toHaveBeenCalledWith("Agent finished");
     });
 
 });
