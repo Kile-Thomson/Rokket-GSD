@@ -11,6 +11,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import * as readline from "readline";
 
 // ============================================================
 // Types
@@ -92,87 +93,97 @@ function extractTextFromContent(content: unknown): string {
 }
 
 /**
- * Get the last activity timestamp from message entries.
+ * Update the running last-activity timestamp from a single message entry.
+ * Returns the new max, preferring the message-level epoch-ms timestamp and
+ * falling back to the entry-level ISO string.
  */
-function getLastActivityTime(entries: SessionEntry[]): number | undefined {
-  let lastTime: number | undefined;
-  for (const entry of entries) {
-    if (entry.type !== "message") continue;
-    const msg = entry.message;
-    if (!msg) continue;
-    if (msg.role !== "user" && msg.role !== "assistant") continue;
+function updateLastActivity(current: number | undefined, entry: SessionEntry): number | undefined {
+  const msg = entry.message;
+  if (!msg) return current;
+  if (msg.role !== "user" && msg.role !== "assistant") return current;
 
-    // Try message-level timestamp first (epoch ms)
-    if (typeof msg.timestamp === "number") {
-      lastTime = Math.max(lastTime ?? 0, msg.timestamp);
-      continue;
-    }
-    // Fall back to entry-level timestamp (ISO string)
-    if (typeof entry.timestamp === "string") {
-      const t = new Date(entry.timestamp).getTime();
-      if (!Number.isNaN(t)) {
-        lastTime = Math.max(lastTime ?? 0, t);
-      }
+  // Try message-level timestamp first (epoch ms)
+  if (typeof msg.timestamp === "number") {
+    return Math.max(current ?? 0, msg.timestamp);
+  }
+  // Fall back to entry-level timestamp (ISO string)
+  if (typeof entry.timestamp === "string") {
+    const t = new Date(entry.timestamp).getTime();
+    if (!Number.isNaN(t)) {
+      return Math.max(current ?? 0, t);
     }
   }
-  return lastTime;
+  return current;
 }
 
 /**
  * Parse a single session JSONL file into SessionInfo.
  * Returns null if the file is invalid or unreadable.
+ *
+ * Streams the file line-by-line instead of buffering the whole file: the
+ * running state (header, name, count, firstMessage, lastActivity) is updated
+ * inline so peak memory is one line at a time rather than the entire file plus
+ * a parsed entries[] array. Only firstMessage can early-exit its capture; name
+ * (latest wins), messageCount, and lastActivity (max timestamp) still require
+ * scanning every line.
  */
 export async function buildSessionInfo(filePath: string): Promise<SessionInfo | null> {
+  let stream: fs.ReadStream | undefined;
   try {
-    const content = await fs.promises.readFile(filePath, "utf8");
-    const lines = content.split("\n");
-    const entries: SessionEntry[] = [];
-    let header: SessionHeader | null = null;
+    stream = fs.createReadStream(filePath, { encoding: "utf8" });
+    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
 
-    for (const line of lines) {
+    let header: SessionHeader | null = null;
+    let messageCount = 0;
+    let firstMessage = "";
+    let name: string | undefined;
+    let lastActivity: number | undefined;
+
+    for await (const line of rl) {
       if (!line.trim()) continue;
+      let parsed: SessionEntry;
       try {
-        const parsed = JSON.parse(line);
-        if (!header && parsed.type === "session") {
-          header = parsed as SessionHeader;
-        } else {
-          entries.push(parsed as SessionEntry);
-        }
+        const candidate: unknown = JSON.parse(line);
+        // Skip valid-JSON-but-non-object lines (e.g. `null`, `42`, `"str"`);
+        // otherwise the later `parsed.type` access throws and aborts the whole file.
+        if (candidate === null || typeof candidate !== "object") continue;
+        parsed = candidate as SessionEntry;
       } catch {
         // Skip malformed lines
+        continue;
       }
+
+      if (!header && parsed.type === "session") {
+        header = parsed as unknown as SessionHeader;
+        continue;
+      }
+
+      // Extract session name (use latest)
+      if (parsed.type === "session_info" && parsed.name) {
+        name = parsed.name.trim();
+      }
+
+      if (parsed.type !== "message") continue;
+      messageCount++;
+
+      const msg = parsed.message;
+      if (!msg) continue;
+      if (msg.role !== "user" && msg.role !== "assistant") continue;
+
+      if (!firstMessage && msg.role === "user") {
+        const text = extractTextFromContent(msg.content);
+        if (text) firstMessage = text;
+      }
+
+      lastActivity = updateLastActivity(lastActivity, parsed);
     }
 
     if (!header || header.type !== "session" || typeof header.id !== "string") {
       return null;
     }
 
-    let messageCount = 0;
-    let firstMessage = "";
-    let name: string | undefined;
-
-    for (const entry of entries) {
-      // Extract session name (use latest)
-      if (entry.type === "session_info" && entry.name) {
-        name = entry.name.trim();
-      }
-
-      if (entry.type !== "message") continue;
-      messageCount++;
-
-      const msg = entry.message;
-      if (!msg) continue;
-      if (msg.role !== "user" && msg.role !== "assistant") continue;
-
-      const text = extractTextFromContent(msg.content);
-      if (!firstMessage && msg.role === "user" && text) {
-        firstMessage = text;
-      }
-    }
-
     const stats = await fs.promises.stat(filePath);
     const created = new Date(header.timestamp);
-    const lastActivity = getLastActivityTime(entries);
     const modified = lastActivity ? new Date(lastActivity) : stats.mtime;
 
     return {
@@ -187,7 +198,38 @@ export async function buildSessionInfo(filePath: string): Promise<SessionInfo | 
     };
   } catch {
     return null;
+  } finally {
+    // Ensure the underlying fd is released if the stream is still open
+    // (e.g. an early return or a mid-stream throw).
+    stream?.destroy();
   }
+}
+
+/** Max session files read concurrently — bounds peak memory / fd usage. */
+const LIST_CONCURRENCY = 8;
+
+/**
+ * Map `worker` over `items` with a bounded number of concurrent invocations.
+ * Preserves input order in the returned results.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+
+  async function runner(): Promise<void> {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await worker(items[index]);
+    }
+  }
+
+  const pool = Array.from({ length: Math.min(limit, items.length) }, runner);
+  await Promise.all(pool);
+  return results;
 }
 
 /**
@@ -197,17 +239,15 @@ export async function buildSessionInfo(filePath: string): Promise<SessionInfo | 
 export async function listSessions(cwd: string): Promise<SessionInfo[]> {
   const dir = getSessionDir(cwd);
 
-  if (!fs.existsSync(dir)) {
-    return [];
-  }
-
   try {
     const dirEntries = await fs.promises.readdir(dir);
     const jsonlFiles = dirEntries
       .filter((f) => f.endsWith(".jsonl"))
       .map((f) => path.join(dir, f));
 
-    const results = await Promise.all(jsonlFiles.map(buildSessionInfo));
+    // Bound the fan-out so peak memory / fd usage stays constant regardless of
+    // how many session files the directory holds.
+    const results = await mapWithConcurrency(jsonlFiles, LIST_CONCURRENCY, buildSessionInfo);
     const sessions = results.filter((s): s is SessionInfo => s !== null);
 
     // Sort by most recently modified first
@@ -215,6 +255,7 @@ export async function listSessions(cwd: string): Promise<SessionInfo[]> {
 
     return sessions;
   } catch {
+    // Missing directory (ENOENT) or any read error resolves to no sessions.
     return [];
   }
 }
