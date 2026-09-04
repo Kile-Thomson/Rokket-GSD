@@ -23,13 +23,17 @@ vi.mock("../dashboard", async (importOriginal) => {
   };
 });
 
-vi.mock("../helpers", () => ({
-  escapeHtml: (s: string) => String(s ?? ""),
-  formatCost: (c: number) => `$${c.toFixed(2)}`,
-  formatTokens: (n: number) => `${n}`,
-  scrollToBottom: vi.fn(),
-  formatContextUsage: () => "",
-}));
+vi.mock("../helpers", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../helpers")>();
+  return {
+    ...actual,
+    escapeHtml: (s: string) => String(s ?? ""),
+    formatCost: (c: number) => `$${c.toFixed(2)}`,
+    formatTokens: (n: number) => `${n}`,
+    scrollToBottom: vi.fn(),
+    formatContextUsage: () => "",
+  };
+});
 
 // ── Helpers ──────────────────────────────────────────────────────────
 

@@ -163,6 +163,24 @@ function removePendingDotsFromContainer(container: HTMLElement): void {
 }
 
 /**
+ * Public: remove the optimistic pending dots from the current turn element.
+ * Called when a turn terminates via error/exit before any real content arrived
+ * (agent_start never fired), so the lone thinking-dots placeholder — and the
+ * otherwise-empty streaming container holding it — don't linger on screen.
+ */
+export function removePendingDots(): void {
+  const container = getCurrentTurnElement();
+  if (!container) return;
+  removePendingDotsFromContainer(container);
+  // If the container held nothing but the dots, it's an empty stray streaming
+  // shell — drop it so the transcript doesn't keep a blank assistant bubble.
+  if (container.children.length === 0 && container.classList.contains("streaming")) {
+    container.remove();
+    resetStreamingState();
+  }
+}
+
+/**
  * Split the current streaming turn at the user message boundary.
  * Called when the user queues a follow-up while the LLM is streaming —
  * preserves existing content in place and creates a fresh continuation
@@ -357,7 +375,8 @@ export function appendToTextSegment(segType: "text" | "thinking", delta: string)
 
 export function appendToolSegmentElement(tc: ToolCallState, segIdx: number): void {
   const container = ensureCurrentTurnElement();
-  removePendingDotsFromContainer(container);  const el = document.createElement("div");
+  removePendingDotsFromContainer(container);
+  const el = document.createElement("div");
   el.className = "gsd-tool-segment";
   el.dataset.segIdx = String(segIdx);
   el.dataset.toolId = tc.id;

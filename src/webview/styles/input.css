@@ -199,8 +199,8 @@
 }
 
 .gsd-voice-btn.gsd-voice-active {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
+  color: var(--gsd-color-recording);
+  background: var(--gsd-color-recording-subtle);
   animation: gsd-voice-pulse-btn 1.5s infinite;
 }
 
@@ -227,8 +227,8 @@
   padding: 8px 12px;
   margin: 0 12px 4px;
   border-radius: var(--gsd-radius-lg);
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: var(--gsd-color-recording-faint);
+  border: 1px solid var(--gsd-color-recording-border);
   font-size: var(--gsd-font-size-md);
   color: var(--gsd-color-text);
 }
@@ -237,7 +237,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #ef4444;
+  background: var(--gsd-color-recording);
   animation: gsd-voice-pulse-dot 1s ease-in-out infinite;
   flex-shrink: 0;
 }

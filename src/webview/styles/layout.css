@@ -121,12 +121,12 @@
   left: 12px;
   right: 12px;
   max-width: 420px;
-  z-index: 60;
+  z-index: var(--gsd-z-popover);
   padding: 10px 12px;
   border-radius: var(--gsd-radius-md);
   background: var(--gsd-color-bg-secondary, var(--gsd-header-bg));
   border: var(--gsd-border-width) solid var(--gsd-header-border);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--gsd-shadow-popover);
   font-size: var(--gsd-font-size-base);
   line-height: 1.45;
 }
@@ -587,6 +587,31 @@
 
 .gsd-scroll-fab:active {
   transform: scale(0.92);
+}
+
+/* Unread indicator — new content arrived below while scrolled up */
+.gsd-scroll-fab.unread {
+  opacity: 1;
+  border-color: var(--gsd-color-accent);
+  color: var(--gsd-color-accent);
+}
+
+.gsd-scroll-fab.unread::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: var(--gsd-radius-circle);
+  background: var(--gsd-color-accent);
+  box-shadow: 0 0 0 2px var(--gsd-color-bg);
+  animation: gsd-fab-unread-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes gsd-fab-unread-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.25); opacity: 0.65; }
 }
 
 /* ============================================================

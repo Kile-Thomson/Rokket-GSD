@@ -1150,11 +1150,11 @@
   opacity: 0.8;
 }
 .gsd-settings-key-badge.gsd-settings-key-verified {
-  color: #3fb950;
+  color: var(--gsd-color-success);
   opacity: 1;
 }
 .gsd-settings-key-badge.gsd-settings-key-invalid {
-  color: #f85149;
+  color: var(--gsd-color-text-error);
   opacity: 1;
 }
 

@@ -6,7 +6,7 @@
       "format": "esm"
     },
     "src/webview/styles/tokens.css": {
-      "bytes": 17352,
+      "bytes": 17805,
       "imports": []
     },
     "src/webview/styles/base.css": {
@@ -14,7 +14,7 @@
       "imports": []
     },
     "src/webview/styles/layout.css": {
-      "bytes": 16631,
+      "bytes": 17308,
       "imports": []
     },
     "src/webview/styles/entries.css": {
@@ -22,7 +22,7 @@
       "imports": []
     },
     "src/webview/styles/tools.css": {
-      "bytes": 12879,
+      "bytes": 12903,
       "imports": []
     },
     "src/webview/styles/dashboard.css": {
@@ -30,7 +30,7 @@
       "imports": []
     },
     "src/webview/styles/input.css": {
-      "bytes": 9759,
+      "bytes": 9828,
       "imports": []
     },
     "src/webview/styles/footer.css": {
@@ -38,11 +38,11 @@
       "imports": []
     },
     "src/webview/styles/overlays.css": {
-      "bytes": 42176,
+      "bytes": 42213,
       "imports": []
     },
     "src/webview/styles/toasts.css": {
-      "bytes": 1485,
+      "bytes": 1482,
       "imports": []
     },
     "src/webview/styles/misc.css": {
@@ -58,7 +58,7 @@
       "imports": []
     },
     "src/webview/styles/workflow.css": {
-      "bytes": 6549,
+      "bytes": 6559,
       "imports": []
     },
     "src/webview/styles/themes/phosphor.css": {
@@ -404,7 +404,7 @@
       "format": "esm"
     },
     "src/webview/renderer.ts": {
-      "bytes": 37131,
+      "bytes": 37935,
       "imports": [
         {
           "path": "src/webview/state.ts",
@@ -565,7 +565,7 @@
       "format": "esm"
     },
     "src/webview/message-handler.ts": {
-      "bytes": 76827,
+      "bytes": 78773,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -687,7 +687,7 @@
       "format": "esm"
     },
     "src/webview/index.ts": {
-      "bytes": 46137,
+      "bytes": 47463,
       "imports": [
         {
           "path": "src/webview/perf-utils.ts",
@@ -888,7 +888,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 957463
+      "bytes": 962518
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -1011,7 +1011,7 @@
           "bytesInOutput": 151
         },
         "src/webview/renderer.ts": {
-          "bytesInOutput": 11617
+          "bytesInOutput": 11729
         },
         "src/webview/dashboard.ts": {
           "bytesInOutput": 10234
@@ -1029,55 +1029,55 @@
           "bytesInOutput": 6857
         },
         "src/webview/message-handler.ts": {
-          "bytesInOutput": 26757
+          "bytesInOutput": 26813
         },
         "src/webview/ui-updates.ts": {
           "bytesInOutput": 7391
         },
         "src/webview/index.ts": {
-          "bytesInOutput": 28700
+          "bytesInOutput": 29002
         }
       },
-      "bytes": 248335
+      "bytes": 248805
     },
     "dist/webview/index.css.map": {
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 283400
+      "bytes": 285421
     },
     "dist/webview/index.css": {
       "imports": [],
       "inputs": {
         "src/webview/styles/tokens.css": {
-          "bytesInOutput": 9801
+          "bytesInOutput": 10217
         },
         "src/webview/styles/base.css": {
           "bytesInOutput": 685
         },
         "src/webview/styles/layout.css": {
-          "bytesInOutput": 12503
+          "bytesInOutput": 13003
         },
         "src/webview/styles/entries.css": {
           "bytesInOutput": 6724
         },
         "src/webview/styles/tools.css": {
-          "bytesInOutput": 8942
+          "bytesInOutput": 8966
         },
         "src/webview/styles/dashboard.css": {
           "bytesInOutput": 7788
         },
         "src/webview/styles/input.css": {
-          "bytesInOutput": 7452
+          "bytesInOutput": 7552
         },
         "src/webview/styles/footer.css": {
           "bytesInOutput": 1678
         },
         "src/webview/styles/overlays.css": {
-          "bytesInOutput": 33112
+          "bytesInOutput": 33149
         },
         "src/webview/styles/toasts.css": {
-          "bytesInOutput": 952
+          "bytesInOutput": 955
         },
         "src/webview/styles/misc.css": {
           "bytesInOutput": 10130
@@ -1089,7 +1089,7 @@
           "bytesInOutput": 2258
         },
         "src/webview/styles/workflow.css": {
-          "bytesInOutput": 4730
+          "bytesInOutput": 4750
         },
         "src/webview/styles/themes/phosphor.css": {
           "bytesInOutput": 5298
@@ -1101,7 +1101,7 @@
           "bytesInOutput": 9942
         }
       },
-      "bytes": 131233
+      "bytes": 132333
     }
   }
 }

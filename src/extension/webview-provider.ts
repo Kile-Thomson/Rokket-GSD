@@ -286,6 +286,14 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
 
   private async handleStartRecording(webview: vscode.Webview): Promise<void> {
     try {
+      // Safety net: if the recorder hits its hard max-duration cap without a
+      // stop from the UI (webview reload, dropped IPC, focus steal), finalize
+      // the recording here and transcribe what was buffered so the mic process
+      // doesn't linger.
+      this.recorder.onMaxDuration = () => {
+        this.output.appendLine("[voice] Max recording duration reached — auto-stopping.");
+        void this.handleStopRecording(webview);
+      };
       await this.recorder.start();
       this.postToWebview(webview, { type: "voice_recording_started" } as any);
     } catch (err: unknown) {

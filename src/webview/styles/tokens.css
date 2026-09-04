@@ -86,6 +86,7 @@
   --gsd-color-surface-elevated: var(--vscode-editorWidget-background, var(--vscode-sideBar-background));
   --gsd-color-surface-hover: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.1));
   --gsd-color-surface-active: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
+  --gsd-color-bg-secondary: var(--vscode-sideBar-background, var(--vscode-editor-background));
 
   /* ----------------------------------------------------------
      Color — text
@@ -114,6 +115,10 @@
   --gsd-color-success: var(--vscode-testing-iconPassed, var(--vscode-charts-green, #4ec9b0));
   --gsd-color-error: var(--vscode-errorForeground, #f14c4c);
   --gsd-color-warning: var(--vscode-charts-yellow, #cca700);
+  --gsd-color-recording: #ef4444;
+  --gsd-color-recording-subtle: rgba(239, 68, 68, 0.1);
+  --gsd-color-recording-faint: rgba(239, 68, 68, 0.08);
+  --gsd-color-recording-border: rgba(239, 68, 68, 0.2);
   --gsd-color-success-subtle: rgba(40, 167, 69, 0.15);
   --gsd-color-error-subtle: rgba(220, 60, 60, 0.15);
   --gsd-color-warning-subtle: rgba(220, 160, 40, 0.06);
@@ -256,6 +261,7 @@
   --gsd-color-ansi-green: var(--vscode-terminal-ansiGreen, #89d185);
   --gsd-color-ansi-magenta: var(--vscode-terminal-ansiMagenta, #d189d1);
   --gsd-color-ansi-yellow: var(--vscode-terminal-ansiYellow, #d1c589);
+  --gsd-color-on-ansi-yellow: #1e1e1e;
   --gsd-color-ansi-cyan: var(--vscode-terminal-ansiCyan, #89d1d1);
   --gsd-color-ansi-blue: var(--vscode-terminal-ansiBlue, #6cb6ff);
 
@@ -336,6 +342,8 @@
      ---------------------------------------------------------- */
   --gsd-rocket-glow: radial-gradient(circle, rgba(255, 140, 30, 0.5) 0%, rgba(255, 80, 10, 0.25) 50%, transparent 70%);
   --gsd-shadow-fab: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --gsd-shadow-popover: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --gsd-shadow-toast: 0 2px 10px rgba(0, 0, 0, 0.3);
   --gsd-color-accent-tint: rgba(55, 148, 255, 0.08);
 
   /* ----------------------------------------------------------
