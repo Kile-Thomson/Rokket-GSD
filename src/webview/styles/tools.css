@@ -432,7 +432,7 @@
   padding: 1px 6px;
   border-radius: 3px;
   background: var(--gsd-color-ansi-yellow);
-  color: #1e1e1e;
+  color: var(--gsd-color-on-ansi-yellow);
   font-size: 0.85em;
   font-weight: 600;
   line-height: 1.4;

@@ -238,7 +238,7 @@
   bottom: 8px;
   left: 8px;
   right: auto;
-  z-index: 9999;
+  z-index: var(--gsd-z-scanlines);
   max-width: 320px;
   padding: 6px 8px;
   border: 1px solid var(--gsd-color-border-strong);
@@ -250,7 +250,7 @@
   line-height: 1.45;
   pointer-events: none;
   opacity: 0.92;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--gsd-shadow-fab);
 }
 
 .gsd-wf-diag-title {

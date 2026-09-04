@@ -39,7 +39,7 @@ import {
   isAutoScrollSuppressed,
 } from "./helpers";
 
-import { registerInterval, disposeAll } from "./dispose";
+import { registerInterval, registerCleanup, disposeAll } from "./dispose";
 import { shouldDebounce } from "./send-debounce";
 import { initPersistAttachments, rehydrateAttachments, persistAttachments } from "./persist-attachments";
 
@@ -450,13 +450,29 @@ function updateScrollFab(): void {
   // Show FAB when auto-scroll is suppressed (user scrolled up) or not near bottom
   const showFab = isAutoScrollSuppressed() || !isNearBottom(100);
   scrollFab.classList.toggle("visible", showFab);
+  // Back at the bottom → nothing unread anymore.
+  if (!showFab || isNearBottom(30)) {
+    scrollFab.classList.remove("unread");
+  }
 }
 
 // Initialize intent-based auto-scroll tracking
 initAutoScroll(messagesContainer);
 messagesContainer.addEventListener("scroll", updateScrollFab, { passive: true });
 
+// Flag unread content: when the transcript grows while the user has scrolled
+// away from the bottom, the FAB alone ("↓") gives no cue that *new* output
+// arrived below. Mark it so a pulse/dot signals there's something to read.
+const scrollFabUnreadObserver = new MutationObserver(() => {
+  if (isAutoScrollSuppressed() && !isNearBottom(100)) {
+    scrollFab.classList.add("unread");
+  }
+});
+scrollFabUnreadObserver.observe(messagesContainer, { childList: true, subtree: true, characterData: true });
+registerCleanup("scroll-fab-unread-observer", () => scrollFabUnreadObserver.disconnect());
+
 scrollFab.addEventListener("click", () => {
+  scrollFab.classList.remove("unread");
   scrollToBottom(messagesContainer, true);
 });
 
@@ -536,10 +552,21 @@ let voiceIsRecording = false;
 let voiceTimerInterval: ReturnType<typeof setInterval> | null = null;
 let voiceStartTime = 0;
 
+// Hard cap on recording length. Push-to-talk stops on mouseup/leave/blur, but
+// if none of those fire (focus stolen, drag out of the webview, OS-level focus
+// steal), recording would otherwise run — and buffer audio — indefinitely.
+const VOICE_MAX_DURATION_MS = 120_000; // 2 minutes
+
 function startVoiceTimer(): void {
   voiceStartTime = Date.now();
   voiceTimerInterval = setInterval(() => {
-    const elapsed = Math.floor((Date.now() - voiceStartTime) / 1000);
+    const elapsedMs = Date.now() - voiceStartTime;
+    // Safety auto-stop: end recording and transcribe what we have so far.
+    if (elapsedMs >= VOICE_MAX_DURATION_MS) {
+      if (voiceIsRecording) stopRecording();
+      return;
+    }
+    const elapsed = Math.floor(elapsedMs / 1000);
     const m = Math.floor(elapsed / 60);
     const s = elapsed % 60;
     voiceRecordingTime.textContent = `${m}:${s.toString().padStart(2, "0")}`;

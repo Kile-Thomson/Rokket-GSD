@@ -487,6 +487,9 @@ function handleMessage(event: MessageEvent): void {
       // turn's real usage unless a workflow fan-out surfaces during it.
       workflowRanThisTurn = false;
       state.isStreaming = true;
+      // Backend has confirmed activity — clear the optimistic pending flag so
+      // isStreaming alone drives the "working" glow from here on.
+      state.isPending = false;
       const isContinuation = !!(msg as any).isContinuation && state.currentTurn === null;
       const lastEntry = state.entries[state.entries.length - 1];
       if (isContinuation && lastEntry?.type === "assistant" && lastEntry.turn) {
@@ -514,6 +517,12 @@ function handleMessage(event: MessageEvent): void {
 
     case "agent_end": {
       state.isStreaming = false;
+      // Turn is over — clear the optimistic pending flag. Without this, a turn
+      // that ends without ever flipping isStreaming off via the normal path
+      // (or that never emitted agent_start) would leave the logo glowing
+      // "working" forever, since isPending is otherwise only reset on a full
+      // session reset.
+      state.isPending = false;
       announceToScreenReader("Response complete.");
       state.processHealth = "responsive";
       // Flush any pending staggered tool-end renders before finalizing the turn
@@ -1120,6 +1129,7 @@ function handleMessage(event: MessageEvent): void {
 
     case "session_shutdown": {
       state.isStreaming = false;
+      state.isPending = false;
       state.isCompacting = false;
       state.processStatus = "stopped";
       // Clean up any in-progress turn
@@ -1228,6 +1238,13 @@ function handleMessage(event: MessageEvent): void {
 
     case "error": {
       const data = msg;
+      // An error can terminate a turn without a following agent_end. Clear the
+      // optimistic pending flag and its dots so the logo glow doesn't hang.
+      if (state.isPending) {
+        state.isPending = false;
+        renderer.removePendingDots();
+        updateInputUI();
+      }
       addSystemEntry(data.message, "error");
       announceToScreenReader(`Error: ${data.message}`);
       break;
@@ -1236,6 +1253,9 @@ function handleMessage(event: MessageEvent): void {
     case "process_exit": {
       const data = msg;
       state.isStreaming = false;
+      // Clear pending too — otherwise a crash mid-send leaves the logo glowing
+      // "working" alongside the crash overlay, sending contradictory signals.
+      state.isPending = false;
       state.isCompacting = false;
       state.isRetrying = false;
       state.processHealth = "responsive";
@@ -1333,6 +1353,9 @@ function handleMessage(event: MessageEvent): void {
       // Clear current state
       state.entries = [];
       state.currentTurn = null;
+      // A pending send from the outgoing session must not carry over — otherwise
+      // switching to a non-streaming session leaves the logo glowing "working".
+      state.isPending = false;
       renderer.resetStreamingState();
       renderer.clearMessages();
       workflowLive.reset();
@@ -1415,11 +1438,16 @@ function handleMessage(event: MessageEvent): void {
       if (vt.text) {
         const input = document.getElementById("promptInput") as HTMLTextAreaElement | null;
         if (input) {
+          // Populate the input and let the user review before sending. Auto-firing
+          // an un-reviewed transcription is a footgun: Whisper mishears, and an
+          // accidental mouseleave off the mic button can trigger transcription of
+          // a stray recording — sending a prompt the user never intended to an
+          // agent that runs commands and edits files. Focus + move caret to end
+          // so Enter sends immediately for the common case.
           input.value = vt.text;
           input.dispatchEvent(new Event("input"));
-        }
-        if (typeof (globalThis as any).__gsdSendMessage === "function") {
-          (globalThis as any).__gsdSendMessage();
+          input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
         }
       }
       break;

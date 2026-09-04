@@ -703,7 +703,7 @@
       "format": "esm"
     },
     "src/extension/transcription/recorder.ts": {
-      "bytes": 7541,
+      "bytes": 8788,
       "imports": [
         {
           "path": "child_process",
@@ -781,7 +781,7 @@
       "format": "esm"
     },
     "src/extension/webview-provider.ts": {
-      "bytes": 44208,
+      "bytes": 44672,
       "imports": [
         {
           "path": "vscode",
@@ -1046,7 +1046,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 786458
+      "bytes": 788614
     },
     "dist/extension.js": {
       "imports": [
@@ -1428,7 +1428,7 @@
           "bytesInOutput": 3397
         },
         "src/extension/webview-provider.ts": {
-          "bytesInOutput": 20515
+          "bytesInOutput": 20664
         },
         "src/extension/rpc-client.ts": {
           "bytesInOutput": 11338
@@ -1533,7 +1533,7 @@
           "bytesInOutput": 315
         },
         "src/extension/transcription/recorder.ts": {
-          "bytesInOutput": 4725
+          "bytesInOutput": 5103
         },
         "src/extension/polling.ts": {
           "bytesInOutput": 2563
@@ -1554,7 +1554,7 @@
           "bytesInOutput": 2534
         }
       },
-      "bytes": 202829
+      "bytes": 203356
     }
   }
 }

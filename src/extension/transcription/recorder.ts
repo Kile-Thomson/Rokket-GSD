@@ -3,13 +3,32 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
+/**
+ * Hard cap on recording length (ms). A safety net independent of the webview's
+ * own auto-stop: if the UI never sends a stop (webview reload, dropped IPC,
+ * focus steal that skips the button's stop events), the recorder must not keep
+ * a microphone process alive and buffering audio indefinitely.
+ */
+const MAX_RECORDING_MS = 120_000; // 2 minutes
+
 export class AudioRecorder {
   private process: ChildProcess | null = null;
   private outputPath: string | null = null;
   private _isRecording = false;
+  private maxDurationTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Fired when the hard max-duration cap forces recording to end. The owner
+   *  should finalize (transcribe buffered audio) and notify the UI. */
+  onMaxDuration: (() => void) | null = null;
 
   get isRecording(): boolean {
     return this._isRecording;
+  }
+
+  private clearMaxDurationTimer(): void {
+    if (this.maxDurationTimer) {
+      clearTimeout(this.maxDurationTimer);
+      this.maxDurationTimer = null;
+    }
   }
 
   async start(): Promise<void> {
@@ -27,6 +46,14 @@ export class AudioRecorder {
     }
 
     this._isRecording = true;
+
+    // Arm the safety cap. Fires the owner callback once; the owner is
+    // responsible for calling stop()/cancel(), which clears the timer.
+    this.clearMaxDurationTimer();
+    this.maxDurationTimer = setTimeout(() => {
+      this.maxDurationTimer = null;
+      if (this._isRecording && this.onMaxDuration) this.onMaxDuration();
+    }, MAX_RECORDING_MS);
   }
 
   async stop(): Promise<Buffer> {
@@ -34,6 +61,7 @@ export class AudioRecorder {
       throw new Error("Not recording");
     }
 
+    this.clearMaxDurationTimer();
     const platform = os.platform();
     if (platform === "win32") {
       await this.stopWindows();
@@ -62,6 +90,7 @@ export class AudioRecorder {
 
   cancel(): void {
     this._isRecording = false;
+    this.clearMaxDurationTimer();
 
     if (this.process) {
       if (os.platform() === "win32") {
