@@ -6,21 +6,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.3.108] — 2026-09-04
+
+### Fixed
+- **Stuck "working" glow after a turn ends** — the pending indicator (thinking dots + pulsing logo glow) could stay lit after the agent finished. The pending flag is now cleared on every terminal path — `agent_start`, `agent_end`, `error`, `process_exit`, `session_shutdown`, and a session switch — so the UI never claims the agent is busy when it isn't. (#82)
+- **Voice recordings no longer run unbounded** — a hold-to-record session with no stop (e.g. a stray pointer state) could record indefinitely. Recording is now hard-capped at two minutes in both layers: the webview timer auto-stops and transcribes at the cap, and the extension recorder enforces the same limit as an independent safety net. (#82)
+- **Voice transcription no longer auto-sends** — a finished transcription now populates the input box and focuses it (caret at end) instead of firing immediately, so a mishear or an accidental recording can be reviewed and edited before you press Enter. (#82)
+
+### Added
+- **Scroll-to-bottom FAB unread cue** — when new transcript content arrives while you're scrolled up, the scroll-to-bottom button now shows an unread indicator, cleared when you return to the bottom or click it. (#82)
+
+## [0.3.107] — 2026-09-01
+
+### Fixed
+- **No phantom "cancelled" on turn end** — `agent_end` arriving while a UI dialog was still pending could be reported as a cancellation that never happened; the extension no longer fabricates `cancelled: true` in that case.
+
+## [0.3.105] — 2026-08-26
+
+### Fixed
+- **Changelog panel no longer shows a stale v0.2.x list** — clicking the changelog header showed v0.2.49 as "latest" with months-old entries. GitHub turns a release into a draft when its tag is deleted, and the repo had 36 such drafts left over from a history rewrite. Authenticated requests (the extension picks up your `GH_TOKEN`/`gh` token) list drafts first, so they filled the whole page. Drafts and prereleases are now skipped, and the request over-fetches, so the panel still shows the most recent published releases.
+
+## [0.3.103] — 2026-08-25
+
 ### Added
 - **Rich workflow-state popover** — hovering (or keyboard-focusing) the GSD workflow badge in the header now opens a detail panel instead of a bare tooltip: milestone, slice, and task titles with the milestone's position in the registry, slice risk and task progress, the active task's estimate, phase and auto-mode status, and a checklist of the current slice's tasks.
 
 ### Fixed
-- **Changelog panel no longer shows a stale v0.2.x list** — clicking the changelog header showed v0.2.49 as "latest" with months-old entries. GitHub turns a release into a draft when its tag is deleted, and the repo had 36 such drafts left over from a history rewrite. Authenticated requests (the extension picks up your `GH_TOKEN`/`gh` token) list drafts first, so they filled the whole page. Drafts and prereleases are now skipped, and the request over-fetches, so the panel still shows the most recent published releases.
 - **Codex models no longer reply as one unformatted block** — GPT-5 Codex variants are tuned for terminal output and skip markdown unless asked, so their replies rendered as a single wall of text. The extension now passes a short formatting instruction into the engine's system prompt (skipped automatically on engine builds that don't support it). Models that already format, like Claude, are unaffected.
+
+## [0.3.102] — 2026-08-23
 
 ### Changed
 - **Update checks no longer briefly freeze the editor** — resolving a GitHub token via `gh auth token` or `git credential-manager` ran synchronously on the extension host thread, so every extension in the window could stall for the duration of the subprocess (noticeably longer on Windows). Both lookups now run asynchronously.
 - **Faster `/ollama` status** — the version, loaded-models, and installed-models endpoints are fetched concurrently instead of one after another.
 - **Long streaming replies stay smooth** — accumulated reply text is now compacted as it streams, so each render frame pays for the new text only instead of re-joining the whole reply. Also fixes the Telegram project search reading directories synchronously on the extension host thread.
 
+## [0.3.100] — 2026-08-23
+
+### Fixed
+- **Tool calls now stream inline as they run** — with the Claude Code backend, tool calls didn't appear in the transcript until the whole turn finished, then all landed at once. The backend's tool-start streaming event carries only a content index (no tool block), so the webview couldn't create the segment and silently skipped it; everything then rendered from the batched end-of-turn events. The webview now reads the tool block from the partial message attached to the event, and creates the segment on the tool-completion event as a further fallback, so each tool shows up with a live spinner the moment it starts. (#75)
+
+## [0.3.99] — 2026-08-22
+
 ### Fixed
 - **Messages typed during auto-mode now queue instead of hijacking the run** — auto-mode executes as a series of discrete agent turns, and the input box only queued messages while a turn was actively streaming. A message sent in the gap between iterations went out as a fresh prompt, which interrupted the auto engine, forced an immediate reply, dropped the session out of auto-mode, and could corrupt the workflow state database. The webview now queues any non-slash message while auto-mode is running (streaming or not), and the extension host applies the same guard as a backstop so other entry points (e.g. Telegram) can't interrupt a run either. Queued messages are delivered to the agent between iterations. Slash commands still send immediately, and messages during a discussion pause still reach the agent directly.
-- **Tool calls now stream inline as they run** — with the Claude Code backend, tool calls didn't appear in the transcript until the whole turn finished, then all landed at once. The backend's tool-start streaming event carries only a content index (no tool block), so the webview couldn't create the segment and silently skipped it; everything then rendered from the batched end-of-turn events. The webview now reads the tool block from the partial message attached to the event, and creates the segment on the tool-completion event as a further fallback, so each tool shows up with a live spinner the moment it starts. (#75)
 
 ## [0.3.97] — 2026-08-17
 
