@@ -1353,6 +1353,9 @@ function handleMessage(event: MessageEvent): void {
       // Clear current state
       state.entries = [];
       state.currentTurn = null;
+      // A pending send from the outgoing session must not carry over — otherwise
+      // switching to a non-streaming session leaves the logo glowing "working".
+      state.isPending = false;
       renderer.resetStreamingState();
       renderer.clearMessages();
       workflowLive.reset();

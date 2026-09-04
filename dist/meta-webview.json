@@ -404,7 +404,7 @@
       "format": "esm"
     },
     "src/webview/renderer.ts": {
-      "bytes": 37935,
+      "bytes": 37937,
       "imports": [
         {
           "path": "src/webview/state.ts",
@@ -565,7 +565,7 @@
       "format": "esm"
     },
     "src/webview/message-handler.ts": {
-      "bytes": 78773,
+      "bytes": 78972,
       "imports": [
         {
           "path": "src/webview/helpers.ts",
@@ -888,7 +888,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 962518
+      "bytes": 962750
     },
     "dist/webview/index.js": {
       "imports": [],
@@ -1029,7 +1029,7 @@
           "bytesInOutput": 6857
         },
         "src/webview/message-handler.ts": {
-          "bytesInOutput": 26813
+          "bytesInOutput": 26828
         },
         "src/webview/ui-updates.ts": {
           "bytesInOutput": 7391
@@ -1038,7 +1038,7 @@
           "bytesInOutput": 29002
         }
       },
-      "bytes": 248805
+      "bytes": 248820
     },
     "dist/webview/index.css.map": {
       "imports": [],
