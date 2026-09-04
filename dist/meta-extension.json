@@ -703,7 +703,7 @@
       "format": "esm"
     },
     "src/extension/transcription/recorder.ts": {
-      "bytes": 8788,
+      "bytes": 8936,
       "imports": [
         {
           "path": "child_process",
@@ -1046,7 +1046,7 @@
       "imports": [],
       "exports": [],
       "inputs": {},
-      "bytes": 788614
+      "bytes": 788766
     },
     "dist/extension.js": {
       "imports": [

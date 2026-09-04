@@ -24,6 +24,8 @@ export class AudioRecorder {
     return this._isRecording;
   }
 
+  /** Cancel the armed max-duration cap, if any. Called on stop/cancel so a
+   *  completed recording doesn't later fire the safety auto-stop. */
   private clearMaxDurationTimer(): void {
     if (this.maxDurationTimer) {
       clearTimeout(this.maxDurationTimer);

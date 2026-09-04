@@ -557,6 +557,12 @@ let voiceStartTime = 0;
 // steal), recording would otherwise run — and buffer audio — indefinitely.
 const VOICE_MAX_DURATION_MS = 120_000; // 2 minutes
 
+/**
+ * Start the recording elapsed-time display and arm the safety auto-stop.
+ * Ticks once per second to update the on-screen timer, and once elapsed time
+ * reaches VOICE_MAX_DURATION_MS it stops the recording so a stuck push-to-talk
+ * can't buffer audio indefinitely.
+ */
 function startVoiceTimer(): void {
   voiceStartTime = Date.now();
   voiceTimerInterval = setInterval(() => {
