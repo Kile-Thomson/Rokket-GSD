@@ -412,7 +412,7 @@ const TRUSTED_SUFFIXES = [
  * only those, not ANY customer bucket under .s3.amazonaws.com.
  */
 function isTrustedGitHubS3(hostname: string): boolean {
-  return hostname.endsWith(".s3.amazonaws.com") && hostname.startsWith("github");
+  return /^github-production-release-asset-[a-z0-9-]+\.s3\.amazonaws\.com$/i.test(hostname);
 }
 
 /** Check if a URL is on a trusted host (exact match or suffix match, HTTPS only) */

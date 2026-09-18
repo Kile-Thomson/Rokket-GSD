@@ -9,7 +9,7 @@ Rokket GSD VS Code Extension - post-remediation architecture reference.
 
 ## Overview
 
-The extension uses a **three-layer architecture** with strict communication boundaries:
+The extension uses a **three-layer core architecture** (plus an optional fourth Telegram Bridge layer) with strict communication boundaries:
 
 ```
 ┌──────────────────────┐     postMessage      ┌──────────────────────┐   stdin/stdout JSONL   ┌──────────────────┐
