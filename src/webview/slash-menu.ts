@@ -80,7 +80,10 @@ export function show(filter: string): void {
   filteredItems = allItems.filter(
     (item) => item.name.toLowerCase().includes(q) || item.description.toLowerCase().includes(q)
   );
-  if (filteredItems.length === 0) {
+  // Zero matches on loaded commands is a real "no such command" state - show an
+  // instructive empty row rather than silently hiding the menu (a silent close
+  // reads as a bug / lost focus). Still hide when commands haven't loaded yet.
+  if (filteredItems.length === 0 && !state.commandsLoaded) {
     hide();
     return;
   }
@@ -233,12 +236,17 @@ function render(): void {
   slashMenuEl.classList.remove("gsd-hidden");
   slashMenuEl.setAttribute("role", "listbox");
   slashMenuEl.setAttribute("aria-label", "Slash commands");
+  const emptyRow = (filteredItems.length === 0 && state.commandsLoaded) ? `
+    <div class="gsd-slash-item disabled" role="option" aria-disabled="true">
+      <span class="gsd-slash-desc">No matching commands</span>
+    </div>
+  ` : "";
   slashMenuEl.innerHTML = filteredItems.map((item, i) => `
     <div class="gsd-slash-item ${i === slashMenuIndex ? "active" : ""}" role="option" aria-selected="${i === slashMenuIndex}" id="gsd-slash-opt-${i}" data-idx="${i}">
       <span class="gsd-slash-name">/${escapeHtml(item.name)}</span>
       <span class="gsd-slash-desc">${escapeHtml(item.description)}</span>
     </div>
-  `).join("") + (!state.commandsLoaded ? `
+  `).join("") + emptyRow + (!state.commandsLoaded ? `
     <div class="gsd-slash-item disabled" role="option" aria-disabled="true">
       <span class="gsd-slash-name"><span class="gsd-tool-spinner"></span></span>
       <span class="gsd-slash-desc">Loading commands\u2026</span>

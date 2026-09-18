@@ -334,6 +334,34 @@ describe("createFocusTrap (shared a11y.ts)", () => {
     expect(prevented).toBe(true);
   });
 
+  it("includes anchors, selects, and textareas in the focus cycle", () => {
+    // Regression: the trap selector previously matched only button/input/[tabindex],
+    // so a link or select inside a dialog could Tab out of the trap.
+    container = document.createElement("div");
+    container.innerHTML = `
+      <a id="lnk" href="#x">link</a>
+      <select id="sel"><option>one</option></select>
+      <textarea id="ta"></textarea>
+    `;
+    document.body.appendChild(container);
+    const trap = createFocusTrap(container);
+
+    const lnk = container.querySelector("#lnk") as HTMLAnchorElement;
+    const ta = container.querySelector("#ta") as HTMLTextAreaElement;
+    ta.focus();
+    expect(document.activeElement).toBe(ta);
+
+    // Tab on the last focusable (textarea) wraps to the first (the anchor),
+    // proving the anchor and the textarea are both in the cycle.
+    let prevented = false;
+    const tabEvt = new KeyboardEvent("keydown", { key: "Tab", bubbles: true });
+    Object.defineProperty(tabEvt, "preventDefault", { value: () => { prevented = true; } });
+    trap(tabEvt);
+
+    expect(document.activeElement).toBe(lnk);
+    expect(prevented).toBe(true);
+  });
+
   it("non-Tab keys are not intercepted (no preventDefault)", () => {
     container = document.createElement("div");
     container.innerHTML = `<button id="a">A</button><button id="b">B</button>`;
