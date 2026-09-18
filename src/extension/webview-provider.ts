@@ -63,6 +63,28 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
     }
 
     const api = new TelegramApi(telegramConfig.botToken);
+    // Central supergroup-migration handler: point the bridge at the new ID and
+    // persist it. Registered on BOTH the TopicManager (topic-creation path) and
+    // the api itself (setOnMigrate), so ANY outbound call that trips a migration
+    // adopts the new chat ID, not just topic creation.
+    const onChatMigrated = async (newChatId: number): Promise<void> => {
+      // The group was upgraded to a supergroup. Point the bridge and topic
+      // manager at the new ID and persist it so future sessions start from the
+      // valid supergroup.
+      this.bridge?.setChatId(newChatId);
+      this.topicManager?.setChatId(newChatId);
+      try {
+        const cfg = vscode.workspace.getConfiguration("gsd");
+        await cfg.update("telegramGroupId", newChatId, vscode.ConfigurationTarget.Global);
+        this.output.appendLine(
+          `[telegram-sync] Group upgraded to supergroup - saved new group ID ${newChatId}`,
+        );
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.output.appendLine(`[telegram-sync] Failed to persist migrated group ID: ${msg}`);
+      }
+    };
+    api.setOnMigrate(onChatMigrated);
     const logger: TopicManagerLogger = {
       info: (msg: string) => this.output.appendLine(`[telegram-topic] ${msg}`),
       warn: (msg: string) => this.output.appendLine(`[telegram-topic] WARN: ${msg}`),
@@ -73,21 +95,7 @@ export class GsdWebviewProvider implements vscode.WebviewViewProvider {
       vscode.env.machineId,
       logger,
       this.context.globalState,
-      async (newChatId: number) => {
-        // The group was upgraded to a supergroup. Point the bridge at the new
-        // ID and persist it so future sessions start from the valid supergroup.
-        this.bridge?.setChatId(newChatId);
-        try {
-          const cfg = vscode.workspace.getConfiguration("gsd");
-          await cfg.update("telegramGroupId", newChatId, vscode.ConfigurationTarget.Global);
-          this.output.appendLine(
-            `[telegram-sync] Group upgraded to supergroup — saved new group ID ${newChatId}`,
-          );
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          this.output.appendLine(`[telegram-sync] Failed to persist migrated group ID: ${msg}`);
-        }
-      },
+      onChatMigrated,
     );
 
     const bridgeLogger: TopicManagerLogger = {
