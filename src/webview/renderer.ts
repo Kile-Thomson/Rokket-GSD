@@ -964,7 +964,12 @@ function insertSegmentElement(container: HTMLElement, segIdx: number, el: HTMLEl
   let inserted = false;
   for (const [idx, existingEl] of segmentElements) {
     if (idx > segIdx) {
-      container.insertBefore(el, existingEl);
+      // existingEl may have been reparented into a .gsd-tool-group (a child of
+      // container, not container itself). insertBefore against container would
+      // then throw NotFoundError, so resolve the anchor up to the element that
+      // actually sits directly under container before inserting.
+      const anchor = resolveContainerLevelAnchor(container, existingEl);
+      anchor.parentNode!.insertBefore(el, anchor);
       inserted = true;
       break;
     }
@@ -972,6 +977,19 @@ function insertSegmentElement(container: HTMLElement, segIdx: number, el: HTMLEl
   if (!inserted) {
     container.appendChild(el);
   }
+}
+
+/**
+ * Walk up from `anchor` to the element that is a direct child of `container`.
+ * A segment element can be moved into a tool-group wrapper, so its parent is no
+ * longer `container`; inserting relative to it must target the wrapper instead.
+ */
+function resolveContainerLevelAnchor(container: HTMLElement, anchor: HTMLElement): HTMLElement {
+  let cur: HTMLElement | null = anchor;
+  while (cur && cur.parentNode !== container) {
+    cur = cur.parentElement;
+  }
+  return cur || anchor;
 }
 
 // ============================================================
