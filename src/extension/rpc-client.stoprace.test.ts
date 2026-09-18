@@ -62,4 +62,25 @@ describe("GsdRpcClient.stop() restart race", () => {
     expect(replacement.kill).not.toHaveBeenCalled();
     expect(replacement.killed).toBe(false);
   });
+
+  it("finishes stop() on an error without an exit and never kills a replacement", async () => {
+    const client = new GsdRpcClient();
+    const original = makeFakeProc();
+    setProcess(client, original);
+
+    const stopped = client.stop();
+
+    // The original process errors out with no following exit event. Before the
+    // fix, stop() listened only for exit, so this stayed pending forever.
+    original.emit("error", new Error("spawn boom"));
+    await stopped;
+
+    const replacement = makeFakeProc();
+    setProcess(client, replacement);
+
+    await vi.advanceTimersByTimeAsync(STOP_FORCE_KILL_DELAY_MS + STOP_SIGTERM_DELAY_MS + 1000);
+
+    expect(replacement.kill).not.toHaveBeenCalled();
+    expect(replacement.killed).toBe(false);
+  });
 });

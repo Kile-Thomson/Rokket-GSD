@@ -560,6 +560,7 @@ export class GsdRpcClient extends EventEmitter {
     // below must act on THIS captured process, never on this.process, or a late
     // SIGTERM/forceKill lands on the newly spawned session (the restart race).
     const target = this.process;
+    const targetPid = target.pid ?? null;
 
     return new Promise((resolve) => {
       // Collect every timer so a clean exit cancels all of them at once. A timer
@@ -577,12 +578,17 @@ export class GsdRpcClient extends EventEmitter {
 
       // Final escalation: force kill the entire process tree
       timers.push(setTimeout(() => {
-        this.forceKill();
-        // Give forceKill a moment to work, then resolve regardless
+        this.forceKillProcess(target, targetPid);
+        // Give the force-kill a moment to work, then resolve regardless
         timers.push(setTimeout(finish, STOP_POST_KILL_SETTLE_MS));
       }, STOP_FORCE_KILL_DELAY_MS));
 
       target.on("exit", finish);
+      // An error without a following exit still ends this process, and a
+      // close means its streams are gone; finish on any of them so every
+      // timer is cancelled and stop() never hangs waiting only on exit.
+      target.on("error", finish);
+      target.on("close", finish);
 
       // Step 1: Try graceful abort via RPC
       try {
@@ -607,7 +613,15 @@ export class GsdRpcClient extends EventEmitter {
    * This is the nuclear option — kills everything including grandchild bash processes.
    */
   forceKill(): void {
-    const pid = this._pid;
+    this.forceKillProcess(this.process, this._pid);
+  }
+
+  /**
+   * Force-kill a SPECIFIC captured process and its tree. stop() passes the
+   * process it pinned at entry so a late escalation timer can never reach a
+   * replacement child that restart() spawned in the meantime.
+   */
+  private forceKillProcess(target: ChildProcess | null, pid: number | null): void {
     if (!pid) return;
 
     if (process.platform === "win32") {
@@ -643,10 +657,10 @@ export class GsdRpcClient extends EventEmitter {
       }
     }
 
-    // Also try via the ChildProcess handle
+    // Also try via the ChildProcess handle for the captured target.
     try {
-      this.process?.kill("SIGKILL");
-    } catch { /* process already dead — expected */ }
+      target?.kill("SIGKILL");
+    } catch { /* process already dead - expected */ }
   }
 
   /**
@@ -699,7 +713,7 @@ export class GsdRpcClient extends EventEmitter {
     // Also try via the ChildProcess handle
     try {
       this.process?.kill("SIGKILL");
-    } catch { /* process already dead — expected */ }
+    } catch { /* process already dead - expected */ }
   }
 
   /**
