@@ -1,15 +1,15 @@
 # Architecture
 
-Rokket GSD VS Code Extension — post-remediation architecture reference.
+Rokket GSD VS Code Extension - post-remediation architecture reference.
 
 > **Audience:** New contributors and AI agents working on the codebase.
-> **Last updated:** April 2026 (v0.3.45 — Telegram integration, M025 tech debt refactor)
+> **Last updated:** September 2026 (v0.3.110)
 
 ---
 
 ## Overview
 
-The extension uses a **three-layer architecture** with strict communication boundaries:
+The extension uses a **three-layer core architecture** (plus an optional fourth Telegram Bridge layer) with strict communication boundaries:
 
 ```
 ┌──────────────────────┐     postMessage      ┌──────────────────────┐   stdin/stdout JSONL   ┌──────────────────┐
@@ -25,16 +25,16 @@ The extension uses a **three-layer architecture** with strict communication boun
                                               └──────────────────────┘
 ```
 
-**Layer 1 — Webview (IIFE, browser environment):**
-The chat UI runs inside a VS Code webview as a single IIFE bundle (~197KB minified). It uses vanilla DOM manipulation — no framework. It communicates with the extension host exclusively via `postMessage`. The webview has no access to Node.js APIs, the filesystem, or the VS Code API.
+**Layer 1 - Webview (IIFE, browser environment):**
+The chat UI runs inside a VS Code webview as a single IIFE bundle (`dist/webview/index.js`). It uses vanilla DOM manipulation - no framework. It communicates with the extension host exclusively via `postMessage`. The webview has no access to Node.js APIs, the filesystem, or the VS Code API.
 
-**Layer 2 — Extension Host (CJS, Node.js):**
-The extension host runs as a CommonJS module inside VS Code's Node.js process (~91KB bundled). It manages the webview lifecycle, routes messages between webview and RPC client, handles file operations, and maintains per-session state. It has full access to the VS Code API (`vscode.*`).
+**Layer 2 - Extension Host (CJS, Node.js):**
+The extension host runs as a CommonJS module inside VS Code's Node.js process (`dist/extension.js`). It manages the webview lifecycle, routes messages between webview and RPC client, handles file operations, and maintains per-session state. It has full access to the VS Code API (`vscode.*`).
 
-**Layer 3 — gsd-pi (child process):**
+**Layer 3 - gsd-pi (child process):**
 The GSD AI agent runs as a child process spawned with `--mode rpc`. Communication uses JSON-RPC over stdin/stdout with newline-delimited JSON (JSONL). The extension host writes requests to stdin and reads events/responses from stdout.
 
-**Layer 4 — Telegram Bridge (optional, child process):**
+**Layer 4 - Telegram Bridge (optional, child process):**
 The Telegram bridge runs as an isolated child process coordinated by the extension host. It polls the Telegram Bot API for incoming messages, routes them to GSD sessions via topic-to-session mapping, and formats GSD responses back to Telegram HTML. Voice messages are transcribed via OpenAI Whisper before forwarding. The bridge communicates with the extension host over IPC.
 
 ### Communication Boundaries
@@ -91,44 +91,44 @@ User sees streaming response
 ### Key Message Types at Each Boundary
 
 **Webview → Extension (WebviewToExtensionMessage):**
-- `prompt` — user sends a message
-- `follow_up` — queue a message that runs after the current turn
-- `interrupt` / `cancel_request` — abort current generation
-- `new_conversation` / `switch_session` / `fork_conversation` — session management
-- `set_model` / `set_thinking_level` — model configuration
-- `get_state` / `get_session_stats` — state queries
+- `prompt` - user sends a message
+- `follow_up` - queue a message that runs after the current turn
+- `interrupt` / `cancel_request` - abort current generation
+- `new_conversation` / `switch_session` / `fork_conversation` - session management
+- `set_model` / `set_thinking_level` - model configuration
+- `get_state` / `get_session_stats` - state queries
 - ~50 total message types defined in `src/shared/types.ts`
 
 **Extension → Webview (ExtensionToWebviewMessage):**
-- `state` — full GsdState snapshot
-- `agent_start` / `agent_end` — agent lifecycle
-- `turn_start` / `turn_end` — turn lifecycle
-- `message_start` / `message_update` / `message_end` — streaming message events
-- `tool_execution_start` / `tool_execution_update` / `tool_execution_end` — tool call lifecycle
-- `error` / `process_exit` / `process_status` / `process_health` — error and process state
+- `state` - full GsdState snapshot
+- `agent_start` / `agent_end` - agent lifecycle
+- `turn_start` / `turn_end` - turn lifecycle
+- `message_start` / `message_update` / `message_end` - streaming message events
+- `tool_execution_start` / `tool_execution_update` / `tool_execution_end` - tool call lifecycle
+- `error` / `process_exit` / `process_status` / `process_health` - error and process state
 - ~35 total message types defined in `src/shared/types.ts`
 
 **RPC Events (stdout from gsd-pi):**
-- `agent_start` / `agent_end` — agent lifecycle boundaries
-- `text_delta` — streaming text content
-- `thinking_delta` — streaming thinking content
-- `tool_use` — tool call initiation
-- `tool_result` — tool execution result
-- `extension_ui_request` — interactive UI prompts from the agent
-- `model_routed` / `fallback_provider_switch` — model routing events
+- `agent_start` / `agent_end` - agent lifecycle boundaries
+- `text_delta` - streaming text content
+- `thinking_delta` - streaming thinking content
+- `tool_use` - tool call initiation
+- `tool_result` - tool execution result
+- `extension_ui_request` - interactive UI prompts from the agent
+- `model_routed` / `fallback_provider_switch` - model routing events
 
 ---
 
 ## Module Map
 
-### Extension Host — `src/extension/` (~8,400 LOC)
+### Extension Host - `src/extension/` (~8,400 LOC)
 
 | File | LOC | Responsibility | Key Exports |
 |---|---|---|---|
-| `index.ts` | 111 | Entry point — registers commands, status bar, webview provider | `activate()` |
+| `index.ts` | 111 | Entry point - registers commands, status bar, webview provider | `activate()` |
 | `webview-provider.ts` | 450 | Webview lifecycle, session management, context adapter orchestration | `GsdWebviewProvider` |
 | `message-dispatch.ts` | 905 | Routes all `WebviewToExtensionMessage` types to handlers | `handleWebviewMessage()`, `MessageDispatchContext` |
-| `rpc-client.ts` | 732 | JSON-RPC client — spawns gsd-pi, manages stdin/stdout communication | `GsdRpcClient`, `sanitizeEnvForChildProcess()` |
+| `rpc-client.ts` | 732 | JSON-RPC client - spawns gsd-pi, manages stdin/stdout communication | `GsdRpcClient`, `sanitizeEnvForChildProcess()` |
 | `rpc-events.ts` | 256 | Forwards RPC streaming events to webview as typed messages | `handleRpcEvent()`, `RpcEventContext` |
 | `polling.ts` | 126 | Periodic polling for stats, health, and workflow state | `startStatsPolling()`, `startHealthMonitoring()`, `refreshWorkflowState()` |
 | `html-generator.ts` | 41 | Generates webview HTML with CSP nonce and script/style tags | `getWebviewHtml()` |
@@ -142,17 +142,26 @@ User sees streaming response
 | `auto-progress.ts` | 316 | Auto-mode progress state tracking and event handling | `AutoProgressTracker` |
 | `command-fallback.ts` | 405 | Detects missing agent turns after `/gsd` commands, sends fallback prompts | `armGsdFallbackProbe()`, `startGsdFallbackTimer()` |
 | `watchdogs.ts` | 327 | Prompt, slash-command, and activity watchdog timers | `startPromptWatchdog()`, `clearPromptWatchdog()`, `startActivityMonitor()` |
-| `file-ops.ts` | 307 | File operations — open, diff, export, copy, temp files | `handleOpenFile()`, `handleExportHtml()`, `handleAttachFiles()` |
+| `file-ops.ts` | 307 | File operations - open, diff, export, copy, temp files | `handleOpenFile()`, `handleExportHtml()`, `handleAttachFiles()` |
 | `health-check.ts` | 270 | Process health monitoring via RPC ping | `HealthChecker` |
 | `update-checker.ts` | 570 | GitHub release checking, download, and install | `downloadAndInstallUpdate()`, `fetchReleaseNotes()` |
 | `parallel-status.ts` | 128 | Parallel worker status aggregation | `ParallelStatusTracker` |
+| `engine-reaper.ts` | 237 | Reaps orphaned gsd-pi engine processes (Windows-aware, off the activation path) | `reapOrphanedEngines()` |
+| `shell-env.ts` | 134 | Resolves the user login-shell env on posix (no-op on Windows) | `resolveShellEnv()`, `mergeShellEnv()` |
+| `workflow-progress.ts` | 473 | Live workflow-progress panel state and journal parsing | `WorkflowProgressManager` |
+| `workflow-progress-poller.ts` | 296 | Polls the workflow progress journal | `WorkflowProgressPoller` |
+| `workflow-fs-watcher.ts` | 375 | Watches the on-disk workflow journal to feed the live panel | `WorkflowFsWatcher` |
+| `workflow-event-capture.ts` | 117 | Captures workflow events for the progress panel | `WorkflowEventCapture` |
+| `handlers/` | 1,008 | Extracted `WebviewToExtensionMessage` handler modules (config, process, prompt, query, session) plus `dispatch-utils.ts` | per-file handler exports |
+| `transcription/` | 474 | Voice recording (`recorder.ts`) and multi-provider transcription (`providers.ts`, `config.ts`) | `Recorder`, `transcribe()` |
+| `openai/` | 69 | OpenAI Whisper transcription client and key config | `transcribeAudio()`, key helpers |
 
-### Telegram Bridge — `src/extension/telegram/` (2,094 LOC)
+### Telegram Bridge - `src/extension/telegram/` (2,094 LOC)
 
 | File | LOC | Responsibility | Key Exports |
 |---|---|---|---|
 | `bridge.ts` | 787 | Orchestrates Telegram↔GSD session bridging, message routing | `TelegramBridge` |
-| `api.ts` | 300 | Telegram Bot API client — polling, sending, file downloads | `TelegramApi` |
+| `api.ts` | 300 | Telegram Bot API client - polling, sending, file downloads | `TelegramApi` |
 | `topicManager.ts` | 219 | Maps Telegram topics/threads to GSD sessions | `TopicManager` |
 | `poller-server.ts` | 190 | Runs Telegram polling in a child process for isolation | `PollerServer` |
 | `setup.ts` | 170 | Guided setup wizard for Telegram bot configuration | `runTelegramSetup()` |
@@ -162,56 +171,56 @@ User sees streaming response
 | `config.ts` | 55 | Telegram configuration loading and validation | `TelegramConfig` |
 | `poller-ipc.ts` | 48 | Shared IPC message types between poller client/server | `PollerIpcMessage` |
 
-### Shared — `src/shared/` (477 LOC)
+### Shared - `src/shared/` (477 LOC)
 
 | File | LOC | Responsibility | Key Exports |
 |---|---|---|---|
 | `types.ts` | 477 | Message protocol types, state interfaces, data structures | `WebviewToExtensionMessage`, `ExtensionToWebviewMessage`, `GsdState`, `AgentMessage`, `SessionStats`, `StreamDelta`, `toGsdState()` |
 
-### Webview — `src/webview/` (8,542 LOC)
+### Webview - `src/webview/` (8,542 LOC)
 
 | File | LOC | Responsibility | Key Exports |
 |---|---|---|---|
-| `index.ts` | 745 | DOM setup, event binding, CSS imports (16 modules), initialization | `— (IIFE entry point)` |
+| `index.ts` | 745 | DOM setup, event binding, CSS imports (16 modules), initialization | `- (IIFE entry point)` |
 | `state.ts` | 238 | Webview-side types and shared mutable state | `AppState`, `ChatEntry`, `AssistantTurn`, `TurnSegment`, `ToolCallState` |
-| `helpers.ts` | 639 | Pure functions — markdown rendering, escaping, formatting, sanitization | `renderMarkdown()`, `escapeHtml()`, `formatDuration()`, `scrollToBottom()` |
+| `helpers.ts` | 639 | Pure functions - markdown rendering, escaping, formatting, sanitization | `renderMarkdown()`, `escapeHtml()`, `formatDuration()`, `scrollToBottom()` |
 | `message-handler.ts` | 1,125 | Dispatches all `ExtensionToWebviewMessage` types, updates state, calls renderer | `handleMessage()`, `init()` |
 | `renderer.ts` | 884 | Entry rendering, streaming segment DOM management, incremental updates | `renderEntry()`, `appendStreamingSegment()`, `finalizeStreaming()` |
-| `slash-menu.ts` | 345 | Slash command palette — fuzzy filter, keyboard navigation, execution | `SlashMenu` |
+| `slash-menu.ts` | 345 | Slash command palette - fuzzy filter, keyboard navigation, execution | `SlashMenu` |
 | `model-picker.ts` | 243 | Model selection overlay with provider grouping | `ModelPicker` |
 | `thinking-picker.ts` | 289 | Thinking level selection overlay | `ThinkingPicker` |
 | `ui-dialogs.ts` | 472 | Inline confirm, select, and text input dialogs (agent-initiated) | `handleExtensionUiRequest()` |
-| `dashboard.ts` | 492 | Dashboard panel — milestone progress, cost, metrics visualization | `renderDashboard()` |
-| `keyboard.ts` | 529 | Keyboard shortcuts — global bindings, overlay navigation, focus management | `initKeyboard()` |
-| `ui-updates.ts` | 429 | UI state updates — header, footer, input area, overlay indicators | `updateAllUI()`, `updateHeaderUI()`, `updateFooterUI()` |
-| `a11y.ts` | 53 | Accessibility utilities — focus traps, focus save/restore | `createFocusTrap()`, `saveFocus()`, `restoreFocus()` |
-| `visualizer.ts` | 591 | Workflow visualizer overlay — milestone/slice/task tree rendering | `renderVisualizer()` |
+| `dashboard.ts` | 492 | Dashboard panel - milestone progress, cost, metrics visualization | `renderDashboard()` |
+| `keyboard.ts` | 529 | Keyboard shortcuts - global bindings, overlay navigation, focus management | `initKeyboard()` |
+| `ui-updates.ts` | 429 | UI state updates - header, footer, input area, overlay indicators | `updateAllUI()`, `updateHeaderUI()`, `updateFooterUI()` |
+| `a11y.ts` | 53 | Accessibility utilities - focus traps, focus save/restore | `createFocusTrap()`, `saveFocus()`, `restoreFocus()` |
+| `visualizer.ts` | 591 | Workflow visualizer overlay - milestone/slice/task tree rendering | `renderVisualizer()` |
 | `auto-progress.ts` | 383 | Auto-mode progress bar rendering and updates | `renderAutoProgress()` |
 | `toasts.ts` | 30 | Toast notification rendering | `showToast()` |
 | `tool-grouping.ts` | 292 | Groups consecutive tool calls for collapsed display | `groupConsecutiveTools()`, `buildGroupSummaryLabel()` |
-| `session-history.ts` | 520 | Session history sidebar — list, switch, rename, delete sessions | `renderSessionList()` |
-| `file-handling.ts` | 243 | File attachment handling — paste, drag-drop, picker | `initFileHandling()` |
+| `session-history.ts` | 520 | Session history sidebar - list, switch, rename, delete sessions | `renderSessionList()` |
+| `file-handling.ts` | 243 | File attachment handling - paste, drag-drop, picker | `initFileHandling()` |
 
-### CSS — `src/webview/styles/` (16 files)
+### CSS - `src/webview/styles/` (16 files)
 
 | File | Responsibility |
 |---|---|
 | `tokens.css` | 85 design tokens (`--gsd-*` custom properties) |
 | `base.css` | Reset, typography, scrollbar, selection styles |
 | `layout.css` | App shell, panels, sidebar layout |
-| `entries.css` | Chat entry styling — user, assistant, system messages |
+| `entries.css` | Chat entry styling - user, assistant, system messages |
 | `tools.css` | Tool call cards, execution indicators, result display |
 | `dashboard.css` | Dashboard panel layout, charts, metrics cards |
 | `input.css` | Prompt input area, attachment previews, send button |
-| `footer.css` | Footer bar — status, model display, thinking level |
-| `overlays.css` | Modal overlays — settings, session history, changelog |
+| `footer.css` | Footer bar - status, model display, thinking level |
+| `overlays.css` | Modal overlays - settings, session history, changelog |
 | `toasts.css` | Toast notification positioning and animation |
 | `misc.css` | Utility classes, scrollbar tweaks, edge cases |
 | `auto-progress.css` | Auto-mode progress bar styling |
 | `parallel.css` | Parallel worker status cards |
-| `themes/phosphor.css` | Phosphor theme — terminal/CRT aesthetic |
-| `themes/clarity.css` | Clarity theme — clean, minimal light-friendly |
-| `themes/forge.css` | Forge theme — warm, industrial tones |
+| `themes/phosphor.css` | Phosphor theme - terminal/CRT aesthetic |
+| `themes/clarity.css` | Clarity theme - clean, minimal light-friendly |
+| `themes/forge.css` | Forge theme - warm, industrial tones |
 
 ---
 
@@ -227,7 +236,7 @@ VS Code theme (--vscode-*)  →  Design tokens (--gsd-*)  →  Component CSS
 
 **`src/webview/styles/tokens.css`** defines 85 `--gsd-*` custom properties organized into categories:
 
-- **Spacing:** `--gsd-space-xxs` through `--gsd-space-xxl` (2px–20px scale)
+- **Spacing:** `--gsd-space-xxs` through `--gsd-space-xxl` (2px-20px scale)
 - **Sizing:** `--gsd-radius-xs` through `--gsd-radius-xl` (border radii)
 - **Colors:** Surface, text, border, and accent colors mapped from `--vscode-*` with literal fallbacks
 - **Component tokens:** Component-specific properties like `--gsd-input-bg`, `--gsd-entry-border`, `--gsd-tool-bg`
@@ -241,22 +250,22 @@ Every token has a `--vscode-*` or literal fallback so the UI renders correctly e
 CSS modules are imported in `src/webview/index.ts` in a strict cascade order:
 
 ```
-1.  tokens.css         — Design tokens (must be first)
-2.  base.css           — Reset and typography
-3.  layout.css         — App shell structure
-4.  entries.css        — Chat entry styles
-5.  tools.css          — Tool call styles
-6.  dashboard.css      — Dashboard panel
-7.  input.css          — Prompt input area
-8.  footer.css         — Footer bar
-9.  overlays.css       — Modal overlays
-10. toasts.css         — Toast notifications
-11. misc.css           — Utilities
-12. auto-progress.css  — Auto-mode progress bar
-13. parallel.css       — Parallel worker status
-14. phosphor.css       — Theme: Phosphor
-15. clarity.css        — Theme: Clarity
-16. forge.css          — Theme: Forge
+1.  tokens.css         - Design tokens (must be first)
+2.  base.css           - Reset and typography
+3.  layout.css         - App shell structure
+4.  entries.css        - Chat entry styles
+5.  tools.css          - Tool call styles
+6.  dashboard.css      - Dashboard panel
+7.  input.css          - Prompt input area
+8.  footer.css         - Footer bar
+9.  overlays.css       - Modal overlays
+10. toasts.css         - Toast notifications
+11. misc.css           - Utilities
+12. auto-progress.css  - Auto-mode progress bar
+13. parallel.css       - Parallel worker status
+14. phosphor.css       - Theme: Phosphor
+15. clarity.css        - Theme: Clarity
+16. forge.css          - Theme: Forge
 ```
 
 Themes are loaded last so their overrides take precedence.
@@ -266,12 +275,12 @@ Themes are loaded last so their overrides take precedence.
 Themes override `--gsd-*` tokens using a `data-theme` attribute selector on the app root:
 
 ```css
-/* tokens.css — default values */
+/* tokens.css - default values */
 :root {
   --gsd-surface-primary: var(--vscode-editor-background, #1e1e1e);
 }
 
-/* themes/phosphor.css — theme override */
+/* themes/phosphor.css - theme override */
 .gsd-app[data-theme="phosphor"] {
   --gsd-surface-primary: #050505;
 }
@@ -304,7 +313,7 @@ The extension host writes requests to the child process's stdin and reads respon
 {"jsonrpc":"2.0","id":1,"result":{}}
 ```
 
-### Event Format (notifications — no id)
+### Event Format (notifications - no id)
 
 ```json
 {"jsonrpc":"2.0","method":"event","params":{"type":"text_delta","delta":"Hello"}}
@@ -377,7 +386,7 @@ gsd-pi (getState response)
     │
     ▼  RpcStateResult (loose shape, [key: string]: unknown)
     │
-toGsdState()  ——  src/shared/types.ts
+toGsdState()  --  src/shared/types.ts
     │
     ▼  GsdState (strict interface)
     │
@@ -392,13 +401,13 @@ ui-updates.ts  ──  updates header, footer, input area based on GsdState fiel
 ```
 
 **`GsdState`** is the canonical state snapshot. It contains:
-- `model` — current model info (id, name, provider)
-- `thinkingLevel` — current thinking depth
-- `isStreaming` / `isCompacting` — activity flags
-- `sessionFile` / `sessionId` / `sessionName` — session identity
-- `messageCount` / `pendingMessageCount` — message counters
-- `autoCompactionEnabled` — auto-compaction toggle
-- `followUpMode` — follow-up delivery mode
+- `model` - current model info (id, name, provider)
+- `thinkingLevel` - current thinking depth
+- `isStreaming` / `isCompacting` - activity flags
+- `sessionFile` / `sessionId` / `sessionName` - session identity
+- `messageCount` / `pendingMessageCount` - message counters
+- `autoCompactionEnabled` - auto-compaction toggle
+- `followUpMode` - follow-up delivery mode
 
 ### Streaming Message Flow: Events → TurnSegments → DOM
 
@@ -422,18 +431,18 @@ turn_end  ───────────────────────�
 ```
 
 **`AssistantTurn`** (defined in `src/webview/state.ts`) contains:
-- `segments: TurnSegment[]` — ordered array of text, thinking, and tool segments
-- `toolCalls: Map<string, ToolCallState>` — lookup for tool call state by ID
-- `isComplete: boolean` — set to true on `turn_end`
+- `segments: TurnSegment[]` - ordered array of text, thinking, and tool segments
+- `toolCalls: Map<string, ToolCallState>` - lookup for tool call state by ID
+- `isComplete: boolean` - set to true on `turn_end`
 
 **`TurnSegment`** is a discriminated union:
-- `{ type: "text", chunks: string[] }` — accumulated text deltas
-- `{ type: "thinking", chunks: string[] }` — accumulated thinking deltas
-- `{ type: "tool", toolCallId: string }` — reference to a tool call
+- `{ type: "text", chunks: string[] }` - accumulated text deltas
+- `{ type: "thinking", chunks: string[] }` - accumulated thinking deltas
+- `{ type: "tool", toolCallId: string }` - reference to a tool call
 
 The renderer (`src/webview/renderer.ts`) uses **sequential segment rendering**:
 1. Each segment gets its own DOM element, appended in order
-2. Text segments are updated incrementally — new chunks are appended without re-rendering earlier content (O(1) amortized, not O(n²))
+2. Text segments are updated incrementally - new chunks are appended without re-rendering earlier content (O(1) amortized, not O(n²))
 3. Tool segments show a card with name, arguments, running indicator, and result
 4. DOM updates are batched via `requestAnimationFrame` for smooth rendering
 5. A 300-entry cap with scroll-preserving pruning prevents memory growth in long sessions
@@ -465,10 +474,10 @@ The `webview-provider.ts` module maintains a `Map<string, SessionState>` and pro
 
 | Entry | Target | Format | Output |
 |---|---|---|---|
-| `src/extension/index.ts` | `node` | `cjs` | `dist/extension.js` (~91KB) |
-| `src/webview/index.ts` | `browser` | `iife` | `dist/webview.js` (~197KB) |
+| `src/extension/index.ts` | `node` | `cjs` | `dist/extension.js` |
+| `src/webview/index.ts` | `browser` | `iife` | `dist/webview/index.js` |
 
-CSS files imported in `src/webview/index.ts` are bundled by esbuild into a single `dist/webview.css`.
+CSS files imported in `src/webview/index.ts` are bundled by esbuild into a single `dist/webview/index.css`.
 
 The extension is packaged as a `.vsix` via `vsce`. Only `dist/`, `resources/`, `package.json`, `readme.md`, `changelog.md`, and install scripts are included (controlled by `.vscodeignore`).
 
@@ -478,8 +487,8 @@ The extension is packaged as a `.vsix` via `vsce`. Only `dist/`, `resources/`, `
 
 **Framework:** Vitest with jsdom environment for webview tests.
 
-- Extension tests: `src/extension/*.test.ts` — Node.js environment, mock VS Code API via `__test-utils__/vscode-mock.ts`
-- Webview tests: `src/webview/__tests__/*.test.ts` — jsdom environment (`// @vitest-environment jsdom` directive)
-- Coverage target: 60% line coverage (CI-enforced via `vitest.config.ts`)
+- Extension tests: `src/extension/*.test.ts` - Node.js environment, mock VS Code API via `__test-utils__/vscode-mock.ts`
+- Webview tests: `src/webview/__tests__/*.test.ts` - jsdom environment (`// @vitest-environment jsdom` directive)
+- Coverage threshold: 50% line coverage, CI-enforced via `vitest.config.ts` (`thresholds.lines`)
 - Run: `npx vitest --run` (all tests) or `npx vitest --run --coverage` (with coverage report)
-- Current: 1370 tests across 66 files
+- Current: run `npx vitest run` for the live count (74 test files as of v0.3.110)
