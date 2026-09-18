@@ -404,8 +404,16 @@ const TRUSTED_HOSTS = new Set([
 /** Trusted hostname suffix patterns for GitHub CDN/storage redirects */
 const TRUSTED_SUFFIXES = [
   ".githubusercontent.com",
-  ".s3.amazonaws.com",
 ];
+
+/**
+ * GitHub release-asset downloads historically redirect to GitHub-owned S3
+ * buckets (e.g. github-production-release-asset-*.s3.amazonaws.com). Accept
+ * only those, not ANY customer bucket under .s3.amazonaws.com.
+ */
+function isTrustedGitHubS3(hostname: string): boolean {
+  return hostname.endsWith(".s3.amazonaws.com") && hostname.startsWith("github");
+}
 
 /** Check if a URL is on a trusted host (exact match or suffix match, HTTPS only) */
 function isTrustedHost(url: string): boolean {
@@ -413,6 +421,7 @@ function isTrustedHost(url: string): boolean {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:") return false;
     if (TRUSTED_HOSTS.has(parsed.hostname)) return true;
+    if (isTrustedGitHubS3(parsed.hostname)) return true;
     return TRUSTED_SUFFIXES.some(suffix => parsed.hostname.endsWith(suffix));
   } catch {
     return false;
@@ -584,6 +593,26 @@ async function downloadFile(url: string, dest: string): Promise<void> {
             cleanup(new Error(`[GSD-ERR-011] Download failed: HTTP ${res.statusCode}`));
             return;
           }
+
+          // Integrity guard: track the declared size and the bytes actually
+          // written, and reject a truncated/mismatched download before it can
+          // be installed. This is not a substitute for a signature, but it
+          // catches a cut-off transfer (partial file) that would otherwise be
+          // handed to installExtension as a corrupt VSIX.
+          const declaredLen = Number(res.headers["content-length"]);
+          let received = 0;
+          res.on("data", (chunk: Buffer) => { received += chunk.length; });
+          res.on("end", () => {
+            if (
+              Number.isFinite(declaredLen) &&
+              declaredLen > 0 &&
+              received !== declaredLen
+            ) {
+              cleanup(new Error(
+                `[GSD-ERR-014] Download size mismatch: expected ${declaredLen} bytes, got ${received}`,
+              ));
+            }
+          });
 
           res.on("error", (err) => cleanup(err));
           res.pipe(file);

@@ -58,7 +58,11 @@ describe("child process env sanitization (integration)", () => {
     // The grandchild dumps its env. This verifies env doesn't sneak back in.
     const grandchildScript = `
       const { execSync } = require("child_process");
-      const out = execSync(process.execPath + ' -e "process.stdout.write(JSON.stringify(process.env))"', {
+      // Quote execPath: on Windows the interpreter path can contain a space
+      // (e.g. C:\\\\Users\\\\Kile Thomson\\\\...), which the shell would otherwise
+      // split into a bad command. JSON.stringify gives a shell-safe quoted path.
+      const exe = JSON.stringify(process.execPath);
+      const out = execSync(exe + ' -e "process.stdout.write(JSON.stringify(process.env))"', {
         encoding: "utf-8",
         env: process.env,  // passes through whatever it inherited
       });
