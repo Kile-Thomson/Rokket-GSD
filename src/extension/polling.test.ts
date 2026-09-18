@@ -146,6 +146,32 @@ describe("polling", () => {
       expect(ctx.applySessionCostFloor).toHaveBeenCalled();
     });
 
+    it("posts to the session's CURRENT webview after a hide/show swap, not the captured param", async () => {
+      // Regression: a sidebar hide/show reassigns session.webview to a fresh
+      // instance. The poll must post to that live webview, not the one captured
+      // when polling started, or live stats silently stop updating.
+      const client = createMockClient();
+      const session = createMockSession({ client: client as any, isStreaming: true });
+      const ctx = createMockPollingContext(session);
+
+      startStatsPolling(ctx, FAKE_WEBVIEW, "s1");
+
+      // Simulate the sidebar being re-resolved with a new webview instance.
+      const NEW_WEBVIEW = { id: "rebound" } as any;
+      session.webview = NEW_WEBVIEW;
+
+      await vi.advanceTimersByTimeAsync(5000);
+
+      expect(ctx.postToWebview).toHaveBeenCalledWith(
+        NEW_WEBVIEW,
+        expect.objectContaining({ type: "session_stats" }),
+      );
+      expect(ctx.postToWebview).not.toHaveBeenCalledWith(
+        FAKE_WEBVIEW,
+        expect.objectContaining({ type: "session_stats" }),
+      );
+    });
+
     it("polls every 5 seconds", async () => {
       const client = createMockClient();
       const session = createMockSession({ client: client as any, isStreaming: true });
