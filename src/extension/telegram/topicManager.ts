@@ -50,9 +50,19 @@ export class TopicManager {
     return this._machineId;
   }
 
-  /** Current chat ID — updated automatically when the group migrates to a supergroup. */
+  /** Current chat ID, updated automatically when the group migrates to a supergroup. */
   get currentChatId(): number | string {
     return this.chatId;
+  }
+
+  /**
+   * Adopt a new chat ID after a supergroup migration. Called by the central
+   * migration handler so the TopicManager's chat ID stays in sync when the
+   * migration was detected and retried at the api layer (not by
+   * createTopicWithMigration below).
+   */
+  setChatId(chatId: number | string): void {
+    this.chatId = chatId;
   }
 
   get activeSessions(): string[] {

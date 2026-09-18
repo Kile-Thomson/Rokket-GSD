@@ -120,18 +120,38 @@ export class TelegramNotForumError extends Error {
   }
 }
 
+/** Largest retry_after (seconds) callApi will wait out in-line before retrying a rate-limited call. */
+const MAX_AUTO_RETRY_AFTER_S = 30;
+
+/** Telegram's "can't parse entities" 400: the text is valid but the parse_mode markup is malformed. */
+function isParseEntitiesError(err: unknown): boolean {
+  return err instanceof Error && /can't parse entities/i.test(err.message);
+}
+
 export class TelegramApi {
   private readonly baseUrl: string;
+  /**
+   * Fired when any call hits a supergroup migration. Lets a central owner
+   * (bridge + topic manager) adopt the new chat ID so every subsequent call
+   * targets the valid supergroup, not just the one that tripped the migration.
+   */
+  private onMigrate?: (newChatId: number) => void | Promise<void>;
 
   constructor(private readonly botToken: string) {
     this.baseUrl = `https://api.telegram.org/bot${botToken}`;
   }
 
-  private async callApi<T>(
+  /** Register the migration handler (see onMigrate). */
+  setOnMigrate(cb: (newChatId: number) => void | Promise<void>): void {
+    this.onMigrate = cb;
+  }
+
+  /** One network round-trip: fetch + JSON parse. No retry/error interpretation. */
+  private async fetchOnce<T>(
     method: string,
-    params?: Record<string, unknown>,
-    timeoutMs = 10_000,
-  ): Promise<T> {
+    params: Record<string, unknown> | undefined,
+    timeoutMs: number,
+  ): Promise<{ status: number; ok: boolean; data: TelegramResponse<T> }> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -144,9 +164,7 @@ export class TelegramApi {
         signal: controller.signal,
       });
     } catch (err: unknown) {
-      clearTimeout(timeout);
-      const message =
-        err instanceof Error ? err.message : String(err);
+      const message = err instanceof Error ? err.message : String(err);
       throw new Error(
         redactToken(`Telegram API request failed: ${message}`, this.botToken),
         { cause: err },
@@ -156,38 +174,74 @@ export class TelegramApi {
     }
 
     const data = (await response.json()) as TelegramResponse<T>;
+    return { status: response.status, ok: response.ok, data };
+  }
 
-    if (!response.ok || !data.ok) {
+  private async callApi<T>(
+    method: string,
+    params?: Record<string, unknown>,
+    timeoutMs = 10_000,
+  ): Promise<T> {
+    // At most one automatic retry per trigger (migration adopt, 429 wait), so a
+    // persistently failing call can't loop. currentParams is rewritten on a
+    // migration retry so the second attempt targets the new chat ID.
+    let currentParams = params;
+    let migrationRetried = false;
+    let rateLimitRetried = false;
+
+    for (;;) {
+      const { status, ok, data } = await this.fetchOnce<T>(method, currentParams, timeoutMs);
+
+      if (ok && data.ok) {
+        if (data.result === undefined) {
+          throw new Error(
+            redactToken(`Unexpected response from ${method}: no result field`, this.botToken),
+          );
+        }
+        return data.result;
+      }
+
       const desc = data.description ?? "unknown error";
       const migrateTo = data.parameters?.migrate_to_chat_id;
+      const retryAfter = data.parameters?.retry_after;
+
+      // Supergroup migration: adopt the new ID centrally, then retry once with
+      // the rewritten chat_id so this very call succeeds. Falls through to the
+      // thrown TelegramMigrationError when no handler is set (e.g. in tests) or
+      // the call carries no chat_id, preserving the existing caller contract.
       if (migrateTo != null) {
-        throw new TelegramMigrationError(migrateTo, response.status, desc);
+        if (this.onMigrate && !migrationRetried && currentParams && "chat_id" in currentParams) {
+          await this.onMigrate(migrateTo);
+          currentParams = { ...currentParams, chat_id: migrateTo };
+          migrationRetried = true;
+          continue;
+        }
+        throw new TelegramMigrationError(migrateTo, status, desc);
       }
+
       if (/not a forum/i.test(desc)) {
-        throw new TelegramNotForumError(response.status, desc);
+        throw new TelegramNotForumError(status, desc);
       }
-      const retryHint =
-        data.parameters?.retry_after != null
-          ? ` (retry after ${data.parameters.retry_after}s)`
-          : "";
+
+      // Rate limited: wait out Telegram's own retry_after once (bounded) instead
+      // of dropping the message. A retry_after beyond the cap is thrown so the
+      // caller decides rather than blocking the poller for minutes.
+      if (
+        retryAfter != null &&
+        !rateLimitRetried &&
+        retryAfter > 0 &&
+        retryAfter <= MAX_AUTO_RETRY_AFTER_S
+      ) {
+        await new Promise((r) => setTimeout(r, retryAfter * 1000));
+        rateLimitRetried = true;
+        continue;
+      }
+
+      const retryHint = retryAfter != null ? ` (retry after ${retryAfter}s)` : "";
       throw new Error(
-        redactToken(
-          `Telegram API error ${response.status}: ${desc}${retryHint}`,
-          this.botToken,
-        ),
+        redactToken(`Telegram API error ${status}: ${desc}${retryHint}`, this.botToken),
       );
     }
-
-    if (data.result === undefined) {
-      throw new Error(
-        redactToken(
-          `Unexpected response from ${method}: no result field`,
-          this.botToken,
-        ),
-      );
-    }
-
-    return data.result;
   }
 
   async getMe(): Promise<TelegramUser> {
@@ -199,11 +253,26 @@ export class TelegramApi {
     text: string,
     options?: Record<string, unknown>,
   ): Promise<TelegramMessage> {
-    return this.callApi<TelegramMessage>("sendMessage", {
-      chat_id: chatId,
-      text,
-      ...options,
-    });
+    try {
+      return await this.callApi<TelegramMessage>("sendMessage", {
+        chat_id: chatId,
+        text,
+        ...options,
+      });
+    } catch (err: unknown) {
+      // Malformed markup (e.g. a code fence cut mid-block by truncation) makes
+      // Telegram reject the whole message. Retry once as plain text so the
+      // content is still delivered rather than silently lost.
+      if (isParseEntitiesError(err) && options?.parse_mode) {
+        const { parse_mode: _drop, ...rest } = options;
+        return this.callApi<TelegramMessage>("sendMessage", {
+          chat_id: chatId,
+          text,
+          ...rest,
+        });
+      }
+      throw err;
+    }
   }
 
   async getChatMember(
@@ -217,9 +286,12 @@ export class TelegramApi {
   }
 
   async getUpdates(offset?: number): Promise<TelegramUpdate[]> {
+    // Long-poll: `timeout` holds the connection open server-side until an update
+    // arrives (or 30s elapses), cutting latency and request volume versus short
+    // polling. The 35s fetch abort sits comfortably above the 30s long-poll.
     return this.callApi<TelegramUpdate[]>(
       "getUpdates",
-      offset != null ? { offset } : undefined,
+      offset != null ? { offset, timeout: 30 } : { timeout: 30 },
       35_000,
     );
   }
@@ -240,12 +312,27 @@ export class TelegramApi {
     text: string,
     options?: Record<string, unknown>,
   ): Promise<TelegramMessage> {
-    return this.callApi<TelegramMessage>("editMessageText", {
-      chat_id: chatId,
-      message_id: messageId,
-      text,
-      ...options,
-    });
+    try {
+      return await this.callApi<TelegramMessage>("editMessageText", {
+        chat_id: chatId,
+        message_id: messageId,
+        text,
+        ...options,
+      });
+    } catch (err: unknown) {
+      // Same malformed-markup fallback as sendMessage: deliver as plain text
+      // rather than let a parse failure silently drop the edit.
+      if (isParseEntitiesError(err) && options?.parse_mode) {
+        const { parse_mode: _drop, ...rest } = options;
+        return this.callApi<TelegramMessage>("editMessageText", {
+          chat_id: chatId,
+          message_id: messageId,
+          text,
+          ...rest,
+        });
+      }
+      throw err;
+    }
   }
 
   async closeForumTopic(

@@ -76,19 +76,20 @@ describe("TelegramApi", () => {
       expect(signal).toBeInstanceOf(AbortSignal);
     });
 
-    it("passes offset when provided", async () => {
+    it("passes offset and long-poll timeout when offset provided", async () => {
       globalThis.fetch = mockFetch({ ok: true, result: [] });
 
       await api.getUpdates(42);
       const body = JSON.parse((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
-      expect(body).toEqual({ offset: 42 });
+      expect(body).toEqual({ offset: 42, timeout: 30 });
     });
 
-    it("sends no body when offset is undefined", async () => {
+    it("sends the long-poll timeout even when offset is undefined", async () => {
       globalThis.fetch = mockFetch({ ok: true, result: [] });
 
       await api.getUpdates();
-      expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body).toBeUndefined();
+      const body = JSON.parse((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
+      expect(body).toEqual({ timeout: 30 });
     });
   });
 
@@ -229,13 +230,16 @@ describe("TelegramApi", () => {
       expect(migErr.description).toContain("supergroup");
     });
 
-    it("includes retry_after hint", async () => {
+    it("includes retry_after hint and does not auto-retry beyond the cap", async () => {
+      // retry_after past MAX_AUTO_RETRY_AFTER_S is surfaced to the caller, not
+      // waited out in-line (blocking the poller for minutes is worse than a drop).
       globalThis.fetch = mockFetch(
-        { ok: false, description: "Too Many Requests", parameters: { retry_after: 30 } },
+        { ok: false, description: "Too Many Requests", parameters: { retry_after: 120 } },
         429,
       );
 
-      await expect(api.getMe()).rejects.toThrow("retry after 30s");
+      await expect(api.getMe()).rejects.toThrow("retry after 120s");
+      expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(1);
     });
 
     it("redacts token in network errors", async () => {
@@ -257,6 +261,107 @@ describe("TelegramApi", () => {
       globalThis.fetch = vi.fn().mockRejectedValue("string error");
 
       await expect(api.getMe()).rejects.toThrow("Telegram API request failed: string error");
+    });
+  });
+
+  describe("rate-limit auto-retry", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("waits out retry_after within the cap and retries once, succeeding", async () => {
+      // First call: 429 with a small retry_after. Second call: success.
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          json: () => Promise.resolve({ ok: false, description: "Too Many Requests", parameters: { retry_after: 2 } }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ ok: true, result: { id: 1, is_bot: true, first_name: "Bot" } }),
+        });
+      globalThis.fetch = fetchMock;
+
+      const promise = api.getMe();
+      await vi.advanceTimersByTimeAsync(2000);
+      const result = await promise;
+
+      expect(result).toEqual({ id: 1, is_bot: true, first_name: "Bot" });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("parse-entities plain-text fallback", () => {
+    it("sendMessage retries without parse_mode when markup fails to parse", async () => {
+      // First call: HTML parse fails (e.g. truncation cut a code fence).
+      // Second call (no parse_mode) succeeds, so the content is still delivered.
+      const msg = { message_id: 7, chat: { id: 42, type: "group" }, text: "hi" };
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 400,
+          json: () => Promise.resolve({ ok: false, description: "Bad Request: can't parse entities: unclosed tag" }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ ok: true, result: msg }),
+        });
+      globalThis.fetch = fetchMock;
+
+      const result = await api.sendMessage(42, "hi", { parse_mode: "HTML", message_thread_id: 3 });
+      expect(result).toEqual(msg);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const secondBody = JSON.parse(fetchMock.mock.calls[1][1].body);
+      expect(secondBody.parse_mode).toBeUndefined();
+      expect(secondBody).toEqual({ chat_id: 42, text: "hi", message_thread_id: 3 });
+    });
+
+    it("does not retry a non-parse 400", async () => {
+      const fetchMock = mockFetch({ ok: false, description: "Bad Request: chat not found" }, 400);
+      globalThis.fetch = fetchMock;
+
+      await expect(api.sendMessage(42, "hi", { parse_mode: "HTML" })).rejects.toThrow("chat not found");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("centralized migration adopt-and-retry", () => {
+    it("adopts the new chat ID via onMigrate and retries the same call", async () => {
+      const migrated: number[] = [];
+      api.setOnMigrate((id) => { migrated.push(id); });
+      const msg = { message_id: 9, chat: { id: -1001, type: "supergroup" }, text: "hi" };
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 400,
+          json: () => Promise.resolve({ ok: false, description: "Bad Request: upgraded to supergroup", parameters: { migrate_to_chat_id: -1001 } }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ ok: true, result: msg }),
+        });
+      globalThis.fetch = fetchMock;
+
+      const result = await api.sendMessage(-100, "hi");
+      expect(result).toEqual(msg);
+      expect(migrated).toEqual([-1001]);
+      const secondBody = JSON.parse(fetchMock.mock.calls[1][1].body);
+      expect(secondBody.chat_id).toBe(-1001);
+    });
+
+    it("still throws TelegramMigrationError when no onMigrate handler is set", async () => {
+      globalThis.fetch = mockFetch(
+        { ok: false, description: "upgraded", parameters: { migrate_to_chat_id: -1002 } },
+        400,
+      );
+      await expect(api.sendMessage(-100, "hi")).rejects.toBeInstanceOf(TelegramMigrationError);
     });
   });
 });
