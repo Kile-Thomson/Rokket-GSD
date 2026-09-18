@@ -88,7 +88,18 @@ describe("slash-menu", () => {
     }
   });
 
-  it("show() hides when no items match filter", () => {
+  it("show() keeps the menu visible with a 'no matching commands' row when commands are loaded", () => {
+    (state as any).commandsLoaded = true;
+    show("xyznonexistentcommand999");
+    // A real "no such command" state stays open with an instructive empty row
+    // rather than silently hiding (which reads as a bug / lost focus).
+    expect(isVisible()).toBe(true);
+    expect(getFilteredItems().length).toBe(0);
+    expect(deps.slashMenuEl.textContent).toContain("No matching commands");
+  });
+
+  it("show() hides on a non-matching filter when commands are NOT loaded yet", () => {
+    (state as any).commandsLoaded = false;
     show("xyznonexistentcommand999");
     expect(isVisible()).toBe(false);
   });

@@ -173,6 +173,18 @@ export function knownContextWindow(modelId: string): number {
 const toolEndQueue: Array<Record<string, any>> = [];
 let toolEndRafId: number | null = null;
 
+/**
+ * True when the user has asked the OS to minimize non-essential motion. Read
+ * live (not cached) so a mid-session setting change is honored. Used to skip
+ * the per-frame staggered reveals that are otherwise JS-timed, not CSS-timed,
+ * so the CSS prefers-reduced-motion rules alone would not catch them.
+ */
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 /** Process one queued tool_execution_end per animation frame. */
 function processToolEndQueue(): void {
   toolEndRafId = null;
@@ -1033,7 +1045,11 @@ function handleMessage(event: MessageEvent): void {
           earlyTc.isError = false;
         }
       }
-      if (!toolEndRafId) {
+      if (prefersReducedMotion()) {
+        // Reduced motion: reveal tool completions immediately instead of the
+        // per-frame staggered transition.
+        flushToolEndQueue();
+      } else if (!toolEndRafId) {
         toolEndRafId = requestAnimationFrame(processToolEndQueue);
       }
       break;

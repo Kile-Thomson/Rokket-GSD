@@ -16,7 +16,7 @@ export function createFocusTrap(container: HTMLElement): (e: KeyboardEvent) => v
   return (e: KeyboardEvent) => {
     if (e.key !== "Tab") return;
     const focusable = container.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [contenteditable="true"], [tabindex]:not([tabindex="-1"])'
     );
     if (focusable.length === 0) return;
     const first = focusable[0];
