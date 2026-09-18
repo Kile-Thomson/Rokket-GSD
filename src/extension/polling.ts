@@ -43,7 +43,10 @@ export function startStatsPolling(ctx: PollingContext, webview: vscode.Webview, 
       const stats = await client.getSessionStats() as SessionStats | null;
       if (stats) {
         ctx.applySessionCostFloor(sessionId, stats);
-        ctx.postToWebview(webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
+        // Resolve the live webview at post time: a sidebar hide/show swaps the
+        // session's webview instance, and the closure-captured `webview` param
+        // goes stale. Fall back to it only if the session has none.
+        ctx.postToWebview(session.webview ?? webview, { type: "session_stats", data: stats } as ExtensionToWebviewMessage);
       }
     } catch {
       // Silently ignore — stats are best-effort
@@ -71,21 +74,24 @@ export function startHealthMonitoring(ctx: PollingContext, webview: vscode.Webvi
     const client = session.client;
     if (!client?.isRunning) return;
 
-    // Only health-check while streaming — idle processes are just waiting for input
+    // Only health-check while streaming: idle processes are just waiting for input
     if (!session.isStreaming) return;
     const isHealthy = await client.ping(HEALTH_PING_TIMEOUT_MS);
     const previousState = ctx.getSession(sessionId).healthState || "responsive";
+    // Resolve the live webview at post time (see startStatsPolling): the
+    // captured `webview` param goes stale across a sidebar hide/show.
+    const target = ctx.getSession(sessionId).webview ?? webview;
 
     if (!isHealthy && previousState === "responsive") {
       // Process became unresponsive
       ctx.getSession(sessionId).healthState = "unresponsive";
       ctx.output.appendLine(`[${sessionId}] Health check: UNRESPONSIVE (ping timed out)`);
-      ctx.postToWebview(webview, { type: "process_health", status: "unresponsive" } as ExtensionToWebviewMessage);
+      ctx.postToWebview(target, { type: "process_health", status: "unresponsive" } as ExtensionToWebviewMessage);
     } else if (isHealthy && previousState === "unresponsive") {
       // Process recovered
       ctx.getSession(sessionId).healthState = "recovered";
       ctx.output.appendLine(`[${sessionId}] Health check: recovered`);
-      ctx.postToWebview(webview, { type: "process_health", status: "recovered" } as ExtensionToWebviewMessage);
+      ctx.postToWebview(target, { type: "process_health", status: "recovered" } as ExtensionToWebviewMessage);
       // Reset to responsive after emitting recovered
       ctx.getSession(sessionId).healthState = "responsive";
     }
@@ -103,7 +109,10 @@ export async function refreshWorkflowState(ctx: PollingContext, webview: vscode.
   if (state) {
     state.autoMode = ctx.getSession(sessionId).autoModeState || null;
   }
-  ctx.postToWebview(webview, { type: "workflow_state", state } as ExtensionToWebviewMessage);
+  // Resolve the live webview at post time (see startStatsPolling): the captured
+  // `webview` param goes stale across a sidebar hide/show.
+  const target = ctx.getSession(sessionId).webview ?? webview;
+  ctx.postToWebview(target, { type: "workflow_state", state } as ExtensionToWebviewMessage);
 }
 
 /**

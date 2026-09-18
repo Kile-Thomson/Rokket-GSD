@@ -477,6 +477,13 @@ export class GsdRpcClient extends EventEmitter {
     this.process.stderr?.on("error", (err) => {
       this.emit("log", `[rpc-client] stderr error: ${err.message}\n`);
     });
+    // stdin errors (EPIPE/ECONNRESET after the child dies with a write in flight)
+    // are emitted asynchronously, so the try/catch around send() cannot catch
+    // them. An unhandled stream 'error' event is fatal to the extension host, so
+    // absorb it here as a log.
+    this.process.stdin?.on("error", (err) => {
+      this.emit("log", `[rpc-client] stdin error: ${err.message}\n`);
+    });
 
     // Forward stderr as log events and buffer for diagnostics
     this.process.stderr?.on("data", (chunk: Buffer) => {
@@ -548,32 +555,55 @@ export class GsdRpcClient extends EventEmitter {
   async stop(): Promise<void> {
     if (!this.process) return;
 
-    return new Promise((resolve) => {
-      // Final escalation: force kill the entire process tree
-      const forceTimeout = setTimeout(() => {
-        this.forceKill();
-        // Give forceKill a moment to work, then resolve regardless
-        setTimeout(resolve, STOP_POST_KILL_SETTLE_MS);
-      }, STOP_FORCE_KILL_DELAY_MS);
+    // Pin the process this stop() is responsible for. restart() reassigns
+    // this.process to a fresh child as soon as stop() resolves, so every timer
+    // below must act on THIS captured process, never on this.process, or a late
+    // SIGTERM/forceKill lands on the newly spawned session (the restart race).
+    const target = this.process;
+    const targetPid = target.pid ?? null;
 
-      this.process!.on("exit", () => {
-        clearTimeout(forceTimeout);
+    return new Promise((resolve) => {
+      // Collect every timer so a clean exit cancels all of them at once. A timer
+      // left running after resolve() would fire against a process that restart()
+      // may already have replaced.
+      const timers: Array<ReturnType<typeof setTimeout>> = [];
+      let settled = false;
+
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        for (const t of timers) clearTimeout(t);
         resolve();
-      });
+      };
+
+      // Final escalation: force kill the entire process tree
+      timers.push(setTimeout(() => {
+        this.forceKillProcess(target, targetPid);
+        // Give the force-kill a moment to work, then resolve regardless
+        timers.push(setTimeout(finish, STOP_POST_KILL_SETTLE_MS));
+      }, STOP_FORCE_KILL_DELAY_MS));
+
+      target.on("exit", finish);
+      // An error without a following exit still ends this process, and a
+      // close means its streams are gone; finish on any of them so every
+      // timer is cancelled and stop() never hangs waiting only on exit.
+      target.on("error", finish);
+      target.on("close", finish);
 
       // Step 1: Try graceful abort via RPC
       try {
         this.send({ type: "abort" });
       } catch {
-        // Process stdin may already be closed — proceed to SIGTERM
+        // Process stdin may already be closed, proceed to SIGTERM
       }
 
-      // Step 2: SIGTERM after 1s if still alive
-      setTimeout(() => {
-        if (this.process && !this.process.killed) {
-          this.process.kill("SIGTERM");
+      // Step 2: SIGTERM after 1s if still alive. Guard on the CAPTURED target,
+      // not this.process, so a fast restart cannot route this kill to the new child.
+      timers.push(setTimeout(() => {
+        if (!target.killed) {
+          target.kill("SIGTERM");
         }
-      }, STOP_SIGTERM_DELAY_MS);
+      }, STOP_SIGTERM_DELAY_MS));
     });
   }
 
@@ -583,15 +613,30 @@ export class GsdRpcClient extends EventEmitter {
    * This is the nuclear option — kills everything including grandchild bash processes.
    */
   forceKill(): void {
-    const pid = this._pid;
+    this.forceKillProcess(this.process, this._pid);
+  }
+
+  /**
+   * Force-kill a SPECIFIC captured process and its tree. stop() passes the
+   * process it pinned at entry so a late escalation timer can never reach a
+   * replacement child that restart() spawned in the meantime.
+   */
+  private forceKillProcess(target: ChildProcess | null, pid: number | null): void {
     if (!pid) return;
 
     if (process.platform === "win32") {
-      // taskkill /F (force) /T (tree — kills all child processes)
+      // taskkill /F (force) /T (tree, kills all child processes)
       try {
-        spawn("taskkill", ["/F", "/T", "/PID", String(pid)], {
+        const killer = spawn("taskkill", ["/F", "/T", "/PID", String(pid)], {
           stdio: "ignore",
           windowsHide: true,
+        });
+        // spawn() rarely throws synchronously; a missing binary or permission
+        // denial surfaces asynchronously via 'error'. Without a handler that is
+        // an unhandled event that can crash the extension host, and this runs on
+        // the already-degraded force-kill path.
+        killer.on("error", (err) => {
+          this.emit("log", `[rpc-client] forceKill: taskkill spawn failed for PID ${pid}: ${err.message}`);
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -612,10 +657,10 @@ export class GsdRpcClient extends EventEmitter {
       }
     }
 
-    // Also try via the ChildProcess handle
+    // Also try via the ChildProcess handle for the captured target.
     try {
-      this.process?.kill("SIGKILL");
-    } catch { /* process already dead — expected */ }
+      target?.kill("SIGKILL");
+    } catch { /* process already dead - expected */ }
   }
 
   /**
@@ -668,7 +713,7 @@ export class GsdRpcClient extends EventEmitter {
     // Also try via the ChildProcess handle
     try {
       this.process?.kill("SIGKILL");
-    } catch { /* process already dead — expected */ }
+    } catch { /* process already dead - expected */ }
   }
 
   /**
