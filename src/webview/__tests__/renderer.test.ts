@@ -288,6 +288,44 @@ describe("renderer", () => {
       expect(toolEl).toBeTruthy();
       expect((toolEl as HTMLElement)!.dataset.toolId).toBe("tc-1");
     });
+
+    it("inserts before a reparented (grouped) later segment without throwing", () => {
+      // Regression: a later segment element can be moved into a .gsd-tool-group
+      // wrapper (a child of the turn container, not the container itself). A
+      // subsequent lower-index insert used container.insertBefore(el, existingEl),
+      // which throws NotFoundError because existingEl is no longer a direct child.
+      // appendToolSegmentElement takes an explicit segIdx, so appending a higher
+      // index first, reparenting it, then appending a lower index reproduces it.
+      startTurn();
+      const container = ensureCurrentTurnElement();
+
+      const tc2 = makeToolCall("tc-2", "Read");
+      state.currentTurn!.toolCalls.set(tc2.id, tc2);
+      state.currentTurn!.segments[2] = { type: "tool", toolCallId: tc2.id } as any;
+      appendToolSegmentElement(tc2, 2);
+      const el2 = messagesContainer.querySelector('[data-tool-id="tc-2"]') as HTMLElement;
+      expect(el2.parentElement).toBe(container);
+
+      // Simulate collapseToolIntoGroup: nest el2 inside a group under container.
+      const group = document.createElement("div");
+      group.className = "gsd-tool-group";
+      container.appendChild(group);
+      group.appendChild(el2);
+      expect(el2.parentElement).toBe(group);
+
+      // Append a LOWER-index tool: insertSegmentElement sees idx 2 > 1 and must
+      // resolve the anchor up to the group wrapper before inserting.
+      const tc1 = makeToolCall("tc-1", "Read");
+      state.currentTurn!.toolCalls.set(tc1.id, tc1);
+      state.currentTurn!.segments[1] = { type: "tool", toolCallId: tc1.id } as any;
+      expect(() => appendToolSegmentElement(tc1, 1)).not.toThrow();
+
+      const el1 = messagesContainer.querySelector('[data-tool-id="tc-1"]') as HTMLElement;
+      expect(el1).toBeTruthy();
+      // el1 lands before the group wrapper (which holds the higher-index el2).
+      expect(el1.parentElement).toBe(container);
+      expect(el1.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
   });
 
   // ============================================================
